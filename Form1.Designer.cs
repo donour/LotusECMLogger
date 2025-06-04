@@ -26,48 +26,16 @@ namespace LotusECMLogger
         /// </summary>
         private void InitializeComponent()
         {
-            deviceLabel = new Label();
-            label1 = new Label();
-            buttonRefreshDevice = new Button();
             startLogger_button = new Button();
             stopLogger_button = new Button();
             currentLogfileName = new Label();
+            liveDataView = new DataGridView();
+            ((ISupportInitialize)liveDataView).BeginInit();
             SuspendLayout();
-            // 
-            // deviceLabel
-            // 
-            deviceLabel.AutoSize = true;
-            deviceLabel.DataBindings.Add(new Binding("Text", this, "J2534DeviceName", true));
-            deviceLabel.Location = new Point(102, 426);
-            deviceLabel.Name = "deviceLabel";
-            deviceLabel.Size = new Size(61, 15);
-            deviceLabel.TabIndex = 0;
-            deviceLabel.Text = "No Device";
-            // 
-            // label1
-            // 
-            label1.AutoSize = true;
-            label1.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            label1.Location = new Point(12, 426);
-            label1.Name = "label1";
-            label1.Size = new Size(85, 15);
-            label1.TabIndex = 1;
-            label1.Text = "J2534 Device:";
-            // 
-            // buttonRefreshDevice
-            // 
-            buttonRefreshDevice.Enabled = false;
-            buttonRefreshDevice.Location = new Point(12, 400);
-            buttonRefreshDevice.Name = "buttonRefreshDevice";
-            buttonRefreshDevice.Size = new Size(75, 23);
-            buttonRefreshDevice.TabIndex = 2;
-            buttonRefreshDevice.Text = "Refresh Device";
-            buttonRefreshDevice.UseVisualStyleBackColor = true;
-            buttonRefreshDevice.Click += buttonRefreshDevice_Click;
             // 
             // startLogger_button
             // 
-            startLogger_button.Location = new Point(12, 12);
+            startLogger_button.Location = new Point(12, 37);
             startLogger_button.Name = "startLogger_button";
             startLogger_button.Size = new Size(75, 23);
             startLogger_button.TabIndex = 3;
@@ -78,7 +46,7 @@ namespace LotusECMLogger
             // stopLogger_button
             // 
             stopLogger_button.Enabled = false;
-            stopLogger_button.Location = new Point(93, 12);
+            stopLogger_button.Location = new Point(93, 37);
             stopLogger_button.Name = "stopLogger_button";
             stopLogger_button.Size = new Size(75, 23);
             stopLogger_button.TabIndex = 4;
@@ -89,25 +57,39 @@ namespace LotusECMLogger
             // currentLogfileName
             // 
             currentLogfileName.AutoSize = true;
-            currentLogfileName.Location = new Point(12, 47);
+            currentLogfileName.Location = new Point(223, 45);
             currentLogfileName.Name = "currentLogfileName";
             currentLogfileName.Size = new Size(67, 15);
             currentLogfileName.TabIndex = 5;
             currentLogfileName.Text = "No Log File";
             // 
+            // liveDataView
+            // 
+            liveDataView.BackgroundColor = SystemColors.Control;
+            liveDataView.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
+            liveDataView.GridColor = SystemColors.Window;
+            liveDataView.Location = new Point(12, 66);
+            liveDataView.MultiSelect = false;
+            liveDataView.Name = "liveDataView";
+            liveDataView.RowHeadersWidth = 50;
+            liveDataView.RowTemplate.ReadOnly = true;
+            liveDataView.ShowEditingIcon = false;
+            liveDataView.Size = new Size(600, 363);
+            liveDataView.TabIndex = 6;
+            // 
             // LoggerWindow
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(800, 450);
+            ClientSize = new Size(624, 441);
+            Controls.Add(liveDataView);
             Controls.Add(currentLogfileName);
             Controls.Add(stopLogger_button);
             Controls.Add(startLogger_button);
-            Controls.Add(buttonRefreshDevice);
-            Controls.Add(label1);
-            Controls.Add(deviceLabel);
+            MinimumSize = new Size(640, 480);
             Name = "LoggerWindow";
-            Text = "Form1";
+            Text = "LotusECMLogger";
+            ((ISupportInitialize)liveDataView).EndInit();
             ResumeLayout(false);
             PerformLayout();
         }
@@ -120,5 +102,6 @@ namespace LotusECMLogger
         private Button startLogger_button;
         private Button stopLogger_button;
         private Label currentLogfileName;
+        private DataGridView liveDataView;
     }
 }

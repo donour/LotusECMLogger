@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Diagnostics;
 
 namespace LotusECMLogger
 {
@@ -157,6 +152,30 @@ namespace LotusECMLogger
                                     {
                                         name = $"Octane Rating {data[idx + 1]:X2}",
                                         value_f = octaneRating,
+                                    };
+                                    results.Add(reading);
+                                }
+                                break;
+                            case 0x46: //accel pedal position
+                                if (data.Length > idx + 3)
+                                {
+                                    int pedal = (data[idx + 2] << 8) | data[idx + 3];
+                                    LiveDataReading reading = new LiveDataReading
+                                    {
+                                        name = "Accelerator Pedal Position",
+                                        value_f = pedal * 100.0 / 1024, // convert to percentage
+                                    };
+                                    results.Add(reading);
+                                }
+                                break;
+                            case 0x72: // manifold temperature
+                                if (data.Length > idx + 2)
+                                {
+                                    int manifoldTemp = data[idx + 2];
+                                    LiveDataReading reading = new LiveDataReading
+                                    {
+                                        name = "Manifold Temperature",
+                                        value_f = manifoldTemp,
                                     };
                                     results.Add(reading);
                                 }

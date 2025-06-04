@@ -1,8 +1,5 @@
 using SAE.J2534;
 using System.ComponentModel;
-using System.Diagnostics;
-using System.Runtime.CompilerServices;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement.TrayNotify;
 
 namespace LotusECMLogger
 {
@@ -12,7 +9,9 @@ namespace LotusECMLogger
         ///  Required designer variable.
         /// </summary>
         private System.ComponentModel.IContainer components = null;
-        J2534OBDLogger logger;
+
+        private J2534OBDLogger logger;
+        private Dictionary<String, float> liveData = new Dictionary<string, float>();
 
         public event PropertyChangedEventHandler PropertyChanged;
         protected virtual void OnPropertyChanged(string propertyName)
@@ -32,36 +31,17 @@ namespace LotusECMLogger
         {
             InitializeComponent();
         }
-        private void scanForDevice()
-        {
-            String DllFn = APIFactory.GetAPIinfo().First().Filename;
-            using API API = APIFactory.GetAPI(DllFn);
-            using Device device = API.GetDevice();
-            J2534DeviceName = device.ToString() ?? "None";
-        }
-
-        private void buttonRefreshDevice_Click(object sender, EventArgs e)
-        {
-            try
-            {
-                scanForDevice();
-            }
-            catch (J2534Exception ex)
-            {
-                MessageBox.Show(ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-        }
 
         private void buttonTestRead_Click(object sender, EventArgs e)
         {
             try
             {
                 ((Button)sender).Enabled = false;
-                var outfn = $"{Environment.SpecialFolder.MyDocuments}\\LotusECMLog{DateTime.Now:yyyyMMdd_HHmmss}.csv";
-                currentLogfileName.Text = outfn;
-
+                var outfn = $"{Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)}\\LotusECMLog{DateTime.Now:yyyyMMdd_HHmmss}.csv";
                 logger = new J2534OBDLogger(outfn);
                 logger.start();
+                logger.DataLogged += Logger_DataLogged;
+                currentLogfileName.Text = outfn;
                 stopLogger_button.Enabled = true;
 
             }
@@ -78,6 +58,18 @@ namespace LotusECMLogger
             stopLogger_button.Enabled = false;
             startLogger_button.Enabled = true;
             currentLogfileName.Text = "No Log File";
+        }
+
+        private void Logger_DataLogged(LiveDataReading data)
+        {
+            if (InvokeRequired)
+            {
+                Invoke(new Action(() => Logger_DataLogged(data)));
+                return;
+            }
+            liveData[data.name] = (float)data.value_f;
+            var bdata = from row in liveData.Keys select new { Sensor = row, Value = liveData[row] };
+            liveDataView.DataSource = bdata.ToList();
         }
     }
 }

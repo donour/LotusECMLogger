@@ -1,12 +1,12 @@
 ﻿using SAE.J2534;
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 
 namespace LotusECMLogger
 {
     internal class J2534OBDLogger
     {
+        public event Action<LiveDataReading> DataLogged;
+
         private String output_filename;
         private bool terminate = false;
         private Thread loggerThread;
@@ -16,9 +16,9 @@ namespace LotusECMLogger
             this.output_filename = filename;
         }
 
-        public String getOutputFilename()
+        private void OnDataLogged(LiveDataReading data)
         {
-            return this.output_filename;
+            DataLogged?.Invoke(data);
         }
 
         public void stop()
@@ -32,8 +32,14 @@ namespace LotusECMLogger
 
         public void start()
         {
-            loggerThread = new Thread(test);
-            loggerThread.IsBackground = true;
+
+            string DllFileName = APIFactory.GetAPIinfo().First().Filename;
+            API API = APIFactory.GetAPI(DllFileName);
+            Device device = API.GetDevice();
+            loggerThread = new Thread(() => runLogger(device))
+            {
+                IsBackground = true
+            };
             loggerThread.Start();
         }
 
@@ -41,19 +47,25 @@ namespace LotusECMLogger
         {
             while (true)
             {
-                Thread.Sleep(100);
+                LiveDataReading reading = new LiveDataReading
+                {
+                    name = DateTime.Now.Second.ToString(),
+                    value_f = (float)(DateTime.Now.TimeOfDay.Milliseconds)
+                };
+                OnDataLogged(reading);
+                Thread.Sleep(10);
                 if (terminate)
                 {
                     return;
                 }
             }
         }
-        private void runLogger()
+        private void runLogger(Device Device)
         {
   
-            string DllFileName = APIFactory.GetAPIinfo().First().Filename;
-            using (API API = APIFactory.GetAPI(DllFileName))
-            using (Device Device = API.GetDevice())
+            //string DllFileName = APIFactory.GetAPIinfo().First().Filename;
+            //using (API API = APIFactory.GetAPI(DllFileName))
+            //using (Device Device = API.GetDevice())
             using (Channel Channel = Device.GetChannel(Protocol.ISO15765, Baud.ISO15765, ConnectFlag.NONE))
             {
                 MessageFilter FlowControlFilter = new MessageFilter()
@@ -71,18 +83,19 @@ namespace LotusECMLogger
                 byte[] obd_basic_request = [0x01,
                         0x0C, // engine speed
                         0x11, // throttle position
-                        0x0E, // timing advance
+                        0x43, // absolute load
                         ];
                 byte[] obd_secondary_request = [0x01,
                         0x05, // coolant temperature
-                        0x43, // absolute load
+                        0x0E, // timing advance
                         0x0B, // intake manifold absolute pressure
                         ];
 
                 byte[] obd_coolant_request = [0x01, 0x05];
                 byte[] obd_mode22_sport_button = [0x22, 0x02, 0x5D];
-                byte[] obd_mode22_accel_pedal = [0x22, 0x02, 0x45]; // two bytes
-                byte[] obd_mode22_tps = [0x22, 0x02, 0x46]; // two bytes
+                byte[] obd_mode22_tps = [0x22, 0x02, 0x45]; // two bytes
+                byte[] obd_mode22_accel_pedal = [0x22, 0x02, 0x46]; // two bytes
+                byte[] obd_mode22_manifold_templ = [0x22, 0x02, 0x72];
                 byte[] obd_mode22_octane1 = [0x22, 0x02, 0x18];
                 byte[] obd_mode22_octane2 = [0x22, 0x02, 0x1B];
                 byte[] obd_mode22_octane3 = [0x22, 0x02, 0x19];
@@ -90,8 +103,8 @@ namespace LotusECMLogger
                 byte[] obd_mode22_octane5 = [0x22, 0x02, 0x4D];
                 byte[] obd_mode22_octane6 = [0x22, 0x02, 0x4E];
 
-                List<byte[]> obd_mode22_octane_requests = new List<byte[]>
-                    {
+                List<byte[]> obd_mode22_octane_requests = new()
+                {
                         obd_mode22_octane1,
                         obd_mode22_octane2,
                         obd_mode22_octane3,
@@ -102,15 +115,17 @@ namespace LotusECMLogger
 
                 byte[] obd_basic_message = ecm_obd_head.Concat(obd_basic_request).ToArray();
                 byte[] obd_secondary_message = ecm_obd_head.Concat(obd_secondary_request).ToArray();
-                // create a message for each obd_mode22_octane_requests
+                byte[] obd_pedal_pos_message = ecm_obd_head.Concat(obd_mode22_accel_pedal).ToArray();
+                byte[] obd_manifold_temp_message = ecm_obd_head.Concat(obd_mode22_manifold_templ).ToArray();
                 byte[][] obd_mode22_octane_messages = obd_mode22_octane_requests.Select(req => ecm_obd_head.Concat(req).ToArray()).ToArray();
 
 
                 DateTime start = DateTime.Now;
 
                 var writer = new CSVWriter(output_filename);
-                while (true)
+                while (terminate == false)
                 {
+
                     List<LiveDataReading> readings = new List<LiveDataReading>();
                     var tr = new LiveDataReading
                     {
@@ -121,6 +136,10 @@ namespace LotusECMLogger
 
                     Channel.SendMessages(obd_mode22_octane_messages);
                     readings.AddRange(readPendingMessages(Channel));
+                    Channel.SendMessage(obd_pedal_pos_message);
+                    readings.AddRange(readPendingMessages(Channel));
+                    Channel.SendMessage(obd_manifold_temp_message);
+                    readings.AddRange(readPendingMessages(Channel));
                     Channel.SendMessage(obd_secondary_message);
                     readings.AddRange(readPendingMessages(Channel));
                     Channel.SendMessage(obd_basic_message);
@@ -130,10 +149,13 @@ namespace LotusECMLogger
                     Debug.WriteLine(readings.Count / (DateTime.Now - start).TotalSeconds + " hz");
                     start = DateTime.Now;
 
+                    foreach (LiveDataReading reading in readings)
+                    {
+                        OnDataLogged(reading);
+                    }
                     writer.WriteLine(readings);
                 }
             }
-  
         }
 
         private List<LiveDataReading> readPendingMessages(Channel Channel)
