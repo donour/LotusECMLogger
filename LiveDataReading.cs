@@ -11,7 +11,7 @@ namespace LotusECMLogger
             return $"<{name}: {value_f}>";
         }
 
-        public static List<LiveDataReading> parseCanResponse(byte[] data)
+        public static List<LiveDataReading> ParseCanResponse(byte[] data)
         {
             List<LiveDataReading> results = [];
 
@@ -33,9 +33,8 @@ namespace LotusECMLogger
                             case 0x05: // coolant temperature
                                 if (data.Length > idx + 1)
                                 {
-                                    // convert data[idx+1] to an unsigned 8-bit integer
                                     int coolantTemp = data[idx + 1] - 40; // convert to Celsius
-                                    LiveDataReading reading = new LiveDataReading
+                                    LiveDataReading reading = new()
                                     {
                                         name = "Coolant Temperature",
                                         value_f = coolantTemp,
@@ -47,9 +46,8 @@ namespace LotusECMLogger
                             case 0x0B: // intake manifold absolute pressure
                                 if (data.Length > idx + 1)
                                 {
-                                    // convert data[idx+1] to an unsigned 8-bit integer
                                     int intakePressure = data[idx + 1]; // kPa
-                                    LiveDataReading reading = new LiveDataReading
+                                    LiveDataReading reading = new()
                                     {
                                         name = "Intake Manifold Pressure",
                                         value_f = intakePressure,
@@ -61,9 +59,8 @@ namespace LotusECMLogger
                             case 0x0C: // engine speed
                                 if (data.Length > idx + 2)
                                 {
-                                    // convert data[idx+1] and data[idx+2] to an unsigned 16-bit integer (big-endian)
                                     int engineSpeed = (data[idx + 1] << 8) | data[idx + 2];
-                                    LiveDataReading reading = new LiveDataReading
+                                    LiveDataReading reading = new()
                                     {
                                         name = "Engine Speed",
                                         value_f = engineSpeed / 4,
@@ -77,7 +74,7 @@ namespace LotusECMLogger
                                 {
                                     // convert data[idx+1] to an unsigned 8-bit integer
                                     int vehicleSpeed = data[idx + 1];
-                                    LiveDataReading reading = new LiveDataReading
+                                    LiveDataReading reading = new()
                                     {
                                         name = "Vehicle Speed",
                                         value_f = vehicleSpeed,
@@ -91,7 +88,7 @@ namespace LotusECMLogger
                                 {
                                     // convert data[idx+1] to an unsigned 8-bit integer
                                     int timingAdvance = data[idx + 1] / 2 - 64; // convert to degrees BTDC
-                                    LiveDataReading reading = new LiveDataReading
+                                    LiveDataReading reading = new()
                                     {
                                         name = "Timing Advance",
                                         value_f = timingAdvance,
@@ -105,7 +102,7 @@ namespace LotusECMLogger
                                 {
                                     // convert data[idx+1] to an unsigned 8-bit integer
                                     int throttlePosition = data[idx + 1];
-                                    LiveDataReading reading = new LiveDataReading
+                                    LiveDataReading reading = new()
                                     {
                                         name = "Throttle Position",
                                         value_f = throttlePosition * 100 / 255, // convert to percentage
@@ -117,9 +114,8 @@ namespace LotusECMLogger
                             case 0x43: // absolute load value
                                 if (data.Length > idx + 2)
                                 {
-                                    // convert data[idx+1] to an unsigned 8-bit integer
                                     int absoluteLoad = ((data[idx + 1] << 8) | data[idx + 2]) * 100 / 255; // convert to percentage
-                                    LiveDataReading reading = new LiveDataReading
+                                    LiveDataReading reading = new()
                                     {
                                         name = "Absolute Load",
                                         value_f = absoluteLoad,
@@ -148,7 +144,7 @@ namespace LotusECMLogger
                                 if (data.Length > idx + 2)
                                 {
                                     int octaneRating = data[idx + 2];
-                                    LiveDataReading reading = new LiveDataReading
+                                    LiveDataReading reading = new()
                                     {
                                         name = $"Octane Rating {data[idx + 1]:X2}",
                                         value_f = octaneRating,
@@ -160,7 +156,7 @@ namespace LotusECMLogger
                                 if (data.Length > idx + 3)
                                 {
                                     int pedal = (data[idx + 2] << 8) | data[idx + 3];
-                                    LiveDataReading reading = new LiveDataReading
+                                    LiveDataReading reading = new()
                                     {
                                         name = "Accelerator Pedal Position",
                                         value_f = pedal * 100.0 / 1024, // convert to percentage
@@ -172,7 +168,7 @@ namespace LotusECMLogger
                                 if (data.Length > idx + 2)
                                 {
                                     int manifoldTemp = data[idx + 2] * 5 / 8 - 40;
-                                    LiveDataReading reading = new LiveDataReading
+                                    LiveDataReading reading = new()
                                     {
                                         name = "Manifold Temperature",
                                         value_f = manifoldTemp,
