@@ -74,17 +74,18 @@ namespace LotusECMLogger
             // 
             // liveDataView
             // 
+            liveDataView.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             liveDataView.BackgroundColor = SystemColors.Control;
             liveDataView.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
             liveDataView.GridColor = SystemColors.Window;
-            liveDataView.Location = new Point(15, 100);
+            liveDataView.Location = new Point(15, 90);
             liveDataView.Margin = new Padding(3, 4, 3, 4);
             liveDataView.MultiSelect = false;
             liveDataView.Name = "liveDataView";
             liveDataView.RowHeadersWidth = 50;
             liveDataView.RowTemplate.ReadOnly = true;
             liveDataView.ShowEditingIcon = false;
-            liveDataView.Size = new Size(686, 400);
+            liveDataView.Size = new Size(686, 454);
             liveDataView.TabIndex = 6;
             // 
             // menuStrip1
