@@ -131,16 +131,12 @@ namespace LotusECMLogger
 
         private void UpdateListView()
         {
+            // create collection of listView items fom LiveData dictionary
+            ListViewItem[] items = [.. liveData.Select(kvp => new ListViewItem([kvp.Key, kvp.Value.ToString("F2")]))];
+
             liveDataView.BeginUpdate();
             liveDataView.Items.Clear();
-            
-            foreach (var kvp in liveData)
-            {
-                var item = new ListViewItem(kvp.Key);
-                item.SubItems.Add(kvp.Value.ToString("F2"));
-                liveDataView.Items.Add(item);
-            }
-            
+            liveDataView.Items.AddRange(items);
             liveDataView.EndUpdate();
         }
 
