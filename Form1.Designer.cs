@@ -30,14 +30,14 @@ namespace LotusECMLogger
             startLogger_button = new Button();
             stopLogger_button = new Button();
             currentLogfileName = new Label();
-            liveDataView = new DataGridView();
+            liveDataView = new ListView();
             menuStrip1 = new MenuStrip();
             helpToolStripMenuItem = new ToolStripMenuItem();
             aboutLotusECMLoggerToolStripMenuItem = new ToolStripMenuItem();
             statusStrip1 = new StatusStrip();
             refreshRateLabel = new ToolStripStatusLabel();
             topPanel.SuspendLayout();
-            ((ISupportInitialize)liveDataView).BeginInit();
+            // ListView doesn't need BeginInit
             menuStrip1.SuspendLayout();
             statusStrip1.SuspendLayout();
             SuspendLayout();
@@ -87,19 +87,17 @@ namespace LotusECMLogger
             // 
             // liveDataView
             // 
-            liveDataView.BackgroundColor = SystemColors.Control;
-            liveDataView.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
             liveDataView.Dock = DockStyle.Fill;
-            liveDataView.GridColor = SystemColors.Window;
+            liveDataView.FullRowSelect = true;
+            liveDataView.GridLines = true;
             liveDataView.Location = new Point(0, 90);
             liveDataView.Margin = new Padding(3, 4, 3, 4);
             liveDataView.MultiSelect = false;
             liveDataView.Name = "liveDataView";
-            liveDataView.RowHeadersWidth = 50;
-            liveDataView.RowTemplate.ReadOnly = true;
-            liveDataView.ShowEditingIcon = false;
             liveDataView.Size = new Size(713, 476);
             liveDataView.TabIndex = 6;
+            liveDataView.UseCompatibleStateImageBehavior = false;
+            liveDataView.View = View.Details;
             // 
             // menuStrip1
             // 
@@ -158,7 +156,7 @@ namespace LotusECMLogger
             Text = "LotusECMLogger";
             topPanel.ResumeLayout(false);
             topPanel.PerformLayout();
-            ((ISupportInitialize)liveDataView).EndInit();
+            // ListView doesn't need EndInit
             menuStrip1.ResumeLayout(false);
             menuStrip1.PerformLayout();
             statusStrip1.ResumeLayout(false);
@@ -175,7 +173,7 @@ namespace LotusECMLogger
         private Button startLogger_button;
         private Button stopLogger_button;
         private Label currentLogfileName;
-        private DataGridView liveDataView;
+        private ListView liveDataView;
         private MenuStrip menuStrip1;
         private ToolStripMenuItem helpToolStripMenuItem;
         private ToolStripMenuItem aboutLotusECMLoggerToolStripMenuItem;
