@@ -171,7 +171,7 @@ namespace LotusECMLogger
                             case 0x72: // manifold temperature
                                 if (data.Length > idx + 2)
                                 {
-                                    int manifoldTemp = data[idx + 2];
+                                    int manifoldTemp = data[idx + 2] * 5 / 8 - 40;
                                     LiveDataReading reading = new LiveDataReading
                                     {
                                         name = "Manifold Temperature",

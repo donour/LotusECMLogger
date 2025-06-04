@@ -13,6 +13,7 @@ namespace LotusECMLogger
 
         private J2534OBDLogger logger;
         private Dictionary<String, float> liveData = new Dictionary<string, float>();
+        private DateTime lastUpdateTime = DateTime.Now;
 
         public event PropertyChangedEventHandler PropertyChanged;
         protected virtual void OnPropertyChanged(string propertyName)
@@ -44,7 +45,7 @@ namespace LotusECMLogger
                 ((Button)sender).Enabled = false;
                 var outfn = $"{Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)}\\LotusECMLog{DateTime.Now:yyyyMMdd_HHmmss}.csv";
                 logger = new J2534OBDLogger(outfn, Logger_DataLogged);
-                logger.start();
+                logger.Start();
                 currentLogfileName.Text = outfn;
                 stopLogger_button.Enabled = true;
 
@@ -58,22 +59,29 @@ namespace LotusECMLogger
 
         private void stopLogger_button_Click(object sender, EventArgs e)
         {
-            logger?.stop();
+            logger?.Stop();
             stopLogger_button.Enabled = false;
             startLogger_button.Enabled = true;
             currentLogfileName.Text = "No Log File";
         }
 
-        private void Logger_DataLogged(LiveDataReading data)
+        private void Logger_DataLogged(List<LiveDataReading> data)
         {
             if (InvokeRequired)
             {
                 Invoke(new Action(() => Logger_DataLogged(data)));
                 return;
             }
-            liveData[data.name] = (float)data.value_f;
+            foreach (var r in data)
+            {
+                liveData[r.name] = (float)r.value_f;
+            }
             var bdata = from row in liveData.Keys select new { Sensor = row, Value = liveData[row] };
             liveDataView.DataSource = bdata.ToList();
+
+            DateTime now = DateTime.Now;
+            refreshRateLabel.Text = $"Refresh Rate: {(now - lastUpdateTime).TotalMilliseconds:F2} ms";
+            lastUpdateTime = now;
         }
 
         private void aboutLotusECMLoggerToolStripMenuItem_Click(object sender, EventArgs e)
