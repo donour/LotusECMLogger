@@ -26,6 +26,7 @@ namespace LotusECMLogger
         /// </summary>
         private void InitializeComponent()
         {
+            Panel topPanel = new Panel();
             startLogger_button = new Button();
             stopLogger_button = new Button();
             currentLogfileName = new Label();
@@ -35,14 +36,26 @@ namespace LotusECMLogger
             aboutLotusECMLoggerToolStripMenuItem = new ToolStripMenuItem();
             statusStrip1 = new StatusStrip();
             refreshRateLabel = new ToolStripStatusLabel();
+            topPanel.SuspendLayout();
             ((ISupportInitialize)liveDataView).BeginInit();
             menuStrip1.SuspendLayout();
             statusStrip1.SuspendLayout();
             SuspendLayout();
             // 
+            // topPanel
+            // 
+            topPanel.Controls.Add(startLogger_button);
+            topPanel.Controls.Add(stopLogger_button);
+            topPanel.Controls.Add(currentLogfileName);
+            topPanel.Dock = DockStyle.Top;
+            topPanel.Location = new Point(0, 30);
+            topPanel.Name = "topPanel";
+            topPanel.Size = new Size(713, 60);
+            topPanel.TabIndex = 9;
+            // 
             // startLogger_button
             // 
-            startLogger_button.Location = new Point(14, 49);
+            startLogger_button.Location = new Point(14, 19);
             startLogger_button.Margin = new Padding(3, 4, 3, 4);
             startLogger_button.Name = "startLogger_button";
             startLogger_button.Size = new Size(86, 31);
@@ -54,7 +67,7 @@ namespace LotusECMLogger
             // stopLogger_button
             // 
             stopLogger_button.Enabled = false;
-            stopLogger_button.Location = new Point(106, 49);
+            stopLogger_button.Location = new Point(106, 19);
             stopLogger_button.Margin = new Padding(3, 4, 3, 4);
             stopLogger_button.Name = "stopLogger_button";
             stopLogger_button.Size = new Size(86, 31);
@@ -66,7 +79,7 @@ namespace LotusECMLogger
             // currentLogfileName
             // 
             currentLogfileName.AutoSize = true;
-            currentLogfileName.Location = new Point(255, 60);
+            currentLogfileName.Location = new Point(255, 30);
             currentLogfileName.Name = "currentLogfileName";
             currentLogfileName.Size = new Size(85, 20);
             currentLogfileName.TabIndex = 5;
@@ -74,18 +87,18 @@ namespace LotusECMLogger
             // 
             // liveDataView
             // 
-            liveDataView.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             liveDataView.BackgroundColor = SystemColors.Control;
             liveDataView.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
+            liveDataView.Dock = DockStyle.Fill;
             liveDataView.GridColor = SystemColors.Window;
-            liveDataView.Location = new Point(15, 90);
+            liveDataView.Location = new Point(0, 90);
             liveDataView.Margin = new Padding(3, 4, 3, 4);
             liveDataView.MultiSelect = false;
             liveDataView.Name = "liveDataView";
             liveDataView.RowHeadersWidth = 50;
             liveDataView.RowTemplate.ReadOnly = true;
             liveDataView.ShowEditingIcon = false;
-            liveDataView.Size = new Size(686, 454);
+            liveDataView.Size = new Size(713, 476);
             liveDataView.TabIndex = 6;
             // 
             // menuStrip1
@@ -134,17 +147,17 @@ namespace LotusECMLogger
             AutoScaleDimensions = new SizeF(8F, 20F);
             AutoScaleMode = AutoScaleMode.Font;
             ClientSize = new Size(713, 588);
-            Controls.Add(statusStrip1);
             Controls.Add(liveDataView);
-            Controls.Add(currentLogfileName);
-            Controls.Add(stopLogger_button);
-            Controls.Add(startLogger_button);
+            Controls.Add(topPanel);
+            Controls.Add(statusStrip1);
             Controls.Add(menuStrip1);
             MainMenuStrip = menuStrip1;
             Margin = new Padding(3, 4, 3, 4);
             MinimumSize = new Size(729, 624);
             Name = "LoggerWindow";
             Text = "LotusECMLogger";
+            topPanel.ResumeLayout(false);
+            topPanel.PerformLayout();
             ((ISupportInitialize)liveDataView).EndInit();
             menuStrip1.ResumeLayout(false);
             menuStrip1.PerformLayout();
