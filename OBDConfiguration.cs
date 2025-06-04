@@ -103,14 +103,14 @@ namespace LotusECMLogger
             config.Requests.Add(new Mode01Request("Basic Engine Data",
                 0x0C, // Engine speed (RPM)
                 0x11, // Throttle position
-                0x43  // Absolute load
-            ));
-
-            config.Requests.Add(new Mode01Request("Secondary Engine Data", 
+                0x43, // Absolute load
                 0x05, // Coolant temperature
                 0x0E, // Timing advance
                 0x0B  // Intake manifold absolute pressure
             ));
+
+            //config.Requests.Add(new Mode01Request("Secondary Engine Data", 
+            //));
 
             // Lotus-specific Mode 0x22 requests
             config.Requests.Add(new Mode22Request("Sport Button", 0x02, 0x5D));
