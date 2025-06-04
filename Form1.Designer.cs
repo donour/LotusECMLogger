@@ -11,9 +11,16 @@ namespace LotusECMLogger
         /// <param name="disposing">true if managed resources should be disposed; otherwise, false.</param>
         protected override void Dispose(bool disposing)
         {
-            if (disposing && (components != null))
+            if (disposing)
             {
-                components.Dispose();
+                // Stop and dispose logger first to prevent background thread exceptions
+                logger?.Stop();
+                logger?.Dispose();
+                
+                if (components != null)
+                {
+                    components.Dispose();
+                }
             }
             base.Dispose(disposing);
         }
@@ -98,6 +105,8 @@ namespace LotusECMLogger
             liveDataView.TabIndex = 6;
             liveDataView.UseCompatibleStateImageBehavior = false;
             liveDataView.View = View.Details;
+            liveDataView.GetType().GetProperty("DoubleBuffered", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                ?.SetValue(liveDataView, true, null); // Enable double buffering for smoother scrolling
             // 
             // menuStrip1
             // 

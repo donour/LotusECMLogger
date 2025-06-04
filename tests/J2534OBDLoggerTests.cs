@@ -13,7 +13,7 @@ namespace LotusECMLogger.Tests
         public void ReturnsEmptyList_WhenDataIsNotFromECU()
         {
             var data = new byte[] { 0x00, 0x00, 0x07, 0xE7, 0x41, 0x0C, 0x1A, 0x2B };
-            var result = LiveDataReading.parseCanResponse(data);
+            var result = LiveDataReading.ParseCanResponse(data);
             Assert.Empty(result);
         }
 
@@ -23,7 +23,7 @@ namespace LotusECMLogger.Tests
             // 0x00 0x00 0x07 0xE8 0x41 0x0C 0x1F 0x40
             // 0x1F40 = 8000, /4 = 2000 RPM
             var data = new byte[] { 0x00, 0x00, 0x07, 0xE8, 0x41, 0x0C, 0x1F, 0x40 };
-            var result = LiveDataReading.parseCanResponse(data);
+            var result = LiveDataReading.ParseCanResponse(data);
             Assert.Single(result);
             var reading = result[0];
             var nameProp = reading.GetType().GetField("name");
@@ -38,7 +38,7 @@ namespace LotusECMLogger.Tests
             // 0x00 0x00 0x07 0xE8 0x41 0x0D 0x64
             // 0x64 = 100 km/h
             var data = new byte[] { 0x00, 0x00, 0x07, 0xE8, 0x41, 0x0D, 0x64 };
-            var result = LiveDataReading.parseCanResponse(data);
+            var result = LiveDataReading.ParseCanResponse(data);
             Assert.Single(result);
             var reading = result[0];
             var nameProp = reading.GetType().GetField("name");
@@ -53,7 +53,7 @@ namespace LotusECMLogger.Tests
             // 0x00 0x00 0x07 0xE8 0x41 0x0E 0x90
             // (0x90 / 2) - 64 = (144/2)-64 = 72-64 = 8
             var data = new byte[] { 0x00, 0x00, 0x07, 0xE8, 0x41, 0x0E, 0x90 };
-            var result = LiveDataReading.parseCanResponse(data);
+            var result = LiveDataReading.ParseCanResponse(data);
             Assert.Single(result);
             var reading = result[0];
             var nameProp = reading.GetType().GetField("name");
@@ -68,7 +68,7 @@ namespace LotusECMLogger.Tests
             // 0x00 0x00 0x07 0xE8 0x41 0x11 0xFF
             // 0xFF * 100 / 255 = 100
             var data = new byte[] { 0x00, 0x00, 0x07, 0xE8, 0x41, 0x11, 0xFF };
-            var result = LiveDataReading.parseCanResponse(data);
+            var result = LiveDataReading.ParseCanResponse(data);
             Assert.Single(result);
             var reading = result[0];
             var nameProp = reading.GetType().GetField("name");
@@ -82,7 +82,7 @@ namespace LotusECMLogger.Tests
         {
             // Engine speed (0x0C), Vehicle speed (0x0D), Throttle position (0x11)
             var data = new byte[] { 0x00, 0x00, 0x07, 0xE8, 0x41, 0x0C, 0x1F, 0x40, 0x0D, 0x64, 0x11, 0xFF };
-            var result = LiveDataReading.parseCanResponse(data);
+            var result = LiveDataReading.ParseCanResponse(data);
             Assert.Equal(3, result.Count);
         }
 
@@ -92,7 +92,7 @@ namespace LotusECMLogger.Tests
             // 0x00 0x00 0x07 0xE8 0x62 0x02 0x18 0x8A
             // Octane Rating 18 = 0x8A = 138
             var data = new byte[] { 0x00, 0x00, 0x07, 0xE8, 0x62, 0x02, 0x18, 0x8A };
-            var result = LiveDataReading.parseCanResponse(data);
+            var result = LiveDataReading.ParseCanResponse(data);
             Assert.Single(result);
             var reading = result[0];
             var nameProp = reading.GetType().GetField("name");

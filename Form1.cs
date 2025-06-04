@@ -38,6 +38,19 @@ namespace LotusECMLogger
             
             // dummy logger to avoid null reference exceptions
             logger = new J2534OBDLogger("unused", Logger_DataLogged, Logger_ExceptionOccurred);
+            
+            // Handle form closing to ensure logger is stopped
+            this.FormClosing += LoggerWindow_FormClosing;
+        }
+
+        /// <summary>
+        /// Handle form closing event to ensure logger is safely stopped
+        /// </summary>
+        private void LoggerWindow_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            // Stop the logger before the form closes
+            logger?.Stop();
+            logger?.Dispose();
         }
 
         private void InitializeListView()
@@ -77,11 +90,32 @@ namespace LotusECMLogger
 
         private void Logger_DataLogged(List<LiveDataReading> data)
         {
+            // Check if form is disposed or being disposed
+            if (IsDisposed || Disposing)
+                return;
+                
             if (InvokeRequired)
             {
-                Invoke(new Action(() => Logger_DataLogged(data)));
+                try
+                {
+                    Invoke(new Action(() => Logger_DataLogged(data)));
+                }
+                catch (ObjectDisposedException)
+                {
+                    // Form was disposed while trying to invoke - ignore
+                    return;
+                }
+                catch (InvalidOperationException)
+                {
+                    // Form handle was destroyed - ignore
+                    return;
+                }
                 return;
             }
+            
+            // Double-check after invoke to handle race conditions
+            if (IsDisposed || Disposing)
+                return;
             
             foreach (var r in data)
             {
@@ -97,26 +131,43 @@ namespace LotusECMLogger
 
         private void UpdateListView()
         {
+            // create collection of listView items fom LiveData dictionary
+            ListViewItem[] items = [.. liveData.Select(kvp => new ListViewItem([kvp.Key, kvp.Value.ToString("F2")]))];
+
             liveDataView.BeginUpdate();
             liveDataView.Items.Clear();
-            
-            foreach (var kvp in liveData)
-            {
-                var item = new ListViewItem(kvp.Key);
-                item.SubItems.Add(kvp.Value.ToString("F2"));
-                liveDataView.Items.Add(item);
-            }
-            
+            liveDataView.Items.AddRange(items);
             liveDataView.EndUpdate();
         }
 
         private void Logger_ExceptionOccurred(Exception ex)
         {
+            // Check if form is disposed or being disposed
+            if (IsDisposed || Disposing)
+                return;
+                
             if (InvokeRequired)
             {
-                Invoke(new Action(() => Logger_ExceptionOccurred(ex)));
+                try
+                {
+                    Invoke(new Action(() => Logger_ExceptionOccurred(ex)));
+                }
+                catch (ObjectDisposedException)
+                {
+                    // Form was disposed while trying to invoke - ignore
+                    return;
+                }
+                catch (InvalidOperationException)
+                {
+                    // Form handle was destroyed - ignore
+                    return;
+                }
                 return;
             }
+
+            // Double-check after invoke to handle race conditions
+            if (IsDisposed || Disposing)
+                return;
 
             // Stop the logger and reset UI state
             logger?.Stop();
