@@ -34,7 +34,7 @@ namespace LotusECMLogger
             helpToolStripMenuItem = new ToolStripMenuItem();
             aboutLotusECMLoggerToolStripMenuItem = new ToolStripMenuItem();
             statusStrip1 = new StatusStrip();
-            refreshRateLabel = new Label();
+            refreshRateLabel = new ToolStripStatusLabel();
             ((ISupportInitialize)liveDataView).BeginInit();
             menuStrip1.SuspendLayout();
             SuspendLayout();
@@ -114,6 +114,7 @@ namespace LotusECMLogger
             // statusStrip1
             // 
             statusStrip1.ImageScalingSize = new Size(20, 20);
+            statusStrip1.Items.AddRange(new ToolStripItem[] { refreshRateLabel });
             statusStrip1.Location = new Point(0, 566);
             statusStrip1.Name = "statusStrip1";
             statusStrip1.Size = new Size(713, 22);
@@ -122,11 +123,8 @@ namespace LotusECMLogger
             // 
             // refreshRateLabel
             // 
-            refreshRateLabel.AutoSize = true;
-            refreshRateLabel.Location = new Point(50, 538);
             refreshRateLabel.Name = "refreshRateLabel";
-            refreshRateLabel.Size = new Size(60, 20);
-            refreshRateLabel.TabIndex = 9;
+            refreshRateLabel.Size = new Size(58, 16);
             refreshRateLabel.Text = "no data";
             // 
             // LoggerWindow
@@ -134,7 +132,6 @@ namespace LotusECMLogger
             AutoScaleDimensions = new SizeF(8F, 20F);
             AutoScaleMode = AutoScaleMode.Font;
             ClientSize = new Size(713, 588);
-            Controls.Add(refreshRateLabel);
             Controls.Add(statusStrip1);
             Controls.Add(liveDataView);
             Controls.Add(currentLogfileName);
@@ -166,6 +163,6 @@ namespace LotusECMLogger
         private ToolStripMenuItem helpToolStripMenuItem;
         private ToolStripMenuItem aboutLotusECMLoggerToolStripMenuItem;
         private StatusStrip statusStrip1;
-        private Label refreshRateLabel;
+        private ToolStripStatusLabel refreshRateLabel;
     }
 }
