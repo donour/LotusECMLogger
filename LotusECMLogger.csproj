@@ -7,11 +7,11 @@
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
     <Platforms>AnyCPU;x86</Platforms>
-    <ApplicationIcon>audio_video_media_control_resume_plain_icon_260667.ico</ApplicationIcon>
+    <ApplicationIcon>assets\audio_video_media_control_resume_plain_icon_260667.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
-    <Content Include="audio_video_media_control_resume_plain_icon_260667.ico" />
+    <Content Include="assets\audio_video_media_control_resume_plain_icon_260667.ico" />
   </ItemGroup>
 
   <ItemGroup>
