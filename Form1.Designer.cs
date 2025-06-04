@@ -37,6 +37,7 @@ namespace LotusECMLogger
             refreshRateLabel = new ToolStripStatusLabel();
             ((ISupportInitialize)liveDataView).BeginInit();
             menuStrip1.SuspendLayout();
+            statusStrip1.SuspendLayout();
             SuspendLayout();
             // 
             // startLogger_button
@@ -146,6 +147,8 @@ namespace LotusECMLogger
             ((ISupportInitialize)liveDataView).EndInit();
             menuStrip1.ResumeLayout(false);
             menuStrip1.PerformLayout();
+            statusStrip1.ResumeLayout(false);
+            statusStrip1.PerformLayout();
             ResumeLayout(false);
             PerformLayout();
         }
