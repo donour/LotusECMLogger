@@ -75,12 +75,18 @@ namespace LotusECMLogger
 
         public void Stop()
         {
+            if (terminate)
+                return; // Already stopping/stopped
+                
             terminate = true;
             
             // Signal CSV writer to stop and wait for it to finish
             csvWriterShouldStop = true;
             csvDataAvailable.Set();
-            csvWriterThread?.Join(1000); // Wait up to 1 second
+            
+            // Wait for threads to finish with timeout
+            loggerThread?.Join(2000); // Wait up to 2 seconds for main logger
+            csvWriterThread?.Join(1000); // Wait up to 1 second for CSV writer
         }
 
         public void Start()
@@ -129,7 +135,18 @@ namespace LotusECMLogger
         {
             if (terminate == false)
             {
-                DataLogged?.Invoke(data);
+                try
+                {
+                    DataLogged?.Invoke(data);
+                }
+                catch (ObjectDisposedException)
+                {
+                    // UI was disposed, ignore
+                }
+                catch (InvalidOperationException)
+                {
+                    // UI handle was destroyed, ignore
+                }
             }
         }
 
@@ -137,7 +154,18 @@ namespace LotusECMLogger
         {
             if (terminate == false)
             {
-                ExceptionOccurred?.Invoke(ex);
+                try
+                {
+                    ExceptionOccurred?.Invoke(ex);
+                }
+                catch (ObjectDisposedException)
+                {
+                    // UI was disposed, ignore
+                }
+                catch (InvalidOperationException)
+                {
+                    // UI handle was destroyed, ignore
+                }
             }
         }
 
