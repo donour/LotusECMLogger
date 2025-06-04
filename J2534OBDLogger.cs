@@ -8,6 +8,19 @@ namespace LotusECMLogger
         public event Action<List<LiveDataReading>> DataLogged;
         public event Action<Exception> ExceptionOccurred;
 
+        /// <summary>
+        /// Flow control filter for Lotus ECM communication
+        /// Pattern: [0x00, 0x00, 0x07, 0xE8] - ECM response header
+        /// FlowControl: [0x00, 0x00, 0x07, 0xE0] - ECM request header
+        /// </summary>
+        private static readonly MessageFilter FlowControlFilter = new()
+        {
+            FilterType = Filter.FLOW_CONTROL_FILTER,
+            Mask = [0xFF, 0xFF, 0xFF, 0xFF],
+            Pattern = [0x00, 0x00, 0x07, 0xE8],
+            FlowControl = [0x00, 0x00, 0x07, 0xE0]
+        };
+
         private readonly String output_filename;
         private readonly OBDConfiguration obdConfig;
         private bool terminate = false;
@@ -128,13 +141,6 @@ namespace LotusECMLogger
             {
                 using (Channel Channel = Device.GetChannel(Protocol.ISO15765, Baud.ISO15765, ConnectFlag.NONE))
                 {
-                    MessageFilter FlowControlFilter = new()
-                    {
-                        FilterType = Filter.FLOW_CONTROL_FILTER,
-                        Mask = [0xFF, 0xFF, 0xFF, 0xFF],
-                        Pattern = [0x00, 0x00, 0x07, 0xE8],
-                        FlowControl = [0x00, 0x00, 0x07, 0xE0]
-                    };
                     Channel.StartMsgFilter(FlowControlFilter);
 
                     // Build all OBD messages from configuration
