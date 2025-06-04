@@ -91,7 +91,7 @@ namespace LotusECMLogger
             UpdateListView();
 
             DateTime now = DateTime.Now;
-            refreshRateLabel.Text = $"Refresh Rate: {(now - lastUpdateTime).TotalMilliseconds:F2} ms";
+            refreshRateLabel.Text = $"Refresh Rate: {1000/((now - lastUpdateTime).TotalMilliseconds):F2} hz";
             lastUpdateTime = now;
         }
 

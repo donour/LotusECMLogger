@@ -101,7 +101,7 @@ namespace LotusECMLogger
 
                 // Start main logger thread
                 loggerThread = new Thread(() => RunLoggerWithExceptionHandling(device))
-                //loggerThread = new Thread(() => test())
+                //loggerThread = new Thread(() => Test())
                 {
                     IsBackground = true,
                     Name = "J2534 Logger"
