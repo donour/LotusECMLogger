@@ -1,0 +1,874 @@
+{
+  "name": "Complete Lotus Configuration",
+  "description": "All documented Lotus ECU parameters from LotusECU-T4e repository",
+  "ecmHeader": [0, 0, 7, 224],
+  "requests": [
+    {
+      "type": "Mode01",
+      "name": "Essential Engine Data",
+      "pids": [12, 17, 67, 5, 14, 11],
+      "description": "Engine speed, throttle, load, coolant temp, timing, MAP",
+      "category": "Standard OBD-II"
+    },
+    {
+      "type": "Mode22",
+      "name": "System Leak Status",
+      "pidHigh": 2,
+      "pidLow": 1,
+      "category": "Engine Management"
+    },
+    {
+      "type": "Mode22",
+      "name": "Purge DC",
+      "pidHigh": 2,
+      "pidLow": 2,
+      "category": "Engine Management",
+      "unit": "%"
+    },
+    {
+      "type": "Mode22",
+      "name": "Idle Learn",
+      "pidHigh": 2,
+      "pidLow": 3,
+      "category": "Engine Management",
+      "unit": "g/sec"
+    },
+    {
+      "type": "Mode22",
+      "name": "Idle Air Output",
+      "pidHigh": 2,
+      "pidLow": 4,
+      "category": "Engine Management",
+      "unit": "g/sec"
+    },
+    {
+      "type": "Mode22",
+      "name": "Injection Pulse Time (B1)",
+      "pidHigh": 2,
+      "pidLow": 5,
+      "category": "Engine Management",
+      "unit": "us"
+    },
+    {
+      "type": "Mode22",
+      "name": "Idle Status",
+      "pidHigh": 2,
+      "pidLow": 6,
+      "category": "Engine Management"
+    },
+    {
+      "type": "Mode22",
+      "name": "VVT Target Cam Position (inlet)",
+      "pidHigh": 2,
+      "pidLow": 7,
+      "category": "Engine Management",
+      "unit": "degrees"
+    },
+    {
+      "type": "Mode22",
+      "name": "VVT Actual Cam Position (B1 inlet)",
+      "pidHigh": 2,
+      "pidLow": 8,
+      "category": "Engine Management",
+      "unit": "degrees"
+    },
+    {
+      "type": "Mode22",
+      "name": "VVL Status",
+      "pidHigh": 2,
+      "pidLow": 9,
+      "category": "Engine Management"
+    },
+    {
+      "type": "Mode22",
+      "name": "Cat Diag Pre-Cat Sw B1",
+      "pidHigh": 2,
+      "pidLow": 10,
+      "category": "Diagnostics"
+    },
+    {
+      "type": "Mode22",
+      "name": "Cat Diag Pre-Cat Max Sw",
+      "pidHigh": 2,
+      "pidLow": 11,
+      "category": "Diagnostics"
+    },
+    {
+      "type": "Mode22",
+      "name": "Gear Position",
+      "pidHigh": 2,
+      "pidLow": 12,
+      "category": "Transmission"
+    },
+    {
+      "type": "Mode22",
+      "name": "Idle Speed Target",
+      "pidHigh": 2,
+      "pidLow": 13,
+      "category": "Engine Management",
+      "unit": "RPM"
+    },
+    {
+      "type": "Mode22",
+      "name": "Purge Vacuum Pressure",
+      "pidHigh": 2,
+      "pidLow": 18,
+      "category": "Engine Management",
+      "unit": "mbar"
+    },
+    {
+      "type": "Mode22",
+      "name": "Air Fuel Ratio Target",
+      "pidHigh": 2,
+      "pidLow": 19,
+      "category": "Engine Management",
+      "unit": "Ratio"
+    },
+    {
+      "type": "Mode22",
+      "name": "Relay Status",
+      "pidHigh": 2,
+      "pidLow": 20,
+      "category": "System Control",
+      "description": "Multiple relays in single response"
+    },
+    {
+      "type": "Mode22",
+      "name": "Tyre Pressures",
+      "pidHigh": 2,
+      "pidLow": 21,
+      "category": "Vehicle Systems",
+      "unit": "bar",
+      "description": "All 4 tyre pressures"
+    },
+    {
+      "type": "Mode22",
+      "name": "Tyre Pressure Monitor Status",
+      "pidHigh": 2,
+      "pidLow": 22,
+      "category": "Vehicle Systems"
+    },
+    {
+      "type": "Mode22",
+      "name": "Injection Pulse Time (B2)",
+      "pidHigh": 2,
+      "pidLow": 23,
+      "category": "Engine Management",
+      "unit": "us"
+    },
+    {
+      "type": "Mode22",
+      "name": "Octane Scaler Cylinder 1",
+      "pidHigh": 2,
+      "pidLow": 24,
+      "category": "Performance",
+      "unit": "%"
+    },
+    {
+      "type": "Mode22",
+      "name": "Octane Scaler Cylinder 3",
+      "pidHigh": 2,
+      "pidLow": 25,
+      "category": "Performance",
+      "unit": "%"
+    },
+    {
+      "type": "Mode22",
+      "name": "Octane Scaler Cylinder 4",
+      "pidHigh": 2,
+      "pidLow": 26,
+      "category": "Performance",
+      "unit": "%"
+    },
+    {
+      "type": "Mode22",
+      "name": "Octane Scaler Cylinder 2",
+      "pidHigh": 2,
+      "pidLow": 27,
+      "category": "Performance",
+      "unit": "%"
+    },
+    {
+      "type": "Mode22",
+      "name": "Ambient Air Temperature",
+      "pidHigh": 2,
+      "pidLow": 37,
+      "category": "Environmental",
+      "unit": "degC"
+    },
+    {
+      "type": "Mode22",
+      "name": "Mass Air Per Stroke",
+      "pidHigh": 2,
+      "pidLow": 38,
+      "category": "Engine Management",
+      "unit": "mg"
+    },
+    {
+      "type": "Mode22",
+      "name": "Start-Up Coolant Temperature",
+      "pidHigh": 2,
+      "pidLow": 39,
+      "category": "Environmental",
+      "unit": "degC"
+    },
+    {
+      "type": "Mode22",
+      "name": "Accumulated Mass Air",
+      "pidHigh": 2,
+      "pidLow": 40,
+      "category": "Engine Management",
+      "unit": "mg"
+    },
+    {
+      "type": "Mode22",
+      "name": "ECU Shutdown Timer",
+      "pidHigh": 2,
+      "pidLow": 41,
+      "category": "System Control",
+      "unit": "Seconds"
+    },
+    {
+      "type": "Mode22",
+      "name": "Engine Load",
+      "pidHigh": 2,
+      "pidLow": 42,
+      "category": "Engine Management",
+      "unit": "%"
+    },
+    {
+      "type": "Mode22",
+      "name": "Cam Angle Error (B1 inlet)",
+      "pidHigh": 2,
+      "pidLow": 43,
+      "category": "Engine Management",
+      "unit": "degrees"
+    },
+    {
+      "type": "Mode22",
+      "name": "Idle Speed Error",
+      "pidHigh": 2,
+      "pidLow": 44,
+      "category": "Engine Management",
+      "unit": "RPM"
+    },
+    {
+      "type": "Mode22",
+      "name": "ECU On Timer",
+      "pidHigh": 2,
+      "pidLow": 45,
+      "category": "System Control",
+      "unit": "Seconds"
+    },
+    {
+      "type": "Mode22",
+      "name": "Fuel Learn Dead Time (B1)",
+      "pidHigh": 2,
+      "pidLow": 46,
+      "category": "Engine Management",
+      "unit": "us"
+    },
+    {
+      "type": "Mode22",
+      "name": "Evaporative Vapour Concentration",
+      "pidHigh": 2,
+      "pidLow": 47,
+      "category": "Emissions"
+    },
+    {
+      "type": "Mode22",
+      "name": "Cam Angle Error",
+      "pidHigh": 2,
+      "pidLow": 48,
+      "category": "Engine Management",
+      "unit": "degrees"
+    },
+    {
+      "type": "Mode22",
+      "name": "Knock Spark Advance Retard",
+      "pidHigh": 2,
+      "pidLow": 49,
+      "category": "Performance",
+      "unit": "degrees",
+      "description": "All cylinders"
+    },
+    {
+      "type": "Mode22",
+      "name": "Long Term Fuel Trim (B1)",
+      "pidHigh": 2,
+      "pidLow": 50,
+      "category": "Engine Management",
+      "unit": "%"
+    },
+    {
+      "type": "Mode22",
+      "name": "Short Term Fuel Trim (B1)",
+      "pidHigh": 2,
+      "pidLow": 51,
+      "category": "Engine Management",
+      "unit": "%"
+    },
+    {
+      "type": "Mode22",
+      "name": "Air Flow Error",
+      "pidHigh": 2,
+      "pidLow": 52,
+      "category": "Engine Management"
+    },
+    {
+      "type": "Mode22",
+      "name": "Fuel Learn Dead Time (B2)",
+      "pidHigh": 2,
+      "pidLow": 53,
+      "category": "Engine Management",
+      "unit": "us"
+    },
+    {
+      "type": "Mode22",
+      "name": "Long Term Fuel Trim (B2)",
+      "pidHigh": 2,
+      "pidLow": 54,
+      "category": "Engine Management",
+      "unit": "%"
+    },
+    {
+      "type": "Mode22",
+      "name": "Short Term Fuel Trim (B2)",
+      "pidHigh": 2,
+      "pidLow": 55,
+      "category": "Engine Management",
+      "unit": "%"
+    },
+    {
+      "type": "Mode22",
+      "name": "Catalytic Converter Temperature",
+      "pidHigh": 2,
+      "pidLow": 56,
+      "category": "Emissions",
+      "unit": "degC"
+    },
+    {
+      "type": "Mode22",
+      "name": "Target Catalytic Converter Temperature",
+      "pidHigh": 2,
+      "pidLow": 57,
+      "category": "Emissions",
+      "unit": "degC"
+    },
+    {
+      "type": "Mode22",
+      "name": "Maximum Catalytic Converter Temperature",
+      "pidHigh": 2,
+      "pidLow": 58,
+      "category": "Emissions",
+      "unit": "degC"
+    },
+    {
+      "type": "Mode22",
+      "name": "VVT Target Cam Position (exhaust)",
+      "pidHigh": 2,
+      "pidLow": 59,
+      "category": "Engine Management",
+      "unit": "degrees"
+    },
+    {
+      "type": "Mode22",
+      "name": "VVT Actual Cam Position (B1 exhaust)",
+      "pidHigh": 2,
+      "pidLow": 60,
+      "category": "Engine Management",
+      "unit": "degrees"
+    },
+    {
+      "type": "Mode22",
+      "name": "Cam Angle Error (B1 exhaust)",
+      "pidHigh": 2,
+      "pidLow": 61,
+      "category": "Engine Management",
+      "unit": "degrees"
+    },
+    {
+      "type": "Mode22",
+      "name": "Target Turbo Wastegate Position",
+      "pidHigh": 2,
+      "pidLow": 62,
+      "category": "Performance",
+      "unit": "%"
+    },
+    {
+      "type": "Mode22",
+      "name": "Actual Turbo Wastegate Position",
+      "pidHigh": 2,
+      "pidLow": 63,
+      "category": "Performance",
+      "unit": "%"
+    },
+    {
+      "type": "Mode22",
+      "name": "Target Turbo Boost Pressure",
+      "pidHigh": 2,
+      "pidLow": 64,
+      "category": "Performance",
+      "unit": "mbar"
+    },
+    {
+      "type": "Mode22",
+      "name": "Actual Turbo Boost Pressure",
+      "pidHigh": 2,
+      "pidLow": 65,
+      "category": "Performance",
+      "unit": "mbar"
+    },
+    {
+      "type": "Mode22",
+      "name": "Throttle Position Sensor",
+      "pidHigh": 2,
+      "pidLow": 69,
+      "category": "Engine Management",
+      "unit": "%"
+    },
+    {
+      "type": "Mode22",
+      "name": "Accelerator Pedal Position",
+      "pidHigh": 2,
+      "pidLow": 70,
+      "category": "Engine Management",
+      "unit": "%"
+    },
+    {
+      "type": "Mode22",
+      "name": "Maximum Engine Speed",
+      "pidHigh": 2,
+      "pidLow": 71,
+      "category": "Performance",
+      "unit": "RPM"
+    },
+    {
+      "type": "Mode22",
+      "name": "Engine Speed Limit",
+      "pidHigh": 2,
+      "pidLow": 72,
+      "category": "Performance",
+      "unit": "RPM"
+    },
+    {
+      "type": "Mode22",
+      "name": "Target Engine Speed",
+      "pidHigh": 2,
+      "pidLow": 73,
+      "category": "Performance",
+      "unit": "RPM"
+    },
+    {
+      "type": "Mode22",
+      "name": "Engine Speed Error",
+      "pidHigh": 2,
+      "pidLow": 74,
+      "category": "Performance",
+      "unit": "RPM"
+    },
+    {
+      "type": "Mode22",
+      "name": "Octane Scaler Cylinder 5",
+      "pidHigh": 2,
+      "pidLow": 77,
+      "category": "Performance",
+      "unit": "%"
+    },
+    {
+      "type": "Mode22",
+      "name": "Octane Scaler Cylinder 6",
+      "pidHigh": 2,
+      "pidLow": 78,
+      "category": "Performance",
+      "unit": "%"
+    },
+    {
+      "type": "Mode22",
+      "name": "Sport Button",
+      "pidHigh": 2,
+      "pidLow": 93,
+      "category": "Performance"
+    },
+    {
+      "type": "Mode22",
+      "name": "Manifold Temperature",
+      "pidHigh": 2,
+      "pidLow": 114,
+      "category": "Environmental",
+      "unit": "degC"
+    },
+    {
+      "type": "Mode22",
+      "name": "Launch Control Switch",
+      "pidHigh": 2,
+      "pidLow": 115,
+      "category": "Performance"
+    },
+    {
+      "type": "Mode22",
+      "name": "Oil Temperature",
+      "pidHigh": 2,
+      "pidLow": 117,
+      "category": "Environmental",
+      "unit": "degC"
+    },
+    {
+      "type": "Mode22",
+      "name": "Auto Gear",
+      "pidHigh": 2,
+      "pidLow": 118,
+      "category": "Transmission"
+    },
+    {
+      "type": "Mode22",
+      "name": "Engine Speed (Received from ECU)",
+      "pidHigh": 2,
+      "pidLow": 119,
+      "category": "Transmission",
+      "unit": "RPM"
+    },
+    {
+      "type": "Mode22",
+      "name": "Gear Request",
+      "pidHigh": 2,
+      "pidLow": 120,
+      "category": "Transmission"
+    },
+    {
+      "type": "Mode22",
+      "name": "Input Shaft Speed",
+      "pidHigh": 2,
+      "pidLow": 121,
+      "category": "Transmission",
+      "unit": "RPM"
+    },
+    {
+      "type": "Mode22",
+      "name": "Output Shaft Speed",
+      "pidHigh": 2,
+      "pidLow": 122,
+      "category": "Transmission",
+      "unit": "RPM"
+    },
+    {
+      "type": "Mode22",
+      "name": "SL1 Pressure Switch Status",
+      "pidHigh": 2,
+      "pidLow": 123,
+      "category": "Transmission"
+    },
+    {
+      "type": "Mode22",
+      "name": "SL2 Pressure Switch Status",
+      "pidHigh": 2,
+      "pidLow": 124,
+      "category": "Transmission"
+    },
+    {
+      "type": "Mode22",
+      "name": "SLU Pressure Switch Status",
+      "pidHigh": 2,
+      "pidLow": 125,
+      "category": "Transmission"
+    },
+    {
+      "type": "Mode22",
+      "name": "Dura Position Sensor 1",
+      "pidHigh": 2,
+      "pidLow": 126,
+      "category": "Transmission",
+      "unit": "%"
+    },
+    {
+      "type": "Mode22",
+      "name": "Dura Position Sensor 2",
+      "pidHigh": 2,
+      "pidLow": 127,
+      "category": "Transmission",
+      "unit": "%"
+    },
+    {
+      "type": "Mode22",
+      "name": "Current Dura Position",
+      "pidHigh": 2,
+      "pidLow": 129,
+      "category": "Transmission",
+      "unit": "%"
+    },
+    {
+      "type": "Mode22",
+      "name": "Learnt Dura Position Park",
+      "pidHigh": 2,
+      "pidLow": 130,
+      "category": "Transmission",
+      "unit": "%"
+    },
+    {
+      "type": "Mode22",
+      "name": "Learnt Dura Position Reverse",
+      "pidHigh": 2,
+      "pidLow": 131,
+      "category": "Transmission",
+      "unit": "%"
+    },
+    {
+      "type": "Mode22",
+      "name": "Learnt Dura Position Neutral",
+      "pidHigh": 2,
+      "pidLow": 132,
+      "category": "Transmission",
+      "unit": "%"
+    },
+    {
+      "type": "Mode22",
+      "name": "Learnt Dura Position Drive",
+      "pidHigh": 2,
+      "pidLow": 133,
+      "category": "Transmission",
+      "unit": "%"
+    },
+    {
+      "type": "Mode22",
+      "name": "PRND Feedback Switch - Park",
+      "pidHigh": 2,
+      "pidLow": 134,
+      "category": "Transmission"
+    },
+    {
+      "type": "Mode22",
+      "name": "PRND Feedback Switch - Reverse",
+      "pidHigh": 2,
+      "pidLow": 135,
+      "category": "Transmission"
+    },
+    {
+      "type": "Mode22",
+      "name": "PRND Feedback Switch - Neutral",
+      "pidHigh": 2,
+      "pidLow": 136,
+      "category": "Transmission"
+    },
+    {
+      "type": "Mode22",
+      "name": "PRND Feedback Switch - Drive",
+      "pidHigh": 2,
+      "pidLow": 137,
+      "category": "Transmission"
+    },
+    {
+      "type": "Mode22",
+      "name": "Park Request Switch",
+      "pidHigh": 2,
+      "pidLow": 138,
+      "category": "Transmission"
+    },
+    {
+      "type": "Mode22",
+      "name": "Reverse Request Switch",
+      "pidHigh": 2,
+      "pidLow": 139,
+      "category": "Transmission"
+    },
+    {
+      "type": "Mode22",
+      "name": "Neutral Request Switch",
+      "pidHigh": 2,
+      "pidLow": 140,
+      "category": "Transmission"
+    },
+    {
+      "type": "Mode22",
+      "name": "Drive Request Switch",
+      "pidHigh": 2,
+      "pidLow": 141,
+      "category": "Transmission"
+    },
+    {
+      "type": "Mode22",
+      "name": "Gear Ratio",
+      "pidHigh": 2,
+      "pidLow": 142,
+      "category": "Transmission"
+    },
+    {
+      "type": "Mode22",
+      "name": "Commanded Torque Converter Status",
+      "pidHigh": 2,
+      "pidLow": 143,
+      "category": "Transmission"
+    },
+    {
+      "type": "Mode22",
+      "name": "Green Learn Status",
+      "pidHigh": 2,
+      "pidLow": 144,
+      "category": "Transmission"
+    },
+    {
+      "type": "Mode22",
+      "name": "Slip Learn Status Flags",
+      "pidHigh": 2,
+      "pidLow": 145,
+      "category": "Transmission"
+    },
+    {
+      "type": "Mode22",
+      "name": "Green Learn Target Load Minimum",
+      "pidHigh": 2,
+      "pidLow": 146,
+      "category": "Transmission",
+      "unit": "Nm"
+    },
+    {
+      "type": "Mode22",
+      "name": "Green Learn Target Load Maximum",
+      "pidHigh": 2,
+      "pidLow": 147,
+      "category": "Transmission",
+      "unit": "Nm"
+    },
+    {
+      "type": "Mode22",
+      "name": "Input Shaft Load",
+      "pidHigh": 2,
+      "pidLow": 148,
+      "category": "Transmission",
+      "unit": "Nm"
+    },
+    {
+      "type": "Mode22",
+      "name": "Green Learn No. Complete Current Bin",
+      "pidHigh": 2,
+      "pidLow": 149,
+      "category": "Transmission"
+    },
+    {
+      "type": "Mode22",
+      "name": "Green Learn Target No. Current Bin",
+      "pidHigh": 2,
+      "pidLow": 150,
+      "category": "Transmission"
+    },
+    {
+      "type": "Mode22",
+      "name": "Torque Converter Slip",
+      "pidHigh": 2,
+      "pidLow": 151,
+      "category": "Transmission",
+      "unit": "RPM"
+    },
+    {
+      "type": "Mode22",
+      "name": "Solenoid SL Duty Cycle",
+      "pidHigh": 2,
+      "pidLow": 152,
+      "category": "Transmission",
+      "unit": "%"
+    },
+    {
+      "type": "Mode22",
+      "name": "Solenoid SL1 Duty Cycle",
+      "pidHigh": 2,
+      "pidLow": 153,
+      "category": "Transmission",
+      "unit": "%"
+    },
+    {
+      "type": "Mode22",
+      "name": "Solenoid SL2 Duty Cycle",
+      "pidHigh": 2,
+      "pidLow": 154,
+      "category": "Transmission",
+      "unit": "%"
+    },
+    {
+      "type": "Mode22",
+      "name": "Solenoid SL3 Duty Cycle",
+      "pidHigh": 2,
+      "pidLow": 155,
+      "category": "Transmission",
+      "unit": "%"
+    },
+    {
+      "type": "Mode22",
+      "name": "Solenoid SL4 Duty Cycle",
+      "pidHigh": 2,
+      "pidLow": 156,
+      "category": "Transmission",
+      "unit": "%"
+    },
+    {
+      "type": "Mode22",
+      "name": "Solenoid SLT Duty Cycle",
+      "pidHigh": 2,
+      "pidLow": 157,
+      "category": "Transmission",
+      "unit": "%"
+    },
+    {
+      "type": "Mode22",
+      "name": "Solenoid SLU Duty Cycle",
+      "pidHigh": 2,
+      "pidLow": 158,
+      "category": "Transmission",
+      "unit": "%"
+    },
+    {
+      "type": "Mode22",
+      "name": "Solenoid SL Demand",
+      "pidHigh": 2,
+      "pidLow": 159,
+      "category": "Transmission",
+      "unit": "%"
+    },
+    {
+      "type": "Mode22",
+      "name": "Solenoid SL1 Demand",
+      "pidHigh": 2,
+      "pidLow": 161,
+      "category": "Transmission",
+      "unit": "%"
+    },
+    {
+      "type": "Mode22",
+      "name": "Solenoid SL2 Demand",
+      "pidHigh": 2,
+      "pidLow": 162,
+      "category": "Transmission",
+      "unit": "%"
+    },
+    {
+      "type": "Mode22",
+      "name": "Solenoid SL3 Demand",
+      "pidHigh": 2,
+      "pidLow": 163,
+      "category": "Transmission",
+      "unit": "%"
+    },
+    {
+      "type": "Mode22",
+      "name": "Solenoid SL4 Demand",
+      "pidHigh": 2,
+      "pidLow": 164,
+      "category": "Transmission",
+      "unit": "%"
+    },
+    {
+      "type": "Mode22",
+      "name": "Solenoid SLT Demand",
+      "pidHigh": 2,
+      "pidLow": 165,
+      "category": "Transmission",
+      "unit": "%"
+    },
+    {
+      "type": "Mode22",
+      "name": "Solenoid SLU Demand",
+      "pidHigh": 2,
+      "pidLow": 166,
+      "category": "Transmission",
+      "unit": "%"
+    }
+  ]
+} 

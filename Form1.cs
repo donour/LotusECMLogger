@@ -32,8 +32,18 @@ namespace LotusECMLogger
         public LoggerWindow()
         {
             InitializeComponent();
+            
+            // Initialize ListView columns
+            InitializeListView();
+            
             // dummy logger to avoid null reference exceptions
-            logger = new J2534OBDLogger("unused", Logger_DataLogged);
+            logger = new J2534OBDLogger("unused", Logger_DataLogged, Logger_ExceptionOccurred);
+        }
+
+        private void InitializeListView()
+        {
+            liveDataView.Columns.Add("Parameter", 200);
+            liveDataView.Columns.Add("Value", 100);
         }
 
         private void buttonTestRead_Click(object sender, EventArgs e)
@@ -44,7 +54,7 @@ namespace LotusECMLogger
 
                 ((Button)sender).Enabled = false;
                 var outfn = $"{Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)}\\LotusECMLog{DateTime.Now:yyyyMMdd_HHmmss}.csv";
-                logger = new J2534OBDLogger(outfn, Logger_DataLogged);
+                logger = new J2534OBDLogger(outfn, Logger_DataLogged, Logger_ExceptionOccurred);
                 logger.Start();
                 currentLogfileName.Text = outfn;
                 stopLogger_button.Enabled = true;
@@ -72,16 +82,59 @@ namespace LotusECMLogger
                 Invoke(new Action(() => Logger_DataLogged(data)));
                 return;
             }
+            
             foreach (var r in data)
             {
                 liveData[r.name] = (float)r.value_f;
             }
-            var bdata = from row in liveData.Keys select new { Sensor = row, Value = liveData[row] };
-            liveDataView.DataSource = bdata.ToList();
+            
+            UpdateListView();
 
             DateTime now = DateTime.Now;
-            refreshRateLabel.Text = $"Refresh Rate: {(now - lastUpdateTime).TotalMilliseconds:F2} ms";
+            refreshRateLabel.Text = $"Refresh Rate: {1000/((now - lastUpdateTime).TotalMilliseconds):F2} hz";
             lastUpdateTime = now;
+        }
+
+        private void UpdateListView()
+        {
+            liveDataView.BeginUpdate();
+            liveDataView.Items.Clear();
+            
+            foreach (var kvp in liveData)
+            {
+                var item = new ListViewItem(kvp.Key);
+                item.SubItems.Add(kvp.Value.ToString("F2"));
+                liveDataView.Items.Add(item);
+            }
+            
+            liveDataView.EndUpdate();
+        }
+
+        private void Logger_ExceptionOccurred(Exception ex)
+        {
+            if (InvokeRequired)
+            {
+                Invoke(new Action(() => Logger_ExceptionOccurred(ex)));
+                return;
+            }
+
+            // Stop the logger and reset UI state
+            logger?.Stop();
+            stopLogger_button.Enabled = false;
+            startLogger_button.Enabled = true;
+            currentLogfileName.Text = "No Log File";
+
+            // Show error message to user
+            string errorMessage = ex switch
+            {
+                J2534Exception j2534Ex => $"J2534 Interface Error: {j2534Ex.Message}",
+                TimeoutException => "Communication timeout with ECM. Please check connections.",
+                UnauthorizedAccessException => "Unable to access log file. Check file permissions.",
+                IOException ioEx => $"File I/O Error: {ioEx.Message}",
+                _ => $"Unexpected error: {ex.Message}"
+            };
+
+            MessageBox.Show(errorMessage, "Logger Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
 
         private void aboutLotusECMLoggerToolStripMenuItem_Click(object sender, EventArgs e)

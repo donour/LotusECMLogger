@@ -26,22 +26,36 @@ namespace LotusECMLogger
         /// </summary>
         private void InitializeComponent()
         {
+            Panel topPanel = new Panel();
             startLogger_button = new Button();
             stopLogger_button = new Button();
             currentLogfileName = new Label();
-            liveDataView = new DataGridView();
+            liveDataView = new ListView();
             menuStrip1 = new MenuStrip();
             helpToolStripMenuItem = new ToolStripMenuItem();
             aboutLotusECMLoggerToolStripMenuItem = new ToolStripMenuItem();
             statusStrip1 = new StatusStrip();
-            refreshRateLabel = new Label();
-            ((ISupportInitialize)liveDataView).BeginInit();
+            refreshRateLabel = new ToolStripStatusLabel();
+            topPanel.SuspendLayout();
+            // ListView doesn't need BeginInit
             menuStrip1.SuspendLayout();
+            statusStrip1.SuspendLayout();
             SuspendLayout();
+            // 
+            // topPanel
+            // 
+            topPanel.Controls.Add(startLogger_button);
+            topPanel.Controls.Add(stopLogger_button);
+            topPanel.Controls.Add(currentLogfileName);
+            topPanel.Dock = DockStyle.Top;
+            topPanel.Location = new Point(0, 30);
+            topPanel.Name = "topPanel";
+            topPanel.Size = new Size(713, 60);
+            topPanel.TabIndex = 9;
             // 
             // startLogger_button
             // 
-            startLogger_button.Location = new Point(14, 49);
+            startLogger_button.Location = new Point(14, 19);
             startLogger_button.Margin = new Padding(3, 4, 3, 4);
             startLogger_button.Name = "startLogger_button";
             startLogger_button.Size = new Size(86, 31);
@@ -53,7 +67,7 @@ namespace LotusECMLogger
             // stopLogger_button
             // 
             stopLogger_button.Enabled = false;
-            stopLogger_button.Location = new Point(106, 49);
+            stopLogger_button.Location = new Point(106, 19);
             stopLogger_button.Margin = new Padding(3, 4, 3, 4);
             stopLogger_button.Name = "stopLogger_button";
             stopLogger_button.Size = new Size(86, 31);
@@ -65,7 +79,7 @@ namespace LotusECMLogger
             // currentLogfileName
             // 
             currentLogfileName.AutoSize = true;
-            currentLogfileName.Location = new Point(255, 60);
+            currentLogfileName.Location = new Point(255, 30);
             currentLogfileName.Name = "currentLogfileName";
             currentLogfileName.Size = new Size(85, 20);
             currentLogfileName.TabIndex = 5;
@@ -73,18 +87,17 @@ namespace LotusECMLogger
             // 
             // liveDataView
             // 
-            liveDataView.BackgroundColor = SystemColors.Control;
-            liveDataView.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
-            liveDataView.GridColor = SystemColors.Window;
-            liveDataView.Location = new Point(15, 100);
+            liveDataView.Dock = DockStyle.Fill;
+            liveDataView.FullRowSelect = true;
+            liveDataView.GridLines = true;
+            liveDataView.Location = new Point(0, 90);
             liveDataView.Margin = new Padding(3, 4, 3, 4);
             liveDataView.MultiSelect = false;
             liveDataView.Name = "liveDataView";
-            liveDataView.RowHeadersWidth = 50;
-            liveDataView.RowTemplate.ReadOnly = true;
-            liveDataView.ShowEditingIcon = false;
-            liveDataView.Size = new Size(686, 400);
+            liveDataView.Size = new Size(713, 476);
             liveDataView.TabIndex = 6;
+            liveDataView.UseCompatibleStateImageBehavior = false;
+            liveDataView.View = View.Details;
             // 
             // menuStrip1
             // 
@@ -114,6 +127,7 @@ namespace LotusECMLogger
             // statusStrip1
             // 
             statusStrip1.ImageScalingSize = new Size(20, 20);
+            statusStrip1.Items.AddRange(new ToolStripItem[] { refreshRateLabel });
             statusStrip1.Location = new Point(0, 566);
             statusStrip1.Name = "statusStrip1";
             statusStrip1.Size = new Size(713, 22);
@@ -122,11 +136,8 @@ namespace LotusECMLogger
             // 
             // refreshRateLabel
             // 
-            refreshRateLabel.AutoSize = true;
-            refreshRateLabel.Location = new Point(50, 538);
             refreshRateLabel.Name = "refreshRateLabel";
-            refreshRateLabel.Size = new Size(60, 20);
-            refreshRateLabel.TabIndex = 9;
+            refreshRateLabel.Size = new Size(58, 16);
             refreshRateLabel.Text = "no data";
             // 
             // LoggerWindow
@@ -134,21 +145,22 @@ namespace LotusECMLogger
             AutoScaleDimensions = new SizeF(8F, 20F);
             AutoScaleMode = AutoScaleMode.Font;
             ClientSize = new Size(713, 588);
-            Controls.Add(refreshRateLabel);
-            Controls.Add(statusStrip1);
             Controls.Add(liveDataView);
-            Controls.Add(currentLogfileName);
-            Controls.Add(stopLogger_button);
-            Controls.Add(startLogger_button);
+            Controls.Add(topPanel);
+            Controls.Add(statusStrip1);
             Controls.Add(menuStrip1);
             MainMenuStrip = menuStrip1;
             Margin = new Padding(3, 4, 3, 4);
             MinimumSize = new Size(729, 624);
             Name = "LoggerWindow";
             Text = "LotusECMLogger";
-            ((ISupportInitialize)liveDataView).EndInit();
+            topPanel.ResumeLayout(false);
+            topPanel.PerformLayout();
+            // ListView doesn't need EndInit
             menuStrip1.ResumeLayout(false);
             menuStrip1.PerformLayout();
+            statusStrip1.ResumeLayout(false);
+            statusStrip1.PerformLayout();
             ResumeLayout(false);
             PerformLayout();
         }
@@ -161,11 +173,11 @@ namespace LotusECMLogger
         private Button startLogger_button;
         private Button stopLogger_button;
         private Label currentLogfileName;
-        private DataGridView liveDataView;
+        private ListView liveDataView;
         private MenuStrip menuStrip1;
         private ToolStripMenuItem helpToolStripMenuItem;
         private ToolStripMenuItem aboutLotusECMLoggerToolStripMenuItem;
         private StatusStrip statusStrip1;
-        private Label refreshRateLabel;
+        private ToolStripStatusLabel refreshRateLabel;
     }
 }

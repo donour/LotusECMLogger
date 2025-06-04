@@ -1,46 +1,183 @@
 ﻿using SAE.J2534;
+using System.Collections.Concurrent;
 using System.Diagnostics;
 
 namespace LotusECMLogger
 {
-    internal class J2534OBDLogger
+    internal class J2534OBDLogger : IDisposable
     {
         public event Action<List<LiveDataReading>> DataLogged;
+        public event Action<Exception> ExceptionOccurred;
+
+        /// <summary>
+        /// Flow control filter for Lotus ECM communication
+        /// Pattern: [0x00, 0x00, 0x07, 0xE8] - ECM response header
+        /// FlowControl: [0x00, 0x00, 0x07, 0xE0] - ECM request header
+        /// </summary>
+        private static readonly MessageFilter FlowControlFilter = new()
+        {
+            FilterType = Filter.FLOW_CONTROL_FILTER,
+            Mask = [0xFF, 0xFF, 0xFF, 0xFF],
+            Pattern = [0x00, 0x00, 0x07, 0xE8],
+            FlowControl = [0x00, 0x00, 0x07, 0xE0]
+        };
 
         private readonly String output_filename;
+        private readonly OBDConfiguration obdConfig;
         private bool terminate = false;
         private Thread? loggerThread;
+        private Thread? csvWriterThread;
         private Device? device;
 
-        public J2534OBDLogger(String filename, Action<List<LiveDataReading>> logger_DataLogged)
+        // CSV writer thread coordination
+        private readonly ConcurrentQueue<List<LiveDataReading>> csvWriteQueue = new();
+        private readonly ManualResetEvent csvDataAvailable = new(false);
+        private volatile bool csvWriterShouldStop = false;
+
+        public J2534OBDLogger(String filename, Action<List<LiveDataReading>> logger_DataLogged, Action<Exception> exceptionHandler)
+            : this(filename, logger_DataLogged, exceptionHandler, OBDConfiguration.CreateLotusDefault())
+        {
+        }
+
+        /// <summary>
+        /// Creates logger with custom OBD configuration
+        /// </summary>
+        /// <param name="filename">Output CSV file path</param>
+        /// <param name="logger_DataLogged">Data received callback</param>
+        /// <param name="exceptionHandler">Exception handler callback</param>
+        /// <param name="configuration">OBD request configuration</param>
+        /// <example>
+        /// // Use fast logging (fewer requests for better performance)
+        /// var logger = new J2534OBDLogger("log.csv", OnData, OnError, 
+        ///     OBDConfiguration.CreateFastLogging());
+        /// 
+        /// // Use complete Lotus configuration (ALL available parameters)
+        /// var logger = new J2534OBDLogger("log.csv", OnData, OnError, 
+        ///     OBDConfiguration.CreateCompleteLotusConfiguration());
+        /// 
+        /// // Use diagnostic mode (extended parameters)
+        /// var logger = new J2534OBDLogger("log.csv", OnData, OnError, 
+        ///     OBDConfiguration.CreateDiagnosticMode());
+        /// 
+        /// // Create custom configuration
+        /// var customConfig = new OBDConfiguration();
+        /// customConfig.Requests.Add(new Mode01Request("RPM Only", 0x0C));
+        /// customConfig.Requests.Add(new Mode22Request("Sport Button", 0x02, 0x5D));
+        /// var logger = new J2534OBDLogger("log.csv", OnData, OnError, customConfig);
+        /// </example>
+        public J2534OBDLogger(String filename, Action<List<LiveDataReading>> logger_DataLogged, Action<Exception> exceptionHandler, OBDConfiguration configuration)
         {
             this.output_filename = filename;
+            this.obdConfig = configuration;
             this.DataLogged += logger_DataLogged;
+            this.ExceptionOccurred += exceptionHandler;
         }
 
         public void Stop()
         {
             terminate = true;
+            
+            // Signal CSV writer to stop and wait for it to finish
+            csvWriterShouldStop = true;
+            csvDataAvailable.Set();
+            csvWriterThread?.Join(1000); // Wait up to 1 second
         }
 
         public void Start()
         {
-
             string DllFileName = APIFactory.GetAPIinfo().First().Filename;
             API API = APIFactory.GetAPI(DllFileName);
             device = API.GetDevice();
-            loggerThread = new Thread(() => RunLogger(device))
-            //loggerThread = new Thread(() => test())
+            try
             {
-                IsBackground = true
-            };
-            loggerThread.Start();
+                // Start CSV writer thread first
+                csvWriterShouldStop = false;
+                csvWriterThread = new Thread(RunCSVWriter)
+                {
+                    IsBackground = true,
+                    Name = "CSV Writer"
+                };
+                csvWriterThread.Start();
+
+                // Start main logger thread
+                loggerThread = new Thread(() => RunLoggerWithExceptionHandling(device))
+                //loggerThread = new Thread(() => Test())
+                {
+                    IsBackground = true,
+                    Name = "J2534 Logger"
+                };
+                loggerThread.Start();
+            }
+            catch (Exception ex)
+            {
+                OnExceptionOccurred(ex);
+            }
+        }
+
+        private void RunLoggerWithExceptionHandling(Device device)
+        {
+            try
+            {
+                RunLogger(device);
+            }
+            catch (Exception ex)
+            {
+                OnExceptionOccurred(ex);
+            }
         }
         private void OnDataLogged(List<LiveDataReading> data)
         {
             if (terminate == false)
             {
                 DataLogged?.Invoke(data);
+            }
+        }
+
+        private void OnExceptionOccurred(Exception ex)
+        {
+            if (terminate == false)
+            {
+                ExceptionOccurred?.Invoke(ex);
+            }
+        }
+
+        /// <summary>
+        /// Background thread that handles CSV writing to improve J2534 communication performance
+        /// </summary>
+        private void RunCSVWriter()
+        {
+            try
+            {
+                using (var writer = new CSVWriter(output_filename))
+                {
+                    while (!csvWriterShouldStop)
+                    {
+                        // Wait for data to be available
+                        csvDataAvailable.WaitOne();
+
+                        // Process all queued data
+                        while (csvWriteQueue.TryDequeue(out var readings))
+                        {
+                            writer.WriteLine(readings);
+                        }
+
+                        // Reset the signal if queue is empty
+                        if (csvWriteQueue.IsEmpty)
+                        {
+                            csvDataAvailable.Reset();
+                        }
+                    }
+
+                    // Process any remaining data in the queue before shutdown
+                    while (csvWriteQueue.TryDequeue(out var readings))
+                    {
+                        writer.WriteLine(readings);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                OnExceptionOccurred(ex);
             }
         }
 
@@ -63,79 +200,33 @@ namespace LotusECMLogger
         }
         private void RunLogger(Device Device)
         {
-            using (Channel Channel = Device.GetChannel(Protocol.ISO15765, Baud.ISO15765, ConnectFlag.NONE))
+            try
             {
-                MessageFilter FlowControlFilter = new()
+                using (Channel Channel = Device.GetChannel(Protocol.ISO15765, Baud.ISO15765, ConnectFlag.NONE))
                 {
-                    FilterType = Filter.FLOW_CONTROL_FILTER,
-                    Mask = [0xFF, 0xFF, 0xFF, 0xFF],
-                    Pattern = [0x00, 0x00, 0x07, 0xE8],
-                    FlowControl = [0x00, 0x00, 0x07, 0xE0]
-                };
-                Channel.StartMsgFilter(FlowControlFilter);
+                    Channel.StartMsgFilter(FlowControlFilter);
 
+                    // Build all OBD messages from configuration
+                    var allMessages = obdConfig.BuildAllMessages();
+                    
+                    // Log configuration for debugging
+                    Debug.WriteLine($"Loaded {obdConfig.Requests.Count} OBD requests:");
+                    foreach (var request in obdConfig.Requests)
+                    {
+                        Debug.WriteLine($"  - {request.Name} (Mode 0x{request.Mode:X2})");
+                    }
 
-                // TODO: this should be configurable
-                byte[] ecm_obd_head = [0x00, 0x00, 0x07, 0xE0];
-                //engine speed, tps,  timing
-                byte[] obd_basic_request = [0x01,
-                        0x0C, // engine speed
-                        0x11, // throttle position
-                        0x43, // absolute load
-                        ];
-                byte[] obd_secondary_request = [0x01,
-                        0x05, // coolant temperature
-                        0x0E, // timing advance
-                        0x0B, // intake manifold absolute pressure
-                        ];
-
-                byte[] obd_coolant_request = [0x01, 0x05];
-                byte[] obd_mode22_sport_button = [0x22, 0x02, 0x5D];
-                byte[] obd_mode22_tps = [0x22, 0x02, 0x45]; // two bytes
-                byte[] obd_mode22_accel_pedal = [0x22, 0x02, 0x46]; // two bytes
-                byte[] obd_mode22_manifold_templ = [0x22, 0x02, 0x72];
-                byte[] obd_mode22_octane1 = [0x22, 0x02, 0x18];
-                byte[] obd_mode22_octane2 = [0x22, 0x02, 0x1B];
-                byte[] obd_mode22_octane3 = [0x22, 0x02, 0x19];
-                byte[] obd_mode22_octane4 = [0x22, 0x02, 0x1A];
-                byte[] obd_mode22_octane5 = [0x22, 0x02, 0x4D];
-                byte[] obd_mode22_octane6 = [0x22, 0x02, 0x4E];
-
-                List<byte[]> obd_mode22_octane_requests = new()
-                {
-                        obd_mode22_octane1,
-                        obd_mode22_octane2,
-                        obd_mode22_octane3,
-                        obd_mode22_octane4,
-                        obd_mode22_octane5,
-                        obd_mode22_octane6
-                    };
-
-                byte[] obd_basic_message = ecm_obd_head.Concat(obd_basic_request).ToArray();
-                byte[] obd_secondary_message = ecm_obd_head.Concat(obd_secondary_request).ToArray();
-                byte[] obd_pedal_pos_message = ecm_obd_head.Concat(obd_mode22_accel_pedal).ToArray();
-                byte[] obd_manifold_temp_message = ecm_obd_head.Concat(obd_mode22_manifold_templ).ToArray();
-                byte[][] obd_mode22_octane_messages = obd_mode22_octane_requests.Select(req => ecm_obd_head.Concat(req).ToArray()).ToArray();
-
-                using (var writer = new CSVWriter(output_filename))
-                {
                     uint ui_update_counter = 0;
                     while (terminate == false)
                     {
+                        List<LiveDataReading> readings = [];
 
-                        List<LiveDataReading> readings = new List<LiveDataReading>();
-
-                        // TODO: timeouts/exceptions here need to make their way back to the ui thread.
-                        Channel.SendMessages(obd_mode22_octane_messages);
-                        readings.AddRange(ReadPendingMessages(Channel));
-                        Channel.SendMessage(obd_pedal_pos_message);
-                        readings.AddRange(ReadPendingMessages(Channel));
-                        Channel.SendMessage(obd_manifold_temp_message);
-                        readings.AddRange(ReadPendingMessages(Channel));
-                        Channel.SendMessage(obd_secondary_message);
-                        readings.AddRange(ReadPendingMessages(Channel));
-                        Channel.SendMessage(obd_basic_message);
-                        readings.AddRange(ReadPendingMessages(Channel));
+                        // Send all configured OBD requests
+                        foreach (var message in allMessages)
+                        {
+                            Channel.SendMessage(message);
+                            readings.AddRange(ReadPendingMessages(Channel));
+                        }
 
                         if (readings.Count > 0)
                         {
@@ -150,18 +241,29 @@ namespace LotusECMLogger
                             {
                                 OnDataLogged(readings);
                             }
-                            // TODO: performance would be improved if this happens in a different thread.
-                            writer.WriteLine(readings);
+
+                            // Queue data for background CSV writing (non-blocking)
+                            QueueDataForCSVWriting(readings);
                         }
                     }
                 }
             }
-
-            if (device != null)
+            finally
             {
-                device.Dispose();
+                device?.Dispose();
             }
+        }
 
+        /// <summary>
+        /// Queue data for background CSV writing (non-blocking operation)
+        /// </summary>
+        /// <param name="readings">Data to write to CSV</param>
+        private void QueueDataForCSVWriting(List<LiveDataReading> readings)
+        {
+            // Create a copy to avoid shared memory issues between threads
+            var readingsCopy = new List<LiveDataReading>(readings);
+            csvWriteQueue.Enqueue(readingsCopy);
+            csvDataAvailable.Set(); // Signal the CSV writer thread
         }
 
         private static List<LiveDataReading> ReadPendingMessages(Channel Channel)
@@ -186,6 +288,16 @@ namespace LotusECMLogger
                 // skip timeout, no messages received
             }
             return readings;
+        }
+
+        /// <summary>
+        /// Dispose resources including the ManualResetEvent
+        /// </summary>
+        public void Dispose()
+        {
+            Stop();
+            csvDataAvailable?.Dispose();
+            GC.SuppressFinalize(this);
         }
     }
 }

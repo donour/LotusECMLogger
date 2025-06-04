@@ -1,0 +1,131 @@
+{
+  "name": "Lotus Diagnostic Configuration",
+  "description": "Comprehensive diagnostic parameters for troubleshooting and analysis",
+  "ecmHeader": [0, 0, 7, 224],
+  "requests": [
+    {
+      "type": "Mode01",
+      "name": "Standard Diagnostics",
+      "pids": [12, 17, 67, 5, 14, 11, 13, 15, 33, 49],
+      "description": "RPM, throttle, load, coolant temp, timing, MAP, speed, air temp, distance with MIL, DTCs cleared",
+      "category": "Standard OBD-II"
+    },
+    {
+      "type": "Mode22",
+      "name": "System Leak Status",
+      "pidHigh": 2,
+      "pidLow": 1,
+      "category": "Diagnostics"
+    },
+    {
+      "type": "Mode22",
+      "name": "Cat Diag Pre-Cat Sw B1",
+      "pidHigh": 2,
+      "pidLow": 10,
+      "category": "Diagnostics"
+    },
+    {
+      "type": "Mode22",
+      "name": "Cat Diag Pre-Cat Max Sw",
+      "pidHigh": 2,
+      "pidLow": 11,
+      "category": "Diagnostics"
+    },
+    {
+      "type": "Mode22",
+      "name": "Long Term Fuel Trim (B1)",
+      "pidHigh": 2,
+      "pidLow": 50,
+      "category": "Engine Management",
+      "unit": "%"
+    },
+    {
+      "type": "Mode22",
+      "name": "Short Term Fuel Trim (B1)",
+      "pidHigh": 2,
+      "pidLow": 51,
+      "category": "Engine Management",
+      "unit": "%"
+    },
+    {
+      "type": "Mode22",
+      "name": "Long Term Fuel Trim (B2)",
+      "pidHigh": 2,
+      "pidLow": 54,
+      "category": "Engine Management",
+      "unit": "%"
+    },
+    {
+      "type": "Mode22",
+      "name": "Short Term Fuel Trim (B2)",
+      "pidHigh": 2,
+      "pidLow": 55,
+      "category": "Engine Management",
+      "unit": "%"
+    },
+    {
+      "type": "Mode22",
+      "name": "Knock Spark Advance Retard",
+      "pidHigh": 2,
+      "pidLow": 49,
+      "category": "Performance",
+      "unit": "degrees",
+      "description": "All cylinders"
+    },
+    {
+      "type": "Mode22",
+      "name": "Cam Angle Error (B1 inlet)",
+      "pidHigh": 2,
+      "pidLow": 43,
+      "category": "Engine Management",
+      "unit": "degrees"
+    },
+    {
+      "type": "Mode22",
+      "name": "Cam Angle Error (B1 exhaust)",
+      "pidHigh": 2,
+      "pidLow": 61,
+      "category": "Engine Management",
+      "unit": "degrees"
+    },
+    {
+      "type": "Mode22",
+      "name": "Air Flow Error",
+      "pidHigh": 2,
+      "pidLow": 52,
+      "category": "Engine Management"
+    },
+    {
+      "type": "Mode22",
+      "name": "Idle Speed Error",
+      "pidHigh": 2,
+      "pidLow": 44,
+      "category": "Engine Management",
+      "unit": "RPM"
+    },
+    {
+      "type": "Mode22",
+      "name": "Engine Speed Error",
+      "pidHigh": 2,
+      "pidLow": 74,
+      "category": "Performance",
+      "unit": "RPM"
+    },
+    {
+      "type": "Mode22",
+      "name": "Catalytic Converter Temperature",
+      "pidHigh": 2,
+      "pidLow": 56,
+      "category": "Emissions",
+      "unit": "degC"
+    },
+    {
+      "type": "Mode22",
+      "name": "Target Catalytic Converter Temperature",
+      "pidHigh": 2,
+      "pidLow": 57,
+      "category": "Emissions",
+      "unit": "degC"
+    }
+  ]
+} 
