@@ -1,11 +1,24 @@
-﻿
+﻿/// <summary>
+/// A specialized CSV writer for automotive diagnostic data logging.
+/// This class manages CSV file output with automatic header detection and data formatting
+/// specifically designed for LiveDataReading collections from ECM logging operations.
+/// </summary>
+/// <remarks>
+/// The CSVWriter implements a two-phase writing strategy:
+/// 1. Header Detection Phase: Scans the first 20 data collections to determine all available data fields
+/// 2. Data Writing Phase: Writes headers once, then outputs data rows with consistent column ordering
+/// 
+/// This approach ensures that all possible data fields are captured in the CSV header,
+/// even if they don't appear in the first few data samples.
+/// </remarks>
 namespace LotusECMLogger
 {
     internal class CSVWriter : IDisposable
     {
         private StreamWriter writer;
-        private int linesRx = 0;
+        private int linesRx z = 0;
         private Dictionary<string, double> recentValues = new();
+        private int readonly data_sample_lines = 20;
 
         public CSVWriter(string filename)
         {
@@ -20,7 +33,7 @@ namespace LotusECMLogger
         public void WriteLine(List<LiveDataReading> readings)
         {
 
-            if (linesRx > 20)
+            if (linesRx > data_sample_lines)
             {
                 var keys = getSortedHeaders();
                 foreach (var r in readings)
@@ -39,7 +52,7 @@ namespace LotusECMLogger
                 {
                     recentValues[r.name] = r.value_f;
                 }
-                if (linesRx == 20)
+                if (linesRx == data_sample_lines)
                 {
                     writer.WriteLine(string.Join(",", getSortedHeaders()));
                 }
