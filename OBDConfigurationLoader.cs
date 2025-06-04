@@ -1,7 +1,29 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace LotusECMLogger
 {
+    /// <summary>
+    /// Minimal converter for byte arrays as readable integer arrays [0, 0, 7, 224]
+    /// </summary>
+    public class IntArrayByteConverter : JsonConverter<byte[]>
+    {
+        public override byte[] Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var bytes = new List<byte>();
+            while (reader.Read() && reader.TokenType != JsonTokenType.EndArray)
+                if (reader.TokenType == JsonTokenType.Number) bytes.Add((byte)reader.GetInt32());
+            return bytes.ToArray();
+        }
+
+        public override void Write(Utf8JsonWriter writer, byte[] value, JsonSerializerOptions options)
+        {
+            writer.WriteStartArray();
+            foreach (byte b in value) writer.WriteNumberValue(b);
+            writer.WriteEndArray();
+        }
+    }
+
     /// <summary>
     /// JSON structure for configuration file
     /// </summary>
@@ -9,7 +31,10 @@ namespace LotusECMLogger
     {
         public string Name { get; set; } = string.Empty;
         public string Description { get; set; } = string.Empty;
+        
+        [JsonConverter(typeof(IntArrayByteConverter))]
         public byte[] EcmHeader { get; set; } = Array.Empty<byte>();
+        
         public List<OBDRequestJson> Requests { get; set; } = new();
     }
 
@@ -25,6 +50,7 @@ namespace LotusECMLogger
         public string Unit { get; set; } = string.Empty;
         
         // Mode01 specific
+        [JsonConverter(typeof(IntArrayByteConverter))]
         public byte[]? Pids { get; set; }
         
         // Mode22 specific
