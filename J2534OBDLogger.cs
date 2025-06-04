@@ -31,13 +31,18 @@ namespace LotusECMLogger
         /// var logger = new J2534OBDLogger("log.csv", OnData, OnError, 
         ///     OBDConfiguration.CreateFastLogging());
         /// 
-        /// // Use diagnostic mode (more parameters)
+        /// // Use complete Lotus configuration (ALL available parameters)
+        /// var logger = new J2534OBDLogger("log.csv", OnData, OnError, 
+        ///     OBDConfiguration.CreateCompleteLotusConfiguration());
+        /// 
+        /// // Use diagnostic mode (extended parameters)
         /// var logger = new J2534OBDLogger("log.csv", OnData, OnError, 
         ///     OBDConfiguration.CreateDiagnosticMode());
         /// 
         /// // Create custom configuration
         /// var customConfig = new OBDConfiguration();
         /// customConfig.Requests.Add(new Mode01Request("RPM Only", 0x0C));
+        /// customConfig.Requests.Add(new Mode22Request("Sport Button", 0x02, 0x5D));
         /// var logger = new J2534OBDLogger("log.csv", OnData, OnError, customConfig);
         /// </example>
         public J2534OBDLogger(String filename, Action<List<LiveDataReading>> logger_DataLogged, Action<Exception> exceptionHandler, OBDConfiguration configuration)

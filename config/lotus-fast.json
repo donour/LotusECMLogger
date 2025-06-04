@@ -1,0 +1,21 @@
+{
+  "name": "Lotus Fast Configuration",
+  "description": "Minimal parameter set for maximum J2534 performance",
+  "ecmHeader": [0, 0, 7, 224],
+  "requests": [
+    {
+      "type": "Mode01",
+      "name": "Core Engine Data",
+      "pids": [12, 17, 14],
+      "description": "Engine speed, throttle position, timing advance"
+    },
+    {
+      "type": "Mode22",
+      "name": "Accelerator Pedal Position",
+      "pidHigh": 2,
+      "pidLow": 70,
+      "category": "Engine Management",
+      "unit": "%"
+    }
+  ]
+} 

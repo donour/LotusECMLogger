@@ -1,0 +1,92 @@
+{
+  "name": "Lotus Default Configuration",
+  "description": "Balanced set of essential Lotus ECU parameters",
+  "ecmHeader": [0, 0, 7, 224],
+  "requests": [
+    {
+      "type": "Mode01",
+      "name": "Essential Engine Data",
+      "pids": [12, 17, 67, 5, 14, 11],
+      "description": "Engine speed, throttle, load, coolant temp, timing, MAP"
+    },
+    {
+      "type": "Mode22",
+      "name": "Sport Button",
+      "pidHigh": 2,
+      "pidLow": 93,
+      "category": "Performance"
+    },
+    {
+      "type": "Mode22",
+      "name": "Throttle Position Sensor",
+      "pidHigh": 2,
+      "pidLow": 69,
+      "category": "Engine Management",
+      "unit": "%"
+    },
+    {
+      "type": "Mode22",
+      "name": "Accelerator Pedal Position",
+      "pidHigh": 2,
+      "pidLow": 70,
+      "category": "Engine Management",
+      "unit": "%"
+    },
+    {
+      "type": "Mode22",
+      "name": "Manifold Temperature",
+      "pidHigh": 2,
+      "pidLow": 114,
+      "category": "Environmental",
+      "unit": "degC"
+    },
+    {
+      "type": "Mode22",
+      "name": "Octane Scaler Cylinder 1",
+      "pidHigh": 2,
+      "pidLow": 24,
+      "category": "Performance",
+      "unit": "%"
+    },
+    {
+      "type": "Mode22",
+      "name": "Octane Scaler Cylinder 2",
+      "pidHigh": 2,
+      "pidLow": 27,
+      "category": "Performance",
+      "unit": "%"
+    },
+    {
+      "type": "Mode22",
+      "name": "Octane Scaler Cylinder 3",
+      "pidHigh": 2,
+      "pidLow": 25,
+      "category": "Performance",
+      "unit": "%"
+    },
+    {
+      "type": "Mode22",
+      "name": "Octane Scaler Cylinder 4",
+      "pidHigh": 2,
+      "pidLow": 26,
+      "category": "Performance",
+      "unit": "%"
+    },
+    {
+      "type": "Mode22",
+      "name": "Octane Scaler Cylinder 5",
+      "pidHigh": 2,
+      "pidLow": 77,
+      "category": "Performance",
+      "unit": "%"
+    },
+    {
+      "type": "Mode22",
+      "name": "Octane Scaler Cylinder 6",
+      "pidHigh": 2,
+      "pidLow": 78,
+      "category": "Performance",
+      "unit": "%"
+    }
+  ]
+} 
