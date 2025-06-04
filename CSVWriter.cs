@@ -16,9 +16,9 @@ namespace LotusECMLogger
     internal class CSVWriter : IDisposable
     {
         private StreamWriter writer;
-        private int linesRx z = 0;
+        private int linesRx = 0;
         private Dictionary<string, double> recentValues = new();
-        private int readonly data_sample_lines = 20;
+        private readonly int data_sample_lines = 20;
 
         public CSVWriter(string filename)
         {
