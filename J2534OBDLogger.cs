@@ -307,7 +307,7 @@ namespace LotusECMLogger
                     if (resp.Messages.Length > 0)
                     {
                         var mesg = resp.Messages[0];
-                        readings.AddRange(LiveDataReading.parseCanResponse(mesg.Data));
+                        readings.AddRange(LiveDataReading.ParseCanResponse(mesg.Data));
                     }
                 } while (resp.Messages.Length > 0);
             }
