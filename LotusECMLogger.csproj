@@ -7,7 +7,12 @@
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
     <Platforms>AnyCPU;x86</Platforms>
+    <ApplicationIcon>audio_video_media_control_resume_plain_icon_260667.ico</ApplicationIcon>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="audio_video_media_control_resume_plain_icon_260667.ico" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="J2534-Sharp" Version="1.0.0-CI00036" />
@@ -17,6 +22,10 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Properties\" />
   </ItemGroup>
 
 </Project>

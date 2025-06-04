@@ -30,7 +30,11 @@ namespace LotusECMLogger
             stopLogger_button = new Button();
             currentLogfileName = new Label();
             liveDataView = new DataGridView();
+            menuStrip1 = new MenuStrip();
+            helpToolStripMenuItem = new ToolStripMenuItem();
+            aboutLotusECMLoggerToolStripMenuItem = new ToolStripMenuItem();
             ((ISupportInitialize)liveDataView).BeginInit();
+            menuStrip1.SuspendLayout();
             SuspendLayout();
             // 
             // startLogger_button
@@ -77,6 +81,29 @@ namespace LotusECMLogger
             liveDataView.Size = new Size(600, 363);
             liveDataView.TabIndex = 6;
             // 
+            // menuStrip1
+            // 
+            menuStrip1.Items.AddRange(new ToolStripItem[] { helpToolStripMenuItem });
+            menuStrip1.Location = new Point(0, 0);
+            menuStrip1.Name = "menuStrip1";
+            menuStrip1.Size = new Size(624, 24);
+            menuStrip1.TabIndex = 7;
+            menuStrip1.Text = "menuStrip1";
+            // 
+            // helpToolStripMenuItem
+            // 
+            helpToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { aboutLotusECMLoggerToolStripMenuItem });
+            helpToolStripMenuItem.Name = "helpToolStripMenuItem";
+            helpToolStripMenuItem.Size = new Size(44, 20);
+            helpToolStripMenuItem.Text = "Help";
+            // 
+            // aboutLotusECMLoggerToolStripMenuItem
+            // 
+            aboutLotusECMLoggerToolStripMenuItem.Name = "aboutLotusECMLoggerToolStripMenuItem";
+            aboutLotusECMLoggerToolStripMenuItem.Size = new Size(201, 22);
+            aboutLotusECMLoggerToolStripMenuItem.Text = "About LotusECMLogger";
+            aboutLotusECMLoggerToolStripMenuItem.Click += aboutLotusECMLoggerToolStripMenuItem_Click;
+            // 
             // LoggerWindow
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
@@ -86,10 +113,14 @@ namespace LotusECMLogger
             Controls.Add(currentLogfileName);
             Controls.Add(stopLogger_button);
             Controls.Add(startLogger_button);
+            Controls.Add(menuStrip1);
+            MainMenuStrip = menuStrip1;
             MinimumSize = new Size(640, 480);
             Name = "LoggerWindow";
             Text = "LotusECMLogger";
             ((ISupportInitialize)liveDataView).EndInit();
+            menuStrip1.ResumeLayout(false);
+            menuStrip1.PerformLayout();
             ResumeLayout(false);
             PerformLayout();
         }
@@ -103,5 +134,8 @@ namespace LotusECMLogger
         private Button stopLogger_button;
         private Label currentLogfileName;
         private DataGridView liveDataView;
+        private MenuStrip menuStrip1;
+        private ToolStripMenuItem helpToolStripMenuItem;
+        private ToolStripMenuItem aboutLotusECMLoggerToolStripMenuItem;
     }
 }

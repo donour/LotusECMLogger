@@ -9,38 +9,55 @@ namespace LotusECMLogger
 
         private String output_filename;
         private bool terminate = false;
-        private Thread loggerThread;
+        private Thread? loggerThread;
 
-        public J2534OBDLogger(String filename)
+        // This mutex is needed because the ui thread both waits for the logger thread on
+        // completion and also updates the UI with the data logged by the logger thread.
+        // The thread can deadlock by entering the join() while a ui update is scheduled.
+        private Mutex ui_update_mtx = new();
+
+        public J2534OBDLogger(String filename, Action<LiveDataReading> logger_DataLogged)
         {
             this.output_filename = filename;
-        }
-
-        private void OnDataLogged(LiveDataReading data)
-        {
-            DataLogged?.Invoke(data);
+            this.DataLogged += logger_DataLogged;
         }
 
         public void stop()
         {
-            terminate = true;
-            if (loggerThread != null && loggerThread.IsAlive)
+            // avoid double terminate calls
+            if (terminate == false)
             {
-                loggerThread.Join(); // wait for the thread to finish
+                terminate = true;
+                if (loggerThread != null && loggerThread.IsAlive)
+                {
+                    ui_update_mtx.WaitOne();
+                    loggerThread.Join(); // wait for the thread to finish
+                    ui_update_mtx.ReleaseMutex();
+                }
             }
         }
 
         public void start()
         {
 
-            string DllFileName = APIFactory.GetAPIinfo().First().Filename;
-            API API = APIFactory.GetAPI(DllFileName);
-            Device device = API.GetDevice();
-            loggerThread = new Thread(() => runLogger(device))
+            //string DllFileName = APIFactory.GetAPIinfo().First().Filename;
+            //API API = APIFactory.GetAPI(DllFileName);
+            //Device device = API.GetDevice();
+            //loggerThread = new Thread(() => runLogger(device))
+            loggerThread = new Thread(() => test())
             {
                 IsBackground = true
             };
             loggerThread.Start();
+        }
+        private void OnDataLogged(LiveDataReading data)
+        {
+            ui_update_mtx.WaitOne();
+            if (terminate == false)
+            {
+                DataLogged?.Invoke(data);
+            }
+            ui_update_mtx.ReleaseMutex();
         }
 
         private void test()

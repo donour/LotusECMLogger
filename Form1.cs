@@ -1,5 +1,6 @@
 using SAE.J2534;
 using System.ComponentModel;
+using System.Text.Unicode;
 
 namespace LotusECMLogger
 {
@@ -8,7 +9,7 @@ namespace LotusECMLogger
         /// <summary>
         ///  Required designer variable.
         /// </summary>
-        private System.ComponentModel.IContainer components = null;
+        private System.ComponentModel.IContainer? components = null;
 
         private J2534OBDLogger logger;
         private Dictionary<String, float> liveData = new Dictionary<string, float>();
@@ -30,17 +31,20 @@ namespace LotusECMLogger
         public LoggerWindow()
         {
             InitializeComponent();
+            // dummy logger to avoid null reference exceptions
+            logger = new J2534OBDLogger("unused", Logger_DataLogged);
         }
 
         private void buttonTestRead_Click(object sender, EventArgs e)
         {
             try
             {
+                liveData.Clear();
+
                 ((Button)sender).Enabled = false;
                 var outfn = $"{Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)}\\LotusECMLog{DateTime.Now:yyyyMMdd_HHmmss}.csv";
-                logger = new J2534OBDLogger(outfn);
+                logger = new J2534OBDLogger(outfn, Logger_DataLogged);
                 logger.start();
-                logger.DataLogged += Logger_DataLogged;
                 currentLogfileName.Text = outfn;
                 stopLogger_button.Enabled = true;
 
@@ -70,6 +74,12 @@ namespace LotusECMLogger
             liveData[data.name] = (float)data.value_f;
             var bdata = from row in liveData.Keys select new { Sensor = row, Value = liveData[row] };
             liveDataView.DataSource = bdata.ToList();
+        }
+
+        private void aboutLotusECMLoggerToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            var ab = new AboutBox1();
+            ab.ShowDialog(this);
         }
     }
 }
