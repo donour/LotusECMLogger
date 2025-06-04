@@ -6,6 +6,7 @@ namespace LotusECMLogger
     internal class J2534OBDLogger
     {
         public event Action<List<LiveDataReading>> DataLogged;
+        public event Action<Exception> ExceptionOccurred;
 
         private readonly String output_filename;
         private bool terminate = false;
@@ -18,6 +19,13 @@ namespace LotusECMLogger
             this.DataLogged += logger_DataLogged;
         }
 
+        public J2534OBDLogger(String filename, Action<List<LiveDataReading>> logger_DataLogged, Action<Exception> exceptionHandler)
+        {
+            this.output_filename = filename;
+            this.DataLogged += logger_DataLogged;
+            this.ExceptionOccurred += exceptionHandler;
+        }
+
         public void Stop()
         {
             terminate = true;
@@ -25,22 +33,48 @@ namespace LotusECMLogger
 
         public void Start()
         {
-
             string DllFileName = APIFactory.GetAPIinfo().First().Filename;
             API API = APIFactory.GetAPI(DllFileName);
             device = API.GetDevice();
-            loggerThread = new Thread(() => RunLogger(device))
-            //loggerThread = new Thread(() => test())
+            try
             {
-                IsBackground = true
-            };
-            loggerThread.Start();
+                loggerThread = new Thread(() => RunLoggerWithExceptionHandling(device))
+                //loggerThread = new Thread(() => test())
+                {
+                    IsBackground = true
+                };
+                loggerThread.Start();
+            }
+            catch (Exception ex)
+            {
+                OnExceptionOccurred(ex);
+            }
+        }
+
+        private void RunLoggerWithExceptionHandling(Device device)
+        {
+            try
+            {
+                RunLogger(device);
+            }
+            catch (Exception ex)
+            {
+                OnExceptionOccurred(ex);
+            }
         }
         private void OnDataLogged(List<LiveDataReading> data)
         {
             if (terminate == false)
             {
                 DataLogged?.Invoke(data);
+            }
+        }
+
+        private void OnExceptionOccurred(Exception ex)
+        {
+            if (terminate == false)
+            {
+                ExceptionOccurred?.Invoke(ex);
             }
         }
 
@@ -125,17 +159,26 @@ namespace LotusECMLogger
 
                         List<LiveDataReading> readings = new List<LiveDataReading>();
 
-                        // TODO: timeouts/exceptions here need to make their way back to the ui thread.
-                        Channel.SendMessages(obd_mode22_octane_messages);
-                        readings.AddRange(ReadPendingMessages(Channel));
-                        Channel.SendMessage(obd_pedal_pos_message);
-                        readings.AddRange(ReadPendingMessages(Channel));
-                        Channel.SendMessage(obd_manifold_temp_message);
-                        readings.AddRange(ReadPendingMessages(Channel));
-                        Channel.SendMessage(obd_secondary_message);
-                        readings.AddRange(ReadPendingMessages(Channel));
-                        Channel.SendMessage(obd_basic_message);
-                        readings.AddRange(ReadPendingMessages(Channel));
+                        try
+                        {
+                            Channel.SendMessages(obd_mode22_octane_messages);
+                            readings.AddRange(ReadPendingMessages(Channel));
+                            Channel.SendMessage(obd_pedal_pos_message);
+                            readings.AddRange(ReadPendingMessages(Channel));
+                            Channel.SendMessage(obd_manifold_temp_message);
+                            readings.AddRange(ReadPendingMessages(Channel));
+                            Channel.SendMessage(obd_secondary_message);
+                            readings.AddRange(ReadPendingMessages(Channel));
+                            Channel.SendMessage(obd_basic_message);
+                            readings.AddRange(ReadPendingMessages(Channel));
+                        }
+                        catch (J2534Exception ex | TimeoutException ex)
+                        {
+                            // Log specific J2534 communication errors but continue trying
+                            Debug.WriteLine($"J2534 Communication Error: {ex.Message}");
+                            // Skip this iteration but don't terminate the logger
+                            continue;
+                        }
 
                         if (readings.Count > 0)
                         {
