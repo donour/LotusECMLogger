@@ -97,6 +97,19 @@ namespace LotusECMLogger
                                 }
                                 idx += 2;
                                 break;
+                            case 0x0F: // intake air temperature (IAT)
+                                if (data.Length > idx + 1)
+                                {
+                                    int iat = data[idx + 1] - 40; // OBD-II: A - 40
+                                    LiveDataReading reading = new()
+                                    {
+                                        name = "Intake Air Temperature",
+                                        value_f = iat,
+                                    };
+                                    results.Add(reading);
+                                }
+                                idx += 2;
+                                break;
                             case 0x11: // throttle position
                                 if (data.Length > idx + 1)
                                 {
@@ -119,6 +132,21 @@ namespace LotusECMLogger
                                     {
                                         name = "Absolute Load",
                                         value_f = absoluteLoad,
+                                    };
+                                    results.Add(reading);
+                                }
+                                idx += 3;
+                                break;
+                            case 0x44: // commanded equivalence ratio (air-fuel)
+                                if (data.Length > idx + 2)
+                                {
+                                    int A = data[idx + 1];
+                                    int B = data[idx + 2];
+                                    double eqRatio = ((A << 8) | B) / 32768.0;
+                                    LiveDataReading reading = new()
+                                    {
+                                        name = "Commanded Equivalence Ratio",
+                                        value_f = eqRatio,
                                     };
                                     results.Add(reading);
                                 }
@@ -148,6 +176,18 @@ namespace LotusECMLogger
                                     {
                                         name = $"Octane Rating {data[idx + 1]:X2}",
                                         value_f = octaneRating,
+                                    };
+                                    results.Add(reading);
+                                }
+                                break;
+                            case 0x45: //TPS
+                                if (data.Length > idx + 3)
+                                {
+                                    int tps = (data[idx + 2] << 8) | data[idx + 3];
+                                    LiveDataReading reading = new()
+                                    {
+                                        name = "TPS (mode22)",
+                                        value_f = tps * 100.0 / 1024, // convert to percentage
                                     };
                                     results.Add(reading);
                                 }
