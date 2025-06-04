@@ -29,16 +29,18 @@ namespace LotusECMLogger
             deviceLabel = new Label();
             label1 = new Label();
             buttonRefreshDevice = new Button();
-            buttonTestRead = new Button();
+            startLogger_button = new Button();
+            stopLogger_button = new Button();
+            currentLogfileName = new Label();
             SuspendLayout();
             // 
             // deviceLabel
             // 
             deviceLabel.AutoSize = true;
             deviceLabel.DataBindings.Add(new Binding("Text", this, "J2534DeviceName", true));
-            deviceLabel.Location = new Point(116, 568);
+            deviceLabel.Location = new Point(102, 426);
             deviceLabel.Name = "deviceLabel";
-            deviceLabel.Size = new Size(78, 20);
+            deviceLabel.Size = new Size(61, 15);
             deviceLabel.TabIndex = 0;
             deviceLabel.Text = "No Device";
             // 
@@ -46,44 +48,64 @@ namespace LotusECMLogger
             // 
             label1.AutoSize = true;
             label1.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            label1.Location = new Point(14, 568);
+            label1.Location = new Point(12, 426);
             label1.Name = "label1";
-            label1.Size = new Size(106, 20);
+            label1.Size = new Size(85, 15);
             label1.TabIndex = 1;
             label1.Text = "J2534 Device:";
             // 
             // buttonRefreshDevice
             // 
-            buttonRefreshDevice.Location = new Point(335, 557);
-            buttonRefreshDevice.Margin = new Padding(3, 4, 3, 4);
+            buttonRefreshDevice.Enabled = false;
+            buttonRefreshDevice.Location = new Point(12, 400);
             buttonRefreshDevice.Name = "buttonRefreshDevice";
-            buttonRefreshDevice.Size = new Size(86, 31);
+            buttonRefreshDevice.Size = new Size(75, 23);
             buttonRefreshDevice.TabIndex = 2;
             buttonRefreshDevice.Text = "Refresh Device";
             buttonRefreshDevice.UseVisualStyleBackColor = true;
             buttonRefreshDevice.Click += buttonRefreshDevice_Click;
             // 
-            // buttonTestRead
+            // startLogger_button
             // 
-            buttonTestRead.Location = new Point(14, 16);
-            buttonTestRead.Margin = new Padding(3, 4, 3, 4);
-            buttonTestRead.Name = "buttonTestRead";
-            buttonTestRead.Size = new Size(86, 31);
-            buttonTestRead.TabIndex = 3;
-            buttonTestRead.Text = "Connect";
-            buttonTestRead.UseVisualStyleBackColor = true;
-            buttonTestRead.Click += buttonTestRead_Click;
+            startLogger_button.Location = new Point(12, 12);
+            startLogger_button.Name = "startLogger_button";
+            startLogger_button.Size = new Size(75, 23);
+            startLogger_button.TabIndex = 3;
+            startLogger_button.Text = "Start";
+            startLogger_button.UseVisualStyleBackColor = true;
+            startLogger_button.Click += buttonTestRead_Click;
+            // 
+            // stopLogger_button
+            // 
+            stopLogger_button.Enabled = false;
+            stopLogger_button.Location = new Point(93, 12);
+            stopLogger_button.Name = "stopLogger_button";
+            stopLogger_button.Size = new Size(75, 23);
+            stopLogger_button.TabIndex = 4;
+            stopLogger_button.Text = "Stop";
+            stopLogger_button.UseVisualStyleBackColor = true;
+            stopLogger_button.Click += stopLogger_button_Click;
+            // 
+            // currentLogfileName
+            // 
+            currentLogfileName.AutoSize = true;
+            currentLogfileName.Location = new Point(12, 47);
+            currentLogfileName.Name = "currentLogfileName";
+            currentLogfileName.Size = new Size(67, 15);
+            currentLogfileName.TabIndex = 5;
+            currentLogfileName.Text = "No Log File";
             // 
             // LoggerWindow
             // 
-            AutoScaleDimensions = new SizeF(8F, 20F);
+            AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(914, 600);
-            Controls.Add(buttonTestRead);
+            ClientSize = new Size(800, 450);
+            Controls.Add(currentLogfileName);
+            Controls.Add(stopLogger_button);
+            Controls.Add(startLogger_button);
             Controls.Add(buttonRefreshDevice);
             Controls.Add(label1);
             Controls.Add(deviceLabel);
-            Margin = new Padding(3, 4, 3, 4);
             Name = "LoggerWindow";
             Text = "Form1";
             ResumeLayout(false);
@@ -95,6 +117,8 @@ namespace LotusECMLogger
         private Label deviceLabel;
         private Label label1;
         private Button buttonRefreshDevice;
-        private Button buttonTestRead;
+        private Button startLogger_button;
+        private Button stopLogger_button;
+        private Label currentLogfileName;
     }
 }
