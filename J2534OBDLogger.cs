@@ -1,9 +1,10 @@
 ﻿using SAE.J2534;
+using System.Collections.Concurrent;
 using System.Diagnostics;
 
 namespace LotusECMLogger
 {
-    internal class J2534OBDLogger
+    internal class J2534OBDLogger : IDisposable
     {
         public event Action<List<LiveDataReading>> DataLogged;
         public event Action<Exception> ExceptionOccurred;
@@ -25,7 +26,13 @@ namespace LotusECMLogger
         private readonly OBDConfiguration obdConfig;
         private bool terminate = false;
         private Thread? loggerThread;
+        private Thread? csvWriterThread;
         private Device? device;
+
+        // CSV writer thread coordination
+        private readonly ConcurrentQueue<List<LiveDataReading>> csvWriteQueue = new();
+        private readonly ManualResetEvent csvDataAvailable = new(false);
+        private volatile bool csvWriterShouldStop = false;
 
         public J2534OBDLogger(String filename, Action<List<LiveDataReading>> logger_DataLogged, Action<Exception> exceptionHandler)
             : this(filename, logger_DataLogged, exceptionHandler, OBDConfiguration.CreateLotusDefault())
@@ -69,6 +76,11 @@ namespace LotusECMLogger
         public void Stop()
         {
             terminate = true;
+            
+            // Signal CSV writer to stop and wait for it to finish
+            csvWriterShouldStop = true;
+            csvDataAvailable.Set();
+            csvWriterThread?.Join(1000); // Wait up to 1 second
         }
 
         public void Start()
@@ -78,10 +90,21 @@ namespace LotusECMLogger
             device = API.GetDevice();
             try
             {
+                // Start CSV writer thread first
+                csvWriterShouldStop = false;
+                csvWriterThread = new Thread(RunCSVWriter)
+                {
+                    IsBackground = true,
+                    Name = "CSV Writer"
+                };
+                csvWriterThread.Start();
+
+                // Start main logger thread
                 loggerThread = new Thread(() => RunLoggerWithExceptionHandling(device))
                 //loggerThread = new Thread(() => test())
                 {
-                    IsBackground = true
+                    IsBackground = true,
+                    Name = "J2534 Logger"
                 };
                 loggerThread.Start();
             }
@@ -115,6 +138,46 @@ namespace LotusECMLogger
             if (terminate == false)
             {
                 ExceptionOccurred?.Invoke(ex);
+            }
+        }
+
+        /// <summary>
+        /// Background thread that handles CSV writing to improve J2534 communication performance
+        /// </summary>
+        private void RunCSVWriter()
+        {
+            try
+            {
+                using (var writer = new CSVWriter(output_filename))
+                {
+                    while (!csvWriterShouldStop)
+                    {
+                        // Wait for data to be available
+                        csvDataAvailable.WaitOne();
+
+                        // Process all queued data
+                        while (csvWriteQueue.TryDequeue(out var readings))
+                        {
+                            writer.WriteLine(readings);
+                        }
+
+                        // Reset the signal if queue is empty
+                        if (csvWriteQueue.IsEmpty)
+                        {
+                            csvDataAvailable.Reset();
+                        }
+                    }
+
+                    // Process any remaining data in the queue before shutdown
+                    while (csvWriteQueue.TryDequeue(out var readings))
+                    {
+                        writer.WriteLine(readings);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                OnExceptionOccurred(ex);
             }
         }
 
@@ -153,36 +216,34 @@ namespace LotusECMLogger
                         Debug.WriteLine($"  - {request.Name} (Mode 0x{request.Mode:X2})");
                     }
 
-                    using (var writer = new CSVWriter(output_filename))
+                    uint ui_update_counter = 0;
+                    while (terminate == false)
                     {
-                        uint ui_update_counter = 0;
-                        while (terminate == false)
+                        List<LiveDataReading> readings = [];
+
+                        // Send all configured OBD requests
+                        foreach (var message in allMessages)
                         {
-                            List<LiveDataReading> readings = [];
+                            Channel.SendMessage(message);
+                            readings.AddRange(ReadPendingMessages(Channel));
+                        }
 
-                            // Send all configured OBD requests
-                            foreach (var message in allMessages)
+                        if (readings.Count > 0)
+                        {
+                            var tr = new LiveDataReading
                             {
-                                Channel.SendMessage(message);
-                                readings.AddRange(ReadPendingMessages(Channel));
+                                name = "time (s)",
+                                value_f = DateTime.Now.TimeOfDay.TotalSeconds
+                            };
+                            readings.Add(tr);
+
+                            if (ui_update_counter++ % 10 == 0)
+                            {
+                                OnDataLogged(readings);
                             }
 
-                            if (readings.Count > 0)
-                            {
-                                var tr = new LiveDataReading
-                                {
-                                    name = "time (s)",
-                                    value_f = DateTime.Now.TimeOfDay.TotalSeconds
-                                };
-                                readings.Add(tr);
-
-                                if (ui_update_counter++ % 10 == 0)
-                                {
-                                    OnDataLogged(readings);
-                                }
-                                // TODO: performance would be improved if this happens in a different thread.
-                                writer.WriteLine(readings);
-                            }
+                            // Queue data for background CSV writing (non-blocking)
+                            QueueDataForCSVWriting(readings);
                         }
                     }
                 }
@@ -191,6 +252,18 @@ namespace LotusECMLogger
             {
                 device?.Dispose();
             }
+        }
+
+        /// <summary>
+        /// Queue data for background CSV writing (non-blocking operation)
+        /// </summary>
+        /// <param name="readings">Data to write to CSV</param>
+        private void QueueDataForCSVWriting(List<LiveDataReading> readings)
+        {
+            // Create a copy to avoid shared memory issues between threads
+            var readingsCopy = new List<LiveDataReading>(readings);
+            csvWriteQueue.Enqueue(readingsCopy);
+            csvDataAvailable.Set(); // Signal the CSV writer thread
         }
 
         private static List<LiveDataReading> ReadPendingMessages(Channel Channel)
@@ -215,6 +288,16 @@ namespace LotusECMLogger
                 // skip timeout, no messages received
             }
             return readings;
+        }
+
+        /// <summary>
+        /// Dispose resources including the ManualResetEvent
+        /// </summary>
+        public void Dispose()
+        {
+            Stop();
+            csvDataAvailable?.Dispose();
+            GC.SuppressFinalize(this);
         }
     }
 }
