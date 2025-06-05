@@ -113,8 +113,8 @@ namespace LotusECMLogger
                             case 0x11: // throttle position
                                 if (data.Length > idx + 1)
                                 {
-                                    // convert data[idx+1] to an unsigned 8-bit integer
-                                    int throttlePosition = data[idx + 1];
+                                    // TODO: 77 is the max value that i have seen but it might not be portable
+                                    int throttlePosition = data[idx + 1] * 100/77;
                                     LiveDataReading reading = new()
                                     {
                                         name = "Throttle Position",
@@ -171,11 +171,11 @@ namespace LotusECMLogger
                             case 0x4E: // octane rating 6
                                 if (data.Length > idx + 2)
                                 {
-                                    int octaneRating = data[idx + 2];
+                                    int octaneRating = ((data[idx + 2] << 8) | data[idx+3]);
                                     LiveDataReading reading = new()
                                     {
                                         name = $"Octane Rating {data[idx + 1]:X2}",
-                                        value_f = octaneRating,
+                                        value_f = octaneRating * 100.0/65536,
                                     };
                                     results.Add(reading);
                                 }
@@ -212,6 +212,66 @@ namespace LotusECMLogger
                                     {
                                         name = "Manifold Temperature",
                                         value_f = manifoldTemp,
+                                    };
+                                    results.Add(reading);
+                                }
+                                break;
+                            case 0x6A: // engine torque
+                                if (data.Length > idx + 2)
+                                {
+                                    int torque = (data[idx + 2] << 8) | data[idx + 3];
+                                    LiveDataReading reading = new()
+                                    {
+                                        name = "Engine Torque (nm)",
+                                        value_f = torque,
+                                    };
+                                    results.Add(reading);
+                                }
+                                break;
+                            case 0x08: // VVTi B1 intake position
+                                if (data.Length > idx + 2)
+                                {
+                                    int vvti_b1i = (data[idx + 2] << 8) | data[idx + 3];
+                                    LiveDataReading reading = new()
+                                    {
+                                        name = "VVTI B1 intake (deg)",
+                                        value_f = vvti_b1i / 4.0,
+                                    };
+                                    results.Add(reading);
+                                }
+                                break;
+                            case 0x4B: // VVTi B2 intake position
+                                if (data.Length > idx + 2)
+                                {
+                                    int vvti_b2i = (data[idx + 2] << 8) | data[idx + 3];
+                                    LiveDataReading reading = new()
+                                    {
+                                        name = "VVTI B2 intake (deg)",
+                                        value_f = vvti_b2i / 4.0,
+                                    };
+                                    results.Add(reading);
+                                }
+                                break;
+                            case 0x50: // VVTI B1 exhaust position
+                                if (data.Length > idx + 2)
+                                {
+                                    int vvti_b1e = (data[idx + 2] << 8) | data[idx + 3];
+                                    LiveDataReading reading = new()
+                                    {
+                                        name = "VVTI B1 exhaust (deg)",
+                                        value_f = vvti_b1e / 4.0,
+                                    };
+                                    results.Add(reading);
+                                }
+                                break;
+                            case 0x51: // VVTI B2 exhaust position
+                                if (data.Length > idx + 2)
+                                {
+                                    int vvti_b2e = (data[idx + 2] << 8) | data[idx + 3];
+                                    LiveDataReading reading = new()
+                                    {
+                                        name = "VVTI B2 exhaust (deg)",
+                                        value_f = vvti_b2e / 4.0,
                                     };
                                     results.Add(reading);
                                 }

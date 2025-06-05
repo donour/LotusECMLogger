@@ -253,8 +253,8 @@ namespace LotusECMLogger
                         foreach (var message in allMessages)
                         {
                             Channel.SendMessage(message);
-                            readings.AddRange(ReadPendingMessages(Channel));
                         }
+                        readings.AddRange(ReadPendingMessages(Channel));
 
                         if (readings.Count > 0)
                         {
@@ -265,7 +265,7 @@ namespace LotusECMLogger
                             };
                             readings.Add(tr);
 
-                            if (ui_update_counter++ % 10 == 0)
+                            if (ui_update_counter++ % 8 == 0)
                             {
                                 OnDataLogged(readings);
                             }
@@ -303,7 +303,7 @@ namespace LotusECMLogger
                 GetMessageResults resp;
                 do
                 {
-                    resp = Channel.GetMessages(1, 1);
+                    resp = Channel.GetMessages(1, 0);
                     if (resp.Messages.Length > 0)
                     {
                         var mesg = resp.Messages[0];

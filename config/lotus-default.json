@@ -17,14 +17,6 @@
     },
     {
       "type": "Mode22",
-      "name": "Throttle Position Sensor",
-      "pidHigh": 2,
-      "pidLow": 69,
-      "category": "Engine Management",
-      "unit": "%"
-    },
-    {
-      "type": "Mode22",
       "name": "Accelerator Pedal Position",
       "pidHigh": 2,
       "pidLow": 70,
