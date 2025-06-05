@@ -163,13 +163,28 @@ namespace LotusECMLogger
                     {
                         switch (data[idx + 1])
                         {
+                            case 0x34: // misfire cylinder 1
+                            case 0x35: // misfire cylinder 3
+                            case 0x36: // misfire cylinder 4
+                            case 0x37: // misfire cylinder 2
+                            case 0x57: // misfire cylinder 5
+                            case 0x58: // misfire cylinder 6
+                                if (data.Length > idx + 3)
+                                {
+                                    int misfire = (data[idx + 2] << 8) | data[idx + 3];
+                                    LiveDataReading reading = new()
+                                    {
+                                        name = $"Misfire {data[idx + 1]:X2}",
+                                        value_f = misfire,
+                                break;
+
                             case 0x18: // octane rating 1
                             case 0x19: // octane rating 2
                             case 0x1A: // octane rating 3
                             case 0x1B: // octane rating 4
                             case 0x4D: // octane rating 5
                             case 0x4E: // octane rating 6
-                                if (data.Length > idx + 2)
+                                if (data.Length > idx + 3)
                                 {
                                     int octaneRating = ((data[idx + 2] << 8) | data[idx+3]);
                                     LiveDataReading reading = new()
