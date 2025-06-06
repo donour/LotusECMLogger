@@ -176,6 +176,9 @@ namespace LotusECMLogger
                                     {
                                         name = $"Misfire {data[idx + 1]:X2}",
                                         value_f = misfire,
+                                    };
+                                    results.Add(reading);
+                                }                                    
                                 break;
 
                             case 0x18: // octane rating 1

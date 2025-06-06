@@ -249,12 +249,11 @@ namespace LotusECMLogger
                     {
                         List<LiveDataReading> readings = [];
 
-                        // Send all configured OBD requests
-                        foreach (var message in allMessages)
+                        foreach (var chunk in allMessages.Chunk(5))
                         {
-                            Channel.SendMessage(message);
+                            Channel.SendMessages(chunk);
+                            readings.AddRange(ReadPendingMessages(Channel));
                         }
-                        readings.AddRange(ReadPendingMessages(Channel));
 
                         if (readings.Count > 0)
                         {

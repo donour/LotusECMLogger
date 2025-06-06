@@ -70,54 +70,6 @@
       "pidLow": 78,
       "category": "Performance",
       "unit": "%"
-    },
-    {
-      "type": "Mode22",
-      "name": "Misfire Cylinder 1",
-      "pidHigh": 2,
-      "pidLow": 52,
-      "category": "Diagnostics",
-      "unit": "count"
-    },
-    {
-      "type": "Mode22",
-      "name": "Misfire Cylinder 3",
-      "pidHigh": 2,
-      "pidLow": 53,
-      "category": "Diagnostics",
-      "unit": "count"
-    },
-    {
-      "type": "Mode22",
-      "name": "Misfire Cylinder 4",
-      "pidHigh": 2,
-      "pidLow": 54,
-      "category": "Diagnostics",
-      "unit": "count"
-    },
-    {
-      "type": "Mode22",
-      "name": "Misfire Cylinder 2",
-      "pidHigh": 2,
-      "pidLow": 55,
-      "category": "Diagnostics",
-      "unit": "count"
-    },
-    {
-      "type": "Mode22",
-      "name": "Misfire Cylinder 5",
-      "pidHigh": 2,
-      "pidLow": 87,
-      "category": "Diagnostics",
-      "unit": "count"
-    },
-    {
-      "type": "Mode22",
-      "name": "Misfire Cylinder 6",
-      "pidHigh": 2,
-      "pidLow": 88,
-      "category": "Diagnostics",
-      "unit": "count"
     }
   ]
 } 
