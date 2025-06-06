@@ -36,6 +36,8 @@ namespace LotusECMLogger
             Panel topPanel = new Panel();
             startLogger_button = new Button();
             stopLogger_button = new Button();
+            obdConfigLabel = new Label();
+            obdConfigComboBox = new ComboBox();
             currentLogfileName = new Label();
             liveDataView = new ListView();
             menuStrip1 = new MenuStrip();
@@ -53,6 +55,8 @@ namespace LotusECMLogger
             // 
             topPanel.Controls.Add(startLogger_button);
             topPanel.Controls.Add(stopLogger_button);
+            topPanel.Controls.Add(obdConfigLabel);
+            topPanel.Controls.Add(obdConfigComboBox);
             topPanel.Controls.Add(currentLogfileName);
             topPanel.Dock = DockStyle.Top;
             topPanel.Location = new Point(0, 30);
@@ -83,10 +87,27 @@ namespace LotusECMLogger
             stopLogger_button.UseVisualStyleBackColor = true;
             stopLogger_button.Click += stopLogger_button_Click;
             // 
+            // obdConfigLabel
+            // 
+            obdConfigLabel.AutoSize = true;
+            obdConfigLabel.Location = new Point(200, 26);
+            obdConfigLabel.Name = "obdConfigLabel";
+            obdConfigLabel.Size = new Size(110, 20);
+            obdConfigLabel.TabIndex = 10;
+            obdConfigLabel.Text = "OBD Config:";
+            // 
+            // obdConfigComboBox
+            // 
+            obdConfigComboBox.DropDownStyle = ComboBoxStyle.DropDownList;
+            obdConfigComboBox.Location = new Point(310, 22);
+            obdConfigComboBox.Name = "obdConfigComboBox";
+            obdConfigComboBox.Size = new Size(180, 28);
+            obdConfigComboBox.TabIndex = 11;
+            // 
             // currentLogfileName
             // 
             currentLogfileName.AutoSize = true;
-            currentLogfileName.Location = new Point(255, 30);
+            currentLogfileName.Location = new Point(510, 30);
             currentLogfileName.Name = "currentLogfileName";
             currentLogfileName.Size = new Size(85, 20);
             currentLogfileName.TabIndex = 5;
@@ -188,5 +209,7 @@ namespace LotusECMLogger
         private ToolStripMenuItem aboutLotusECMLoggerToolStripMenuItem;
         private StatusStrip statusStrip1;
         private ToolStripStatusLabel refreshRateLabel;
+        private ComboBox obdConfigComboBox;
+        private Label obdConfigLabel;
     }
 }

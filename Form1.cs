@@ -1,6 +1,11 @@
 using SAE.J2534;
 using System.ComponentModel;
 using System.Text.Unicode;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Windows.Forms;
 
 namespace LotusECMLogger
 {
@@ -32,13 +37,12 @@ namespace LotusECMLogger
         public LoggerWindow()
         {
             InitializeComponent();
-            
+            // Populate OBD config ComboBox
+            PopulateObdConfigComboBox();
             // Initialize ListView columns
             InitializeListView();
-            
             // dummy logger to avoid null reference exceptions
             logger = new J2534OBDLogger("unused", Logger_DataLogged, Logger_ExceptionOccurred);
-            
             // Handle form closing to ensure logger is stopped
             this.FormClosing += LoggerWindow_FormClosing;
         }
@@ -59,23 +63,48 @@ namespace LotusECMLogger
             liveDataView.Columns.Add("Value", 100);
         }
 
+        private void PopulateObdConfigComboBox()
+        {
+            obdConfigComboBox.Items.Clear();
+            var configs = OBDConfigurationLoader.GetAvailableConfigurations();
+            foreach (var config in configs)
+            {
+                obdConfigComboBox.Items.Add(config);
+            }
+            if (obdConfigComboBox.Items.Count > 0)
+                obdConfigComboBox.SelectedIndex = 0;
+        }
+
         private void buttonTestRead_Click(object sender, EventArgs e)
         {
             try
             {
                 liveData.Clear();
-
                 ((Button)sender).Enabled = false;
                 var outfn = $"{Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)}\\LotusECMLog{DateTime.Now:yyyyMMdd_HHmmss}.csv";
-                logger = new J2534OBDLogger(outfn, Logger_DataLogged, Logger_ExceptionOccurred);
+                // Use selected OBD config
+                OBDConfiguration config = null;
+                if (obdConfigComboBox.SelectedItem is string configName && !string.IsNullOrWhiteSpace(configName))
+                {
+                    config = OBDConfiguration.LoadFromConfig(configName);
+                }
+                else
+                {
+                    config = OBDConfiguration.CreateLotusDefault();
+                }
+                logger = new J2534OBDLogger(outfn, Logger_DataLogged, Logger_ExceptionOccurred, config);
                 logger.Start();
                 currentLogfileName.Text = outfn;
                 stopLogger_button.Enabled = true;
-
             }
             catch (J2534Exception ex)
             {
                 MessageBox.Show(ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                ((Button)sender).Enabled = true;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Failed to load OBD configuration: {ex.Message}", "Config Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 ((Button)sender).Enabled = true;
             }
         }
