@@ -21,7 +21,12 @@
       "pidHigh": 2,
       "pidLow": 70,
       "category": "Engine Management",
-      "unit": "%"
+      "unit": "%",
+      "decode": {
+        "start": 2,
+        "length": 2,
+        "formula": "(A << 8 | B) * 100 / 1024"
+      }
     },
     {
       "type": "Mode22",
@@ -29,7 +34,12 @@
       "pidHigh": 2,
       "pidLow": 24,
       "category": "Performance",
-      "unit": "%"
+      "unit": "%",
+      "decode": {
+        "start": 2,
+        "length": 2,
+        "formula": "(A << 8 | B) * 100 / 65536"
+      }
     },
     {
       "type": "Mode22",
@@ -37,7 +47,12 @@
       "pidHigh": 2,
       "pidLow": 27,
       "category": "Performance",
-      "unit": "%"
+      "unit": "%",
+      "decode": {
+        "start": 2,
+        "length": 2,
+        "formula": "(A << 8 | B) * 100 / 65536"
+      }
     },
     {
       "type": "Mode22",
@@ -45,7 +60,12 @@
       "pidHigh": 2,
       "pidLow": 25,
       "category": "Performance",
-      "unit": "%"
+      "unit": "%",
+      "decode": {
+        "start": 2,
+        "length": 2,
+        "formula": "(A << 8 | B) * 100 / 65536"
+      }
     },
     {
       "type": "Mode22",
@@ -53,7 +73,12 @@
       "pidHigh": 2,
       "pidLow": 26,
       "category": "Performance",
-      "unit": "%"
+      "unit": "%",
+      "decode": {
+        "start": 2,
+        "length": 2,
+        "formula": "(A << 8 | B) * 100 / 65536"
+      }
     },
     {
       "type": "Mode22",
@@ -61,7 +86,12 @@
       "pidHigh": 2,
       "pidLow": 77,
       "category": "Performance",
-      "unit": "%"
+      "unit": "%",
+      "decode": {
+        "start": 2,
+        "length": 2,
+        "formula": "(A << 8 | B) * 100 / 65536"
+      }
     },
     {
       "type": "Mode22",
@@ -69,7 +99,12 @@
       "pidHigh": 2,
       "pidLow": 78,
       "category": "Performance",
-      "unit": "%"
+      "unit": "%",
+      "decode": {
+        "start": 2,
+        "length": 2,
+        "formula": "(A << 8 | B) * 100 / 65536"
+      }
     }
   ]
 } 

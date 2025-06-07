@@ -57,12 +57,20 @@ namespace LotusECMLogger
         public string Name { get; }
         public byte PIDHigh { get; }
         public byte PIDLow { get; }
+        public object? Decode { get; } // Accepts DecodeRuleJson for now
 
         public Mode22Request(string name, byte pidHigh, byte pidLow)
         {
             Name = name;
             PIDHigh = pidHigh;
             PIDLow = pidLow;
+        }
+        public Mode22Request(string name, byte pidHigh, byte pidLow, object? decode)
+        {
+            Name = name;
+            PIDHigh = pidHigh;
+            PIDLow = pidLow;
+            Decode = decode;
         }
 
         public byte[] BuildMessage(byte[] ecmHeader)
@@ -106,7 +114,9 @@ namespace LotusECMLogger
         /// <returns>Loaded configuration</returns>
         public static OBDConfiguration LoadFromConfig(string configName)
         {
-            return OBDConfigurationLoader.LoadByName(configName);
+            var config = OBDConfigurationLoader.LoadByName(configName);
+            PopulateMode22Decoders(config);
+            return config;
         }
 
         /// <summary>
@@ -116,7 +126,26 @@ namespace LotusECMLogger
         /// <returns>Loaded configuration</returns>
         public static OBDConfiguration LoadFromFile(string filePath)
         {
-            return OBDConfigurationLoader.LoadFromFile(filePath);
+            var config = OBDConfigurationLoader.LoadFromFile(filePath);
+            PopulateMode22Decoders(config);
+            return config;
+        }
+        private static void PopulateMode22Decoders(OBDConfiguration config)
+        {
+            LiveDataReading.Mode22Decoders.Clear();
+            foreach (var req in config.Requests)
+            {
+                if (req is Mode22Request m22 && m22.Decode is LotusECMLogger.OBDConfigurationLoader.DecodeRuleJson rule)
+                {
+                    LiveDataReading.Mode22Decoders[(m22.PIDHigh, m22.PIDLow)] = new LiveDataReading.Mode22DecodeRule
+                    {
+                        Name = m22.Name,
+                        Start = rule.Start,
+                        Length = rule.Length,
+                        Formula = rule.Formula
+                    };
+                }
+            }
         }
         /// <summary>
         /// Build all messages ready for transmission

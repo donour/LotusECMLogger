@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Collections.Generic;
 
 namespace LotusECMLogger
 {
@@ -9,6 +10,16 @@ namespace LotusECMLogger
         public override string ToString()
         {
             return $"<{name}: {value_f}>";
+        }
+
+        // This should be set up at app start from the config
+        public static Dictionary<(byte, byte), Mode22DecodeRule> Mode22Decoders = new();
+        public class Mode22DecodeRule
+        {
+            public string Name;
+            public int Start;
+            public int Length;
+            public string Formula;
         }
 
         public static List<LiveDataReading> ParseCanResponse(byte[] data)
@@ -159,154 +170,50 @@ namespace LotusECMLogger
                     }
                     break;
                 case 0x22:
-                    if (data[idx] == 0x02)
+                    if (data.Length > idx + 1)
                     {
-                        switch (data[idx + 1])
+                        byte pidHigh = data[idx];
+                        byte pidLow = data[idx + 1];
+                        if (Mode22Decoders.TryGetValue((pidHigh, pidLow), out var rule))
                         {
-                            case 0x34: // misfire cylinder 1
-                            case 0x35: // misfire cylinder 3
-                            case 0x36: // misfire cylinder 4
-                            case 0x37: // misfire cylinder 2
-                            case 0x57: // misfire cylinder 5
-                            case 0x58: // misfire cylinder 6
-                                if (data.Length > idx + 3)
-                                {
-                                    int misfire = (data[idx + 2] << 8) | data[idx + 3];
-                                    LiveDataReading reading = new()
-                                    {
-                                        name = $"Misfire {data[idx + 1]:X2}",
-                                        value_f = misfire,
-                                    };
-                                    results.Add(reading);
-                                }                                    
-                                break;
-
-                            case 0x18: // octane rating 1
-                            case 0x19: // octane rating 2
-                            case 0x1A: // octane rating 3
-                            case 0x1B: // octane rating 4
-                            case 0x4D: // octane rating 5
-                            case 0x4E: // octane rating 6
-                                if (data.Length > idx + 3)
-                                {
-                                    int octaneRating = ((data[idx + 2] << 8) | data[idx+3]);
-                                    LiveDataReading reading = new()
-                                    {
-                                        name = $"Octane Rating {data[idx + 1]:X2}",
-                                        value_f = octaneRating * 100.0/65536,
-                                    };
-                                    results.Add(reading);
-                                }
-                                break;
-                            case 0x45: //TPS
-                                if (data.Length > idx + 3)
-                                {
-                                    int tps = (data[idx + 2] << 8) | data[idx + 3];
-                                    LiveDataReading reading = new()
-                                    {
-                                        name = "TPS (mode22)",
-                                        value_f = tps * 100.0 / 1024, // convert to percentage
-                                    };
-                                    results.Add(reading);
-                                }
-                                break;
-                            case 0x46: //accel pedal position
-                                if (data.Length > idx + 3)
-                                {
-                                    int pedal = (data[idx + 2] << 8) | data[idx + 3];
-                                    LiveDataReading reading = new()
-                                    {
-                                        name = "Accelerator Pedal Position",
-                                        value_f = pedal * 100.0 / 1024, // convert to percentage
-                                    };
-                                    results.Add(reading);
-                                }
-                                break;
-                            case 0x72: // manifold temperature
-                                if (data.Length > idx + 2)
-                                {
-                                    int manifoldTemp = data[idx + 2] * 5 / 8 - 40;
-                                    LiveDataReading reading = new()
-                                    {
-                                        name = "Manifold Temperature",
-                                        value_f = manifoldTemp,
-                                    };
-                                    results.Add(reading);
-                                }
-                                break;
-                            case 0x6A: // engine torque
-                                if (data.Length > idx + 2)
-                                {
-                                    int torque = (data[idx + 2] << 8) | data[idx + 3];
-                                    LiveDataReading reading = new()
-                                    {
-                                        name = "Engine Torque (nm)",
-                                        value_f = torque,
-                                    };
-                                    results.Add(reading);
-                                }
-                                break;
-                            case 0x08: // VVTi B1 intake position
-                                if (data.Length > idx + 2)
-                                {
-                                    int vvti_b1i = (data[idx + 2] << 8) | data[idx + 3];
-                                    LiveDataReading reading = new()
-                                    {
-                                        name = "VVTI B1 intake (deg)",
-                                        value_f = vvti_b1i / 4.0,
-                                    };
-                                    results.Add(reading);
-                                }
-                                break;
-                            case 0x4B: // VVTi B2 intake position
-                                if (data.Length > idx + 2)
-                                {
-                                    int vvti_b2i = (data[idx + 2] << 8) | data[idx + 3];
-                                    LiveDataReading reading = new()
-                                    {
-                                        name = "VVTI B2 intake (deg)",
-                                        value_f = vvti_b2i / 4.0,
-                                    };
-                                    results.Add(reading);
-                                }
-                                break;
-                            case 0x50: // VVTI B1 exhaust position
-                                if (data.Length > idx + 2)
-                                {
-                                    int vvti_b1e = (data[idx + 2] << 8) | data[idx + 3];
-                                    LiveDataReading reading = new()
-                                    {
-                                        name = "VVTI B1 exhaust (deg)",
-                                        value_f = vvti_b1e / 4.0,
-                                    };
-                                    results.Add(reading);
-                                }
-                                break;
-                            case 0x51: // VVTI B2 exhaust position
-                                if (data.Length > idx + 2)
-                                {
-                                    int vvti_b2e = (data[idx + 2] << 8) | data[idx + 3];
-                                    LiveDataReading reading = new()
-                                    {
-                                        name = "VVTI B2 exhaust (deg)",
-                                        value_f = vvti_b2e / 4.0,
-                                    };
-                                    results.Add(reading);
-                                }
-                                break;
-                            default:
-                                Debug.WriteLine($"Unknown OBD-II mode 22 submode: {data[idx + 1]:X2}");
-                                break;
+                            // Extract bytes
+                            if (data.Length > idx + rule.Start + rule.Length - 1)
+                            {
+                                byte[] bytes = new byte[rule.Length];
+                                for (int i = 0; i < rule.Length; i++)
+                                    bytes[i] = data[idx + rule.Start + i];
+                                double value = EvaluateFormula(rule.Formula, bytes);
+                                results.Add(new LiveDataReading { name = rule.Name, value_f = value });
+                            }
+                        }
+                        else
+                        {
+                            // fallback: log or skip
                         }
                     }
                     break;
-
                 default:
                     Debug.WriteLine($"Unknown OBD-II mode: {obd_mode:X2}");
                     break;
-
             }
             return results;
+        }
+
+        // Only supports formulas like (A << 8 | B) / 4.0 and (A << 8 | B)
+        private static double EvaluateFormula(string formula, byte[] bytes)
+        {
+            if (formula.Contains("(A << 8 | B) / 4.0"))
+            {
+                int val = (bytes[0] << 8) | bytes[1];
+                return val / 4.0;
+            }
+            if (formula.Contains("(A << 8 | B)"))
+            {
+                int val = (bytes[0] << 8) | bytes[1];
+                return val;
+            }
+            // fallback
+            return 0;
         }
     }
 }

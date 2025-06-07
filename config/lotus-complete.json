@@ -70,7 +70,12 @@
       "pidHigh": 2,
       "pidLow": 8,
       "category": "Engine Management",
-      "unit": "degrees"
+      "unit": "degrees",
+      "decode": {
+        "start": 2,
+        "length": 2,
+        "formula": "(A << 8 | B) / 4.0"
+      }
     },
     {
       "type": "Mode22",
@@ -869,6 +874,19 @@
       "pidLow": 166,
       "category": "Transmission",
       "unit": "%"
+    },
+    {
+      "type": "Mode22",
+      "name": "Engine Torque (nm)",
+      "pidHigh": 2,
+      "pidLow": 106,
+      "category": "Performance",
+      "unit": "nm",
+      "decode": {
+        "start": 2,
+        "length": 2,
+        "formula": "(A << 8 | B)"
+      }
     }
   ]
 } 

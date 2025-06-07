@@ -39,6 +39,16 @@ namespace LotusECMLogger
     }
 
     /// <summary>
+    /// JSON structure for decode rule
+    /// </summary>
+    public class DecodeRuleJson
+    {
+        public int Start { get; set; }
+        public int Length { get; set; }
+        public string Formula { get; set; } = string.Empty;
+    }
+
+    /// <summary>
     /// JSON structure for OBD request
     /// </summary>
     public class OBDRequestJson
@@ -56,6 +66,7 @@ namespace LotusECMLogger
         // Mode22 specific
         public byte? PidHigh { get; set; }
         public byte? PidLow { get; set; }
+        public DecodeRuleJson? Decode { get; set; }
     }
 
     /// <summary>
@@ -187,8 +198,7 @@ namespace LotusECMLogger
         {
             if (!jsonRequest.PidHigh.HasValue || !jsonRequest.PidLow.HasValue)
                 throw new InvalidOperationException($"Mode22 request '{jsonRequest.Name}' must have PidHigh and PidLow");
-
-            return new Mode22Request(jsonRequest.Name, jsonRequest.PidHigh.Value, jsonRequest.PidLow.Value);
+            return new Mode22Request(jsonRequest.Name, jsonRequest.PidHigh.Value, jsonRequest.PidLow.Value, jsonRequest.Decode);
         }
 
         /// <summary>
@@ -229,6 +239,7 @@ namespace LotusECMLogger
                     case Mode22Request mode22:
                         jsonRequest.PidHigh = mode22.PIDHigh;
                         jsonRequest.PidLow = mode22.PIDLow;
+                        jsonRequest.Decode = mode22.Decode;
                         break;
                 }
 
