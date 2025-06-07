@@ -34,11 +34,6 @@ namespace LotusECMLogger
         private readonly ManualResetEvent csvDataAvailable = new(false);
         private volatile bool csvWriterShouldStop = false;
 
-        public J2534OBDLogger(String filename, Action<List<LiveDataReading>> logger_DataLogged, Action<Exception> exceptionHandler)
-            : this(filename, logger_DataLogged, exceptionHandler, OBDConfiguration.CreateLotusDefault())
-        {
-        }
-
         /// <summary>
         /// Creates logger with custom OBD configuration
         /// </summary>

@@ -26,7 +26,7 @@ namespace LotusECMLogger
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
 
-        private string selectedObdConfigName = null;
+        private string selectedObdConfigName = "NO CONFIG";
 
         private bool _loggerEnabled = false;
         public bool loggerEnabled
@@ -53,7 +53,7 @@ namespace LotusECMLogger
             // Initialize ListView columns
             InitializeListView();
             // dummy logger to avoid null reference exceptions
-            logger = new J2534OBDLogger("unused", Logger_DataLogged, Logger_ExceptionOccurred);
+            logger = new J2534OBDLogger("unused", Logger_DataLogged, Logger_ExceptionOccurred, new OBDConfiguration());
             // Handle form closing to ensure logger is stopped
             this.FormClosing += LoggerWindow_FormClosing;
             // Initial button state
@@ -84,7 +84,7 @@ namespace LotusECMLogger
             {
                 var noneItem = new ToolStripMenuItem("No configs found") { Enabled = false };
                 obdConfigToolStripMenuItem.DropDownItems.Add(noneItem);
-                selectedObdConfigName = null;
+                selectedObdConfigName = "NO CONFIG";
                 return;
             }
             foreach (var config in configs)
@@ -104,7 +104,7 @@ namespace LotusECMLogger
                 item.Checked = false;
             var clicked = (ToolStripMenuItem)sender;
             clicked.Checked = true;
-            selectedObdConfigName = clicked.Text;
+            selectedObdConfigName = clicked.Text ?? "NO CONFIG";
         }
 
         private void buttonTestRead_Click(object sender, EventArgs e)
@@ -115,15 +115,12 @@ namespace LotusECMLogger
                 loggerEnabled = true;
                 var outfn = $"{Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)}\\LotusECMLog{DateTime.Now:yyyyMMdd_HHmmss}.csv";
                 // Use selected OBD config
-                OBDConfiguration config = null;
-                if (!string.IsNullOrWhiteSpace(selectedObdConfigName))
+                if (string.IsNullOrWhiteSpace(selectedObdConfigName))
                 {
-                    config = OBDConfiguration.LoadFromConfig(selectedObdConfigName);
+                    MessageBox.Show("Please select an OBD configuration before starting the logger.", "Configuration Required", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
                 }
-                else
-                {
-                    config = OBDConfiguration.CreateLotusDefault();
-                }
+                OBDConfiguration config = OBDConfiguration.LoadFromConfig(selectedObdConfigName);
                 logger = new J2534OBDLogger(outfn, Logger_DataLogged, Logger_ExceptionOccurred, config);
                 logger.Start();
                 currentLogfileName.Text = outfn;

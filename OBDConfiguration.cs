@@ -118,34 +118,6 @@ namespace LotusECMLogger
         {
             return OBDConfigurationLoader.LoadFromFile(filePath);
         }
-
-        /// <summary>
-        /// Create default Lotus ECM logging configuration (now loads from config file)
-        /// </summary>
-        /// <returns>Configured OBD request set</returns>
-        public static OBDConfiguration CreateLotusDefault()
-        {
-            return LoadFromConfig("lotus-default");
-        }
-
-        /// <summary>
-        /// Create fast logging configuration (loads from config file)
-        /// </summary>
-        /// <returns>Fast logging configuration</returns>
-        public static OBDConfiguration CreateFastLogging()
-        {
-            return LoadFromConfig("lotus-fast");
-        }
-
-        /// <summary>
-        /// Create complete Lotus configuration (loads from config file)
-        /// </summary>
-        /// <returns>Complete configuration</returns>
-        public static OBDConfiguration CreateCompleteLotusConfiguration()
-        {
-            return LoadFromConfig("lotus-complete");
-        }
-
         /// <summary>
         /// Build all messages ready for transmission
         /// </summary>
