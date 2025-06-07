@@ -36,13 +36,12 @@ namespace LotusECMLogger
             Panel topPanel = new Panel();
             startLogger_button = new Button();
             stopLogger_button = new Button();
-            obdConfigLabel = new Label();
-            obdConfigComboBox = new ComboBox();
             currentLogfileName = new Label();
             liveDataView = new ListView();
             menuStrip1 = new MenuStrip();
             helpToolStripMenuItem = new ToolStripMenuItem();
             aboutLotusECMLoggerToolStripMenuItem = new ToolStripMenuItem();
+            obdConfigToolStripMenuItem = new ToolStripMenuItem();
             statusStrip1 = new StatusStrip();
             refreshRateLabel = new ToolStripStatusLabel();
             topPanel.SuspendLayout();
@@ -55,8 +54,6 @@ namespace LotusECMLogger
             // 
             topPanel.Controls.Add(startLogger_button);
             topPanel.Controls.Add(stopLogger_button);
-            topPanel.Controls.Add(obdConfigLabel);
-            topPanel.Controls.Add(obdConfigComboBox);
             topPanel.Controls.Add(currentLogfileName);
             topPanel.Dock = DockStyle.Top;
             topPanel.Location = new Point(0, 30);
@@ -87,27 +84,10 @@ namespace LotusECMLogger
             stopLogger_button.UseVisualStyleBackColor = true;
             stopLogger_button.Click += stopLogger_button_Click;
             // 
-            // obdConfigLabel
-            // 
-            obdConfigLabel.AutoSize = true;
-            obdConfigLabel.Location = new Point(200, 26);
-            obdConfigLabel.Name = "obdConfigLabel";
-            obdConfigLabel.Size = new Size(110, 20);
-            obdConfigLabel.TabIndex = 10;
-            obdConfigLabel.Text = "OBD Config:";
-            // 
-            // obdConfigComboBox
-            // 
-            obdConfigComboBox.DropDownStyle = ComboBoxStyle.DropDownList;
-            obdConfigComboBox.Location = new Point(310, 22);
-            obdConfigComboBox.Name = "obdConfigComboBox";
-            obdConfigComboBox.Size = new Size(180, 28);
-            obdConfigComboBox.TabIndex = 11;
-            // 
             // currentLogfileName
             // 
             currentLogfileName.AutoSize = true;
-            currentLogfileName.Location = new Point(510, 30);
+            currentLogfileName.Location = new Point(255, 30);
             currentLogfileName.Name = "currentLogfileName";
             currentLogfileName.Size = new Size(85, 20);
             currentLogfileName.TabIndex = 5;
@@ -132,7 +112,7 @@ namespace LotusECMLogger
             // menuStrip1
             // 
             menuStrip1.ImageScalingSize = new Size(20, 20);
-            menuStrip1.Items.AddRange(new ToolStripItem[] { helpToolStripMenuItem });
+            menuStrip1.Items.AddRange(new ToolStripItem[] { helpToolStripMenuItem, obdConfigToolStripMenuItem });
             menuStrip1.Location = new Point(0, 0);
             menuStrip1.Name = "menuStrip1";
             menuStrip1.Padding = new Padding(7, 3, 0, 3);
@@ -153,6 +133,12 @@ namespace LotusECMLogger
             aboutLotusECMLoggerToolStripMenuItem.Size = new Size(249, 26);
             aboutLotusECMLoggerToolStripMenuItem.Text = "About LotusECMLogger";
             aboutLotusECMLoggerToolStripMenuItem.Click += aboutLotusECMLoggerToolStripMenuItem_Click;
+            // 
+            // obdConfigToolStripMenuItem
+            // 
+            obdConfigToolStripMenuItem.Name = "obdConfigToolStripMenuItem";
+            obdConfigToolStripMenuItem.Size = new Size(110, 24);
+            obdConfigToolStripMenuItem.Text = "OBD Config";
             // 
             // statusStrip1
             // 
@@ -209,7 +195,6 @@ namespace LotusECMLogger
         private ToolStripMenuItem aboutLotusECMLoggerToolStripMenuItem;
         private StatusStrip statusStrip1;
         private ToolStripStatusLabel refreshRateLabel;
-        private ComboBox obdConfigComboBox;
-        private Label obdConfigLabel;
+        private ToolStripMenuItem obdConfigToolStripMenuItem;
     }
 }

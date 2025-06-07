@@ -26,19 +26,13 @@ namespace LotusECMLogger
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
 
-        private String j2534DeviceName = "None";
-
-        public String J2534DeviceName
-        {
-            get { return j2534DeviceName; }
-            set { j2534DeviceName = value; OnPropertyChanged("J2534DeviceNAme"); }
-        }
+        private string selectedObdConfigName = null;
 
         public LoggerWindow()
         {
             InitializeComponent();
-            // Populate OBD config ComboBox
-            PopulateObdConfigComboBox();
+            // Populate OBD config menu
+            PopulateObdConfigMenu();
             // Initialize ListView columns
             InitializeListView();
             // dummy logger to avoid null reference exceptions
@@ -63,16 +57,35 @@ namespace LotusECMLogger
             liveDataView.Columns.Add("Value", 100);
         }
 
-        private void PopulateObdConfigComboBox()
+        private void PopulateObdConfigMenu()
         {
-            obdConfigComboBox.Items.Clear();
+            obdConfigToolStripMenuItem.DropDownItems.Clear();
             var configs = OBDConfigurationLoader.GetAvailableConfigurations();
+            if (configs.Count == 0)
+            {
+                var noneItem = new ToolStripMenuItem("No configs found") { Enabled = false };
+                obdConfigToolStripMenuItem.DropDownItems.Add(noneItem);
+                selectedObdConfigName = null;
+                return;
+            }
             foreach (var config in configs)
             {
-                obdConfigComboBox.Items.Add(config);
+                var item = new ToolStripMenuItem(config);
+                item.Click += ObdConfigMenuItem_Click;
+                obdConfigToolStripMenuItem.DropDownItems.Add(item);
             }
-            if (obdConfigComboBox.Items.Count > 0)
-                obdConfigComboBox.SelectedIndex = 0;
+            // Default to first config
+            selectedObdConfigName = configs[0];
+            ((ToolStripMenuItem)obdConfigToolStripMenuItem.DropDownItems[0]).Checked = true;
+        }
+
+        private void ObdConfigMenuItem_Click(object sender, EventArgs e)
+        {
+            foreach (ToolStripMenuItem item in obdConfigToolStripMenuItem.DropDownItems)
+                item.Checked = false;
+            var clicked = (ToolStripMenuItem)sender;
+            clicked.Checked = true;
+            selectedObdConfigName = clicked.Text;
         }
 
         private void buttonTestRead_Click(object sender, EventArgs e)
@@ -84,9 +97,9 @@ namespace LotusECMLogger
                 var outfn = $"{Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)}\\LotusECMLog{DateTime.Now:yyyyMMdd_HHmmss}.csv";
                 // Use selected OBD config
                 OBDConfiguration config = null;
-                if (obdConfigComboBox.SelectedItem is string configName && !string.IsNullOrWhiteSpace(configName))
+                if (!string.IsNullOrWhiteSpace(selectedObdConfigName))
                 {
-                    config = OBDConfiguration.LoadFromConfig(configName);
+                    config = OBDConfiguration.LoadFromConfig(selectedObdConfigName);
                 }
                 else
                 {
