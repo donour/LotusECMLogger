@@ -243,7 +243,6 @@ namespace LotusECMLogger
                     Debug.WriteLine($"  - {request.Name} (Mode 0x{request.Mode:X2})");
                 }
 
-
                 uint ui_update_counter = 0;
                 while (terminate == false)
                 {

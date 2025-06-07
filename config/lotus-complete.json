@@ -6,7 +6,7 @@
     {
       "type": "Mode01",
       "name": "Essential Engine Data",
-      "pids": [12, 17, 67, 5, 14, 11],
+      "pids": [ 12, 17, 67, 5, 14, 11 ],
       "description": "Engine speed, throttle, load, coolant temp, timing, MAP",
       "category": "Standard OBD-II"
     },
@@ -465,6 +465,14 @@
       "pidHigh": 2,
       "pidLow": 93,
       "category": "Performance"
+    },
+    {
+      "type": "Mode22",
+      "name": "EngineTorque(nm)",
+      "pidHigh": 2,
+      "pidLow": 106,
+      "category": "Engine Management",
+      "unit": "nm"
     },
     {
       "type": "Mode22",
