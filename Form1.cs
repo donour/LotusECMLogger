@@ -1,6 +1,11 @@
 using SAE.J2534;
 using System.ComponentModel;
 using System.Text.Unicode;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Windows.Forms;
 
 namespace LotusECMLogger
 {
@@ -21,26 +26,38 @@ namespace LotusECMLogger
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
 
-        private String j2534DeviceName = "None";
+        private string selectedObdConfigName = "NO CONFIG";
 
-        public String J2534DeviceName
+        private bool _loggerEnabled = false;
+        public bool loggerEnabled
         {
-            get { return j2534DeviceName; }
-            set { j2534DeviceName = value; OnPropertyChanged("J2534DeviceNAme"); }
+            get => _loggerEnabled;
+            set
+            {
+                if (_loggerEnabled != value)
+                {
+                    _loggerEnabled = value;
+                    OnPropertyChanged(nameof(loggerEnabled));
+                    // Update button states
+                    startLogger_button.Enabled = !value;
+                    stopLogger_button.Enabled = value;
+                }
+            }
         }
 
         public LoggerWindow()
         {
             InitializeComponent();
-            
+            // Populate OBD config menu
+            PopulateObdConfigMenu();
             // Initialize ListView columns
             InitializeListView();
-            
             // dummy logger to avoid null reference exceptions
-            logger = new J2534OBDLogger("unused", Logger_DataLogged, Logger_ExceptionOccurred);
-            
+            logger = new J2534OBDLogger("unused", Logger_DataLogged, Logger_ExceptionOccurred, new OBDConfiguration());
             // Handle form closing to ensure logger is stopped
             this.FormClosing += LoggerWindow_FormClosing;
+            // Initial button state
+            loggerEnabled = false;
         }
 
         /// <summary>
@@ -59,32 +76,71 @@ namespace LotusECMLogger
             liveDataView.Columns.Add("Value", 100);
         }
 
+        private void PopulateObdConfigMenu()
+        {
+            obdConfigToolStripMenuItem.DropDownItems.Clear();
+            var configs = OBDConfigurationLoader.GetAvailableConfigurations();
+            if (configs.Count == 0)
+            {
+                var noneItem = new ToolStripMenuItem("No configs found") { Enabled = false };
+                obdConfigToolStripMenuItem.DropDownItems.Add(noneItem);
+                selectedObdConfigName = "NO CONFIG";
+                return;
+            }
+            foreach (var config in configs)
+            {
+                var item = new ToolStripMenuItem(config);
+                item.Click += ObdConfigMenuItem_Click;
+                obdConfigToolStripMenuItem.DropDownItems.Add(item);
+            }
+            // Default to first config
+            selectedObdConfigName = configs[0];
+            ((ToolStripMenuItem)obdConfigToolStripMenuItem.DropDownItems[0]).Checked = true;
+        }
+
+        private void ObdConfigMenuItem_Click(object sender, EventArgs e)
+        {
+            foreach (ToolStripMenuItem item in obdConfigToolStripMenuItem.DropDownItems)
+                item.Checked = false;
+            var clicked = (ToolStripMenuItem)sender;
+            clicked.Checked = true;
+            selectedObdConfigName = clicked.Text ?? "NO CONFIG";
+        }
+
         private void buttonTestRead_Click(object sender, EventArgs e)
         {
             try
             {
                 liveData.Clear();
-
-                ((Button)sender).Enabled = false;
+                loggerEnabled = true;
                 var outfn = $"{Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)}\\LotusECMLog{DateTime.Now:yyyyMMdd_HHmmss}.csv";
-                logger = new J2534OBDLogger(outfn, Logger_DataLogged, Logger_ExceptionOccurred);
+                // Use selected OBD config
+                if (string.IsNullOrWhiteSpace(selectedObdConfigName))
+                {
+                    MessageBox.Show("Please select an OBD configuration before starting the logger.", "Configuration Required", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+                OBDConfiguration config = OBDConfiguration.LoadFromConfig(selectedObdConfigName);
+                logger = new J2534OBDLogger(outfn, Logger_DataLogged, Logger_ExceptionOccurred, config);
                 logger.Start();
                 currentLogfileName.Text = outfn;
-                stopLogger_button.Enabled = true;
-
             }
             catch (J2534Exception ex)
             {
                 MessageBox.Show(ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                ((Button)sender).Enabled = true;
+                loggerEnabled = false;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Failed to load OBD configuration: {ex.Message}", "Config Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                loggerEnabled = false;
             }
         }
 
         private void stopLogger_button_Click(object sender, EventArgs e)
         {
             logger?.Stop();
-            stopLogger_button.Enabled = false;
-            startLogger_button.Enabled = true;
+            loggerEnabled = false;
             currentLogfileName.Text = "No Log File";
         }
 
@@ -125,7 +181,8 @@ namespace LotusECMLogger
             UpdateListView();
 
             DateTime now = DateTime.Now;
-            refreshRateLabel.Text = $"Refresh Rate: {1000/((now - lastUpdateTime).TotalMilliseconds):F2} hz";
+            float refreshRate = logger.LogFileToUIRatio*1000 / (float)(now - lastUpdateTime).TotalMilliseconds;
+            refreshRateLabel.Text = $"Refresh Rate: {refreshRate:F1} hz";
             lastUpdateTime = now;
         }
 
@@ -171,8 +228,7 @@ namespace LotusECMLogger
 
             // Stop the logger and reset UI state
             logger?.Stop();
-            stopLogger_button.Enabled = false;
-            startLogger_button.Enabled = true;
+            loggerEnabled = false;
             currentLogfileName.Text = "No Log File";
 
             // Show error message to user

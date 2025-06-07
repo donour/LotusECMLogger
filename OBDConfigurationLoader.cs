@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -10,7 +11,7 @@ namespace LotusECMLogger
     {
         public override byte[] Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
         {
-            var bytes = new List<byte>();
+            List<byte> bytes = [];
             while (reader.Read() && reader.TokenType != JsonTokenType.EndArray)
                 if (reader.TokenType == JsonTokenType.Number) bytes.Add((byte)reader.GetInt32());
             return bytes.ToArray();
@@ -205,7 +206,7 @@ namespace LotusECMLogger
                 Name = string.IsNullOrEmpty(name) ? "Custom Configuration" : name,
                 Description = string.IsNullOrEmpty(description) ? "User-defined configuration" : description,
                 EcmHeader = config.ECMHeader,
-                Requests = new List<OBDRequestJson>()
+                Requests = []
             };
 
             foreach (var request in config.Requests)
@@ -235,11 +236,12 @@ namespace LotusECMLogger
                 jsonConfig.Requests.Add(jsonRequest);
             }
 
-            var options = new JsonSerializerOptions
+            JsonSerializerOptions jsonSerializerOptions = new()
             {
                 WriteIndented = true,
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase
             };
+            JsonSerializerOptions options = jsonSerializerOptions;
 
             var jsonText = JsonSerializer.Serialize(jsonConfig, options);
             File.WriteAllText(filePath, jsonText);

@@ -41,6 +41,7 @@ namespace LotusECMLogger
             menuStrip1 = new MenuStrip();
             helpToolStripMenuItem = new ToolStripMenuItem();
             aboutLotusECMLoggerToolStripMenuItem = new ToolStripMenuItem();
+            obdConfigToolStripMenuItem = new ToolStripMenuItem();
             statusStrip1 = new StatusStrip();
             refreshRateLabel = new ToolStripStatusLabel();
             topPanel.SuspendLayout();
@@ -111,7 +112,7 @@ namespace LotusECMLogger
             // menuStrip1
             // 
             menuStrip1.ImageScalingSize = new Size(20, 20);
-            menuStrip1.Items.AddRange(new ToolStripItem[] { helpToolStripMenuItem });
+            menuStrip1.Items.AddRange(new ToolStripItem[] { helpToolStripMenuItem, obdConfigToolStripMenuItem });
             menuStrip1.Location = new Point(0, 0);
             menuStrip1.Name = "menuStrip1";
             menuStrip1.Padding = new Padding(7, 3, 0, 3);
@@ -132,6 +133,12 @@ namespace LotusECMLogger
             aboutLotusECMLoggerToolStripMenuItem.Size = new Size(249, 26);
             aboutLotusECMLoggerToolStripMenuItem.Text = "About LotusECMLogger";
             aboutLotusECMLoggerToolStripMenuItem.Click += aboutLotusECMLoggerToolStripMenuItem_Click;
+            // 
+            // obdConfigToolStripMenuItem
+            // 
+            obdConfigToolStripMenuItem.Name = "obdConfigToolStripMenuItem";
+            obdConfigToolStripMenuItem.Size = new Size(110, 24);
+            obdConfigToolStripMenuItem.Text = "OBD Config";
             // 
             // statusStrip1
             // 
@@ -188,5 +195,6 @@ namespace LotusECMLogger
         private ToolStripMenuItem aboutLotusECMLoggerToolStripMenuItem;
         private StatusStrip statusStrip1;
         private ToolStripStatusLabel refreshRateLabel;
+        private ToolStripMenuItem obdConfigToolStripMenuItem;
     }
 }

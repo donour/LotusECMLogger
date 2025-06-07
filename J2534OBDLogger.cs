@@ -6,6 +6,7 @@ namespace LotusECMLogger
 {
     internal class J2534OBDLogger : IDisposable
     {
+        public readonly int LogFileToUIRatio = 8; // UI update every 8th log entry
         public event Action<List<LiveDataReading>> DataLogged;
         public event Action<Exception> ExceptionOccurred;
 
@@ -34,11 +35,6 @@ namespace LotusECMLogger
         private readonly ManualResetEvent csvDataAvailable = new(false);
         private volatile bool csvWriterShouldStop = false;
 
-        public J2534OBDLogger(String filename, Action<List<LiveDataReading>> logger_DataLogged, Action<Exception> exceptionHandler)
-            : this(filename, logger_DataLogged, exceptionHandler, OBDConfiguration.CreateLotusDefault())
-        {
-        }
-
         /// <summary>
         /// Creates logger with custom OBD configuration
         /// </summary>
@@ -65,7 +61,11 @@ namespace LotusECMLogger
         /// customConfig.Requests.Add(new Mode22Request("Sport Button", 0x02, 0x5D));
         /// var logger = new J2534OBDLogger("log.csv", OnData, OnError, customConfig);
         /// </example>
-        public J2534OBDLogger(String filename, Action<List<LiveDataReading>> logger_DataLogged, Action<Exception> exceptionHandler, OBDConfiguration configuration)
+        public J2534OBDLogger(
+            String filename, 
+            Action<List<LiveDataReading>> logger_DataLogged, 
+            Action<Exception> exceptionHandler,
+            OBDConfiguration configuration)
         {
             this.output_filename = filename;
             this.obdConfig = configuration;
@@ -230,48 +230,48 @@ namespace LotusECMLogger
         {
             try
             {
-                using (Channel Channel = Device.GetChannel(Protocol.ISO15765, Baud.ISO15765, ConnectFlag.NONE))
-                {
-                    Channel.StartMsgFilter(FlowControlFilter);
+                using Channel Channel = Device.GetChannel(Protocol.ISO15765, Baud.ISO15765, ConnectFlag.NONE);
+                Channel.StartMsgFilter(FlowControlFilter);
 
-                    // Build all OBD messages from configuration
-                    var allMessages = obdConfig.BuildAllMessages();
-                    
-                    // Log configuration for debugging
-                    Debug.WriteLine($"Loaded {obdConfig.Requests.Count} OBD requests:");
-                    foreach (var request in obdConfig.Requests)
+                // Build all OBD messages from configuration
+                var allMessages = obdConfig.BuildAllMessages();
+
+                // Log configuration for debugging
+                Debug.WriteLine($"Loaded {obdConfig.Requests.Count} OBD requests:");
+                foreach (var request in obdConfig.Requests)
+                {
+                    Debug.WriteLine($"  - {request.Name} (Mode 0x{request.Mode:X2})");
+                }
+
+                uint ui_update_counter = 0;
+                while (terminate == false)
+                {
+                    List<LiveDataReading> readings = [];
+
+                    foreach (var chunk in allMessages.Chunk(5))
                     {
-                        Debug.WriteLine($"  - {request.Name} (Mode 0x{request.Mode:X2})");
+                        // TODO: allow no more than 6250 messages per second
+                        // in order to not overload either the CAN bus are the ECM
+                        Channel.SendMessages(chunk);
+                        readings.AddRange(ReadPendingMessages(Channel));
                     }
 
-                    uint ui_update_counter = 0;
-                    while (terminate == false)
+                    if (readings.Count > 0)
                     {
-                        List<LiveDataReading> readings = [];
-
-                        foreach (var chunk in allMessages.Chunk(5))
+                        var tr = new LiveDataReading
                         {
-                            Channel.SendMessages(chunk);
-                            readings.AddRange(ReadPendingMessages(Channel));
+                            name = "time (s)",
+                            value_f = DateTime.Now.TimeOfDay.TotalSeconds
+                        };
+                        readings.Add(tr);
+
+                        if (ui_update_counter++ % LogFileToUIRatio == 0)
+                        {
+                            OnDataLogged(readings);
                         }
 
-                        if (readings.Count > 0)
-                        {
-                            var tr = new LiveDataReading
-                            {
-                                name = "time (s)",
-                                value_f = DateTime.Now.TimeOfDay.TotalSeconds
-                            };
-                            readings.Add(tr);
-
-                            if (ui_update_counter++ % 8 == 0)
-                            {
-                                OnDataLogged(readings);
-                            }
-
-                            // Queue data for background CSV writing (non-blocking)
-                            QueueDataForCSVWriting(readings);
-                        }
+                        // Queue data for background CSV writing (non-blocking)
+                        QueueDataForCSVWriting(readings);
                     }
                 }
             }
@@ -290,7 +290,7 @@ namespace LotusECMLogger
             // Create a copy to avoid shared memory issues between threads
             var readingsCopy = new List<LiveDataReading>(readings);
             csvWriteQueue.Enqueue(readingsCopy);
-            csvDataAvailable.Set(); // Signal the CSV writer thread
+            csvDataAvailable.Set();
         }
 
         private static List<LiveDataReading> ReadPendingMessages(Channel Channel)
