@@ -182,7 +182,7 @@ namespace LotusECMLogger
 
             DateTime now = DateTime.Now;
             float refreshRate = logger.LogFileToUIRatio*1000 / (float)(now - lastUpdateTime).TotalMilliseconds;
-            refreshRateLabel.Text = $"Refresh Rate: {refreshRate:F2} hz";
+            refreshRateLabel.Text = $"Refresh Rate: {refreshRate:F1} hz";
             lastUpdateTime = now;
         }
 
