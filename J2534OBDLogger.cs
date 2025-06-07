@@ -230,51 +230,49 @@ namespace LotusECMLogger
         {
             try
             {
-                using (Channel Channel = Device.GetChannel(Protocol.ISO15765, Baud.ISO15765, ConnectFlag.NONE))
-                {
-                    Channel.StartMsgFilter(FlowControlFilter);
+                using Channel Channel = Device.GetChannel(Protocol.ISO15765, Baud.ISO15765, ConnectFlag.NONE);
+                Channel.StartMsgFilter(FlowControlFilter);
 
-                    // Build all OBD messages from configuration
-                    var allMessages = obdConfig.BuildAllMessages();
-                    
-                    // Log configuration for debugging
-                    Debug.WriteLine($"Loaded {obdConfig.Requests.Count} OBD requests:");
-                    foreach (var request in obdConfig.Requests)
+                // Build all OBD messages from configuration
+                var allMessages = obdConfig.BuildAllMessages();
+
+                // Log configuration for debugging
+                Debug.WriteLine($"Loaded {obdConfig.Requests.Count} OBD requests:");
+                foreach (var request in obdConfig.Requests)
+                {
+                    Debug.WriteLine($"  - {request.Name} (Mode 0x{request.Mode:X2})");
+                }
+
+
+                uint ui_update_counter = 0;
+                while (terminate == false)
+                {
+                    List<LiveDataReading> readings = [];
+
+                    foreach (var chunk in allMessages.Chunk(5))
                     {
-                        Debug.WriteLine($"  - {request.Name} (Mode 0x{request.Mode:X2})");
+                        // TODO: allow no more than 6250 messages per second
+                        // in order to not overload either the CAN bus are the ECM
+                        Channel.SendMessages(chunk);
+                        readings.AddRange(ReadPendingMessages(Channel));
                     }
 
-                    
-                    uint ui_update_counter = 0;
-                    while (terminate == false)
+                    if (readings.Count > 0)
                     {
-                        List<LiveDataReading> readings = [];
-
-                        foreach (var chunk in allMessages.Chunk(5))
+                        var tr = new LiveDataReading
                         {
-                            // TODO: allow no more than 6250 messages per second
-                            // in order to not overload either the CAN bus are the ECM
-                            Channel.SendMessages(chunk);
-                            readings.AddRange(ReadPendingMessages(Channel));
+                            name = "time (s)",
+                            value_f = DateTime.Now.TimeOfDay.TotalSeconds
+                        };
+                        readings.Add(tr);
+
+                        if (ui_update_counter++ % LogFileToUIRatio == 0)
+                        {
+                            OnDataLogged(readings);
                         }
 
-                        if (readings.Count > 0)
-                        {
-                            var tr = new LiveDataReading
-                            {
-                                name = "time (s)",
-                                value_f = DateTime.Now.TimeOfDay.TotalSeconds
-                            };
-                            readings.Add(tr);
-
-                            if (ui_update_counter++ % LogFileToUIRatio == 0)
-                            {
-                                OnDataLogged(readings);
-                            }
-
-                            // Queue data for background CSV writing (non-blocking)
-                            QueueDataForCSVWriting(readings);
-                        }
+                        // Queue data for background CSV writing (non-blocking)
+                        QueueDataForCSVWriting(readings);
                     }
                 }
             }
@@ -293,7 +291,7 @@ namespace LotusECMLogger
             // Create a copy to avoid shared memory issues between threads
             var readingsCopy = new List<LiveDataReading>(readings);
             csvWriteQueue.Enqueue(readingsCopy);
-            csvDataAvailable.Set(); // Signal the CSV writer thread
+            csvDataAvailable.Set();
         }
 
         private static List<LiveDataReading> ReadPendingMessages(Channel Channel)
