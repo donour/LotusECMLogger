@@ -6,6 +6,7 @@ namespace LotusECMLogger
 {
     internal class J2534OBDLogger : IDisposable
     {
+        public readonly int LogFileToUIRatio = 8; // UI update every 8th log entry
         public event Action<List<LiveDataReading>> DataLogged;
         public event Action<Exception> ExceptionOccurred;
 
@@ -60,7 +61,11 @@ namespace LotusECMLogger
         /// customConfig.Requests.Add(new Mode22Request("Sport Button", 0x02, 0x5D));
         /// var logger = new J2534OBDLogger("log.csv", OnData, OnError, customConfig);
         /// </example>
-        public J2534OBDLogger(String filename, Action<List<LiveDataReading>> logger_DataLogged, Action<Exception> exceptionHandler, OBDConfiguration configuration)
+        public J2534OBDLogger(
+            String filename, 
+            Action<List<LiveDataReading>> logger_DataLogged, 
+            Action<Exception> exceptionHandler,
+            OBDConfiguration configuration)
         {
             this.output_filename = filename;
             this.obdConfig = configuration;
@@ -239,6 +244,7 @@ namespace LotusECMLogger
                         Debug.WriteLine($"  - {request.Name} (Mode 0x{request.Mode:X2})");
                     }
 
+                    
                     uint ui_update_counter = 0;
                     while (terminate == false)
                     {
@@ -246,6 +252,8 @@ namespace LotusECMLogger
 
                         foreach (var chunk in allMessages.Chunk(5))
                         {
+                            // TODO: allow no more than 6250 messages per second
+                            // in order to not overload either the CAN bus are the ECM
                             Channel.SendMessages(chunk);
                             readings.AddRange(ReadPendingMessages(Channel));
                         }
@@ -259,7 +267,7 @@ namespace LotusECMLogger
                             };
                             readings.Add(tr);
 
-                            if (ui_update_counter++ % 8 == 0)
+                            if (ui_update_counter++ % LogFileToUIRatio == 0)
                             {
                                 OnDataLogged(readings);
                             }
