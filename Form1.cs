@@ -28,6 +28,23 @@ namespace LotusECMLogger
 
         private string selectedObdConfigName = null;
 
+        private bool _loggerEnabled = false;
+        public bool loggerEnabled
+        {
+            get => _loggerEnabled;
+            set
+            {
+                if (_loggerEnabled != value)
+                {
+                    _loggerEnabled = value;
+                    OnPropertyChanged(nameof(loggerEnabled));
+                    // Update button states
+                    startLogger_button.Enabled = !value;
+                    stopLogger_button.Enabled = value;
+                }
+            }
+        }
+
         public LoggerWindow()
         {
             InitializeComponent();
@@ -39,6 +56,8 @@ namespace LotusECMLogger
             logger = new J2534OBDLogger("unused", Logger_DataLogged, Logger_ExceptionOccurred);
             // Handle form closing to ensure logger is stopped
             this.FormClosing += LoggerWindow_FormClosing;
+            // Initial button state
+            loggerEnabled = false;
         }
 
         /// <summary>
@@ -93,7 +112,7 @@ namespace LotusECMLogger
             try
             {
                 liveData.Clear();
-                ((Button)sender).Enabled = false;
+                loggerEnabled = true;
                 var outfn = $"{Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)}\\LotusECMLog{DateTime.Now:yyyyMMdd_HHmmss}.csv";
                 // Use selected OBD config
                 OBDConfiguration config = null;
@@ -108,25 +127,23 @@ namespace LotusECMLogger
                 logger = new J2534OBDLogger(outfn, Logger_DataLogged, Logger_ExceptionOccurred, config);
                 logger.Start();
                 currentLogfileName.Text = outfn;
-                stopLogger_button.Enabled = true;
             }
             catch (J2534Exception ex)
             {
                 MessageBox.Show(ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                ((Button)sender).Enabled = true;
+                loggerEnabled = false;
             }
             catch (Exception ex)
             {
                 MessageBox.Show($"Failed to load OBD configuration: {ex.Message}", "Config Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                ((Button)sender).Enabled = true;
+                loggerEnabled = false;
             }
         }
 
         private void stopLogger_button_Click(object sender, EventArgs e)
         {
             logger?.Stop();
-            stopLogger_button.Enabled = false;
-            startLogger_button.Enabled = true;
+            loggerEnabled = false;
             currentLogfileName.Text = "No Log File";
         }
 
@@ -213,8 +230,7 @@ namespace LotusECMLogger
 
             // Stop the logger and reset UI state
             logger?.Stop();
-            stopLogger_button.Enabled = false;
-            startLogger_button.Enabled = true;
+            loggerEnabled = false;
             currentLogfileName.Text = "No Log File";
 
             // Show error message to user
