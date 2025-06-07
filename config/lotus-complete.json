@@ -341,30 +341,6 @@
     },
     {
       "type": "Mode22",
-      "name": "Catalytic Converter Temperature",
-      "pidHigh": 2,
-      "pidLow": 56,
-      "category": "Emissions",
-      "unit": "degC"
-    },
-    {
-      "type": "Mode22",
-      "name": "Target Catalytic Converter Temperature",
-      "pidHigh": 2,
-      "pidLow": 57,
-      "category": "Emissions",
-      "unit": "degC"
-    },
-    {
-      "type": "Mode22",
-      "name": "Maximum Catalytic Converter Temperature",
-      "pidHigh": 2,
-      "pidLow": 58,
-      "category": "Emissions",
-      "unit": "degC"
-    },
-    {
-      "type": "Mode22",
       "name": "VVT Target Cam Position (exhaust)",
       "pidHigh": 2,
       "pidLow": 59,
