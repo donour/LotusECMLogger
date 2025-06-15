@@ -74,6 +74,31 @@
     },
     {
       "type": "Mode22",
+      "name": "VVT Actual Cam Position (B1 inlet)",
+      "pidHigh": 2,
+      "pidLow": 75,
+      "category": "Engine Management",
+      "unit": "degrees"
+    },
+    {
+      "type": "Mode22",
+      "name": "VVT Actual Cam Position (B1 exhaust)",
+      "pidHigh": 2,
+      "pidLow": 80,
+      "category": "Engine Management",
+      "unit": "degrees"
+    },
+    {
+      "type": "Mode22",
+      "name": "VVT Actual Cam Position (B2 exhaust)",
+      "pidHigh": 2,
+      "pidLow": 81,
+      "category": "Engine Management",
+      "unit": "degrees"
+    },
+
+    {
+      "type": "Mode22",
       "name": "VVL Status",
       "pidHigh": 2,
       "pidLow": 9,
