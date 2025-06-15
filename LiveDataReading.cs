@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿using System.ComponentModel;
+using System.Diagnostics;
 
 namespace LotusECMLogger
 {
@@ -237,7 +238,8 @@ namespace LotusECMLogger
                             case 0x6A: // engine torque
                                 if (data.Length > idx + 2)
                                 {
-                                    int torque = (data[idx + 2] << 8) | data[idx + 3];
+                                    byte[] bytes = [data[idx + 3], data[idx + 2]];
+                                    int torque = BitConverter.ToInt16(bytes, 0);
                                     LiveDataReading reading = new()
                                     {
                                         name = "Engine Torque (nm)",
@@ -249,7 +251,8 @@ namespace LotusECMLogger
                             case 0x08: // VVTi B1 intake position
                                 if (data.Length > idx + 2)
                                 {
-                                    int vvti_b1i = (data[idx + 2] << 8) | data[idx + 3];
+                                    byte[] bytes = [data[idx + 3], data[idx + 2]];
+                                    int vvti_b1i = BitConverter.ToInt16(bytes, 0);
                                     LiveDataReading reading = new()
                                     {
                                         name = "VVTI B1 intake (deg)",
@@ -261,7 +264,8 @@ namespace LotusECMLogger
                             case 0x4B: // VVTi B2 intake position
                                 if (data.Length > idx + 2)
                                 {
-                                    int vvti_b2i = (data[idx + 2] << 8) | data[idx + 3];
+                                    byte[] bytes = [data[idx + 3], data[idx + 2]];
+                                    int vvti_b2i = BitConverter.ToInt16(bytes, 0);
                                     LiveDataReading reading = new()
                                     {
                                         name = "VVTI B2 intake (deg)",
@@ -273,7 +277,8 @@ namespace LotusECMLogger
                             case 0x50: // VVTI B1 exhaust position
                                 if (data.Length > idx + 2)
                                 {
-                                    int vvti_b1e = (data[idx + 2] << 8) | data[idx + 3];
+                                    byte[] bytes = [data[idx + 3], data[idx + 2]];
+                                    int vvti_b1e = BitConverter.ToInt16(bytes, 0);
                                     LiveDataReading reading = new()
                                     {
                                         name = "VVTI B1 exhaust (deg)",
@@ -285,7 +290,8 @@ namespace LotusECMLogger
                             case 0x51: // VVTI B2 exhaust position
                                 if (data.Length > idx + 2)
                                 {
-                                    int vvti_b2e = (data[idx + 2] << 8) | data[idx + 3];
+                                    byte[] bytes = [data[idx + 3], data[idx + 2]];
+                                    int vvti_b2e = BitConverter.ToInt16(bytes, 0);
                                     LiveDataReading reading = new()
                                     {
                                         name = "VVTI B2 exhaust (deg)",
