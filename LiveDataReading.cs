@@ -44,6 +44,32 @@ namespace LotusECMLogger
                                 }
                                 idx += 2;
                                 break;
+                            case 0x06: // short term fuel trim bank 1
+                                if (data.Length > idx + 1)
+                                {
+                                    float shortTermFuelTrimBank1 = data[idx + 1] / 1.28f - 100.0f; // convert to percentage
+                                    LiveDataReading reading = new()
+                                    {
+                                        name = "Short Term Fuel Trim Bank 1",
+                                        value_f = shortTermFuelTrimBank1,
+                                    };
+                                    results.Add(reading);
+                                }
+                                idx += 2;
+                                break;
+                            case 0x08: // short term fuel trim bank 2
+                                if (data.Length > idx + 1)
+                                {
+                                    float shortTermFuelTrimBank2 = data[idx + 1] / 1.28f - 100.0f; // convert to percentage
+                                    LiveDataReading reading = new()
+                                    {
+                                        name = "Short Term Fuel Trim Bank 2",
+                                        value_f = shortTermFuelTrimBank2,
+                                    };
+                                    results.Add(reading);
+                                }
+                                idx += 2;
+                                break;
                             case 0x0B: // intake manifold absolute pressure
                                 if (data.Length > idx + 1)
                                 {
@@ -164,6 +190,18 @@ namespace LotusECMLogger
                     {
                         switch (data[idx + 1])
                         {
+                            case 0x13: // afr target
+                                if (data.Length > idx + 2)
+                                {
+                                    int fuelRate = data[idx + 2];
+                                    LiveDataReading reading = new()
+                                    {
+                                        name = "AFR Target",
+                                        value_f = fuelRate * 0.01, // %
+                                    };
+                                    results.Add(reading);
+                                }
+                                break;
                             case 0x34: // misfire cylinder 1
                             case 0x35: // misfire cylinder 3
                             case 0x36: // misfire cylinder 4

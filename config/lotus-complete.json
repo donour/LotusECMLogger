@@ -335,45 +335,6 @@
     },
     {
       "type": "Mode22",
-      "name": "Air Flow Error",
-      "pidHigh": 2,
-      "pidLow": 52,
-      "category": "Engine Management"
-    },
-    {
-      "type": "Mode22",
-      "name": "Fuel Learn Dead Time (B2)",
-      "pidHigh": 2,
-      "pidLow": 53,
-      "category": "Engine Management",
-      "unit": "us"
-    },
-    {
-      "type": "Mode22",
-      "name": "Long Term Fuel Trim (B2)",
-      "pidHigh": 2,
-      "pidLow": 54,
-      "category": "Engine Management",
-      "unit": "%"
-    },
-    {
-      "type": "Mode22",
-      "name": "Short Term Fuel Trim (B2)",
-      "pidHigh": 2,
-      "pidLow": 55,
-      "category": "Engine Management",
-      "unit": "%"
-    },
-    {
-      "type": "Mode22",
-      "name": "VVT Target Cam Position (exhaust)",
-      "pidHigh": 2,
-      "pidLow": 59,
-      "category": "Engine Management",
-      "unit": "degrees"
-    },
-    {
-      "type": "Mode22",
       "name": "VVT Actual Cam Position (B1 exhaust)",
       "pidHigh": 2,
       "pidLow": 60,

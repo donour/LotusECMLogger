@@ -1,0 +1,89 @@
+{
+  "name": "Lotus Misfire Configuration",
+  "description": "Misfire Diagnosis",
+  "ecmHeader": [0, 0, 7, 224],
+  "requests": [
+    {
+      "type": "Mode01",
+      "name": "Essential Engine Data",
+      "pids": [ 12, 17, 67 ],
+      "description": "Engine speed, throttle, load"
+    },
+    {
+      "type": "Mode01",
+      "name": "Essential Engine Data2",
+      "pids": [ 5, 14],
+      "description": "coolant temp, timing"
+    },
+    {
+      "type": "Mode01",
+      "name": "Essential Engine Data3",
+      "pids": [ 6, 8, 68 ],
+      "description": "STFT_B1, STFT_B2, commanded_lambda"
+    },
+    {
+      "type": "Mode22",
+      "name": "Accelerator Pedal Position",
+      "pidHigh": 2,
+      "pidLow": 70,
+      "category": "Engine Management",
+      "unit": "%"
+    },
+    {
+      "type": "Mode22",
+      "name": "EngineTorque(nm)",
+      "pidHigh": 2,
+      "pidLow": 106,
+      "category": "Engine Management",
+      "unit": "nm"
+    },
+    {
+      "type": "Mode22",
+      "name": "Misfire Cylinder 1",
+      "pidHigh": 2,
+      "pidLow": 52,
+      "category": "Engine Management",
+      "unit": "count"
+    },
+    {
+      "type": "Mode22",
+      "name": "Misfire Cylinder 3",
+      "pidHigh": 2,
+      "pidLow": 53,
+      "category": "Engine Management",
+      "unit": "count"
+    },
+    {
+      "type": "Mode22",
+      "name": "Misfire Cylinder 4",
+      "pidHigh": 2,
+      "pidLow": 54,
+      "category": "Engine Management",
+      "unit": "count"
+    },
+    {
+      "type": "Mode22",
+      "name": "Misfire Cylinder 2",
+      "pidHigh": 2,
+      "pidLow": 55,
+      "category": "Engine Management",
+      "unit": "count"
+    },
+    {
+      "type": "Mode22",
+      "name": "Misfire Cylinder 5",
+      "pidHigh": 2,
+      "pidLow": 87,
+      "category": "Engine Management",
+      "unit": "count"
+    },
+    {
+      "type": "Mode22",
+      "name": "Misfire Cylinder 6",
+      "pidHigh": 2,
+      "pidLow": 88,
+      "category": "Engine Management",
+      "unit": "count"
+    }
+  ]
+} 
