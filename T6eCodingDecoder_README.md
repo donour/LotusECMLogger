@@ -1,10 +1,10 @@
 # T6e ECU Coding Decoder
 
-A C# library for decoding T6e ECU coding data from Lotus vehicles. This library provides structured access to vehicle configuration options stored in a 2-byte coding array.
+A C# library for decoding T6e ECU coding data from Lotus vehicles. This library provides structured access to vehicle configuration options stored in a 4-byte coding array.
 
 ## Overview
 
-The T6e ECU stores vehicle configuration data in a 2-byte coding array where each bit or group of bits represents different vehicle features and options. This decoder provides a clean, object-oriented interface to access these settings.
+The T6e ECU stores vehicle configuration data in a 4-byte coding array where each bit or group of bits represents different vehicle features and options. This decoder provides a clean, object-oriented interface to access these settings.
 
 ## Features
 
@@ -19,8 +19,8 @@ The T6e ECU stores vehicle configuration data in a 2-byte coding array where eac
 ### Basic Usage
 
 ```csharp
-// Create decoder with 2-byte coding data
-byte[] codingData = { 0x12, 0x34 }; // Example values
+// Create decoder with 4-byte coding data
+byte[] codingData = { 0x12, 0x34, 0x56, 0x78 }; // Example values
 var decoder = new T6eCodingDecoder(codingData);
 
 // Access individual properties
@@ -68,7 +68,7 @@ ulong bitField = decoder.BitField;
 
 // String representations
 string formatted = decoder.ToString(); // Human-readable format
-string hexString = decoder.ToHexString(); // "12 34" format
+string hexString = decoder.ToHexString(); // "12 34 56 78" format
 ```
 
 ## Available Options
@@ -137,7 +137,7 @@ The decoder supports the following vehicle configuration options:
 
 The decoder includes comprehensive error handling:
 
-- **ArgumentException**: Thrown if coding data is not exactly 2 bytes
+- **ArgumentException**: Thrown if coding data is not exactly 4 bytes
 - **ArgumentException**: Thrown if an unknown option name is provided
 
 ## Example
@@ -146,7 +146,7 @@ The decoder includes comprehensive error handling:
 using LotusECMLogger;
 
 // Example coding data from a Lotus vehicle
-byte[] codingData = { 0x7F, 0x42 };
+byte[] codingData = { 0x7F, 0x42, 0x00, 0x00 };
 
 var decoder = new T6eCodingDecoder(codingData);
 
@@ -169,7 +169,7 @@ A test program (`T6eCodingTest.cs`) is included to demonstrate the functionality
 
 ## Bit Layout
 
-The coding data uses a 16-bit field where each option is positioned at specific bit locations:
+The coding data uses a 32-bit field where each option is positioned at specific bit locations:
 
 - Bits 0-7: Various boolean and small options
 - Bits 8-15: Additional boolean and small options

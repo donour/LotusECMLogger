@@ -5,7 +5,7 @@ using System.Linq;
 namespace LotusECMLogger
 {
     /// <summary>
-    /// Decodes T6e ECU coding data from a 2-byte array
+    /// Decodes T6e ECU coding data from a 4-byte array
     /// Provides structured access to vehicle configuration options
     /// </summary>
     public class T6eCodingDecoder
@@ -79,21 +79,24 @@ namespace LotusECMLogger
         };
 
         /// <summary>
-        /// Initialize the decoder with 2 bytes of coding data
+        /// Initialize the decoder with 4 bytes of coding data
         /// </summary>
-        /// <param name="codingData">2-byte array containing the coding data</param>
-        /// <exception cref="ArgumentException">Thrown if codingData is not exactly 2 bytes</exception>
+        /// <param name="codingData">4-byte array containing the coding data</param>
+        /// <exception cref="ArgumentException">Thrown if codingData is not exactly 4 bytes</exception>
         public T6eCodingDecoder(byte[] codingData)
         {
-            if (codingData == null || codingData.Length != 2)
+            if (codingData == null || codingData.Length != 4)
             {
-                throw new ArgumentException("Coding data must be exactly 2 bytes", nameof(codingData));
+                throw new ArgumentException("Coding data must be exactly 4 bytes", nameof(codingData));
             }
 
             _codingData = (byte[])codingData.Clone();
             
-            // Convert 2 bytes to 64-bit value for easier bit manipulation
-            _bitField = ((ulong)codingData[1] << 8) | codingData[0];
+            // Convert 4 bytes to 64-bit value for easier bit manipulation
+            _bitField = ((ulong)codingData[3] << 24) | 
+                       ((ulong)codingData[2] << 16) | 
+                       ((ulong)codingData[1] << 8) | 
+                       codingData[0];
         }
 
         /// <summary>
