@@ -10,6 +10,8 @@ namespace LotusECMLogger
         public event Action<List<LiveDataReading>> DataLogged;
         public event Action<Exception> ExceptionOccurred;
 
+        private T6eCodingDecoder codingDecoder = new([0x00, 0x00, 0x00, 0x00]);
+
         /// <summary>
         /// Flow control filter for Lotus ECM communication
         /// Pattern: [0x00, 0x00, 0x07, 0xE8] - ECM response header
@@ -227,10 +229,43 @@ namespace LotusECMLogger
             }
         }
 
-        private byte[] GetCodingData(Channel Channel)
+        private static byte[][] GetCodingData(Channel Channel)
         {
-            // TODO: implement this
-            return [0x00, 0x00, 0x00, 0x00];
+            byte[][] result = [[0, 0, 0, 0], [0,0,0,0]];
+
+            byte[][] codingRequest =
+            [
+                [0x00, 0x00, 0x07, 0xE0, 0x22, 0x02, 0x63],
+                [0x00, 0x00, 0x07, 0xE0, 0x22, 0x02, 0x64]
+            ];
+            int done = 0;
+            do
+            {
+                Channel.SendMessages(codingRequest);
+                GetMessageResults resp = Channel.GetMessages(1, 100);
+                if (resp.Messages.Length > 0)
+                {
+                    var data = resp.Messages[0].Data;
+                    if (data.Length >= 11)
+                    {
+                        if (data[4] == 0x62 && data[5] == 0x02)
+                        {
+                            if (data[6] == 0x63)
+                            {
+                                result[0] = data[7..11];
+                                done |= 1;
+                            }
+                            if (data[6] == 0x64)
+                            {
+                                result[1] = data[7..11];
+                                done |= 2;
+                            }
+                        }
+                    }
+                }
+            } while (done != 3);
+
+            return result;
         }
 
         private void RunLogger(Device Device)
@@ -240,9 +275,9 @@ namespace LotusECMLogger
                 using Channel Channel = Device.GetChannel(Protocol.ISO15765, Baud.ISO15765, ConnectFlag.NONE);
                 Channel.StartMsgFilter(FlowControlFilter);
 
-                byte[] codingData = GetCodingData(Channel);
+                byte[][] codingBytes = GetCodingData(Channel);
                 // TODO: decode the coding data
-                T6eCodingDecoder codingDecoder = new T6eCodingDecoder(codingData);
+
                 // print each field of the coding decoder
                 foreach (var field in codingDecoder.GetAllOptions())
                 {
