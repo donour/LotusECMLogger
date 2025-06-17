@@ -9,6 +9,7 @@ namespace LotusECMLogger
         public readonly int LogFileToUIRatio = 8; // UI update every 8th log entry
         public event Action<List<LiveDataReading>> DataLogged;
         public event Action<Exception> ExceptionOccurred;
+        public event Action<T6eCodingDecoder> CodingDataUpdated;
 
         private T6eCodingDecoder codingDecoder = new(
             [0,0,0,0],
@@ -18,7 +19,11 @@ namespace LotusECMLogger
         public T6eCodingDecoder CodingDecoder
         {
             get => codingDecoder;
-            set => codingDecoder = value;
+            private set
+            {
+                codingDecoder = value;
+                CodingDataUpdated?.Invoke(value);
+            }
         }
 
         /// <summary>

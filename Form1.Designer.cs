@@ -38,12 +38,14 @@ namespace LotusECMLogger
             stopLogger_button = new Button();
             currentLogfileName = new Label();
             liveDataView = new ListView();
+            codingDataView = new ListView();
             menuStrip1 = new MenuStrip();
             helpToolStripMenuItem = new ToolStripMenuItem();
             aboutLotusECMLoggerToolStripMenuItem = new ToolStripMenuItem();
             obdConfigToolStripMenuItem = new ToolStripMenuItem();
             statusStrip1 = new StatusStrip();
             refreshRateLabel = new ToolStripStatusLabel();
+            SplitContainer splitContainer = new SplitContainer();
             topPanel.SuspendLayout();
             // ListView doesn't need BeginInit
             menuStrip1.SuspendLayout();
@@ -108,9 +110,37 @@ namespace LotusECMLogger
             liveDataView.View = View.Details;
             liveDataView.GetType().GetProperty("DoubleBuffered", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
                 ?.SetValue(liveDataView, true, null); // Enable double buffering for smoother scrolling
-            // 
+
+            // Add SplitContainer to hold both ListViews
+            splitContainer = new SplitContainer();
+            splitContainer.Dock = DockStyle.Fill;
+            splitContainer.Location = new Point(0, 90);
+            splitContainer.Name = "splitContainer";
+            splitContainer.Orientation = Orientation.Vertical;
+            splitContainer.Size = new Size(713, 476);
+
+            // Move liveDataView to left panel
+            splitContainer.Panel1.Controls.Add(liveDataView);
+            liveDataView.Dock = DockStyle.Fill;
+
+            // Add codingDataView to right panel
+            codingDataView = new ListView();
+            codingDataView.Dock = DockStyle.Fill;
+            codingDataView.FullRowSelect = true;
+            codingDataView.GridLines = true;
+            codingDataView.MultiSelect = false;
+            codingDataView.Name = "codingDataView";
+            codingDataView.UseCompatibleStateImageBehavior = false;
+            codingDataView.View = View.Details;
+            codingDataView.GetType().GetProperty("DoubleBuffered", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                ?.SetValue(codingDataView, true, null);
+            splitContainer.Panel2.Controls.Add(codingDataView);
+
+            // Add SplitContainer to form
+            Controls.Add(splitContainer);
+            Controls.Remove(liveDataView); // Remove old direct reference
+
             // menuStrip1
-            // 
             menuStrip1.ImageScalingSize = new Size(20, 20);
             menuStrip1.Items.AddRange(new ToolStripItem[] { helpToolStripMenuItem, obdConfigToolStripMenuItem });
             menuStrip1.Location = new Point(0, 0);
@@ -161,8 +191,6 @@ namespace LotusECMLogger
             AutoScaleDimensions = new SizeF(8F, 20F);
             AutoScaleMode = AutoScaleMode.Font;
             ClientSize = new Size(713, 588);
-            Controls.Add(liveDataView);
-            Controls.Add(topPanel);
             Controls.Add(statusStrip1);
             Controls.Add(menuStrip1);
             MainMenuStrip = menuStrip1;
@@ -190,11 +218,13 @@ namespace LotusECMLogger
         private Button stopLogger_button;
         private Label currentLogfileName;
         private ListView liveDataView;
+        private ListView codingDataView;
         private MenuStrip menuStrip1;
         private ToolStripMenuItem helpToolStripMenuItem;
         private ToolStripMenuItem aboutLotusECMLoggerToolStripMenuItem;
         private StatusStrip statusStrip1;
         private ToolStripStatusLabel refreshRateLabel;
         private ToolStripMenuItem obdConfigToolStripMenuItem;
+        private SplitContainer splitContainer;
     }
 }
