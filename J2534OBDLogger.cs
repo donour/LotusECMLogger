@@ -15,6 +15,12 @@ namespace LotusECMLogger
             [0,0,0,0]
         );
 
+        public T6eCodingDecoder CodingDecoder
+        {
+            get => codingDecoder;
+            set => codingDecoder = value;
+        }
+
         /// <summary>
         /// Flow control filter for Lotus ECM communication
         /// Pattern: [0x00, 0x00, 0x07, 0xE8] - ECM response header
@@ -278,7 +284,7 @@ namespace LotusECMLogger
                 using Channel Channel = Device.GetChannel(Protocol.ISO15765, Baud.ISO15765, ConnectFlag.NONE);
                 Channel.StartMsgFilter(FlowControlFilter);
 
-                codingDecoder = GetCodingData(Channel);
+                CodingDecoder = GetCodingData(Channel);
 
                 // print each field of the coding decoder
                 foreach (var field in codingDecoder.GetAllOptions())
