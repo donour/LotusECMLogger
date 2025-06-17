@@ -5,12 +5,13 @@ using System.Linq;
 namespace LotusECMLogger
 {
     /// <summary>
-    /// Decodes T6e ECU coding data from a 4-byte array
+    /// Decodes T6e ECU coding data from two 4-byte arrays (total 8 bytes, 64 bits)
     /// Provides structured access to vehicle configuration options
     /// </summary>
     public class T6eCodingDecoder
     {
-        private readonly byte[] _codingData;
+        private readonly byte[] _codingDataHigh;
+        private readonly byte[] _codingDataLow;
         private readonly ulong _bitField;
 
         // Constants for boolean options
@@ -79,30 +80,66 @@ namespace LotusECMLogger
         };
 
         /// <summary>
-        /// Initialize the decoder with 4 bytes of coding data
+        /// Initialize the decoder with two 4-byte arrays of coding data
         /// </summary>
-        /// <param name="codingData">4-byte array containing the coding data</param>
-        /// <exception cref="ArgumentException">Thrown if codingData is not exactly 4 bytes</exception>
-        public T6eCodingDecoder(byte[] codingData)
+        /// <param name="codingDataLow">Lower 4 bytes of coding data</param>
+        /// <param name="codingDataHigh">Higher 4 bytes of coding data</param>
+        /// <exception cref="ArgumentException">Thrown if either array is not exactly 4 bytes</exception>
+        public T6eCodingDecoder(byte[] codingDataLow, byte[] codingDataHigh)
         {
-            if (codingData == null || codingData.Length != 4)
+            if (codingDataLow == null || codingDataLow.Length != 4)
             {
-                throw new ArgumentException("Coding data must be exactly 4 bytes", nameof(codingData));
+                throw new ArgumentException("Lower coding data must be exactly 4 bytes", nameof(codingDataLow));
             }
 
-            _codingData = (byte[])codingData.Clone();
+            if (codingDataHigh == null || codingDataHigh.Length != 4)
+            {
+                throw new ArgumentException("Higher coding data must be exactly 4 bytes", nameof(codingDataHigh));
+            }
+
+            _codingDataLow = (byte[])codingDataLow.Clone();
+            _codingDataHigh = (byte[])codingDataHigh.Clone();
             
-            // Convert 4 bytes to 64-bit value for easier bit manipulation
-            _bitField = ((ulong)codingData[3] << 24) | 
-                       ((ulong)codingData[2] << 16) | 
-                       ((ulong)codingData[1] << 8) | 
-                       codingData[0];
+            // Convert 8 bytes to 64-bit value for easier bit manipulation
+            // High bytes (bits 32-63)
+            ulong highBits = ((ulong)codingDataHigh[3] << 24) | 
+                           ((ulong)codingDataHigh[2] << 16) | 
+                           ((ulong)codingDataHigh[1] << 8) | 
+                           codingDataHigh[0];
+            
+            // Low bytes (bits 0-31)
+            ulong lowBits = ((ulong)codingDataLow[3] << 24) | 
+                          ((ulong)codingDataLow[2] << 16) | 
+                          ((ulong)codingDataLow[1] << 8) | 
+                          codingDataLow[0];
+            
+            // Combine into 64-bit field
+            _bitField = (highBits << 32) | lowBits;
         }
 
         /// <summary>
-        /// Get the raw coding data bytes
+        /// Get the lower 4 bytes of coding data
         /// </summary>
-        public byte[] CodingData => (byte[])_codingData.Clone();
+        public byte[] CodingDataLow => (byte[])_codingDataLow.Clone();
+
+        /// <summary>
+        /// Get the higher 4 bytes of coding data
+        /// </summary>
+        public byte[] CodingDataHigh => (byte[])_codingDataHigh.Clone();
+
+        /// <summary>
+        /// Get the complete 8-byte coding data array
+        /// </summary>
+        public byte[] CodingData
+        {
+            get
+            {
+                var result = new byte[8];
+                Array.Copy(_codingDataLow, 0, result, 0, 4);
+                Array.Copy(_codingDataHigh, 0, result, 4, 4);
+                return result;
+            }
+        }
 
         /// <summary>
         /// Get the raw bit field value
@@ -251,7 +288,7 @@ namespace LotusECMLogger
         /// <returns>Hexadecimal representation of the coding data</returns>
         public string ToHexString()
         {
-            return BitConverter.ToString(_codingData).Replace("-", " ");
+            return BitConverter.ToString(CodingData).Replace("-", " ");
         }
     }
 } 
