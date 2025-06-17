@@ -79,6 +79,20 @@ namespace LotusECMLogger
             new CodingOption(0, 1, "Oil Sump System", new[] { "Standard", "Upgrade" })
         ];
 
+
+        public T6eCodingDecoder(ulong bitfield)
+        {
+            _bitField = bitfield;
+            _codingDataLow = new byte[4];
+            _codingDataHigh = new byte[4];
+            // Split the 64-bit value into two 4-byte arrays
+            for (int i = 0; i < 4; i++)
+            {
+                _codingDataLow[i] = (byte)(_bitField >> (i * 8));
+                _codingDataHigh[i] = (byte)(_bitField >> ((i + 4) * 8));
+            }
+        }
+
         /// <summary>
         /// Initialize the decoder with two 4-byte arrays of coding data
         /// </summary>

@@ -261,12 +261,12 @@ namespace LotusECMLogger
                         {
                             if (data[6] == 0x63)
                             {
-                                result[0] = data[7..11];
+                                result[1] = data[7..11];
                                 done |= 1;
                             }
                             if (data[6] == 0x64)
                             {
-                                result[1] = data[7..11];
+                                result[0] = data[7..11];
                                 done |= 2;
                             }
                         }
