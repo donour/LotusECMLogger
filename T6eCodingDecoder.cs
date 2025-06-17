@@ -1,0 +1,254 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+namespace LotusECMLogger
+{
+    /// <summary>
+    /// Decodes T6e ECU coding data from a 2-byte array
+    /// Provides structured access to vehicle configuration options
+    /// </summary>
+    public class T6eCodingDecoder
+    {
+        private readonly byte[] _codingData;
+        private readonly ulong _bitField;
+
+        // Constants for boolean options
+        private static readonly string[] FALSE_TRUE = { "False", "True" };
+
+        /// <summary>
+        /// Coding option definition structure
+        /// </summary>
+        private class CodingOption
+        {
+            public int BitPosition { get; set; }
+            public int BitMask { get; set; }
+            public string Name { get; set; }
+            public string[] Options { get; set; }
+
+            public CodingOption(int bitPosition, int bitMask, string name, string[] options = null)
+            {
+                BitPosition = bitPosition;
+                BitMask = bitMask;
+                Name = name;
+                Options = options;
+            }
+        }
+
+        /// <summary>
+        /// All coding options defined for the T6e ECU
+        /// </summary>
+        private static readonly CodingOption[] _codingOptions = new CodingOption[]
+        {
+            new CodingOption(63, 1, "Oil Cooling System", new[] { "Standard", "Additional" }),
+            new CodingOption(60, 3, "Heating Ventilation Air Conditioning", new[] { "None", "Heater Only", "Air Conditioning", "Climate Control" }),
+            new CodingOption(57, 7, "Cruise System", new[] { "None", "Basic", "Adaptive" }),
+            new CodingOption(52, 1, "Wheel Profile", new[] { "18/19 inch", "19/20 inch" }),
+            new CodingOption(49, 7, "Number of Gears", null),
+            new CodingOption(48, 1, "Close Ratio Gearset", FALSE_TRUE),
+            new CodingOption(45, 7, "Transmission Type", new[] { "Manual", "Auto", "MMT" }),
+            new CodingOption(43, 1, "Speed Units", new[] { "MPH", "KPH" }),
+            new CodingOption(36, 127, "Fuel Tank Capacity", null),
+            new CodingOption(35, 1, "Rear Fog Fitted", FALSE_TRUE),
+            new CodingOption(34, 1, "Japan Seatbelt Warning", FALSE_TRUE),
+            new CodingOption(33, 1, "Symbol Display", new[] { "ECE(ROW)", "SAE(FED)" }),
+            new CodingOption(32, 1, "Driver Position", new[] { "LHD", "RHD" }),
+            new CodingOption(30, 1, "Exhaust Bypass Valve Override", FALSE_TRUE),
+            new CodingOption(29, 1, "DPM Switch", FALSE_TRUE),
+            new CodingOption(28, 1, "Seat Heaters", FALSE_TRUE),
+            new CodingOption(27, 1, "Exhaust Silencer Bypass Valve", FALSE_TRUE),
+            new CodingOption(26, 1, "Auxiliary Cooling Fan", FALSE_TRUE),
+            new CodingOption(25, 1, "Speed Alert Buzzer", FALSE_TRUE),
+            new CodingOption(24, 1, "TC/ESP Button", FALSE_TRUE),
+            new CodingOption(23, 1, "Sport Button", FALSE_TRUE),
+            new CodingOption(21, 3, "Clutch Input", new[] { "None", "Switch", "Potentiometer" }),
+            new CodingOption(15, 1, "Body Control Module", FALSE_TRUE),
+            new CodingOption(14, 1, "Transmission Control Unit", FALSE_TRUE),
+            new CodingOption(13, 1, "Tyre Pressure Monitoring System", FALSE_TRUE),
+            new CodingOption(12, 1, "Steering Angle Sensor", FALSE_TRUE),
+            new CodingOption(11, 1, "Yaw Rate Sensor", FALSE_TRUE),
+            new CodingOption(10, 1, "Instrument Cluster", new[] { "MY08", "MY11/12" }),
+            new CodingOption(9, 1, "Anti-Lock Braking System", FALSE_TRUE),
+            new CodingOption(8, 1, "Launch Mode", FALSE_TRUE),
+            new CodingOption(7, 1, "Race Mode", FALSE_TRUE),
+            new CodingOption(6, 1, "Speed Limiter", FALSE_TRUE),
+            new CodingOption(5, 1, "Reverse Camera", FALSE_TRUE),
+            new CodingOption(4, 1, "Powerfold Mirrors", FALSE_TRUE),
+            new CodingOption(1, 1, "Central Door Locking", FALSE_TRUE),
+            new CodingOption(0, 1, "Oil Sump System", new[] { "Standard", "Upgrade" })
+        };
+
+        /// <summary>
+        /// Initialize the decoder with 2 bytes of coding data
+        /// </summary>
+        /// <param name="codingData">2-byte array containing the coding data</param>
+        /// <exception cref="ArgumentException">Thrown if codingData is not exactly 2 bytes</exception>
+        public T6eCodingDecoder(byte[] codingData)
+        {
+            if (codingData == null || codingData.Length != 2)
+            {
+                throw new ArgumentException("Coding data must be exactly 2 bytes", nameof(codingData));
+            }
+
+            _codingData = (byte[])codingData.Clone();
+            
+            // Convert 2 bytes to 64-bit value for easier bit manipulation
+            _bitField = ((ulong)codingData[1] << 8) | codingData[0];
+        }
+
+        /// <summary>
+        /// Get the raw coding data bytes
+        /// </summary>
+        public byte[] CodingData => (byte[])_codingData.Clone();
+
+        /// <summary>
+        /// Get the raw bit field value
+        /// </summary>
+        public ulong BitField => _bitField;
+
+        /// <summary>
+        /// Extract a value from the bit field at the specified position with the given mask
+        /// </summary>
+        /// <param name="bitPosition">Bit position (0-63)</param>
+        /// <param name="bitMask">Bit mask for the field</param>
+        /// <returns>Extracted value</returns>
+        private int ExtractValue(int bitPosition, int bitMask)
+        {
+            return (int)((_bitField >> bitPosition) & (ulong)bitMask);
+        }
+
+        /// <summary>
+        /// Get the decoded value for a specific option
+        /// </summary>
+        /// <param name="optionName">Name of the option to retrieve</param>
+        /// <returns>Decoded value as string</returns>
+        public string GetOptionValue(string optionName)
+        {
+            var option = _codingOptions.FirstOrDefault(o => o.Name.Equals(optionName, StringComparison.OrdinalIgnoreCase));
+            if (option == null)
+            {
+                throw new ArgumentException($"Unknown option: {optionName}", nameof(optionName));
+            }
+
+            int value = ExtractValue(option.BitPosition, option.BitMask);
+            
+            if (option.Options != null && value < option.Options.Length)
+            {
+                return option.Options[value];
+            }
+            
+            return value.ToString();
+        }
+
+        /// <summary>
+        /// Get the raw numeric value for a specific option
+        /// </summary>
+        /// <param name="optionName">Name of the option to retrieve</param>
+        /// <returns>Raw numeric value</returns>
+        public int GetOptionRawValue(string optionName)
+        {
+            var option = _codingOptions.FirstOrDefault(o => o.Name.Equals(optionName, StringComparison.OrdinalIgnoreCase));
+            if (option == null)
+            {
+                throw new ArgumentException($"Unknown option: {optionName}", nameof(optionName));
+            }
+
+            return ExtractValue(option.BitPosition, option.BitMask);
+        }
+
+        /// <summary>
+        /// Get all available option names
+        /// </summary>
+        /// <returns>Array of option names</returns>
+        public string[] GetAvailableOptions()
+        {
+            return _codingOptions.Select(o => o.Name).ToArray();
+        }
+
+        /// <summary>
+        /// Get all decoded options as a dictionary
+        /// </summary>
+        /// <returns>Dictionary of option names to decoded values</returns>
+        public Dictionary<string, string> GetAllOptions()
+        {
+            var result = new Dictionary<string, string>();
+            foreach (var option in _codingOptions)
+            {
+                result[option.Name] = GetOptionValue(option.Name);
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// Get all raw numeric values as a dictionary
+        /// </summary>
+        /// <returns>Dictionary of option names to raw numeric values</returns>
+        public Dictionary<string, int> GetAllRawValues()
+        {
+            var result = new Dictionary<string, int>();
+            foreach (var option in _codingOptions)
+            {
+                result[option.Name] = GetOptionRawValue(option.Name);
+            }
+            return result;
+        }
+
+        // Individual property accessors for convenience
+        public string OilCoolingSystem => GetOptionValue("Oil Cooling System");
+        public string HeatingVentilationAirConditioning => GetOptionValue("Heating Ventilation Air Conditioning");
+        public string CruiseSystem => GetOptionValue("Cruise System");
+        public string WheelProfile => GetOptionValue("Wheel Profile");
+        public int NumberOfGears => GetOptionRawValue("Number of Gears");
+        public string CloseRatioGearset => GetOptionValue("Close Ratio Gearset");
+        public string TransmissionType => GetOptionValue("Transmission Type");
+        public string SpeedUnits => GetOptionValue("Speed Units");
+        public int FuelTankCapacity => GetOptionRawValue("Fuel Tank Capacity");
+        public string RearFogFitted => GetOptionValue("Rear Fog Fitted");
+        public string JapanSeatbeltWarning => GetOptionValue("Japan Seatbelt Warning");
+        public string SymbolDisplay => GetOptionValue("Symbol Display");
+        public string DriverPosition => GetOptionValue("Driver Position");
+        public string ExhaustBypassValveOverride => GetOptionValue("Exhaust Bypass Valve Override");
+        public string DpmSwitch => GetOptionValue("DPM Switch");
+        public string SeatHeaters => GetOptionValue("Seat Heaters");
+        public string ExhaustSilencerBypassValve => GetOptionValue("Exhaust Silencer Bypass Valve");
+        public string AuxiliaryCoolingFan => GetOptionValue("Auxiliary Cooling Fan");
+        public string SpeedAlertBuzzer => GetOptionValue("Speed Alert Buzzer");
+        public string TcEspButton => GetOptionValue("TC/ESP Button");
+        public string SportButton => GetOptionValue("Sport Button");
+        public string ClutchInput => GetOptionValue("Clutch Input");
+        public string BodyControlModule => GetOptionValue("Body Control Module");
+        public string TransmissionControlUnit => GetOptionValue("Transmission Control Unit");
+        public string TyrePressureMonitoringSystem => GetOptionValue("Tyre Pressure Monitoring System");
+        public string SteeringAngleSensor => GetOptionValue("Steering Angle Sensor");
+        public string YawRateSensor => GetOptionValue("Yaw Rate Sensor");
+        public string InstrumentCluster => GetOptionValue("Instrument Cluster");
+        public string AntiLockBrakingSystem => GetOptionValue("Anti-Lock Braking System");
+        public string LaunchMode => GetOptionValue("Launch Mode");
+        public string RaceMode => GetOptionValue("Race Mode");
+        public string SpeedLimiter => GetOptionValue("Speed Limiter");
+        public string ReverseCamera => GetOptionValue("Reverse Camera");
+        public string PowerfoldMirrors => GetOptionValue("Powerfold Mirrors");
+        public string CentralDoorLocking => GetOptionValue("Central Door Locking");
+        public string OilSumpSystem => GetOptionValue("Oil Sump System");
+
+        /// <summary>
+        /// Convert the decoded data to a formatted string representation
+        /// </summary>
+        /// <returns>Formatted string with all options</returns>
+        public override string ToString()
+        {
+            var options = GetAllOptions();
+            var lines = options.Select(kvp => $"{kvp.Key}: {kvp.Value}");
+            return string.Join(Environment.NewLine, lines);
+        }
+
+        /// <summary>
+        /// Get a summary of the coding data in hexadecimal format
+        /// </summary>
+        /// <returns>Hexadecimal representation of the coding data</returns>
+        public string ToHexString()
+        {
+            return BitConverter.ToString(_codingData).Replace("-", " ");
+        }
+    }
+} 
