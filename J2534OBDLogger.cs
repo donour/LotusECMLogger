@@ -226,12 +226,28 @@ namespace LotusECMLogger
                 }
             }
         }
+
+        private byte[] GetCodingData(Channel Channel)
+        {
+            // TODO: implement this
+            return [0x00, 0x00, 0x00, 0x00];
+        }
+
         private void RunLogger(Device Device)
         {
             try
             {
                 using Channel Channel = Device.GetChannel(Protocol.ISO15765, Baud.ISO15765, ConnectFlag.NONE);
                 Channel.StartMsgFilter(FlowControlFilter);
+
+                byte[] codingData = GetCodingData(Channel);
+                // TODO: decode the coding data
+                T6eCodingDecoder codingDecoder = new T6eCodingDecoder(codingData);
+                // print each field of the coding decoder
+                foreach (var field in codingDecoder.GetAllOptions())
+                {
+                    Debug.WriteLine($"{field.Key}: {field.Value}");
+                }
 
                 // Build all OBD messages from configuration
                 var allMessages = obdConfig.BuildAllMessages();
