@@ -45,7 +45,7 @@ namespace LotusECMLogger
             new CodingOption(60, 3, "Heating Ventilation Air Conditioning", new[] { "None", "Heater Only", "Air Conditioning", "Climate Control" }),
             new CodingOption(57, 7, "Cruise System", new[] { "None", "Basic", "Adaptive" }),
             new CodingOption(52, 1, "Wheel Profile", new[] { "18/19 inch", "19/20 inch" }),
-            new CodingOption(49, 7, "Number of Gears", null),
+            new CodingOption(49, 7, "Number of Gears", new[] {"1","2","3","4","5","6","7","8"}),
             new CodingOption(48, 1, "Close Ratio Gearset", FALSE_TRUE),
             new CodingOption(45, 7, "Transmission Type", new[] { "Manual", "Auto", "MMT" }),
             new CodingOption(43, 1, "Speed Units", new[] { "MPH", "KPH" }),
@@ -78,7 +78,6 @@ namespace LotusECMLogger
             new CodingOption(1, 1, "Central Door Locking", FALSE_TRUE),
             new CodingOption(0, 1, "Oil Sump System", new[] { "Standard", "Upgrade" })
         ];
-
 
         public T6eCodingDecoder(ulong bitfield)
         {
