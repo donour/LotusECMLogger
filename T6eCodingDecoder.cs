@@ -39,8 +39,8 @@ namespace LotusECMLogger
         /// <summary>
         /// All coding options defined for the T6e ECU
         /// </summary>
-        private static readonly CodingOption[] _codingOptions = new CodingOption[]
-        {
+        private static readonly CodingOption[] _codingOptions =
+        [
             new CodingOption(63, 1, "Oil Cooling System", new[] { "Standard", "Additional" }),
             new CodingOption(60, 3, "Heating Ventilation Air Conditioning", new[] { "None", "Heater Only", "Air Conditioning", "Climate Control" }),
             new CodingOption(57, 7, "Cruise System", new[] { "None", "Basic", "Adaptive" }),
@@ -77,7 +77,7 @@ namespace LotusECMLogger
             new CodingOption(4, 1, "Powerfold Mirrors", FALSE_TRUE),
             new CodingOption(1, 1, "Central Door Locking", FALSE_TRUE),
             new CodingOption(0, 1, "Oil Sump System", new[] { "Standard", "Upgrade" })
-        };
+        ];
 
         /// <summary>
         /// Initialize the decoder with two 4-byte arrays of coding data

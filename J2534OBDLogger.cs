@@ -10,7 +10,10 @@ namespace LotusECMLogger
         public event Action<List<LiveDataReading>> DataLogged;
         public event Action<Exception> ExceptionOccurred;
 
-        private T6eCodingDecoder codingDecoder = new([0x00, 0x00, 0x00, 0x00]);
+        private T6eCodingDecoder codingDecoder = new(
+            [0,0,0,0],
+            [0,0,0,0]
+        );
 
         /// <summary>
         /// Flow control filter for Lotus ECM communication
@@ -229,7 +232,7 @@ namespace LotusECMLogger
             }
         }
 
-        private static byte[][] GetCodingData(Channel Channel)
+        private static T6eCodingDecoder GetCodingData(Channel Channel)
         {
             byte[][] result = [[0, 0, 0, 0], [0,0,0,0]];
 
@@ -265,7 +268,7 @@ namespace LotusECMLogger
                 }
             } while (done != 3);
 
-            return result;
+            return new T6eCodingDecoder(result[1], result[0]);
         }
 
         private void RunLogger(Device Device)
@@ -275,8 +278,7 @@ namespace LotusECMLogger
                 using Channel Channel = Device.GetChannel(Protocol.ISO15765, Baud.ISO15765, ConnectFlag.NONE);
                 Channel.StartMsgFilter(FlowControlFilter);
 
-                byte[][] codingBytes = GetCodingData(Channel);
-                // TODO: decode the coding data
+                codingDecoder = GetCodingData(Channel);
 
                 // print each field of the coding decoder
                 foreach (var field in codingDecoder.GetAllOptions())
