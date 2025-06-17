@@ -45,7 +45,9 @@ namespace LotusECMLogger
             obdConfigToolStripMenuItem = new ToolStripMenuItem();
             statusStrip1 = new StatusStrip();
             refreshRateLabel = new ToolStripStatusLabel();
-            SplitContainer splitContainer = new SplitContainer();
+            mainTabControl = new TabControl();
+            liveDataTab = new TabPage();
+            codingDataTab = new TabPage();
             topPanel.SuspendLayout();
             // ListView doesn't need BeginInit
             menuStrip1.SuspendLayout();
@@ -111,19 +113,24 @@ namespace LotusECMLogger
             liveDataView.GetType().GetProperty("DoubleBuffered", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
                 ?.SetValue(liveDataView, true, null); // Enable double buffering for smoother scrolling
 
-            // Add SplitContainer to hold both ListViews
-            splitContainer = new SplitContainer();
-            splitContainer.Dock = DockStyle.Fill;
-            splitContainer.Location = new Point(0, 90);
-            splitContainer.Name = "splitContainer";
-            splitContainer.Orientation = Orientation.Vertical;
-            splitContainer.Size = new Size(713, 476);
+            // Create TabControl
+            mainTabControl = new TabControl();
+            mainTabControl.Dock = DockStyle.Fill;
+            mainTabControl.Location = new Point(0, 90);
+            mainTabControl.Name = "mainTabControl";
+            mainTabControl.Size = new Size(713, 476);
 
-            // Move liveDataView to left panel
-            splitContainer.Panel1.Controls.Add(liveDataView);
-            liveDataView.Dock = DockStyle.Fill;
+            // Create Live Data Tab
+            liveDataTab = new TabPage();
+            liveDataTab.Text = "Live Data";
+            liveDataTab.Controls.Add(liveDataView);
+            mainTabControl.TabPages.Add(liveDataTab);
 
-            // Add codingDataView to right panel
+            // Create Coding Data Tab
+            codingDataTab = new TabPage();
+            codingDataTab.Text = "ECU Coding";
+            
+            // Configure codingDataView
             codingDataView = new ListView();
             codingDataView.Dock = DockStyle.Fill;
             codingDataView.FullRowSelect = true;
@@ -134,11 +141,13 @@ namespace LotusECMLogger
             codingDataView.View = View.Details;
             codingDataView.GetType().GetProperty("DoubleBuffered", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
                 ?.SetValue(codingDataView, true, null);
-            splitContainer.Panel2.Controls.Add(codingDataView);
+            
+            codingDataTab.Controls.Add(codingDataView);
+            mainTabControl.TabPages.Add(codingDataTab);
 
-            // Add SplitContainer to form
-            Controls.Add(splitContainer);
-            Controls.Remove(liveDataView); // Remove old direct reference
+            // Add TabControl to form
+            Controls.Add(mainTabControl);
+            Controls.Add(topPanel);
 
             // menuStrip1
             menuStrip1.ImageScalingSize = new Size(20, 20);
@@ -225,6 +234,8 @@ namespace LotusECMLogger
         private StatusStrip statusStrip1;
         private ToolStripStatusLabel refreshRateLabel;
         private ToolStripMenuItem obdConfigToolStripMenuItem;
-        private SplitContainer splitContainer;
+        private TabControl mainTabControl;
+        private TabPage liveDataTab;
+        private TabPage codingDataTab;
     }
 }
