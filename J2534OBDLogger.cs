@@ -9,6 +9,22 @@ namespace LotusECMLogger
         public readonly int LogFileToUIRatio = 8; // UI update every 8th log entry
         public event Action<List<LiveDataReading>> DataLogged;
         public event Action<Exception> ExceptionOccurred;
+        public event Action<T6eCodingDecoder> CodingDataUpdated;
+
+        private T6eCodingDecoder codingDecoder = new(
+            [0,0,0,0],
+            [0,0,0,0]
+        );
+
+        public T6eCodingDecoder CodingDecoder
+        {
+            get => codingDecoder;
+            private set
+            {
+                codingDecoder = value;
+                CodingDataUpdated?.Invoke(value);
+            }
+        }
 
         /// <summary>
         /// Flow control filter for Lotus ECM communication
@@ -226,12 +242,60 @@ namespace LotusECMLogger
                 }
             }
         }
+
+        private static T6eCodingDecoder GetCodingData(Channel Channel)
+        {
+            byte[][] result = [[0, 0, 0, 0], [0,0,0,0]];
+
+            byte[][] codingRequest =
+            [
+                [0x00, 0x00, 0x07, 0xE0, 0x22, 0x02, 0x63],
+                [0x00, 0x00, 0x07, 0xE0, 0x22, 0x02, 0x64]
+            ];
+            int done = 0;
+            do
+            {
+                Channel.SendMessages(codingRequest);
+                GetMessageResults resp = Channel.GetMessages(1, 100);
+                if (resp.Messages.Length > 0)
+                {
+                    var data = resp.Messages[0].Data;
+                    if (data.Length >= 11)
+                    {
+                        if (data[4] == 0x62 && data[5] == 0x02)
+                        {
+                            if (data[6] == 0x63)
+                            {
+                                result[1] = data[7..11];
+                                done |= 1;
+                            }
+                            if (data[6] == 0x64)
+                            {
+                                result[0] = data[7..11];
+                                done |= 2;
+                            }
+                        }
+                    }
+                }
+            } while (done != 3);
+
+            return new T6eCodingDecoder(result[1], result[0]);
+        }
+
         private void RunLogger(Device Device)
         {
             try
             {
                 using Channel Channel = Device.GetChannel(Protocol.ISO15765, Baud.ISO15765, ConnectFlag.NONE);
                 Channel.StartMsgFilter(FlowControlFilter);
+
+                CodingDecoder = GetCodingData(Channel);
+
+                // print each field of the coding decoder
+                foreach (var field in codingDecoder.GetAllOptions())
+                {
+                    Debug.WriteLine($"{field.Key}: {field.Value}");
+                }
 
                 // Build all OBD messages from configuration
                 var allMessages = obdConfig.BuildAllMessages();

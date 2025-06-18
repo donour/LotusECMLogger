@@ -38,12 +38,16 @@ namespace LotusECMLogger
             stopLogger_button = new Button();
             currentLogfileName = new Label();
             liveDataView = new ListView();
+            codingDataView = new ListView();
             menuStrip1 = new MenuStrip();
             helpToolStripMenuItem = new ToolStripMenuItem();
             aboutLotusECMLoggerToolStripMenuItem = new ToolStripMenuItem();
             obdConfigToolStripMenuItem = new ToolStripMenuItem();
             statusStrip1 = new StatusStrip();
             refreshRateLabel = new ToolStripStatusLabel();
+            mainTabControl = new TabControl();
+            liveDataTab = new TabPage();
+            codingDataTab = new TabPage();
             topPanel.SuspendLayout();
             // ListView doesn't need BeginInit
             menuStrip1.SuspendLayout();
@@ -108,9 +112,44 @@ namespace LotusECMLogger
             liveDataView.View = View.Details;
             liveDataView.GetType().GetProperty("DoubleBuffered", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
                 ?.SetValue(liveDataView, true, null); // Enable double buffering for smoother scrolling
-            // 
+
+            // Create TabControl
+            mainTabControl = new TabControl();
+            mainTabControl.Dock = DockStyle.Fill;
+            mainTabControl.Location = new Point(0, 90);
+            mainTabControl.Name = "mainTabControl";
+            mainTabControl.Size = new Size(713, 476);
+
+            // Create Live Data Tab
+            liveDataTab = new TabPage();
+            liveDataTab.Text = "Live Data";
+            liveDataTab.Controls.Add(liveDataView);
+            mainTabControl.TabPages.Add(liveDataTab);
+
+            // Create Coding Data Tab
+            codingDataTab = new TabPage();
+            codingDataTab.Text = "ECU Coding";
+            
+            // Configure codingDataView
+            codingDataView = new ListView();
+            codingDataView.Dock = DockStyle.Fill;
+            codingDataView.FullRowSelect = true;
+            codingDataView.GridLines = true;
+            codingDataView.MultiSelect = false;
+            codingDataView.Name = "codingDataView";
+            codingDataView.UseCompatibleStateImageBehavior = false;
+            codingDataView.View = View.Details;
+            codingDataView.GetType().GetProperty("DoubleBuffered", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                ?.SetValue(codingDataView, true, null);
+            
+            codingDataTab.Controls.Add(codingDataView);
+            mainTabControl.TabPages.Add(codingDataTab);
+
+            // Add TabControl to form
+            Controls.Add(mainTabControl);
+            Controls.Add(topPanel);
+
             // menuStrip1
-            // 
             menuStrip1.ImageScalingSize = new Size(20, 20);
             menuStrip1.Items.AddRange(new ToolStripItem[] { helpToolStripMenuItem, obdConfigToolStripMenuItem });
             menuStrip1.Location = new Point(0, 0);
@@ -161,8 +200,6 @@ namespace LotusECMLogger
             AutoScaleDimensions = new SizeF(8F, 20F);
             AutoScaleMode = AutoScaleMode.Font;
             ClientSize = new Size(713, 588);
-            Controls.Add(liveDataView);
-            Controls.Add(topPanel);
             Controls.Add(statusStrip1);
             Controls.Add(menuStrip1);
             MainMenuStrip = menuStrip1;
@@ -190,11 +227,15 @@ namespace LotusECMLogger
         private Button stopLogger_button;
         private Label currentLogfileName;
         private ListView liveDataView;
+        private ListView codingDataView;
         private MenuStrip menuStrip1;
         private ToolStripMenuItem helpToolStripMenuItem;
         private ToolStripMenuItem aboutLotusECMLoggerToolStripMenuItem;
         private StatusStrip statusStrip1;
         private ToolStripStatusLabel refreshRateLabel;
         private ToolStripMenuItem obdConfigToolStripMenuItem;
+        private TabControl mainTabControl;
+        private TabPage liveDataTab;
+        private TabPage codingDataTab;
     }
 }

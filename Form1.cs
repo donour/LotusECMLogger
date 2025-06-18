@@ -74,6 +74,9 @@ namespace LotusECMLogger
         {
             liveDataView.Columns.Add("Parameter", 200);
             liveDataView.Columns.Add("Value", 100);
+
+            codingDataView.Columns.Add("Option", 200);
+            codingDataView.Columns.Add("Value", 100);
         }
 
         private void PopulateObdConfigMenu()
@@ -122,8 +125,12 @@ namespace LotusECMLogger
                 }
                 OBDConfiguration config = OBDConfiguration.LoadFromConfig(selectedObdConfigName);
                 logger = new J2534OBDLogger(outfn, Logger_DataLogged, Logger_ExceptionOccurred, config);
+                logger.CodingDataUpdated += Logger_CodingDataUpdated;
                 logger.Start();
                 currentLogfileName.Text = outfn;
+
+                // Update coding view after logger is started
+                UpdateCodingView();
             }
             catch (J2534Exception ex)
             {
@@ -248,6 +255,50 @@ namespace LotusECMLogger
         {
             var ab = new AboutBox1();
             ab.ShowDialog(this);
+        }
+
+        private void UpdateCodingView()
+        {
+            if (logger?.CodingDecoder == null)
+                return;
+
+            var options = logger.CodingDecoder.GetAllOptions();
+            
+            codingDataView.BeginUpdate();
+            codingDataView.Items.Clear();
+            
+            foreach (var option in options)
+            {
+                var item = new ListViewItem(new[] { option.Key, option.Value });
+                codingDataView.Items.Add(item);
+            }
+            
+            codingDataView.EndUpdate();
+        }
+
+        private void Logger_CodingDataUpdated(T6eCodingDecoder decoder)
+        {
+            if (IsDisposed || Disposing)
+                return;
+
+            if (InvokeRequired)
+            {
+                try
+                {
+                    Invoke(new Action(() => Logger_CodingDataUpdated(decoder)));
+                }
+                catch (ObjectDisposedException)
+                {
+                    return;
+                }
+                catch (InvalidOperationException)
+                {
+                    return;
+                }
+                return;
+            }
+
+            UpdateCodingView();
         }
     }
 }
