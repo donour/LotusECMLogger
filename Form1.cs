@@ -1,304 +1,195 @@
-using SAE.J2534;
 using System.ComponentModel;
-using System.Text.Unicode;
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Windows.Forms;
+using LotusECMLogger.ViewModels;
 
 namespace LotusECMLogger
 {
-    public partial class LoggerWindow : Form, INotifyPropertyChanged
+    public partial class LoggerWindow : Form
     {
-        /// <summary>
-        ///  Required designer variable.
-        /// </summary>
-        private System.ComponentModel.IContainer? components = null;
-
-        private J2534OBDLogger logger;
-        private Dictionary<String, float> liveData = new Dictionary<string, float>();
-        private DateTime lastUpdateTime = DateTime.Now;
-
-        public event PropertyChangedEventHandler PropertyChanged;
-        protected virtual void OnPropertyChanged(string propertyName)
-        {
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-        }
-
-        private string selectedObdConfigName = "NO CONFIG";
-
-        private bool _loggerEnabled = false;
-        public bool loggerEnabled
-        {
-            get => _loggerEnabled;
-            set
-            {
-                if (_loggerEnabled != value)
-                {
-                    _loggerEnabled = value;
-                    OnPropertyChanged(nameof(loggerEnabled));
-                    // Update button states
-                    startLogger_button.Enabled = !value;
-                    stopLogger_button.Enabled = value;
-                }
-            }
-        }
+        private readonly MainWindowViewModel _viewModel;
+        private System.Windows.Forms.Timer _refreshTimer;
 
         public LoggerWindow()
         {
             InitializeComponent();
-            // Populate OBD config menu
+
+            // Initialize view model
+            _viewModel = new MainWindowViewModel();
+            
+            // Set up timer for UI updates
+            _refreshTimer = new System.Windows.Forms.Timer
+            {
+                Interval = 100 // 10Hz refresh rate
+            };
+            _refreshTimer.Tick += RefreshTimer_Tick;
+            _refreshTimer.Start();
+
+            // Wire up view model property changed events
+            _viewModel.PropertyChanged += ViewModel_PropertyChanged;
+            _viewModel.LiveDataViewModel.PropertyChanged += LiveDataViewModel_PropertyChanged;
+            _viewModel.ECUCodingViewModel.PropertyChanged += ECUCodingViewModel_PropertyChanged;
+
+            // Initialize OBD config menu
             PopulateObdConfigMenu();
-            // Initialize ListView columns
-            InitializeListView();
-            // dummy logger to avoid null reference exceptions
-            logger = new J2534OBDLogger("unused", Logger_DataLogged, Logger_ExceptionOccurred, new OBDConfiguration());
-            // Handle form closing to ensure logger is stopped
+
+            // Initialize list views
+            InitializeListViews();
+
+            // Handle form closing
             this.FormClosing += LoggerWindow_FormClosing;
-            // Initial button state
-            loggerEnabled = false;
         }
 
-        /// <summary>
-        /// Handle form closing event to ensure logger is safely stopped
-        /// </summary>
-        private void LoggerWindow_FormClosing(object sender, FormClosingEventArgs e)
+        private void InitializeListViews()
         {
-            // Stop the logger before the form closes
-            logger?.Stop();
-            logger?.Dispose();
-        }
-
-        private void InitializeListView()
-        {
+            // Live Data ListView
+            liveDataView.Columns.Clear();
             liveDataView.Columns.Add("Parameter", 200);
             liveDataView.Columns.Add("Value", 100);
+            liveDataView.Columns.Add("Time", 100);
 
+            // ECU Coding ListView
+            codingDataView.Columns.Clear();
             codingDataView.Columns.Add("Option", 200);
             codingDataView.Columns.Add("Value", 100);
+            codingDataView.Columns.Add("Category", 100);
         }
 
         private void PopulateObdConfigMenu()
         {
             obdConfigToolStripMenuItem.DropDownItems.Clear();
-            var configs = OBDConfigurationLoader.GetAvailableConfigurations();
-            if (configs.Count == 0)
-            {
-                var noneItem = new ToolStripMenuItem("No configs found") { Enabled = false };
-                obdConfigToolStripMenuItem.DropDownItems.Add(noneItem);
-                selectedObdConfigName = "NO CONFIG";
-                return;
-            }
-            foreach (var config in configs)
+            
+            foreach (var config in _viewModel.AvailableConfigurations)
             {
                 var item = new ToolStripMenuItem(config);
-                item.Click += ObdConfigMenuItem_Click;
+                item.Click += (s, e) =>
+                {
+                    _viewModel.SelectedConfiguration = config;
+                    foreach (ToolStripMenuItem menuItem in obdConfigToolStripMenuItem.DropDownItems)
+                    {
+                        menuItem.Checked = menuItem.Text == config;
+                    }
+                };
                 obdConfigToolStripMenuItem.DropDownItems.Add(item);
             }
-            // Default to first config
-            selectedObdConfigName = configs[0];
-            ((ToolStripMenuItem)obdConfigToolStripMenuItem.DropDownItems[0]).Checked = true;
+
+            // Select first config by default
+            if (obdConfigToolStripMenuItem.DropDownItems.Count > 0)
+            {
+                ((ToolStripMenuItem)obdConfigToolStripMenuItem.DropDownItems[0]).Checked = true;
+                _viewModel.SelectedConfiguration = _viewModel.AvailableConfigurations.First();
+            }
         }
 
-        private void ObdConfigMenuItem_Click(object sender, EventArgs e)
+        private void RefreshTimer_Tick(object sender, EventArgs e)
         {
-            foreach (ToolStripMenuItem item in obdConfigToolStripMenuItem.DropDownItems)
-                item.Checked = false;
-            var clicked = (ToolStripMenuItem)sender;
-            clicked.Checked = true;
-            selectedObdConfigName = clicked.Text ?? "NO CONFIG";
+            UpdateLiveDataView();
+            UpdateStatusBar();
         }
 
-        private void buttonTestRead_Click(object sender, EventArgs e)
+        private void UpdateStatusBar()
+        {
+            refreshRateLabel.Text = $"Refresh Rate: {_viewModel.RefreshRate:F1} Hz";
+            currentLogfileName.Text = _viewModel.CurrentLogFile ?? "No Log File";
+        }
+
+        private void UpdateLiveDataView()
+        {
+            var readings = _viewModel.LiveDataViewModel.FilteredReadings;
+            
+            liveDataView.BeginUpdate();
+            liveDataView.Items.Clear();
+
+            foreach (var reading in readings)
+            {
+                var item = new ListViewItem(new[]
+                {
+                    reading.ParameterName,
+                    reading.FormattedValue,
+                    reading.Timestamp.ToString("HH:mm:ss.fff")
+                });
+                liveDataView.Items.Add(item);
+            }
+
+            liveDataView.EndUpdate();
+        }
+
+        private void UpdateECUCodingView()
+        {
+            var options = _viewModel.ECUCodingViewModel.FilteredOptions;
+            
+            codingDataView.BeginUpdate();
+            codingDataView.Items.Clear();
+
+            foreach (var option in options)
+            {
+                var item = new ListViewItem(new[]
+                {
+                    option.Name,
+                    option.Value,
+                    option.Category
+                });
+                codingDataView.Items.Add(item);
+            }
+
+            codingDataView.EndUpdate();
+        }
+
+        private void ViewModel_PropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            switch (e.PropertyName)
+            {
+                case nameof(MainWindowViewModel.IsLogging):
+                    startLogger_button.Enabled = !_viewModel.IsLogging;
+                    stopLogger_button.Enabled = _viewModel.IsLogging;
+                    break;
+                case nameof(MainWindowViewModel.StatusMessage):
+                    // Update status message if we add one
+                    break;
+            }
+        }
+
+        private void LiveDataViewModel_PropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(LiveDataViewModel.FilteredReadings))
+            {
+                UpdateLiveDataView();
+            }
+        }
+
+        private void ECUCodingViewModel_PropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(ECUCodingViewModel.FilteredOptions))
+            {
+                UpdateECUCodingView();
+            }
+        }
+
+        private void LoggerWindow_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            _refreshTimer.Stop();
+            _viewModel.Dispose();
+        }
+
+        private void startLogger_button_Click(object sender, EventArgs e)
         {
             try
             {
-                liveData.Clear();
-                loggerEnabled = true;
-                var outfn = $"{Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)}\\LotusECMLog{DateTime.Now:yyyyMMdd_HHmmss}.csv";
-                // Use selected OBD config
-                if (string.IsNullOrWhiteSpace(selectedObdConfigName))
-                {
-                    MessageBox.Show("Please select an OBD configuration before starting the logger.", "Configuration Required", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    return;
-                }
-                OBDConfiguration config = OBDConfiguration.LoadFromConfig(selectedObdConfigName);
-                logger = new J2534OBDLogger(outfn, Logger_DataLogged, Logger_ExceptionOccurred, config);
-                logger.CodingDataUpdated += Logger_CodingDataUpdated;
-                logger.Start();
-                currentLogfileName.Text = outfn;
-
-                // Update coding view after logger is started
-                UpdateCodingView();
-            }
-            catch (J2534Exception ex)
-            {
-                MessageBox.Show(ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                loggerEnabled = false;
+                _viewModel.StartLoggingCommand.Execute(null);
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Failed to load OBD configuration: {ex.Message}", "Config Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                loggerEnabled = false;
+                MessageBox.Show(ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
         private void stopLogger_button_Click(object sender, EventArgs e)
         {
-            logger?.Stop();
-            loggerEnabled = false;
-            currentLogfileName.Text = "No Log File";
-        }
-
-        private void Logger_DataLogged(List<LiveDataReading> data)
-        {
-            // Check if form is disposed or being disposed
-            if (IsDisposed || Disposing)
-                return;
-                
-            if (InvokeRequired)
-            {
-                try
-                {
-                    Invoke(new Action(() => Logger_DataLogged(data)));
-                }
-                catch (ObjectDisposedException)
-                {
-                    // Form was disposed while trying to invoke - ignore
-                    return;
-                }
-                catch (InvalidOperationException)
-                {
-                    // Form handle was destroyed - ignore
-                    return;
-                }
-                return;
-            }
-            
-            // Double-check after invoke to handle race conditions
-            if (IsDisposed || Disposing)
-                return;
-            
-            foreach (var r in data)
-            {
-                liveData[r.name] = (float)r.value_f;
-            }
-            
-            UpdateListView();
-
-            DateTime now = DateTime.Now;
-            float refreshRate = logger.LogFileToUIRatio*1000 / (float)(now - lastUpdateTime).TotalMilliseconds;
-            refreshRateLabel.Text = $"Refresh Rate: {refreshRate:F1} hz";
-            lastUpdateTime = now;
-        }
-
-        private void UpdateListView()
-        {
-            // create collection of listView items fom LiveData dictionary
-            ListViewItem[] items = [.. liveData.Select(kvp => new ListViewItem([kvp.Key, kvp.Value.ToString("F2")]))];
-
-            liveDataView.BeginUpdate();
-            liveDataView.Items.Clear();
-            liveDataView.Items.AddRange(items);
-            liveDataView.EndUpdate();
-        }
-
-        private void Logger_ExceptionOccurred(Exception ex)
-        {
-            // Check if form is disposed or being disposed
-            if (IsDisposed || Disposing)
-                return;
-                
-            if (InvokeRequired)
-            {
-                try
-                {
-                    Invoke(new Action(() => Logger_ExceptionOccurred(ex)));
-                }
-                catch (ObjectDisposedException)
-                {
-                    // Form was disposed while trying to invoke - ignore
-                    return;
-                }
-                catch (InvalidOperationException)
-                {
-                    // Form handle was destroyed - ignore
-                    return;
-                }
-                return;
-            }
-
-            // Double-check after invoke to handle race conditions
-            if (IsDisposed || Disposing)
-                return;
-
-            // Stop the logger and reset UI state
-            logger?.Stop();
-            loggerEnabled = false;
-            currentLogfileName.Text = "No Log File";
-
-            // Show error message to user
-            string errorMessage = ex switch
-            {
-                J2534Exception j2534Ex => $"J2534 Interface Error: {j2534Ex.Message}",
-                TimeoutException => "Communication timeout with ECM. Please check connections.",
-                UnauthorizedAccessException => "Unable to access log file. Check file permissions.",
-                IOException ioEx => $"File I/O Error: {ioEx.Message}",
-                _ => $"Unexpected error: {ex.Message}"
-            };
-
-            MessageBox.Show(errorMessage, "Logger Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            _viewModel.StopLoggingCommand.Execute(null);
         }
 
         private void aboutLotusECMLoggerToolStripMenuItem_Click(object sender, EventArgs e)
         {
             var ab = new AboutBox1();
             ab.ShowDialog(this);
-        }
-
-        private void UpdateCodingView()
-        {
-            if (logger?.CodingDecoder == null)
-                return;
-
-            var options = logger.CodingDecoder.GetAllOptions();
-            
-            codingDataView.BeginUpdate();
-            codingDataView.Items.Clear();
-            
-            foreach (var option in options)
-            {
-                var item = new ListViewItem(new[] { option.Key, option.Value });
-                codingDataView.Items.Add(item);
-            }
-            
-            codingDataView.EndUpdate();
-        }
-
-        private void Logger_CodingDataUpdated(T6eCodingDecoder decoder)
-        {
-            if (IsDisposed || Disposing)
-                return;
-
-            if (InvokeRequired)
-            {
-                try
-                {
-                    Invoke(new Action(() => Logger_CodingDataUpdated(decoder)));
-                }
-                catch (ObjectDisposedException)
-                {
-                    return;
-                }
-                catch (InvalidOperationException)
-                {
-                    return;
-                }
-                return;
-            }
-
-            UpdateCodingView();
         }
     }
 }

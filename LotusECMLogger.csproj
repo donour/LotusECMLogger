@@ -16,7 +16,13 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="J2534-Sharp" Version="1.0.0-CI00036" />
+    <PackageReference Include="SAE.J2534" Version="1.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="Models\**\*.cs" />
+    <Compile Include="ViewModels\**\*.cs" />
+    <Compile Include="Services\**\*.cs" />
   </ItemGroup>
 
   <ItemGroup>
