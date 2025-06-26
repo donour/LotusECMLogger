@@ -130,19 +130,44 @@ namespace LotusECMLogger
             codingDataTab = new TabPage();
             codingDataTab.Text = "ECU Coding";
             
-            // Configure codingDataView
-            codingDataView = new ListView();
-            codingDataView.Dock = DockStyle.Fill;
-            codingDataView.FullRowSelect = true;
-            codingDataView.GridLines = true;
-            codingDataView.MultiSelect = false;
-            codingDataView.Name = "codingDataView";
-            codingDataView.UseCompatibleStateImageBehavior = false;
-            codingDataView.View = View.Details;
-            codingDataView.GetType().GetProperty("DoubleBuffered", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
-                ?.SetValue(codingDataView, true, null);
+            // Create coding panel layout
+            var codingMainPanel = new Panel();
+            codingMainPanel.Dock = DockStyle.Fill;
             
-            codingDataTab.Controls.Add(codingDataView);
+            // Create top panel for buttons
+            var codingTopPanel = new Panel();
+            codingTopPanel.Dock = DockStyle.Top;
+            codingTopPanel.Height = 40;
+            
+            // Create save button
+            saveCodingButton = new Button();
+            saveCodingButton.Text = "Save Coding";
+            saveCodingButton.Size = new Size(100, 30);
+            saveCodingButton.Location = new Point(10, 5);
+            saveCodingButton.Enabled = false;
+            saveCodingButton.Click += SaveCodingButton_Click;
+            
+            // Create reset button
+            resetCodingButton = new Button();
+            resetCodingButton.Text = "Reset";
+            resetCodingButton.Size = new Size(80, 30);
+            resetCodingButton.Location = new Point(120, 5);
+            resetCodingButton.Enabled = false;
+            resetCodingButton.Click += ResetCodingButton_Click;
+            
+            codingTopPanel.Controls.Add(saveCodingButton);
+            codingTopPanel.Controls.Add(resetCodingButton);
+            
+            // Create scrollable panel for coding options
+            codingScrollPanel = new Panel();
+            codingScrollPanel.Dock = DockStyle.Fill;
+            codingScrollPanel.AutoScroll = true;
+            codingScrollPanel.Padding = new Padding(10);
+            
+            codingMainPanel.Controls.Add(codingScrollPanel);
+            codingMainPanel.Controls.Add(codingTopPanel);
+            
+            codingDataTab.Controls.Add(codingMainPanel);
             mainTabControl.TabPages.Add(codingDataTab);
 
             // Add TabControl to form
@@ -237,5 +262,8 @@ namespace LotusECMLogger
         private TabControl mainTabControl;
         private TabPage liveDataTab;
         private TabPage codingDataTab;
+        private Button saveCodingButton;
+        private Button resetCodingButton;
+        private Panel codingScrollPanel;
     }
 }

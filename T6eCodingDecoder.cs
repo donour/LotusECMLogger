@@ -219,6 +219,116 @@ namespace LotusECMLogger
         }
 
         /// <summary>
+        /// Get the possible values for a specific option
+        /// </summary>
+        /// <param name="optionName">Name of the option</param>
+        /// <returns>Array of possible values, or null if numeric</returns>
+        public string[] GetOptionPossibleValues(string optionName)
+        {
+            var option = _codingOptions.FirstOrDefault(o => o.Name.Equals(optionName, StringComparison.OrdinalIgnoreCase));
+            if (option == null)
+            {
+                throw new ArgumentException($"Unknown option: {optionName}", nameof(optionName));
+            }
+
+            return option.Options;
+        }
+
+        /// <summary>
+        /// Check if an option is numeric (no fixed choices)
+        /// </summary>
+        /// <param name="optionName">Name of the option</param>
+        /// <returns>True if the option is numeric</returns>
+        public bool IsOptionNumeric(string optionName)
+        {
+            var option = _codingOptions.FirstOrDefault(o => o.Name.Equals(optionName, StringComparison.OrdinalIgnoreCase));
+            if (option == null)
+            {
+                throw new ArgumentException($"Unknown option: {optionName}", nameof(optionName));
+            }
+
+            return option.Options == null;
+        }
+
+        /// <summary>
+        /// Set the value for a specific option and return a new decoder with the updated value
+        /// </summary>
+        /// <param name="optionName">Name of the option to set</param>
+        /// <param name="value">New value (string or numeric)</param>
+        /// <returns>New T6eCodingDecoder with updated value</returns>
+        public T6eCodingDecoder SetOptionValue(string optionName, object value)
+        {
+            var option = _codingOptions.FirstOrDefault(o => o.Name.Equals(optionName, StringComparison.OrdinalIgnoreCase));
+            if (option == null)
+            {
+                throw new ArgumentException($"Unknown option: {optionName}", nameof(optionName));
+            }
+
+            int numericValue;
+            
+            if (option.Options != null)
+            {
+                // Option has predefined choices
+                if (value is string stringValue)
+                {
+                    var index = Array.IndexOf(option.Options, stringValue);
+                    if (index == -1)
+                    {
+                        throw new ArgumentException($"Invalid value '{stringValue}' for option '{optionName}'. Valid values: {string.Join(", ", option.Options)}", nameof(value));
+                    }
+                    numericValue = index;
+                }
+                else if (value is int intValue)
+                {
+                    if (intValue < 0 || intValue >= option.Options.Length)
+                    {
+                        throw new ArgumentException($"Invalid numeric value {intValue} for option '{optionName}'. Valid range: 0-{option.Options.Length - 1}", nameof(value));
+                    }
+                    numericValue = intValue;
+                }
+                else
+                {
+                    throw new ArgumentException($"Value must be string or int for option '{optionName}'", nameof(value));
+                }
+            }
+            else
+            {
+                // Numeric option
+                if (value is int intValue)
+                {
+                    numericValue = intValue;
+                }
+                else if (value is string stringValue && int.TryParse(stringValue, out int parsedValue))
+                {
+                    numericValue = parsedValue;
+                }
+                else
+                {
+                    throw new ArgumentException($"Value must be numeric for option '{optionName}'", nameof(value));
+                }
+
+                // Validate range
+                if (numericValue < 0 || numericValue > option.BitMask)
+                {
+                    throw new ArgumentException($"Numeric value {numericValue} out of range for option '{optionName}'. Valid range: 0-{option.BitMask}", nameof(value));
+                }
+            }
+
+            // Calculate new bit field
+            ulong newBitField = _bitField;
+            
+            // Clear the bits for this option
+            ulong clearMask = ~((ulong)option.BitMask << option.BitPosition);
+            newBitField &= clearMask;
+            
+            // Set the new value
+            ulong setValue = ((ulong)numericValue & (ulong)option.BitMask) << option.BitPosition;
+            newBitField |= setValue;
+
+            return new T6eCodingDecoder(newBitField);
+        }
+
+        /// <summary>
         /// Get all decoded options as a dictionary
         /// </summary>
         /// <returns>Dictionary of option names to decoded values</returns>
