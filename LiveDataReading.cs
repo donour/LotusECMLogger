@@ -24,6 +24,9 @@ namespace LotusECMLogger
             int obd_mode = data[4] - 0x40;
             int idx = 5;
 
+            int cyl_num = 0;
+            int bank_num = 0;
+
             switch (obd_mode)
             {
                 case 0x01:
@@ -190,6 +193,35 @@ namespace LotusECMLogger
                     {
                         switch (data[idx + 1])
                         {
+                            case 2: // purge DC
+                                if (data.Length > idx + 1)
+                                {
+                                    int purgeDC = data[idx + 1] * 100 / 255; 
+                                    LiveDataReading reading = new()
+                                    {
+                                        name = "Purge Duty Cycle",
+                                        value_f = purgeDC,
+                                    };
+                                    results.Add(reading);
+                                }
+                                break;
+                            case 5: // inj pulse time (b1)
+                                bank_num = 1;
+                                goto case 0x17;
+                            case 0x17:
+                                bank_num = 2;
+
+                                if (data.Length > idx + 2)
+                                {
+                                    int injPulseTimeB1 = (data[idx + 2] << 8) | data[idx + 3];
+                                    LiveDataReading reading = new()
+                                    {
+                                        name = $"Injector Pulse Time Bank {bank_num} (us)",
+                                        value_f = injPulseTimeB1, // convert to seconds
+                                    };
+                                    results.Add(reading);
+                                }
+                                break;
                             case 0x13: // afr target
                                 if (data.Length > idx + 2)
                                 {
@@ -202,36 +234,111 @@ namespace LotusECMLogger
                                     results.Add(reading);
                                 }
                                 break;
-                            case 0x34: // misfire cylinder 1
-                            case 0x35: // misfire cylinder 3
-                            case 0x36: // misfire cylinder 4
-                            case 0x37: // misfire cylinder 2
-                            case 0x57: // misfire cylinder 5
-                            case 0x58: // misfire cylinder 6
+                            case 0x31: //knock spark retard
+                                if (data.Length > idx + 5)
+                                {
+                                    double cyl1Retard = data[idx + 2] / 4.0;
+                                    double cyl2Retard = data[idx + 3] / 4.0;
+                                    double cyl3Retard = data[idx + 4] / 4.0;
+                                    double cyl4Retard = data[idx + 5] / 4.0;
+                                    LiveDataReading reading1 = new()
+                                    {
+                                        name = "Knock Spark Retard Cylinder 1",
+                                        value_f = cyl1Retard
+                                    };
+                                    results.Add(reading1);
+                                    LiveDataReading reading2 = new()
+                                    {
+                                        name = "Knock Spark Retard Cylinder 2",
+                                        value_f = cyl2Retard
+                                    };
+                                    results.Add(reading2);
+                                    LiveDataReading reading3 = new()
+                                    {
+                                        name = "Knock Spark Retard Cylinder 3",
+                                        value_f = cyl3Retard
+                                    };
+                                    results.Add(reading3);
+                                    LiveDataReading reading4 = new()
+                                    {
+                                        name = "Knock Spark Retard Cylinder 4",
+                                        value_f = cyl4Retard
+                                    };
+                                    results.Add(reading4);
+                                }
+                                break;
+                            case 0x56:
+                                if (data.Length > idx + 3)
+                                {
+                                    double cyl5Retard = data[idx + 2] / 4.0;
+                                    double cyl6Retard = data[idx + 3] / 4.0;
+                                    LiveDataReading reading5 = new()
+                                    {
+                                        name = "Knock Spark Retard Cylinder 5",
+                                        value_f = cyl5Retard
+                                    };
+                                    results.Add(reading5);
+                                    LiveDataReading reading6 = new()
+                                    {
+                                        name = "Knock Spark Retard Cylinder 6",
+                                        value_f = cyl6Retard
+                                    };
+                                    results.Add(reading6);
+                                }
+                                break;
+
+                            case 0x34:
+                                cyl_num = 1;
+                                goto case 0x58;
+                            case 0x35:
+                                cyl_num = 3;
+                                goto case 0x58;
+                            case 0x36:
+                                cyl_num = 4;
+                                goto case 0x58;
+                            case 0x37: 
+                                cyl_num = 2;
+                                goto case 0x58;
+                            case 0x57:
+                                cyl_num = 5;
+                                goto case 0x58;
+                            case 0x58: 
+                                cyl_num = 6;
                                 if (data.Length > idx + 3)
                                 {
                                     int misfire = (data[idx + 2] << 8) | data[idx + 3];
                                     LiveDataReading reading = new()
                                     {
-                                        name = $"Misfire {data[idx + 1]:X2}",
+                                        name = $"Misfire Cylinder {cyl_num}",
                                         value_f = misfire,
                                     };
                                     results.Add(reading);
                                 }                                    
                                 break;
 
-                            case 0x18: // octane rating 1
-                            case 0x19: // octane rating 2
-                            case 0x1A: // octane rating 3
-                            case 0x1B: // octane rating 4
-                            case 0x4D: // octane rating 5
-                            case 0x4E: // octane rating 6
+                            case 0x18:
+                                cyl_num = 1;
+                                goto case 0x4E;
+                            case 0x19:
+                                cyl_num = 1;
+                                goto case 0x4E;
+                            case 0x1A:
+                                cyl_num = 4;
+                                goto case 0x4E;
+                            case 0x1B:
+                                cyl_num = 2;
+                                goto case 0x4E;
+                            case 0x4D:
+                                cyl_num = 5;
+                                goto case 0x4E;
+                            case 0x4E:
+                                cyl_num = 6;
                                 if (data.Length > idx + 3)
                                 {
                                     int octaneRating = ((data[idx + 2] << 8) | data[idx+3]);
                                     LiveDataReading reading = new()
                                     {
-                                        name = $"Octane Rating {data[idx + 1]:X2}",
+                                        name = $"Octane Rating Cylinder {cyl_num}",
                                         value_f = octaneRating * 100.0/65536,
                                     };
                                     results.Add(reading);
