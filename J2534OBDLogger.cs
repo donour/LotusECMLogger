@@ -46,6 +46,8 @@ namespace LotusECMLogger
         private Thread? csvWriterThread;
         private Device? device;
 
+        public bool IsConnected => device != null && !terminate;
+
         // CSV writer thread coordination
         private readonly ConcurrentQueue<List<LiveDataReading>> csvWriteQueue = new();
         private readonly ManualResetEvent csvDataAvailable = new(false);
@@ -60,17 +62,17 @@ namespace LotusECMLogger
         /// <param name="configuration">OBD request configuration</param>
         /// <example>
         /// // Use fast logging (fewer requests for better performance)
-        /// var logger = new J2534OBDLogger("log.csv", OnData, OnError, 
+        /// var logger = new J2534OBDLogger("log.csv", OnData, OnError,
         ///     OBDConfiguration.CreateFastLogging());
-        /// 
+        ///
         /// // Use complete Lotus configuration (ALL available parameters)
-        /// var logger = new J2534OBDLogger("log.csv", OnData, OnError, 
+        /// var logger = new J2534OBDLogger("log.csv", OnData, OnError,
         ///     OBDConfiguration.CreateCompleteLotusConfiguration());
-        /// 
+        ///
         /// // Use diagnostic mode (extended parameters)
-        /// var logger = new J2534OBDLogger("log.csv", OnData, OnError, 
+        /// var logger = new J2534OBDLogger("log.csv", OnData, OnError,
         ///     OBDConfiguration.CreateDiagnosticMode());
-        /// 
+        ///
         /// // Create custom configuration
         /// var customConfig = new OBDConfiguration();
         /// customConfig.Requests.Add(new Mode01Request("RPM Only", 0x0C));
@@ -78,8 +80,8 @@ namespace LotusECMLogger
         /// var logger = new J2534OBDLogger("log.csv", OnData, OnError, customConfig);
         /// </example>
         public J2534OBDLogger(
-            String filename, 
-            Action<List<LiveDataReading>> logger_DataLogged, 
+            String filename,
+            Action<List<LiveDataReading>> logger_DataLogged,
             Action<Exception> exceptionHandler,
             OBDConfiguration configuration)
         {
@@ -93,13 +95,13 @@ namespace LotusECMLogger
         {
             if (terminate)
                 return; // Already stopping/stopped
-                
+
             terminate = true;
-            
+
             // Signal CSV writer to stop and wait for it to finish
             csvWriterShouldStop = true;
             csvDataAvailable.Set();
-            
+
             // Wait for threads to finish with timeout
             loggerThread?.Join(2000); // Wait up to 2 seconds for main logger
             csvWriterThread?.Join(1000); // Wait up to 1 second for CSV writer
@@ -280,6 +282,128 @@ namespace LotusECMLogger
             } while (done != 3);
 
             return new T6eCodingDecoder(result[1], result[0]);
+        }
+
+        public (bool success, string errorMessage) WriteCodingToECU(T6eCodingDecoder codingDecoder)
+        {
+            if (terminate)
+            {
+                string error = "Logger is terminating";
+                Debug.WriteLine($"Cannot write coding: {error}");
+                return (false, error);
+            }
+
+            // If logging is active, we need to pause it to avoid CAN hardware conflict
+            bool wasLogging = IsConnected;
+            if (wasLogging)
+            {
+                Debug.WriteLine("Pausing logger to write coding data...");
+                Stop();
+                Thread.Sleep(500); // Give time for logger to stop
+            }
+
+            bool result = false;
+            string errorMessage = "";
+            
+            try
+            {
+                // Ensure we have a valid device for coding write
+                Device codingDevice = null;
+                try
+                {
+                    // Always create fresh device connection for coding write to avoid invalid device issues
+                    string DllFileName = APIFactory.GetAPIinfo().First().Filename;
+                    API API = APIFactory.GetAPI(DllFileName);
+                    codingDevice = API.GetDevice();
+
+                    // Use raw CAN approach (matching ECU expectations)
+                    var (success, error) = WriteRawCANCoding(codingDecoder, codingDevice);
+                    result = success;
+                    errorMessage = error;
+                    
+                    if (result)
+                    {
+                        Debug.WriteLine("Successfully wrote coding using raw CAN 0x502");
+                    }
+                    else
+                    {
+                        Debug.WriteLine($"Raw CAN coding write failed: {errorMessage}");
+                    }
+                }
+                finally
+                {
+                    // Always dispose the fresh coding device
+                    if (codingDevice != null)
+                    {
+                        codingDevice.Dispose();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                result = false;
+                errorMessage = $"Unexpected error during coding write: {ex.Message}";
+                Debug.WriteLine($"Exception in WriteCodingToECU: {ex.Message}");
+            }
+            finally
+            {
+                // Restart logging if it was running before
+                if (wasLogging && !terminate)
+                {
+                    Debug.WriteLine("Restarting logger after coding write...");
+                    Thread.Sleep(200); // Brief pause before restart
+                    Start();
+                }
+            }
+
+            return (result, errorMessage);
+        }
+
+        private (bool success, string errorMessage) WriteRawCANCoding(T6eCodingDecoder codingDecoder, Device codingDevice)
+        {
+            try
+            {
+                // Use raw CAN protocol to send directly to 0x502
+                using Channel canChannel = codingDevice.GetChannel(Protocol.CAN, (Baud)500000, ConnectFlag.NONE);
+
+                // Get the high and low bytes separately to match ECU expectations
+                byte[] highBytes = codingDecoder.GetHighBytes();
+                byte[] lowBytes = codingDecoder.GetLowBytes();
+
+                // Create raw CAN message with ID 0x502 and 8 bytes of coding data
+                byte[] canMessage = new byte[12]; // 4 bytes header + 8 bytes data
+
+                // CAN header for 11-bit ID 0x502
+                // Format: [0x00, 0x00, 0x05, 0x02] for standard 11-bit CAN ID 0x502
+                canMessage[0] = 0x00;
+                canMessage[1] = 0x00;
+                canMessage[2] = 0x05;
+                canMessage[3] = 0x02;
+
+                // ECU expects: high bytes first (0-3), then low bytes (4-7)
+                // This matches the diagnostic read order: 0x0263=high, 0x0264=low
+                Array.Copy(highBytes, 0, canMessage, 4, 4);  // Bytes 4-7: high bytes
+                Array.Copy(lowBytes, 0, canMessage, 8, 4);   // Bytes 8-11: low bytes
+
+                Debug.WriteLine($"Sending raw CAN message to 0x502: {BitConverter.ToString(canMessage)}");
+                Debug.WriteLine($"High bytes (0x0263): {BitConverter.ToString(highBytes)}");
+                Debug.WriteLine($"Low bytes (0x0264): {BitConverter.ToString(lowBytes)}");
+
+                // Send the message
+                canChannel.SendMessages([canMessage]);
+
+                // Wait a bit for ECU to process
+                Thread.Sleep(100);
+
+                Debug.WriteLine("Raw CAN coding message sent successfully");
+                return (true, "");
+            }
+            catch (Exception ex)
+            {
+                string errorMsg = $"Raw CAN coding write failed: {ex.Message}";
+                Debug.WriteLine(errorMsg);
+                return (false, errorMsg);
+            }
         }
 
         private void RunLogger(Device Device)

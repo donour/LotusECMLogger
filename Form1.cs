@@ -420,16 +420,55 @@ namespace LotusECMLogger
                 
                 File.WriteAllText(backupPath, backupContent);
                 
-                // TODO: Implement actual ECU writing functionality
-                // For now, just show the coding data that would be written
-                var message = $"Coding backup saved to: {backupFileName}\n\n" +
-                    $"New coding data to write:\n" +
-                    $"High bytes: {BitConverter.ToString(modifiedCodingDecoder.CodingDataHigh).Replace("-", " ")}\n" +
-                    $"Low bytes: {BitConverter.ToString(modifiedCodingDecoder.CodingDataLow).Replace("-", " ")}\n\n" +
-                    "ECU writing functionality not yet implemented.\n" +
-                    "The coding changes have been prepared and backed up.";
+                // Write coding data to ECU
+                bool writeSuccess = false;
+                string errorMessage = "";
                 
-                MessageBox.Show(message, "Coding Prepared", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                try
+                {
+                    if (logger?.IsConnected == true)
+                    {
+                        var (success, error) = logger.WriteCodingToECU(modifiedCodingDecoder);
+                        writeSuccess = success;
+                        if (!success && !string.IsNullOrEmpty(error))
+                        {
+                            errorMessage = error;
+                        }
+                    }
+                    else
+                    {
+                        errorMessage = "Logger is not connected to ECU.";
+                    }
+                }
+                catch (Exception writeEx)
+                {
+                    errorMessage = $"Exception during ECU write: {writeEx.Message}";
+                }
+                
+                string message;
+                if (writeSuccess)
+                {
+                    message = $"✓ Coding successfully written to ECU!\n\n" +
+                        $"Backup saved to: {backupFileName}\n\n" +
+                        $"Written to ECU:\n" +
+                        $"High bytes: {BitConverter.ToString(modifiedCodingDecoder.CodingDataHigh).Replace("-", " ")}\n" +
+                        $"Low bytes: {BitConverter.ToString(modifiedCodingDecoder.CodingDataLow).Replace("-", " ")}\n\n" +
+                        "The ECU has been updated with the new coding configuration.";
+                    
+                    MessageBox.Show(message, "Coding Written Successfully", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+                else
+                {
+                    message = $"⚠ Failed to write coding to ECU\n\n" +
+                        $"Error: {errorMessage}\n\n" +
+                        $"Backup saved to: {backupFileName}\n\n" +
+                        $"Attempted to write:\n" +
+                        $"High bytes: {BitConverter.ToString(modifiedCodingDecoder.CodingDataHigh).Replace("-", " ")}\n" +
+                        $"Low bytes: {BitConverter.ToString(modifiedCodingDecoder.CodingDataLow).Replace("-", " ")}\n\n" +
+                        "Please check the connection and try again.";
+                    
+                    MessageBox.Show(message, "Coding Write Failed", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
                 
                 // Reset the modified state
                 originalCodingDecoder = modifiedCodingDecoder;

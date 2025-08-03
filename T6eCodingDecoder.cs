@@ -141,6 +141,16 @@ namespace LotusECMLogger
         public byte[] CodingDataHigh => (byte[])_codingDataHigh.Clone();
 
         /// <summary>
+        /// Get the lower 4 bytes of coding data for writing to ECU
+        /// </summary>
+        public byte[] GetLowBytes() => (byte[])_codingDataLow.Clone();
+
+        /// <summary>
+        /// Get the higher 4 bytes of coding data for writing to ECU
+        /// </summary>
+        public byte[] GetHighBytes() => (byte[])_codingDataHigh.Clone();
+
+        /// <summary>
         /// Get the complete 8-byte coding data array
         /// </summary>
         public byte[] CodingData
