@@ -24,7 +24,7 @@ namespace LotusECMLogger
             int obd_mode = data[4] - 0x40;
             int idx = 5;
 
-            int cyl_num = 0;
+            int cyl_num = 6;
             int bank_num = 0;
 
             switch (obd_mode)
@@ -117,7 +117,7 @@ namespace LotusECMLogger
                                 if (data.Length > idx + 1)
                                 {
                                     // convert data[idx+1] to an unsigned 8-bit integer
-                                    int timingAdvance = data[idx + 1] / 2 - 64; // convert to degrees BTDC
+                                    float timingAdvance = data[idx + 1] / 2.0f - 64.0f; // convert to degrees BTDC
                                     LiveDataReading reading = new()
                                     {
                                         name = "Timing Advance",
@@ -140,6 +140,18 @@ namespace LotusECMLogger
                                 }
                                 idx += 2;
                                 break;
+                            case 0x10: // MAF
+                                //if (data.Length > idx + 2)
+                                //{
+                                //    float maf_gps = ((data[idx+1] << 8) + data[idx+2])/100.0f;
+                                //    LiveDataReading reading = new()
+                                //    {
+                                //        name = "maf (g/s)",
+                                //        value_f = maf_gps,
+                                //    };
+                                //    results.Add(reading);
+                                //}
+                                break;                                 
                             case 0x11: // throttle position
                                 if (data.Length > idx + 1)
                                 {
@@ -183,6 +195,7 @@ namespace LotusECMLogger
                                 idx += 3;
                                 break;
                             default:
+                                Debug.WriteLine($"Unknown OBD Mode01: {data[idx]:X2}");
                                 idx++;
                                 break;
                         }
@@ -303,7 +316,6 @@ namespace LotusECMLogger
                                 cyl_num = 5;
                                 goto case 0x58;
                             case 0x58: 
-                                cyl_num = 6;
                                 if (data.Length > idx + 3)
                                 {
                                     int misfire = (data[idx + 2] << 8) | data[idx + 3];
@@ -332,7 +344,6 @@ namespace LotusECMLogger
                                 cyl_num = 5;
                                 goto case 0x4E;
                             case 0x4E:
-                                cyl_num = 6;
                                 if (data.Length > idx + 3)
                                 {
                                     int octaneRating = ((data[idx + 2] << 8) | data[idx+3]);
