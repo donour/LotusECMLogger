@@ -24,8 +24,8 @@ namespace LotusECMLogger
             int obd_mode = data[4] - 0x40;
             int idx = 5;
 
-            int cyl_num = 0;
-            int bank_num = 0;
+            int cyl_num = 6;
+            int bank_num = 2;
 
             switch (obd_mode)
             {
@@ -117,7 +117,7 @@ namespace LotusECMLogger
                                 if (data.Length > idx + 1)
                                 {
                                     // convert data[idx+1] to an unsigned 8-bit integer
-                                    int timingAdvance = data[idx + 1] / 2 - 64; // convert to degrees BTDC
+                                    float timingAdvance = data[idx + 1] / 2.0f - 64.0f; // convert to degrees BTDC
                                     LiveDataReading reading = new()
                                     {
                                         name = "Timing Advance",
@@ -140,6 +140,19 @@ namespace LotusECMLogger
                                 }
                                 idx += 2;
                                 break;
+                            case 0x10: // MAF
+                                if (data.Length > idx + 2)
+                                {
+                                    float maf_gps = ((data[idx + 1] << 8) + data[idx + 2]) / 100.0f;
+                                    LiveDataReading reading = new()
+                                    {
+                                        name = "maf (g/s)",
+                                        value_f = maf_gps,
+                                    };
+                                    results.Add(reading);
+                                }
+                                idx += 3;
+                                break;                                 
                             case 0x11: // throttle position
                                 if (data.Length > idx + 1)
                                 {
@@ -183,6 +196,7 @@ namespace LotusECMLogger
                                 idx += 3;
                                 break;
                             default:
+                                Debug.WriteLine($"Unknown OBD Mode01: {data[idx]:X2}");
                                 idx++;
                                 break;
                         }
@@ -199,7 +213,7 @@ namespace LotusECMLogger
                                     int purgeDC = data[idx + 1] * 100 / 255; 
                                     LiveDataReading reading = new()
                                     {
-                                        name = "Purge Duty Cycle",
+                                        name = "PurgeDutyCycle",
                                         value_f = purgeDC,
                                     };
                                     results.Add(reading);
@@ -217,7 +231,19 @@ namespace LotusECMLogger
                                     LiveDataReading reading = new()
                                     {
                                         name = $"Injector Pulse Time Bank {bank_num} (us)",
-                                        value_f = injPulseTimeB1, // convert to seconds
+                                        value_f = injPulseTimeB1,
+                                    };
+                                    results.Add(reading);
+                                }
+                                break;
+                            case 0x2A: // load
+                                if (data.Length > idx + 2)
+                                {
+                                    float load = data[idx + 2];
+                                    LiveDataReading reading = new()
+                                    {
+                                        name = "load_pct",
+                                        value_f = load,
                                     };
                                     results.Add(reading);
                                 }
@@ -243,25 +269,25 @@ namespace LotusECMLogger
                                     double cyl4Retard = data[idx + 5] / 4.0;
                                     LiveDataReading reading1 = new()
                                     {
-                                        name = "Knock Spark Retard Cylinder 1",
+                                        name = "KnockSparkRetardCylinder 1",
                                         value_f = cyl1Retard
                                     };
                                     results.Add(reading1);
                                     LiveDataReading reading2 = new()
                                     {
-                                        name = "Knock Spark Retard Cylinder 2",
+                                        name = "KnockSparkRetardCylinder 2",
                                         value_f = cyl2Retard
                                     };
                                     results.Add(reading2);
                                     LiveDataReading reading3 = new()
                                     {
-                                        name = "Knock Spark Retard Cylinder 3",
+                                        name = "KnockSparkRetardCylinder 3",
                                         value_f = cyl3Retard
                                     };
                                     results.Add(reading3);
                                     LiveDataReading reading4 = new()
                                     {
-                                        name = "Knock Spark Retard Cylinder 4",
+                                        name = "KnockSparkRetardCylinder 4",
                                         value_f = cyl4Retard
                                     };
                                     results.Add(reading4);
@@ -274,13 +300,13 @@ namespace LotusECMLogger
                                     double cyl6Retard = data[idx + 3] / 4.0;
                                     LiveDataReading reading5 = new()
                                     {
-                                        name = "Knock Spark Retard Cylinder 5",
+                                        name = "KnockSparkRetardCylinder 5",
                                         value_f = cyl5Retard
                                     };
                                     results.Add(reading5);
                                     LiveDataReading reading6 = new()
                                     {
-                                        name = "Knock Spark Retard Cylinder 6",
+                                        name = "KnockSparkRetardCylinder 6",
                                         value_f = cyl6Retard
                                     };
                                     results.Add(reading6);
@@ -303,13 +329,12 @@ namespace LotusECMLogger
                                 cyl_num = 5;
                                 goto case 0x58;
                             case 0x58: 
-                                cyl_num = 6;
                                 if (data.Length > idx + 3)
                                 {
                                     int misfire = (data[idx + 2] << 8) | data[idx + 3];
                                     LiveDataReading reading = new()
                                     {
-                                        name = $"Misfire Cylinder {cyl_num}",
+                                        name = $"MisfireCylinder{cyl_num}",
                                         value_f = misfire,
                                     };
                                     results.Add(reading);
@@ -320,7 +345,7 @@ namespace LotusECMLogger
                                 cyl_num = 1;
                                 goto case 0x4E;
                             case 0x19:
-                                cyl_num = 1;
+                                cyl_num = 3;
                                 goto case 0x4E;
                             case 0x1A:
                                 cyl_num = 4;
@@ -332,14 +357,25 @@ namespace LotusECMLogger
                                 cyl_num = 5;
                                 goto case 0x4E;
                             case 0x4E:
-                                cyl_num = 6;
                                 if (data.Length > idx + 3)
                                 {
                                     int octaneRating = ((data[idx + 2] << 8) | data[idx+3]);
                                     LiveDataReading reading = new()
                                     {
-                                        name = $"Octane Rating Cylinder {cyl_num}",
+                                        name = $"OctaneRatingCylinder{cyl_num}",
                                         value_f = octaneRating * 100.0/65536,
+                                    };
+                                    results.Add(reading);
+                                }
+                                break;
+                            case 0x3B: 
+                                if (data.Length > idx + 3)
+                                {
+                                    int tps = (data[idx + 2] << 8) | data[idx + 3];
+                                    LiveDataReading reading = new()
+                                    {
+                                        name = "TPSTarget",
+                                        value_f = tps * 100.0 / 1024, // convert to percentage
                                     };
                                     results.Add(reading);
                                 }
@@ -350,7 +386,7 @@ namespace LotusECMLogger
                                     int tps = (data[idx + 2] << 8) | data[idx + 3];
                                     LiveDataReading reading = new()
                                     {
-                                        name = "TPS (mode22)",
+                                        name = "TPSActual",
                                         value_f = tps * 100.0 / 1024, // convert to percentage
                                     };
                                     results.Add(reading);
@@ -362,7 +398,7 @@ namespace LotusECMLogger
                                     int pedal = (data[idx + 2] << 8) | data[idx + 3];
                                     LiveDataReading reading = new()
                                     {
-                                        name = "Accelerator Pedal Position",
+                                        name = "AcceleratorPedalPosition",
                                         value_f = pedal * 100.0 / 1024, // convert to percentage
                                     };
                                     results.Add(reading);
@@ -374,7 +410,7 @@ namespace LotusECMLogger
                                     int manifoldTemp = data[idx + 2] * 5 / 8 - 40;
                                     LiveDataReading reading = new()
                                     {
-                                        name = "Manifold Temperature",
+                                        name = "ManifoldTempC",
                                         value_f = manifoldTemp,
                                     };
                                     results.Add(reading);
@@ -387,7 +423,7 @@ namespace LotusECMLogger
                                     int torque = BitConverter.ToInt16(bytes, 0);
                                     LiveDataReading reading = new()
                                     {
-                                        name = "Engine Torque (nm)",
+                                        name = "TorqueNM",
                                         value_f = torque,
                                     };
                                     results.Add(reading);
@@ -441,6 +477,30 @@ namespace LotusECMLogger
                                     {
                                         name = "VVTI B2 exhaust (deg)",
                                         value_f = vvti_b2e / 4.0,
+                                    };
+                                    results.Add(reading);
+                                }
+                                break;
+                            case 0xC7:
+                                if (data.Length > idx + 1)
+                                {
+                                    int transTemp = data[idx + 2] * 5 / 8 - 40;
+                                    LiveDataReading reading = new()
+                                    {
+                                        name = "TransFluidTempC",
+                                        value_f = transTemp,
+                                    };
+                                    results.Add(reading);
+                                }
+                                break;
+                            case 0xC9:
+                                if (data.Length > idx + 1)
+                                {
+                                    int dc = data[idx + 2] * 100/255;
+                                    LiveDataReading reading = new()
+                                    {
+                                        name = "ChargecoolerDutycycle",
+                                        value_f = dc,
                                     };
                                     results.Add(reading);
                                 }

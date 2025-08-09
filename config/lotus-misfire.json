@@ -6,20 +6,62 @@
     {
       "type": "Mode01",
       "name": "Essential Engine Data",
-      "pids": [ 12, 17, 67 ],
-      "description": "Engine speed, throttle, load"
+      "pids": [ 12, 17, 67, 11 ],
+      "description": "Engine speed, throttle, load, MAP"
     },
     {
       "type": "Mode01",
       "name": "Essential Engine Data2",
-      "pids": [ 5, 14],
-      "description": "coolant temp, timing"
+      "pids": [ 5, 14, 68 ],
+      "description": "coolant temp, timing, commanded_lambda"
     },
     {
-      "type": "Mode01",
-      "name": "Essential Engine Data3",
-      "pids": [ 6, 8, 68 ],
-      "description": "STFT_B1, STFT_B2, commanded_lambda"
+      "type": "Mode22",
+      "name": "Octane Scaler Cylinder 1",
+      "pidHigh": 2,
+      "pidLow": 24,
+      "category": "Performance",
+      "unit": "%"
+    },
+    {
+      "type": "Mode22",
+      "name": "Octane Scaler Cylinder 3",
+      "pidHigh": 2,
+      "pidLow": 25,
+      "category": "Performance",
+      "unit": "%"
+    },
+    {
+      "type": "Mode22",
+      "name": "Octane Scaler Cylinder 4",
+      "pidHigh": 2,
+      "pidLow": 26,
+      "category": "Performance",
+      "unit": "%"
+    },
+    {
+      "type": "Mode22",
+      "name": "Octane Scaler Cylinder 2",
+      "pidHigh": 2,
+      "pidLow": 27,
+      "category": "Performance",
+      "unit": "%"
+    },
+    {
+      "type": "Mode22",
+      "name": "Octane Scaler Cylinder 5",
+      "pidHigh": 2,
+      "pidLow": 77,
+      "category": "Performance",
+      "unit": "%"
+    },
+    {
+      "type": "Mode22",
+      "name": "Octane Scaler Cylinder 6",
+      "pidHigh": 2,
+      "pidLow": 78,
+      "category": "Performance",
+      "unit": "%"
     },
     {
       "type": "Mode22",
@@ -84,6 +126,24 @@
       "pidLow": 88,
       "category": "Engine Management",
       "unit": "count"
+    },
+    {
+      "type": "Mode22",
+      "name": "Knock Spark Advance Retard",
+      "pidHigh": 2,
+      "pidLow": 49,
+      "category": "Performance",
+      "unit": "degrees",
+      "description": "1-4"
+    },
+    {
+      "type": "Mode22",
+      "name": "Knock Spark Advance Retard",
+      "pidHigh": 2,
+      "pidLow": 86,
+      "category": "Performance",
+      "unit": "degrees",
+      "description": "5-6"
     }
   ]
 } 
