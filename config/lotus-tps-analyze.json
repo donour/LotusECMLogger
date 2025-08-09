@@ -7,13 +7,21 @@
       "type": "Mode01",
       "name": "Essential Engine Data",
       "pids": [ 12, 17, 67 ],
-      "description": "Engine speed, throttle, load"
+      "description": "Engine speed, throttle, load_abs"
     },
     {
       "type": "Mode01",
       "name": "Essential Engine Data2",
-      "pids": [ 14, 11 ],
-      "description": "timing, MAP"
+      "pids": [ 14, 11, 16 ],
+      "description": "timing, MAP, MAF"
+    },
+    {
+      "type": "Mode22",
+      "name": "Load PCT",
+      "pidHigh": 2,
+      "pidLow": 42,
+      "category": "Engine Management",
+      "unit": "%"
     },
     {
       "type": "Mode22",
@@ -22,6 +30,23 @@
       "pidLow": 70,
       "category": "Engine Management",
       "unit": "%"
+    },
+    {
+      "type": "Mode22",
+      "name": "TPS-target",
+      "pidHigh": 2,
+      "pidLow": 59,
+      "category": "Engine Management",
+      "unit": "%"
+    },
+    {
+      "type": "Mode22",
+      "name": "TPS-actual",
+      "pidHigh": 2,
+      "pidLow": 69,
+      "category": "Engine Management",
+      "unit": "%"
     }
+
   ]
 } 

@@ -6,8 +6,8 @@
     {
       "type": "Mode01",
       "name": "Essential Engine Data",
-      "pids": [ 12, 17, 67 ],
-      "description": "Engine speed, throttle, load"
+      "pids": [ 12, 17, 67, 11 ],
+      "description": "Engine speed, throttle, load, MAP"
     },
     {
       "type": "Mode01",
