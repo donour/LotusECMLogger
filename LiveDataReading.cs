@@ -73,6 +73,18 @@ namespace LotusECMLogger
                                 }
                                 idx += 2;
                                 break;
+                            case 0x0A:
+                                if (data.Length > idx + 1)
+                                {
+                                    float fuel_pressure_bar = data[idx + 1] * 3f / 100f;
+                                    LiveDataReading reading = new()
+                                    {
+                                        name = "FuellPressure(bar)",
+                                        value_f = fuel_pressure_bar
+                                    };
+                                }
+                                idx += 2;
+                                break;
                             case 0x0B: // intake manifold absolute pressure
                                 if (data.Length > idx + 1)
                                 {
@@ -223,14 +235,12 @@ namespace LotusECMLogger
                                 bank_num = 1;
                                 goto case 0x17;
                             case 0x17:
-                                bank_num = 2;
-
-                                if (data.Length > idx + 2)
+                                if (data.Length > idx + 4)
                                 {
-                                    int injPulseTimeB1 = (data[idx + 2] << 8) | data[idx + 3];
+                                    int injPulseTimeB1 = (data[idx + 2] << 16) | (data[idx + 3] << 8) | data[idx + 4];
                                     LiveDataReading reading = new()
                                     {
-                                        name = $"Injector Pulse Time Bank {bank_num} (us)",
+                                        name = $"InjectorPulseTimeBank{bank_num}(us)",
                                         value_f = injPulseTimeB1,
                                     };
                                     results.Add(reading);

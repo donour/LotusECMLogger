@@ -1,0 +1,67 @@
+{
+  "name": "Lotus Misfire Configuration",
+  "description": "Misfire Diagnosis",
+  "ecmHeader": [0, 0, 7, 224],
+  "requests": [
+    {
+      "type": "Mode01",
+      "name": "Essential Engine Data",
+      "pids": [ 12, 15, 67, 11 ],
+      "description": "Engine speed, iat, load, MAP"
+    },
+    {
+      "type": "Mode01",
+      "name": "Essential Engine Data2",
+      "pids": [ 16, 10, 68 ],
+      "description": "MAF, fuel_pressure, commanded_lambda"
+    },
+    {
+      "type": "Mode22",
+      "name": "Accelerator Pedal Position",
+      "pidHigh": 2,
+      "pidLow": 70,
+      "category": "Engine Management",
+      "unit": "%"
+    },
+    {
+      "type": "Mode22",
+      "name": "TPS-actual",
+      "pidHigh": 2,
+      "pidLow": 69,
+      "category": "Engine Management",
+      "unit": "%"
+    },
+    {
+      "type": "Mode22",
+      "name": "EngineTorque(nm)",
+      "pidHigh": 2,
+      "pidLow": 106,
+      "category": "Engine Management",
+      "unit": "nm"
+    },
+    {
+      "type": "Mode22",
+      "name": "Injection Pulse Time (B1)",
+      "pidHigh": 2,
+      "pidLow": 5,
+      "category": "Engine Management",
+      "unit": "us"
+    },
+    {
+      "type": "Mode22",
+      "name": "Injection Pulse Time (B2)",
+      "pidHigh": 2,
+      "pidLow": 23,
+      "category": "Engine Management",
+      "unit": "us"
+    },
+    {
+      "type": "Mode22",
+      "name": "Manifold Temperature",
+      "pidHigh": 2,
+      "pidLow": 114,
+      "category": "Environmental",
+      "unit": "degC"
+    }
+  ]
+} 
