@@ -307,36 +307,24 @@ namespace LotusECMLogger
             
             try
             {
-                // Ensure we have a valid device for coding write
-                Device codingDevice = null;
-                try
+                // Always create fresh device connection for coding write to avoid invalid device issues
+                string DllFileName = APIFactory.GetAPIinfo().First().Filename;
+                API API = APIFactory.GetAPI(DllFileName);
+                
+                using Device codingDevice = API.GetDevice();
+                
+                // Use raw CAN approach (matching ECU expectations)
+                var (success, error) = WriteRawCANCoding(codingDecoder, codingDevice);
+                result = success;
+                errorMessage = error;
+                
+                if (result)
                 {
-                    // Always create fresh device connection for coding write to avoid invalid device issues
-                    string DllFileName = APIFactory.GetAPIinfo().First().Filename;
-                    API API = APIFactory.GetAPI(DllFileName);
-                    codingDevice = API.GetDevice();
-
-                    // Use raw CAN approach (matching ECU expectations)
-                    var (success, error) = WriteRawCANCoding(codingDecoder, codingDevice);
-                    result = success;
-                    errorMessage = error;
-                    
-                    if (result)
-                    {
-                        Debug.WriteLine("Successfully wrote coding using raw CAN 0x502");
-                    }
-                    else
-                    {
-                        Debug.WriteLine($"Raw CAN coding write failed: {errorMessage}");
-                    }
+                    Debug.WriteLine("Successfully wrote coding using raw CAN 0x502");
                 }
-                finally
+                else
                 {
-                    // Always dispose the fresh coding device
-                    if (codingDevice != null)
-                    {
-                        codingDevice.Dispose();
-                    }
+                    Debug.WriteLine($"Raw CAN coding write failed: {errorMessage}");
                 }
             }
             catch (Exception ex)
