@@ -25,6 +25,7 @@ namespace LotusECMLogger
             _channel = channel ?? throw new ArgumentNullException(nameof(channel));
             _responseId = responseId;
             _defaultTimeout = defaultTimeout ?? TimeSpan.FromMilliseconds(500);
+            throw new NotImplementedException("This class has not yet been tested. Remove this error and proceed with caution.");
         }
 
         public async Task<uint> ReadU32(uint address, CancellationToken ct = default)
