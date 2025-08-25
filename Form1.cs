@@ -47,6 +47,8 @@ namespace LotusECMLogger
                     // Disable coding operations while logging is active
                     writeCodesButton.Enabled = !value;
                     readCodesButton.Enabled = !value;
+                    // Enable vehicle data loading only when logging is not active
+                    loadVehicleDataButton.Enabled = !value;
                 }
             }
         }
@@ -83,6 +85,10 @@ namespace LotusECMLogger
 
             codingDataView.Columns.Add("Option", 200);
             codingDataView.Columns.Add("Value", 100);
+            
+            vehicleInfoView.Columns.Add("Information", 300);
+            vehicleInfoView.Columns.Add("Value", 200);
+            vehicleInfoView.Columns.Add("Unit", 100);
         }
 
         private void PopulateObdConfigMenu()
@@ -274,11 +280,13 @@ namespace LotusECMLogger
             foreach (var optionName in optionNames)
             {
                 // Create label
-                var label = new Label();
-                label.Text = optionName + ":";
-                label.Size = new Size(250, 23);
-                label.Location = new Point(10, yPosition);
-                label.Anchor = AnchorStyles.Top | AnchorStyles.Left;
+                Label label = new()
+                {
+                    Text = optionName + ":",
+                    Size = new Size(250, 23),
+                    Location = new Point(10, yPosition),
+                    Anchor = AnchorStyles.Top | AnchorStyles.Left
+                };
                 codingScrollPanel.Controls.Add(label);
                 
                 // Create control based on option type
@@ -286,12 +294,14 @@ namespace LotusECMLogger
                 if (originalCodingDecoder.IsOptionNumeric(optionName))
                 {
                     // Numeric input
-                    var numericUpDown = new NumericUpDown();
-                    numericUpDown.Size = new Size(100, 23);
-                    numericUpDown.Location = new Point(270, yPosition);
-                    numericUpDown.Minimum = 0;
-                    numericUpDown.Maximum = 999; // Will be set properly based on bit mask
-                    numericUpDown.Value = originalCodingDecoder.GetOptionRawValue(optionName);
+                    var numericUpDown = new NumericUpDown
+                    {
+                        Size = new Size(100, 23),
+                        Location = new Point(270, yPosition),
+                        Minimum = 0,
+                        Maximum = 999, // Will be set properly based on bit mask
+                        Value = originalCodingDecoder.GetOptionRawValue(optionName)
+                    };
                     numericUpDown.ValueChanged += (s, e) => OnCodingValueChanged(optionName, (int)numericUpDown.Value);
                     numericUpDown.Anchor = AnchorStyles.Top | AnchorStyles.Left;
                     control = numericUpDown;
@@ -299,10 +309,12 @@ namespace LotusECMLogger
                 else
                 {
                     // Dropdown for predefined options
-                    var comboBox = new ComboBox();
-                    comboBox.Size = new Size(200, 23);
-                    comboBox.Location = new Point(270, yPosition);
-                    comboBox.DropDownStyle = ComboBoxStyle.DropDownList;
+                    var comboBox = new ComboBox
+                    {
+                        Size = new Size(200, 23),
+                        Location = new Point(270, yPosition),
+                        DropDownStyle = ComboBoxStyle.DropDownList
+                    };
                     var possibleValues = originalCodingDecoder.GetOptionPossibleValues(optionName);
                     comboBox.Items.AddRange(possibleValues);
                     comboBox.SelectedItem = originalCodingDecoder.GetOptionValue(optionName);
@@ -464,7 +476,8 @@ namespace LotusECMLogger
             
             try
             {
-                readCodesButton.Enabled = false;
+                loggerEnabled = false;
+
                 readCodesButton.Text = "Reading...";
                 
                 // Create temporary device connection for reading codes
@@ -503,7 +516,7 @@ namespace LotusECMLogger
             }
             finally
             {
-                readCodesButton.Enabled = true;
+                loggerEnabled = true;
                 readCodesButton.Text = "Read Codes";
             }
         }
@@ -625,6 +638,40 @@ namespace LotusECMLogger
             
             // Reset button text
             saveCodingButton.Text = "Save Changes";
+        }
+        
+        private void LoadVehicleDataButton_Click(object sender, EventArgs e)
+        {
+            // Safety check: prevent vehicle data loading while logging is active
+            if (loggerEnabled)
+            {
+                MessageBox.Show("Cannot load vehicle data while logging is active. Please stop the logger first.", 
+                    "Logger Active", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+            
+            try
+            {
+                loadVehicleDataButton.Enabled = false;
+                loadVehicleDataButton.Text = "Loading...";
+                
+                // TODO: Implement vehicle data loading functionality
+                // This is a placeholder for future implementation
+                
+                // For now, show a placeholder message
+                MessageBox.Show("Vehicle data loading functionality not yet implemented.", 
+                    "Feature Not Available", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error loading vehicle data: {ex.Message}", "Load Error", 
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                loadVehicleDataButton.Enabled = true;
+                loadVehicleDataButton.Text = "Load Vehicle Data";
+            }
         }
         
         /// <summary>
