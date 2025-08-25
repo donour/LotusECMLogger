@@ -46,42 +46,24 @@ namespace LotusECMLogger
             refreshRateLabel = new ToolStripStatusLabel();
             mainTabControl = new TabControl();
             liveDataTab = new TabPage();
+            loggerControlPanel = new Panel();
             codingDataTab = new TabPage();
-            // ListView doesn't need BeginInit
+            codingMainPanel = new Panel();
+            codingScrollPanel = new Panel();
+            codingTopPanel = new Panel();
+            readCodesButton = new Button();
+            writeCodesButton = new Button();
+            saveCodingButton = new Button();
+            resetCodingButton = new Button();
             menuStrip1.SuspendLayout();
             statusStrip1.SuspendLayout();
+            mainTabControl.SuspendLayout();
+            liveDataTab.SuspendLayout();
+            loggerControlPanel.SuspendLayout();
+            codingDataTab.SuspendLayout();
+            codingMainPanel.SuspendLayout();
+            codingTopPanel.SuspendLayout();
             SuspendLayout();
-            // 
-            // liveDataView
-            // 
-            liveDataView.Dock = DockStyle.Fill;
-            liveDataView.FullRowSelect = true;
-            liveDataView.GridLines = true;
-            liveDataView.Margin = new Padding(3, 4, 3, 4);
-            liveDataView.MultiSelect = false;
-            liveDataView.Name = "liveDataView";
-            liveDataView.TabIndex = 6;
-            liveDataView.UseCompatibleStateImageBehavior = false;
-            liveDataView.View = View.Details;
-            liveDataView.GetType().GetProperty("DoubleBuffered", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
-                ?.SetValue(liveDataView, true, null); // Enable double buffering for smoother scrolling
-
-            // Create TabControl
-            mainTabControl = new TabControl();
-            mainTabControl.Dock = DockStyle.Fill;
-            mainTabControl.Location = new Point(0, 30);
-            mainTabControl.Name = "mainTabControl";
-            mainTabControl.Size = new Size(713, 536);
-
-            // Create Live Data Tab
-            liveDataTab = new TabPage();
-            liveDataTab.Text = "Live Data";
-            
-            // Create logger control panel for Live Data tab
-            var loggerControlPanel = new Panel();
-            loggerControlPanel.Dock = DockStyle.Top;
-            loggerControlPanel.Height = 60;
-            
             // 
             // startLogger_button
             // 
@@ -114,80 +96,31 @@ namespace LotusECMLogger
             currentLogfileName.Size = new Size(85, 20);
             currentLogfileName.TabIndex = 5;
             currentLogfileName.Text = "No Log File";
-            
-            loggerControlPanel.Controls.Add(startLogger_button);
-            loggerControlPanel.Controls.Add(stopLogger_button);
-            loggerControlPanel.Controls.Add(currentLogfileName);
-            
-            liveDataTab.Controls.Add(liveDataView);
-            liveDataTab.Controls.Add(loggerControlPanel);
-            mainTabControl.TabPages.Add(liveDataTab);
-
-            // Create Coding Data Tab
-            codingDataTab = new TabPage();
-            codingDataTab.Text = "ECU Coding";
-            
-            // Create coding panel layout
-            var codingMainPanel = new Panel();
-            codingMainPanel.Dock = DockStyle.Fill;
-            
-            // Create top panel for buttons
-            var codingTopPanel = new Panel();
-            codingTopPanel.Dock = DockStyle.Top;
-            codingTopPanel.Height = 40;
-            
-            // Create read codes button
-            readCodesButton = new Button();
-            readCodesButton.Text = "Read Codes";
-            readCodesButton.Size = new Size(100, 30);
-            readCodesButton.Location = new Point(10, 5);
-            readCodesButton.Click += ReadCodesButton_Click;
-            
-            // Create write codes button
-            writeCodesButton = new Button();
-            writeCodesButton.Text = "Write Codes";
-            writeCodesButton.Size = new Size(100, 30);
-            writeCodesButton.Location = new Point(120, 5);
-            writeCodesButton.Enabled = false;
-            writeCodesButton.Click += WriteCodesButton_Click;
-            
-            // Create save button (rename to avoid confusion)
-            saveCodingButton = new Button();
-            saveCodingButton.Text = "Save Changes";
-            saveCodingButton.Size = new Size(110, 30);
-            saveCodingButton.Location = new Point(230, 5);
-            saveCodingButton.Enabled = false;
-            saveCodingButton.Click += SaveCodingButton_Click;
-            
-            // Create reset button
-            resetCodingButton = new Button();
-            resetCodingButton.Text = "Reset";
-            resetCodingButton.Size = new Size(80, 30);
-            resetCodingButton.Location = new Point(350, 5);
-            resetCodingButton.Enabled = false;
-            resetCodingButton.Click += ResetCodingButton_Click;
-            
-            codingTopPanel.Controls.Add(readCodesButton);
-            codingTopPanel.Controls.Add(writeCodesButton);
-            codingTopPanel.Controls.Add(saveCodingButton);
-            codingTopPanel.Controls.Add(resetCodingButton);
-            
-            // Create scrollable panel for coding options
-            codingScrollPanel = new Panel();
-            codingScrollPanel.Dock = DockStyle.Fill;
-            codingScrollPanel.AutoScroll = true;
-            codingScrollPanel.Padding = new Padding(10);
-            
-            codingMainPanel.Controls.Add(codingScrollPanel);
-            codingMainPanel.Controls.Add(codingTopPanel);
-            
-            codingDataTab.Controls.Add(codingMainPanel);
-            mainTabControl.TabPages.Add(codingDataTab);
-
-            // Add TabControl to form
-            Controls.Add(mainTabControl);
-
+            // 
+            // liveDataView
+            // 
+            liveDataView.Dock = DockStyle.Fill;
+            liveDataView.FullRowSelect = true;
+            liveDataView.GridLines = true;
+            liveDataView.Location = new Point(0, 60);
+            liveDataView.Margin = new Padding(3, 4, 3, 4);
+            liveDataView.MultiSelect = false;
+            liveDataView.Name = "liveDataView";
+            liveDataView.Size = new Size(705, 439);
+            liveDataView.TabIndex = 6;
+            liveDataView.UseCompatibleStateImageBehavior = false;
+            liveDataView.View = View.Details;
+            // 
+            // codingDataView
+            // 
+            codingDataView.Location = new Point(0, 0);
+            codingDataView.Name = "codingDataView";
+            codingDataView.Size = new Size(121, 97);
+            codingDataView.TabIndex = 0;
+            codingDataView.UseCompatibleStateImageBehavior = false;
+            // 
             // menuStrip1
+            // 
             menuStrip1.ImageScalingSize = new Size(20, 20);
             menuStrip1.Items.AddRange(new ToolStripItem[] { helpToolStripMenuItem, obdConfigToolStripMenuItem });
             menuStrip1.Location = new Point(0, 0);
@@ -214,30 +147,143 @@ namespace LotusECMLogger
             // obdConfigToolStripMenuItem
             // 
             obdConfigToolStripMenuItem.Name = "obdConfigToolStripMenuItem";
-            obdConfigToolStripMenuItem.Size = new Size(110, 24);
+            obdConfigToolStripMenuItem.Size = new Size(102, 24);
             obdConfigToolStripMenuItem.Text = "OBD Config";
             // 
             // statusStrip1
             // 
             statusStrip1.ImageScalingSize = new Size(20, 20);
             statusStrip1.Items.AddRange(new ToolStripItem[] { refreshRateLabel });
-            statusStrip1.Location = new Point(0, 566);
+            statusStrip1.Location = new Point(0, 562);
             statusStrip1.Name = "statusStrip1";
-            statusStrip1.Size = new Size(713, 22);
+            statusStrip1.Size = new Size(713, 26);
             statusStrip1.TabIndex = 8;
             statusStrip1.Text = "statusStrip1";
             // 
             // refreshRateLabel
             // 
             refreshRateLabel.Name = "refreshRateLabel";
-            refreshRateLabel.Size = new Size(58, 16);
+            refreshRateLabel.Size = new Size(60, 20);
             refreshRateLabel.Text = "no data";
+            // 
+            // mainTabControl
+            // 
+            mainTabControl.Controls.Add(liveDataTab);
+            mainTabControl.Controls.Add(codingDataTab);
+            mainTabControl.Dock = DockStyle.Fill;
+            mainTabControl.Location = new Point(0, 30);
+            mainTabControl.Name = "mainTabControl";
+            mainTabControl.SelectedIndex = 0;
+            mainTabControl.Size = new Size(713, 532);
+            mainTabControl.TabIndex = 0;
+            // 
+            // liveDataTab
+            // 
+            liveDataTab.Controls.Add(liveDataView);
+            liveDataTab.Controls.Add(loggerControlPanel);
+            liveDataTab.Location = new Point(4, 29);
+            liveDataTab.Name = "liveDataTab";
+            liveDataTab.Size = new Size(705, 499);
+            liveDataTab.TabIndex = 0;
+            liveDataTab.Text = "Live Data";
+            // 
+            // loggerControlPanel
+            // 
+            loggerControlPanel.Controls.Add(startLogger_button);
+            loggerControlPanel.Controls.Add(stopLogger_button);
+            loggerControlPanel.Controls.Add(currentLogfileName);
+            loggerControlPanel.Dock = DockStyle.Top;
+            loggerControlPanel.Location = new Point(0, 0);
+            loggerControlPanel.Name = "loggerControlPanel";
+            loggerControlPanel.Size = new Size(705, 60);
+            loggerControlPanel.TabIndex = 7;
+            // 
+            // codingDataTab
+            // 
+            codingDataTab.Controls.Add(codingMainPanel);
+            codingDataTab.Location = new Point(4, 29);
+            codingDataTab.Name = "codingDataTab";
+            codingDataTab.Size = new Size(705, 499);
+            codingDataTab.TabIndex = 1;
+            codingDataTab.Text = "ECU Coding";
+            // 
+            // codingMainPanel
+            // 
+            codingMainPanel.Controls.Add(codingScrollPanel);
+            codingMainPanel.Controls.Add(codingTopPanel);
+            codingMainPanel.Dock = DockStyle.Fill;
+            codingMainPanel.Location = new Point(0, 0);
+            codingMainPanel.Name = "codingMainPanel";
+            codingMainPanel.Size = new Size(705, 499);
+            codingMainPanel.TabIndex = 0;
+            // 
+            // codingScrollPanel
+            // 
+            codingScrollPanel.AutoScroll = true;
+            codingScrollPanel.Dock = DockStyle.Fill;
+            codingScrollPanel.Location = new Point(0, 40);
+            codingScrollPanel.Name = "codingScrollPanel";
+            codingScrollPanel.Padding = new Padding(10);
+            codingScrollPanel.Size = new Size(705, 459);
+            codingScrollPanel.TabIndex = 0;
+            // 
+            // codingTopPanel
+            // 
+            codingTopPanel.Controls.Add(readCodesButton);
+            codingTopPanel.Controls.Add(writeCodesButton);
+            codingTopPanel.Controls.Add(saveCodingButton);
+            codingTopPanel.Controls.Add(resetCodingButton);
+            codingTopPanel.Dock = DockStyle.Top;
+            codingTopPanel.Location = new Point(0, 0);
+            codingTopPanel.Name = "codingTopPanel";
+            codingTopPanel.Size = new Size(705, 40);
+            codingTopPanel.TabIndex = 1;
+            // 
+            // readCodesButton
+            // 
+            readCodesButton.Location = new Point(10, 5);
+            readCodesButton.Name = "readCodesButton";
+            readCodesButton.Size = new Size(100, 30);
+            readCodesButton.TabIndex = 0;
+            readCodesButton.Text = "Read Codes";
+            readCodesButton.Click += ReadCodesButton_Click;
+            // 
+            // writeCodesButton
+            // 
+            writeCodesButton.Enabled = false;
+            writeCodesButton.Location = new Point(120, 5);
+            writeCodesButton.Name = "writeCodesButton";
+            writeCodesButton.Size = new Size(100, 30);
+            writeCodesButton.TabIndex = 1;
+            writeCodesButton.Text = "Write Codes";
+            writeCodesButton.Click += WriteCodesButton_Click;
+            // 
+            // saveCodingButton
+            // 
+            saveCodingButton.Enabled = false;
+            saveCodingButton.Location = new Point(230, 5);
+            saveCodingButton.Name = "saveCodingButton";
+            saveCodingButton.Size = new Size(110, 30);
+            saveCodingButton.TabIndex = 2;
+            saveCodingButton.Text = "Save Changes";
+            saveCodingButton.Click += SaveCodingButton_Click;
+            // 
+            // resetCodingButton
+            // 
+            resetCodingButton.Enabled = false;
+            resetCodingButton.Location = new Point(350, 5);
+            resetCodingButton.Name = "resetCodingButton";
+            resetCodingButton.Size = new Size(80, 30);
+            resetCodingButton.TabIndex = 3;
+            resetCodingButton.Text = "Reset";
+            resetCodingButton.Click += ResetCodingButton_Click;
             // 
             // LoggerWindow
             // 
             AutoScaleDimensions = new SizeF(8F, 20F);
             AutoScaleMode = AutoScaleMode.Font;
             ClientSize = new Size(713, 588);
+            Controls.Add(mainTabControl);
             Controls.Add(statusStrip1);
             Controls.Add(menuStrip1);
             MainMenuStrip = menuStrip1;
@@ -245,11 +291,17 @@ namespace LotusECMLogger
             MinimumSize = new Size(729, 624);
             Name = "LoggerWindow";
             Text = "LotusECMLogger";
-            // ListView doesn't need EndInit
             menuStrip1.ResumeLayout(false);
             menuStrip1.PerformLayout();
             statusStrip1.ResumeLayout(false);
             statusStrip1.PerformLayout();
+            mainTabControl.ResumeLayout(false);
+            liveDataTab.ResumeLayout(false);
+            loggerControlPanel.ResumeLayout(false);
+            loggerControlPanel.PerformLayout();
+            codingDataTab.ResumeLayout(false);
+            codingMainPanel.ResumeLayout(false);
+            codingTopPanel.ResumeLayout(false);
             ResumeLayout(false);
             PerformLayout();
         }
@@ -278,5 +330,8 @@ namespace LotusECMLogger
         private Button saveCodingButton;
         private Button resetCodingButton;
         private Panel codingScrollPanel;
+        private Panel loggerControlPanel;
+        private Panel codingMainPanel;
+        private Panel codingTopPanel;
     }
 }
