@@ -309,9 +309,6 @@ namespace LotusECMLogger
 
         #endregion
 
-        private Label deviceLabel;
-        private Label label1;
-        private Button buttonRefreshDevice;
         private Button startLogger_button;
         private Button stopLogger_button;
         private Label currentLogfileName;
