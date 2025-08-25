@@ -323,7 +323,7 @@ namespace LotusECMLogger
                     
                     if (result)
                     {
-                        Debug.WriteLine("Successfully wrote coding using raw CAN 0x502");
+                        Debug.WriteLine("Successfully wrote coding using raw CAN to IDs 0x500-0x505");
                     }
                     else
                     {
@@ -363,39 +363,47 @@ namespace LotusECMLogger
         {
             try
             {
-                // Use raw CAN protocol to send directly to 0x502
+                // Use raw CAN protocol to send to multiple CAN IDs
                 using Channel canChannel = codingDevice.GetChannel(Protocol.CAN, (Baud)500000, ConnectFlag.NONE);
 
                 // Get the high and low bytes separately to match ECU expectations
                 byte[] highBytes = codingDecoder.GetHighBytes();
                 byte[] lowBytes = codingDecoder.GetLowBytes();
 
-                // Create raw CAN message with ID 0x502 and 8 bytes of coding data
-                byte[] canMessage = new byte[12]; // 4 bytes header + 8 bytes data
+                // CAN IDs to send the same payload to
+                ushort[] canIds = [0x500, 0x501, 0x502, 0x503, 0x504, 0x505];
+                List<byte[]> canMessages = new List<byte[]>();
 
-                // CAN header for 11-bit ID 0x502
-                // Format: [0x00, 0x00, 0x05, 0x02] for standard 11-bit CAN ID 0x502
-                canMessage[0] = 0x00;
-                canMessage[1] = 0x00;
-                canMessage[2] = 0x05;
-                canMessage[3] = 0x02;
+                // Create a message for each CAN ID
+                foreach (ushort canId in canIds)
+                {
+                    byte[] canMessage = new byte[12]; // 4 bytes header + 8 bytes data
 
-                // ECU expects: high bytes first (0-3), then low bytes (4-7)
-                // This matches the diagnostic read order: 0x0263=high, 0x0264=low
-                Array.Copy(highBytes, 0, canMessage, 4, 4);  // Bytes 4-7: high bytes
-                Array.Copy(lowBytes, 0, canMessage, 8, 4);   // Bytes 8-11: low bytes
+                    // CAN header for 11-bit ID
+                    canMessage[0] = 0x00;
+                    canMessage[1] = 0x00;
+                    canMessage[2] = (byte)((canId >> 8) & 0xFF); // High byte of CAN ID
+                    canMessage[3] = (byte)(canId & 0xFF);        // Low byte of CAN ID
 
-                Debug.WriteLine($"Sending raw CAN message to 0x502: {BitConverter.ToString(canMessage)}");
+                    // ECU expects: high bytes first (0-3), then low bytes (4-7)
+                    // This matches the diagnostic read order: 0x0263=high, 0x0264=low
+                    Array.Copy(highBytes, 0, canMessage, 4, 4);  // Bytes 4-7: high bytes
+                    Array.Copy(lowBytes, 0, canMessage, 8, 4);   // Bytes 8-11: low bytes
+
+                    canMessages.Add(canMessage);
+                    Debug.WriteLine($"Prepared CAN message for ID 0x{canId:X3}: {BitConverter.ToString(canMessage)}");
+                }
+
                 Debug.WriteLine($"High bytes (0x0263): {BitConverter.ToString(highBytes)}");
                 Debug.WriteLine($"Low bytes (0x0264): {BitConverter.ToString(lowBytes)}");
 
-                // Send the message
-                canChannel.SendMessages([canMessage]);
+                // Send all messages
+                canChannel.SendMessages(canMessages.ToArray());
 
                 // Wait a bit for ECU to process
                 Thread.Sleep(100);
 
-                Debug.WriteLine("Raw CAN coding message sent successfully");
+                Debug.WriteLine($"Raw CAN coding messages sent successfully to {canIds.Length} CAN IDs");
                 return (true, "");
             }
             catch (Exception ex)
