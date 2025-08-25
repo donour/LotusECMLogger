@@ -44,6 +44,9 @@ namespace LotusECMLogger
                     // Update button states
                     startLogger_button.Enabled = !value;
                     stopLogger_button.Enabled = value;
+                    // Disable coding operations while logging is active
+                    writeCodesButton.Enabled = !value;
+                    readCodesButton.Enabled = !value;
                 }
             }
         }
@@ -113,7 +116,7 @@ namespace LotusECMLogger
             selectedObdConfigName = clicked.Text ?? "NO CONFIG";
         }
 
-        private void buttonTestRead_Click(object sender, EventArgs e)
+        private void startLogger_button_Click(object sender, EventArgs e)
         {
             try
             {
@@ -451,6 +454,14 @@ namespace LotusECMLogger
         
         private void ReadCodesButton_Click(object sender, EventArgs e)
         {
+            // Safety check: prevent coding operations while logging is active
+            if (loggerEnabled)
+            {
+                MessageBox.Show("Cannot read codes while logging is active. Please stop the logger first.", 
+                    "Logger Active", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+            
             try
             {
                 readCodesButton.Enabled = false;
@@ -499,6 +510,14 @@ namespace LotusECMLogger
         
         private void WriteCodesButton_Click(object sender, EventArgs e)
         {
+            // Safety check: prevent coding operations while logging is active
+            if (loggerEnabled)
+            {
+                MessageBox.Show("Cannot write codes while logging is active. Please stop the logger first.", 
+                    "Logger Active", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+            
             if (modifiedCodingDecoder == null)
             {
                 MessageBox.Show("No coding data loaded. Please read codes first.", "No Data", 

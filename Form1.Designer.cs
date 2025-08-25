@@ -74,7 +74,7 @@ namespace LotusECMLogger
             startLogger_button.TabIndex = 3;
             startLogger_button.Text = "Start";
             startLogger_button.UseVisualStyleBackColor = true;
-            startLogger_button.Click += buttonTestRead_Click;
+            startLogger_button.Click += startLogger_button_Click;
             // 
             // stopLogger_button
             // 
@@ -246,6 +246,7 @@ namespace LotusECMLogger
             readCodesButton.Size = new Size(100, 30);
             readCodesButton.TabIndex = 0;
             readCodesButton.Text = "Read Codes";
+            readCodesButton.Enabled = true; // Enabled initially since logging is not active
             readCodesButton.Click += ReadCodesButton_Click;
             // 
             // writeCodesButton
