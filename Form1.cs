@@ -128,12 +128,8 @@ namespace LotusECMLogger
                 }
                 OBDConfiguration config = OBDConfiguration.LoadFromConfig(selectedObdConfigName);
                 logger = new J2534OBDLogger(outfn, Logger_DataLogged, Logger_ExceptionOccurred, config);
-                logger.CodingDataUpdated += Logger_CodingDataUpdated;
                 logger.Start();
                 currentLogfileName.Text = outfn;
-
-                // Update coding view after logger is started
-                UpdateCodingView();
             }
             catch (J2534Exception ex)
             {
@@ -262,11 +258,8 @@ namespace LotusECMLogger
 
         private void UpdateCodingView()
         {
-            if (logger?.CodingDecoder == null)
+            if (originalCodingDecoder == null)
                 return;
-
-            originalCodingDecoder = logger.CodingDecoder;
-            modifiedCodingDecoder = logger.CodingDecoder;
             
             // Clear existing controls
             codingScrollPanel.Controls.Clear();
@@ -321,7 +314,7 @@ namespace LotusECMLogger
                 yPosition += 35;
             }
             
-            // Enable buttons
+            // Enable buttons - these are for modifying the loaded coding data
             saveCodingButton.Enabled = true;
             resetCodingButton.Enabled = true;
         }
@@ -334,7 +327,7 @@ namespace LotusECMLogger
                 
                 // Update button text to indicate changes
                 bool hasChanges = !modifiedCodingDecoder.BitField.Equals(originalCodingDecoder.BitField);
-                saveCodingButton.Text = hasChanges ? "Save Coding*" : "Save Coding";
+                saveCodingButton.Text = hasChanges ? "Save Changes*" : "Save Changes";
             }
             catch (Exception ex)
             {
@@ -359,31 +352,6 @@ namespace LotusECMLogger
             {
                 numericUpDown.Value = originalCodingDecoder.GetOptionRawValue(optionName);
             }
-        }
-
-        private void Logger_CodingDataUpdated(T6eCodingDecoder decoder)
-        {
-            if (IsDisposed || Disposing)
-                return;
-
-            if (InvokeRequired)
-            {
-                try
-                {
-                    Invoke(new Action(() => Logger_CodingDataUpdated(decoder)));
-                }
-                catch (ObjectDisposedException)
-                {
-                    return;
-                }
-                catch (InvalidOperationException)
-                {
-                    return;
-                }
-                return;
-            }
-
-            UpdateCodingView();
         }
         
         private void SaveCodingButton_Click(object sender, EventArgs e)
@@ -472,7 +440,7 @@ namespace LotusECMLogger
                 
                 // Reset the modified state
                 originalCodingDecoder = modifiedCodingDecoder;
-                saveCodingButton.Text = "Save Coding";
+                saveCodingButton.Text = "Save Changes";
             }
             catch (Exception ex)
             {
@@ -481,6 +449,138 @@ namespace LotusECMLogger
             }
         }
         
+        private void ReadCodesButton_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                readCodesButton.Enabled = false;
+                readCodesButton.Text = "Reading...";
+                
+                // Create temporary device connection for reading codes
+                string DllFileName = APIFactory.GetAPIinfo().First().Filename;
+                API API = APIFactory.GetAPI(DllFileName);
+                using Device device = API.GetDevice();
+                using Channel channel = device.GetChannel(Protocol.ISO15765, Baud.ISO15765, ConnectFlag.NONE);
+                
+                // Start message filter
+                var flowControlFilter = new MessageFilter
+                {
+                    FilterType = Filter.FLOW_CONTROL_FILTER,
+                    Mask = [0xFF, 0xFF, 0xFF, 0xFF],
+                    Pattern = [0x00, 0x00, 0x07, 0xE8],
+                    FlowControl = [0x00, 0x00, 0x07, 0xE0]
+                };
+                channel.StartMsgFilter(flowControlFilter);
+                
+                // Read coding data
+                originalCodingDecoder = GetCodingDataStandalone(channel);
+                modifiedCodingDecoder = originalCodingDecoder;
+                
+                // Update the UI
+                UpdateCodingView();
+                
+                // Enable write button
+                writeCodesButton.Enabled = true;
+                
+                MessageBox.Show("Coding data successfully read from ECU!", "Read Complete", 
+                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Failed to read coding data: {ex.Message}", "Read Error", 
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                readCodesButton.Enabled = true;
+                readCodesButton.Text = "Read Codes";
+            }
+        }
+        
+        private void WriteCodesButton_Click(object sender, EventArgs e)
+        {
+            if (modifiedCodingDecoder == null)
+            {
+                MessageBox.Show("No coding data loaded. Please read codes first.", "No Data", 
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+            
+            var result = MessageBox.Show(
+                "Are you sure you want to write the coding changes to the ECU?\n\n" +
+                "This will create a backup of the current coding and write the new coding to the ECU.\n\n" +
+                "WARNING: Incorrect coding can cause vehicle malfunction!",
+                "Write Coding Confirmation",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Warning);
+                
+            if (result != DialogResult.Yes)
+                return;
+                
+            try
+            {
+                writeCodesButton.Enabled = false;
+                writeCodesButton.Text = "Writing...";
+                
+                // Create backup file
+                var backupFileName = $"coding_backup_{DateTime.Now:yyyyMMdd_HHmmss}.txt";
+                var backupPath = Path.Combine(Directory.GetCurrentDirectory(), backupFileName);
+                
+                var backupContent = $"Coding Backup - {DateTime.Now}\n" +
+                    $"Original Coding Data: {originalCodingDecoder.ToHexString()}\n" +
+                    $"Original BitField: 0x{originalCodingDecoder.BitField:X16}\n\n" +
+                    "Original Configuration:\n" +
+                    originalCodingDecoder.ToString() + "\n\n" +
+                    $"Modified Coding Data: {modifiedCodingDecoder.ToHexString()}\n" +
+                    $"Modified BitField: 0x{modifiedCodingDecoder.BitField:X16}\n\n" +
+                    "Modified Configuration:\n" +
+                    modifiedCodingDecoder.ToString();
+                
+                File.WriteAllText(backupPath, backupContent);
+                
+                // Write coding data to ECU
+                var (success, errorMessage) = WriteCodingToECUStandalone(modifiedCodingDecoder);
+                
+                if (success)
+                {
+                    var message = $"✓ Coding successfully written to ECU!\n\n" +
+                        $"Backup saved to: {backupFileName}\n\n" +
+                        $"Written to ECU:\n" +
+                        $"High bytes: {BitConverter.ToString(modifiedCodingDecoder.CodingDataHigh).Replace("-", " ")}\n" +
+                        $"Low bytes: {BitConverter.ToString(modifiedCodingDecoder.CodingDataLow).Replace("-", " ")}\n\n" +
+                        "The ECU has been updated with the new coding configuration.";
+                    
+                    MessageBox.Show(message, "Coding Written Successfully", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    
+                    // Reset the modified state
+                    originalCodingDecoder = modifiedCodingDecoder;
+                    saveCodingButton.Text = "Save Changes";
+                }
+                else
+                {
+                    var message = $"⚠ Failed to write coding to ECU\n\n" +
+                        $"Error: {errorMessage}\n\n" +
+                        $"Backup saved to: {backupFileName}\n\n" +
+                        $"Attempted to write:\n" +
+                        $"High bytes: {BitConverter.ToString(modifiedCodingDecoder.CodingDataHigh).Replace("-", " ")}\n" +
+                        $"Low bytes: {BitConverter.ToString(modifiedCodingDecoder.CodingDataLow).Replace("-", " ")}\n\n" +
+                        "Please check the connection and try again.";
+                    
+                    MessageBox.Show(message, "Coding Write Failed", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error writing coding: {ex.Message}", "Write Error", 
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                writeCodesButton.Enabled = true;
+                writeCodesButton.Text = "Write Codes";
+            }
+        }
+
         private void ResetCodingButton_Click(object sender, EventArgs e)
         {
             if (originalCodingDecoder == null)
@@ -505,7 +605,111 @@ namespace LotusECMLogger
             }
             
             // Reset button text
-            saveCodingButton.Text = "Save Coding";
+            saveCodingButton.Text = "Save Changes";
+        }
+        
+        /// <summary>
+        /// Standalone method to read coding data from ECU without starting the logger
+        /// </summary>
+        private static T6eCodingDecoder GetCodingDataStandalone(Channel channel)
+        {
+            byte[][] result = [[0, 0, 0, 0], [0, 0, 0, 0]];
+
+            byte[][] codingRequest =
+            [
+                [0x00, 0x00, 0x07, 0xE0, 0x22, 0x02, 0x63],
+                [0x00, 0x00, 0x07, 0xE0, 0x22, 0x02, 0x64]
+            ];
+            int done = 0;
+            do
+            {
+                channel.SendMessages(codingRequest);
+                GetMessageResults resp = channel.GetMessages(1, 100);
+                if (resp.Messages.Length > 0)
+                {
+                    var data = resp.Messages[0].Data;
+                    if (data.Length >= 11)
+                    {
+                        if (data[4] == 0x62 && data[5] == 0x02)
+                        {
+                            if (data[6] == 0x63)
+                            {
+                                result[1] = data[7..11];
+                                done |= 1;
+                            }
+                            if (data[6] == 0x64)
+                            {
+                                result[0] = data[7..11];
+                                done |= 2;
+                            }
+                        }
+                    }
+                }
+            } while (done != 3);
+
+            return new T6eCodingDecoder(result[1], result[0]);
+        }
+        
+        /// <summary>
+        /// Standalone method to write coding data to ECU without using the logger
+        /// </summary>
+        private static (bool success, string errorMessage) WriteCodingToECUStandalone(T6eCodingDecoder codingDecoder)
+        {
+            try
+            {
+                // Create device connection for coding write
+                string DllFileName = APIFactory.GetAPIinfo().First().Filename;
+                API API = APIFactory.GetAPI(DllFileName);
+                using Device device = API.GetDevice();
+
+                // Use raw CAN approach (matching ECU expectations)
+                return WriteRawCANCodingStandalone(codingDecoder, device);
+            }
+            catch (Exception ex)
+            {
+                return (false, $"Failed to write coding: {ex.Message}");
+            }
+        }
+        
+        /// <summary>
+        /// Standalone method to write raw CAN coding data
+        /// </summary>
+        private static (bool success, string errorMessage) WriteRawCANCodingStandalone(T6eCodingDecoder codingDecoder, Device device)
+        {
+            try
+            {
+                // Use raw CAN protocol to send directly to 0x502
+                using Channel canChannel = device.GetChannel(Protocol.CAN, (Baud)500000, ConnectFlag.NONE);
+
+                // Get the high and low bytes separately to match ECU expectations
+                byte[] highBytes = codingDecoder.GetHighBytes();
+                byte[] lowBytes = codingDecoder.GetLowBytes();
+
+                // Create raw CAN message with ID 0x502 and 8 bytes of coding data
+                byte[] canMessage = new byte[12]; // 4 bytes header + 8 bytes data
+
+                // CAN header for 11-bit ID 0x502
+                canMessage[0] = 0x00;
+                canMessage[1] = 0x00;
+                canMessage[2] = 0x05;
+                canMessage[3] = 0x02;
+
+                // ECU expects: high bytes first (0-3), then low bytes (4-7)
+                Array.Copy(highBytes, 0, canMessage, 4, 4);  // Bytes 4-7: high bytes
+                Array.Copy(lowBytes, 0, canMessage, 8, 4);   // Bytes 8-11: low bytes
+
+                // Send the message
+                canChannel.SendMessages([canMessage]);
+
+                // Wait a bit for ECU to process
+                Thread.Sleep(100);
+
+                return (true, "");
+            }
+            catch (Exception ex)
+            {
+                return (false, $"Raw CAN coding write failed: {ex.Message}");
+            }
         }
     }
 }

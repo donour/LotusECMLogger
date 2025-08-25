@@ -33,7 +33,6 @@ namespace LotusECMLogger
         /// </summary>
         private void InitializeComponent()
         {
-            Panel topPanel = new Panel();
             startLogger_button = new Button();
             stopLogger_button = new Button();
             currentLogfileName = new Label();
@@ -48,22 +47,41 @@ namespace LotusECMLogger
             mainTabControl = new TabControl();
             liveDataTab = new TabPage();
             codingDataTab = new TabPage();
-            topPanel.SuspendLayout();
             // ListView doesn't need BeginInit
             menuStrip1.SuspendLayout();
             statusStrip1.SuspendLayout();
             SuspendLayout();
             // 
-            // topPanel
+            // liveDataView
             // 
-            topPanel.Controls.Add(startLogger_button);
-            topPanel.Controls.Add(stopLogger_button);
-            topPanel.Controls.Add(currentLogfileName);
-            topPanel.Dock = DockStyle.Top;
-            topPanel.Location = new Point(0, 30);
-            topPanel.Name = "topPanel";
-            topPanel.Size = new Size(713, 60);
-            topPanel.TabIndex = 9;
+            liveDataView.Dock = DockStyle.Fill;
+            liveDataView.FullRowSelect = true;
+            liveDataView.GridLines = true;
+            liveDataView.Margin = new Padding(3, 4, 3, 4);
+            liveDataView.MultiSelect = false;
+            liveDataView.Name = "liveDataView";
+            liveDataView.TabIndex = 6;
+            liveDataView.UseCompatibleStateImageBehavior = false;
+            liveDataView.View = View.Details;
+            liveDataView.GetType().GetProperty("DoubleBuffered", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                ?.SetValue(liveDataView, true, null); // Enable double buffering for smoother scrolling
+
+            // Create TabControl
+            mainTabControl = new TabControl();
+            mainTabControl.Dock = DockStyle.Fill;
+            mainTabControl.Location = new Point(0, 30);
+            mainTabControl.Name = "mainTabControl";
+            mainTabControl.Size = new Size(713, 536);
+
+            // Create Live Data Tab
+            liveDataTab = new TabPage();
+            liveDataTab.Text = "Live Data";
+            
+            // Create logger control panel for Live Data tab
+            var loggerControlPanel = new Panel();
+            loggerControlPanel.Dock = DockStyle.Top;
+            loggerControlPanel.Height = 60;
+            
             // 
             // startLogger_button
             // 
@@ -96,34 +114,13 @@ namespace LotusECMLogger
             currentLogfileName.Size = new Size(85, 20);
             currentLogfileName.TabIndex = 5;
             currentLogfileName.Text = "No Log File";
-            // 
-            // liveDataView
-            // 
-            liveDataView.Dock = DockStyle.Fill;
-            liveDataView.FullRowSelect = true;
-            liveDataView.GridLines = true;
-            liveDataView.Location = new Point(0, 90);
-            liveDataView.Margin = new Padding(3, 4, 3, 4);
-            liveDataView.MultiSelect = false;
-            liveDataView.Name = "liveDataView";
-            liveDataView.Size = new Size(713, 476);
-            liveDataView.TabIndex = 6;
-            liveDataView.UseCompatibleStateImageBehavior = false;
-            liveDataView.View = View.Details;
-            liveDataView.GetType().GetProperty("DoubleBuffered", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
-                ?.SetValue(liveDataView, true, null); // Enable double buffering for smoother scrolling
-
-            // Create TabControl
-            mainTabControl = new TabControl();
-            mainTabControl.Dock = DockStyle.Fill;
-            mainTabControl.Location = new Point(0, 90);
-            mainTabControl.Name = "mainTabControl";
-            mainTabControl.Size = new Size(713, 476);
-
-            // Create Live Data Tab
-            liveDataTab = new TabPage();
-            liveDataTab.Text = "Live Data";
+            
+            loggerControlPanel.Controls.Add(startLogger_button);
+            loggerControlPanel.Controls.Add(stopLogger_button);
+            loggerControlPanel.Controls.Add(currentLogfileName);
+            
             liveDataTab.Controls.Add(liveDataView);
+            liveDataTab.Controls.Add(loggerControlPanel);
             mainTabControl.TabPages.Add(liveDataTab);
 
             // Create Coding Data Tab
@@ -139,11 +136,26 @@ namespace LotusECMLogger
             codingTopPanel.Dock = DockStyle.Top;
             codingTopPanel.Height = 40;
             
-            // Create save button
+            // Create read codes button
+            readCodesButton = new Button();
+            readCodesButton.Text = "Read Codes";
+            readCodesButton.Size = new Size(100, 30);
+            readCodesButton.Location = new Point(10, 5);
+            readCodesButton.Click += ReadCodesButton_Click;
+            
+            // Create write codes button
+            writeCodesButton = new Button();
+            writeCodesButton.Text = "Write Codes";
+            writeCodesButton.Size = new Size(100, 30);
+            writeCodesButton.Location = new Point(120, 5);
+            writeCodesButton.Enabled = false;
+            writeCodesButton.Click += WriteCodesButton_Click;
+            
+            // Create save button (rename to avoid confusion)
             saveCodingButton = new Button();
-            saveCodingButton.Text = "Save Coding";
-            saveCodingButton.Size = new Size(100, 30);
-            saveCodingButton.Location = new Point(10, 5);
+            saveCodingButton.Text = "Save Changes";
+            saveCodingButton.Size = new Size(110, 30);
+            saveCodingButton.Location = new Point(230, 5);
             saveCodingButton.Enabled = false;
             saveCodingButton.Click += SaveCodingButton_Click;
             
@@ -151,10 +163,12 @@ namespace LotusECMLogger
             resetCodingButton = new Button();
             resetCodingButton.Text = "Reset";
             resetCodingButton.Size = new Size(80, 30);
-            resetCodingButton.Location = new Point(120, 5);
+            resetCodingButton.Location = new Point(350, 5);
             resetCodingButton.Enabled = false;
             resetCodingButton.Click += ResetCodingButton_Click;
             
+            codingTopPanel.Controls.Add(readCodesButton);
+            codingTopPanel.Controls.Add(writeCodesButton);
             codingTopPanel.Controls.Add(saveCodingButton);
             codingTopPanel.Controls.Add(resetCodingButton);
             
@@ -172,7 +186,6 @@ namespace LotusECMLogger
 
             // Add TabControl to form
             Controls.Add(mainTabControl);
-            Controls.Add(topPanel);
 
             // menuStrip1
             menuStrip1.ImageScalingSize = new Size(20, 20);
@@ -232,8 +245,6 @@ namespace LotusECMLogger
             MinimumSize = new Size(729, 624);
             Name = "LoggerWindow";
             Text = "LotusECMLogger";
-            topPanel.ResumeLayout(false);
-            topPanel.PerformLayout();
             // ListView doesn't need EndInit
             menuStrip1.ResumeLayout(false);
             menuStrip1.PerformLayout();
@@ -262,6 +273,8 @@ namespace LotusECMLogger
         private TabControl mainTabControl;
         private TabPage liveDataTab;
         private TabPage codingDataTab;
+        private Button readCodesButton;
+        private Button writeCodesButton;
         private Button saveCodingButton;
         private Button resetCodingButton;
         private Panel codingScrollPanel;

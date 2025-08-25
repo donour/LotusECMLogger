@@ -1,10 +1,9 @@
-using System;
 using System.Buffers.Binary;
 using System.Threading;
 using System.Threading.Tasks;
-using SAE.J2534; // Uses J2534-Sharp Message type
+using SAE.J2534;
 
-namespace Lotus.T6E.Can
+namespace LotusECMLogger
 {
     /// <summary>
     /// T6e Remote Memory Access client. Implements the ECU's CAN-based memory R/W protocol
@@ -31,9 +30,9 @@ namespace Lotus.T6E.Can
         public async Task<uint> ReadU32(uint address, CancellationToken ct = default)
         {
             ValidateRange(address, 4);
-            Span<byte> req = stackalloc byte[4];
+            byte[] req = new byte[4];
             BinaryPrimitives.WriteUInt32BigEndian(req, address);
-            await SendAsync(IdRead32, req.ToArray(), ct);
+            await SendAsync(IdRead32, req, ct);
             var payload = await ReceivePayloadExactAsync(4, ct);
             return BinaryPrimitives.ReadUInt32BigEndian(payload);
         }
@@ -45,14 +44,14 @@ namespace Lotus.T6E.Can
 
             if (length <= 0xFF)
             {
-                Span<byte> hdr = stackalloc byte[5];
+                byte[] hdr = new byte[5];
                 BinaryPrimitives.WriteUInt32BigEndian(hdr, address);
                 hdr[4] = (byte)length;
                 await SendAsync(IdRead, hdr.ToArray(), ct);
             }
             else
             {
-                Span<byte> hdr = stackalloc byte[6];
+                byte[] hdr = new byte[6];
                 BinaryPrimitives.WriteUInt32BigEndian(hdr, address);
                 BinaryPrimitives.WriteUInt16BigEndian(hdr[4..], (ushort)length);
                 await SendAsync(IdRead, hdr.ToArray(), ct);
@@ -74,7 +73,7 @@ namespace Lotus.T6E.Can
         public async Task WriteU32(uint address, uint value, CancellationToken ct = default)
         {
             ValidateRange(address, 4);
-            Span<byte> payload = stackalloc byte[8];
+            byte[] payload = new byte[8];
             BinaryPrimitives.WriteUInt32BigEndian(payload, address);
             BinaryPrimitives.WriteUInt32BigEndian(payload[4..], value);
             await SendAsync(IdWrite32, payload.ToArray(), ct);
@@ -88,7 +87,7 @@ namespace Lotus.T6E.Can
             // Protocol supports only an 8-bit length header for block write (0x57)
             if (data.Length > 0xFF) throw new ArgumentOutOfRangeException(nameof(data), "Block write supports up to 255 bytes per header.");
 
-            Span<byte> hdr = stackalloc byte[5];
+            byte[] hdr = new byte[5];
             BinaryPrimitives.WriteUInt32BigEndian(hdr, address);
             hdr[4] = (byte)data.Length;
             await SendAsync(IdWrite, hdr.ToArray(), ct);
@@ -111,11 +110,11 @@ namespace Lotus.T6E.Can
             return payload.ToArray();
         }
 
-        private async Task<Message> ReceiveFromRespAsync(TimeSpan timeout, CancellationToken ct)
+        private async Task<SAE.J2534.Message> ReceiveFromRespAsync(TimeSpan timeout, CancellationToken ct)
         {
             var msg = await ReceiveAsync(m => HasId(m, _responseId) && GetPayload(m).Length > 0, timeout, ct);
             if (msg == null) throw new TimeoutException("No ECU response");
-            return msg.Value;
+            return msg;
         }
 
         private Task SendAsync(uint arbitrationId, ReadOnlyMemory<byte> data, CancellationToken ct)
@@ -124,17 +123,12 @@ namespace Lotus.T6E.Can
             var buf = new byte[4 + data.Length];
             BinaryPrimitives.WriteUInt32BigEndian(buf.AsSpan(0, 4), arbitrationId);
             data.CopyTo(buf.AsMemory(4));
-            var msg = new Message
-            {
-                ProtocolID = Protocol.CAN,
-                Data = buf,
-                DataSize = (uint)buf.Length
-            };
+            var msg = new SAE.J2534.Message(buf);
             _channel.SendMessage(msg);
             return Task.CompletedTask;
         }
 
-        private async Task<Message?> ReceiveAsync(Func<Message, bool> match, TimeSpan timeout, CancellationToken ct)
+        private async Task<SAE.J2534.Message?> ReceiveAsync(Func<SAE.J2534.Message, bool> match, TimeSpan timeout, CancellationToken ct)
         {
             var deadline = DateTime.UtcNow + timeout;
             while (DateTime.UtcNow < deadline)
@@ -152,13 +146,13 @@ namespace Lotus.T6E.Can
             return null;
         }
 
-        private static bool HasId(in Message m, uint arbitrationId)
+        private static bool HasId(in SAE.J2534.Message m, uint arbitrationId)
         {
             if (m.Data == null || m.Data.Length < 4) return false;
             return BinaryPrimitives.ReadUInt32BigEndian(m.Data.AsSpan(0, 4)) == arbitrationId;
         }
 
-        private static ReadOnlyMemory<byte> GetPayload(in Message m)
+        private static ReadOnlyMemory<byte> GetPayload(in SAE.J2534.Message m)
         {
             if (m.Data == null || m.Data.Length <= 4) return ReadOnlyMemory<byte>.Empty;
             return new ReadOnlyMemory<byte>(m.Data, 4, m.Data.Length - 4);

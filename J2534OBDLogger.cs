@@ -443,7 +443,7 @@ namespace LotusECMLogger
                         Channel.SendMessages(chunk);
                         readings.AddRange(ReadPendingMessages(Channel));
                     }
-
+                    
                     if (readings.Count > 0)
                     {
                         var tr = new LiveDataReading
