@@ -39,7 +39,7 @@ namespace LotusECMLogger
             FlowControl = [0x00, 0x00, 0x07, 0xE0]
         };
 
-        private readonly String output_filename;
+        private readonly String outputFilename;
         private readonly OBDConfiguration obdConfig;
         private bool terminate = false;
         private Thread? loggerThread;
@@ -85,7 +85,7 @@ namespace LotusECMLogger
             Action<Exception> exceptionHandler,
             OBDConfiguration configuration)
         {
-            this.output_filename = filename;
+            this.outputFilename = filename;
             this.obdConfig = configuration;
             this.DataLogged += logger_DataLogged;
             this.ExceptionOccurred += exceptionHandler;
@@ -194,7 +194,7 @@ namespace LotusECMLogger
         {
             try
             {
-                using (var writer = new CSVWriter(output_filename))
+                using (var writer = new CSVWriter(outputFilename))
                 {
                     while (!csvWriterShouldStop)
                     {

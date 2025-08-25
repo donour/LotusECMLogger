@@ -20,20 +20,12 @@ namespace LotusECMLogger
         /// <summary>
         /// Coding option definition structure
         /// </summary>
-        private class CodingOption
+        private class CodingOption(int bitPosition, int bitMask, string name, string[] options)
         {
-            public int BitPosition { get; set; }
-            public int BitMask { get; set; }
-            public string Name { get; set; }
-            public string[] Options { get; set; }
-
-            public CodingOption(int bitPosition, int bitMask, string name, string[] options = null)
-            {
-                BitPosition = bitPosition;
-                BitMask = bitMask;
-                Name = name;
-                Options = options;
-            }
+            public int BitPosition { get; set; } = bitPosition;
+            public int BitMask { get; set; } = bitMask;
+            public string Name { get; set; } = name;
+            public string[] Options { get; set; } = options;
         }
 
         /// <summary>
@@ -41,19 +33,19 @@ namespace LotusECMLogger
         /// </summary>
         private static readonly CodingOption[] _codingOptions =
         [
-            new CodingOption(63, 1, "Oil Cooling System", new[] { "Standard", "Additional" }),
-            new CodingOption(60, 3, "Heating Ventilation Air Conditioning", new[] { "None", "Heater Only", "Air Conditioning", "Climate Control" }),
-            new CodingOption(57, 7, "Cruise System", new[] { "None", "Basic", "Adaptive" }),
-            new CodingOption(52, 1, "Wheel Profile", new[] { "18/19 inch", "19/20 inch" }),
-            new CodingOption(49, 7, "Number of Gears", new[] {"1","2","3","4","5","6","7","8"}),
+            new CodingOption(63, 1, "Oil Cooling System", ["Standard", "Additional"]),
+            new CodingOption(60, 3, "Heating Ventilation Air Conditioning", ["None", "Heater Only", "Air Conditioning", "Climate Control"]),
+            new CodingOption(57, 7, "Cruise System", ["None", "Basic", "Adaptive"]),
+            new CodingOption(52, 1, "Wheel Profile", ["18/19 inch", "19/20 inch"]),
+            new CodingOption(49, 7, "Number of Gears", ["1","2","3","4","5","6","7","8"]),
             new CodingOption(48, 1, "Close Ratio Gearset", FALSE_TRUE),
-            new CodingOption(45, 7, "Transmission Type", new[] { "Manual", "Auto", "MMT" }),
-            new CodingOption(43, 1, "Speed Units", new[] { "MPH", "KPH" }),
-            new CodingOption(36, 127, "Fuel Tank Capacity", null),
+            new CodingOption(45, 7, "Transmission Type", ["Manual", "Auto", "MMT"]),
+            new CodingOption(43, 1, "Speed Units", ["MPH", "KPH"]),
+            new CodingOption(36, 127, "Fuel Tank Capacity", []),
             new CodingOption(35, 1, "Rear Fog Fitted", FALSE_TRUE),
             new CodingOption(34, 1, "Japan Seatbelt Warning", FALSE_TRUE),
-            new CodingOption(33, 1, "Symbol Display", new[] { "ECE(ROW)", "SAE(FED)" }),
-            new CodingOption(32, 1, "Driver Position", new[] { "LHD", "RHD" }),
+            new CodingOption(33, 1, "Symbol Display", ["ECE(ROW)", "SAE(FED)"]),
+            new CodingOption(32, 1, "Driver Position", ["LHD", "RHD"]),
             new CodingOption(30, 1, "Exhaust Bypass Valve Override", FALSE_TRUE),
             new CodingOption(29, 1, "DPM Switch", FALSE_TRUE),
             new CodingOption(28, 1, "Seat Heaters", FALSE_TRUE),
@@ -62,13 +54,13 @@ namespace LotusECMLogger
             new CodingOption(25, 1, "Speed Alert Buzzer", FALSE_TRUE),
             new CodingOption(24, 1, "TC/ESP Button", FALSE_TRUE),
             new CodingOption(23, 1, "Sport Button", FALSE_TRUE),
-            new CodingOption(21, 3, "Clutch Input", new[] { "None", "Switch", "Potentiometer" }),
+            new CodingOption(21, 3, "Clutch Input", ["None", "Switch", "Potentiometer"]),
             new CodingOption(15, 1, "Body Control Module", FALSE_TRUE),
             new CodingOption(14, 1, "Transmission Control Unit", FALSE_TRUE),
             new CodingOption(13, 1, "Tyre Pressure Monitoring System", FALSE_TRUE),
             new CodingOption(12, 1, "Steering Angle Sensor", FALSE_TRUE),
             new CodingOption(11, 1, "Yaw Rate Sensor", FALSE_TRUE),
-            new CodingOption(10, 1, "Instrument Cluster", new[] { "MY08", "MY11/12" }),
+            new CodingOption(10, 1, "Instrument Cluster", ["MY08", "MY11/12"]),
             new CodingOption(9, 1, "Anti-Lock Braking System", FALSE_TRUE),
             new CodingOption(8, 1, "Launch Mode", FALSE_TRUE),
             new CodingOption(7, 1, "Race Mode", FALSE_TRUE),
@@ -76,7 +68,7 @@ namespace LotusECMLogger
             new CodingOption(5, 1, "Reverse Camera", FALSE_TRUE),
             new CodingOption(4, 1, "Powerfold Mirrors", FALSE_TRUE),
             new CodingOption(1, 1, "Central Door Locking", FALSE_TRUE),
-            new CodingOption(0, 1, "Oil Sump System", new[] { "Standard", "Upgrade" })
+            new CodingOption(0, 1, "Oil Sump System", ["Standard", "Upgrade"])
         ];
 
         public T6eCodingDecoder(ulong bitfield)
