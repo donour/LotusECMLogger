@@ -41,7 +41,7 @@ namespace LotusECMLogger
             new CodingOption(48, 1, "Close Ratio Gearset", FALSE_TRUE),
             new CodingOption(45, 7, "Transmission Type", ["Manual", "Auto", "MMT"]),
             new CodingOption(43, 1, "Speed Units", ["MPH", "KPH"]),
-            new CodingOption(36, 127, "Fuel Tank Capacity", []),
+            new CodingOption(36, 127, "Fuel Tank Capacity", Enumerable.Range(0, 101).Select(n => n.ToString()).ToArray()),
             new CodingOption(35, 1, "Rear Fog Fitted", FALSE_TRUE),
             new CodingOption(34, 1, "Japan Seatbelt Warning", FALSE_TRUE),
             new CodingOption(33, 1, "Symbol Display", ["ECE(ROW)", "SAE(FED)"]),
