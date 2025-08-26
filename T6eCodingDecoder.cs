@@ -10,6 +10,7 @@ namespace LotusECMLogger
     /// </summary>
     public class T6eCodingDecoder
     {
+        // TODO are these individual fields needed now?
         private readonly byte[] _codingDataHigh;
         private readonly byte[] _codingDataLow;
         private readonly ulong _bitField;
@@ -41,7 +42,7 @@ namespace LotusECMLogger
             new CodingOption(48, 1, "Close Ratio Gearset", FALSE_TRUE),
             new CodingOption(45, 7, "Transmission Type", ["Manual", "Auto", "MMT"]),
             new CodingOption(43, 1, "Speed Units", ["MPH", "KPH"]),
-            new CodingOption(36, 127, "Fuel Tank Capacity", Enumerable.Range(0, 101).Select(n => n.ToString()).ToArray()),
+            new CodingOption(36, 127, "Fuel Tank Capacity", [.. Enumerable.Range(0, 101).Select(n => n.ToString())]),
             new CodingOption(35, 1, "Rear Fog Fitted", FALSE_TRUE),
             new CodingOption(34, 1, "Japan Seatbelt Warning", FALSE_TRUE),
             new CodingOption(33, 1, "Symbol Display", ["ECE(ROW)", "SAE(FED)"]),
@@ -120,6 +121,10 @@ namespace LotusECMLogger
             
             // Combine into 64-bit field
             _bitField = (highBits << 32) | lowBits;
+
+            // TODO, add other validation rules from S2, Exige, and Emira
+            S1EvoraValidateCoding(_bitField);
+
         }
 
         /// <summary>
@@ -170,6 +175,61 @@ namespace LotusECMLogger
         private int ExtractValue(int bitPosition, int bitMask)
         {
             return (int)((_bitField >> bitPosition) & (ulong)bitMask);
+        }
+
+        /// <summary>
+        /// Validates that the coding data values are legal
+        /// </summary>
+        /// <param name="codingDataLow">Lower 4 bytes of coding data</param>
+        /// <param name="codingDataHigh">Higher 4 bytes of coding data</param>
+        /// <exception cref="ArgumentException">Thrown if coding data contains invalid values</exception>
+        private static void S1EvoraValidateCoding(ulong bitfield)
+        {
+            if (bitfield == 0) {
+                return;
+            }
+
+            // Convert byte arrays to 32-bit values for bit operations (little endian)
+            uint codingHigh = (uint)(bitfield >> 32);
+            uint codingLow = (uint)(bitfield & 0xFFFFFFFF);
+
+            // Condition 1: (COD_base[0] >> 0x1c & 7) < 3
+            if ((codingHigh >> 0x1c & 7) >= 3)
+            {
+                throw new ArgumentException("Invalid coding data: bits 28-30 of codingDataHigh must be < 3");
+            }
+
+            // Condition 2: (COD_base[0] >> 0x19 & 7) < 2
+            if ((codingHigh >> 0x19 & 7) >= 2)
+            {
+                throw new ArgumentException("Invalid coding data: bits 25-27 of codingDataHigh must be < 2");
+            }
+
+            // Condition 3: ((COD_base[0] >> 0x16 & 7) == 3 || (COD_base[0] >> 0x16 & 7) == 1)
+            uint bits22to24 = codingHigh >> 0x16 & 7;
+            if (bits22to24 != 3 && bits22to24 != 1)
+            {
+                throw new ArgumentException("Invalid coding data: bits 22-24 of codingDataHigh must be 1 or 3");
+            }
+
+            // Condition 4: ((COD_base[0] >> 0xd & 7) != 1 || (COD_base[0] >> 0x16 & 7) == 3)
+            uint bits13to15 = codingHigh >> 0xd & 7;
+            if (bits13to15 == 1 && bits22to24 != 3)
+            {
+                throw new ArgumentException("Invalid coding data: if bits 13-15 of codingDataHigh are 1, then bits 22-24 must be 3");
+            }
+
+            // Condition 5: ((COD_base[0] >> 0xd & 7) != 0 || (COD_base[1] >> 0x15 & 3) == 2)
+            if (bits13to15 == 0 && (codingLow >> 0x15 & 3) != 2)
+            {
+                throw new ArgumentException("Invalid coding data: if bits 13-15 of codingDataHigh are 0, then bits 21-22 of codingDataLow must be 2");
+            }
+
+            // Condition 6: ((COD_base[1] >> 10 & 1) != 0 && (COD_base[1] >> 9 & 1) != 0)
+            if ((codingLow >> 10 & 1) == 0 || (codingLow >> 9 & 1) == 0)
+            {
+                throw new ArgumentException("Invalid coding data: bits 9 and 10 of codingDataLow must both be set");
+            }
         }
 
         /// <summary>

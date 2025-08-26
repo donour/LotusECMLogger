@@ -834,7 +834,8 @@ namespace LotusECMLogger
         /// </summary>
         private static T6eCodingDecoder GetCodingDataStandalone(Channel channel)
         {
-            byte[][] result = [[0, 0, 0, 0], [0, 0, 0, 0]];
+            byte[] result_cod0 = [0, 0, 0, 0];
+            byte[] result_cod1 = [0, 0, 0, 0];
 
             byte[][] codingRequest =
             [
@@ -851,16 +852,31 @@ namespace LotusECMLogger
                     var data = resp.Messages[0].Data;
                     if (data.Length >= 11)
                     {
+                        // These bytes are in the reverse order of the value at the sender.
+                        /*
+                          case 0x263:
+                                obd_ii_response[3] = (byte)COD_base[1];
+                                obd_ii_response[4] = COD_base[1]._2_1_;
+                                uVar4 = 7;
+                                obd_ii_response._5_2_ = CONCAT11(COD_base[1]._1_1_,COD_base[1]._0_1_);
+                                break;
+                          case 0x264:
+                                obd_ii_response[3] = (byte)COD_base[0];
+                                obd_ii_response[4] = COD_base[0]._2_1_;
+                                uVar4 = 7;
+                                obd_ii_response._5_2_ = CONCAT11(COD_base[0]._1_1_,COD_base[0]._0_1_);
+                                break;
+                         */
                         if (data[4] == 0x62 && data[5] == 0x02)
                         {
                             if (data[6] == 0x63)
                             {
-                                result[1] = data[7..11];
+                                result_cod1 = data[7..11];
                                 done |= 1;
                             }
                             if (data[6] == 0x64)
                             {
-                                result[0] = data[7..11];
+                                result_cod0 = data[7..11];
                                 done |= 2;
                             }
                         }
@@ -868,7 +884,7 @@ namespace LotusECMLogger
                 }
             } while (done != 3);
 
-            return new T6eCodingDecoder(result[1], result[0]);
+            return new T6eCodingDecoder(result_cod1, result_cod0);
         }
         
         /// <summary>
@@ -897,6 +913,17 @@ namespace LotusECMLogger
         /// </summary>
         private static (bool success, string errorMessage) WriteRawCANCodingStandalone(T6eCodingDecoder codingDecoder, Device device)
         {
+            // Coding data is written as one continous 8 byte message.
+            /*
+                  if (input_format == 0) {
+                      COD_base[0] = CONCAT13(cod_new[3],CONCAT12(cod_new[2],CONCAT11(cod_new[1],*cod_new)));
+                      COD_base[1] = CONCAT13(cod_new[7],CONCAT12(cod_new[6],CONCAT11(cod_new[5],cod_new[4])));
+                    }
+                    else {
+                      COD_base[0] = *(uint32_t *)(cod_new + 4);
+                      COD_base[1] = *(uint32_t *)cod_new;
+                    }
+            */
             try
             {
                 // Use raw CAN protocol to send directly to 0x502
@@ -919,6 +946,7 @@ namespace LotusECMLogger
                 Array.Copy(highBytes, 0, canMessage, 4, 4);  // Bytes 4-7: high bytes
                 Array.Copy(lowBytes, 0, canMessage, 8, 4);   // Bytes 8-11: low bytes
 
+                // TODO sent messages to other modules
                 // Send the message
                 canChannel.SendMessages([canMessage]);
 
