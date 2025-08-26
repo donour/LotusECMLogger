@@ -518,7 +518,7 @@ namespace LotusECMLogger
             }
             finally
             {
-                loggerEnabled = true;
+                loggerEnabled = false;
                 readCodesButton.Text = "Read Codes";
             }
         }
