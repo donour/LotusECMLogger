@@ -74,6 +74,10 @@ namespace LotusECMLogger
 
         public T6eCodingDecoder(ulong bitfield)
         {
+            // TODO this is duplicated in the other constructor, refactor into a method
+            bitfield = bitfield & 0xfcffffff;
+            bitfield = bitfield | 0x00c00000;
+
             _bitField = bitfield;
             _codingDataLow = new byte[4];
             _codingDataHigh = new byte[4];
@@ -102,7 +106,8 @@ namespace LotusECMLogger
             {
                 throw new ArgumentException("Higher coding data must be exactly 4 bytes", nameof(codingDataHigh));
             }
-
+            codingDataHigh[0] = (byte)(codingDataHigh[0] & 0xFC);
+            codingDataHigh[1] = (byte)(CodingDataHigh[1] | 0xC0);
             _codingDataLow = (byte[])codingDataLow.Clone();
             _codingDataHigh = (byte[])codingDataHigh.Clone();
             
@@ -209,14 +214,14 @@ namespace LotusECMLogger
             uint bits22to24 = codingHigh >> 0x16 & 7;
             if (bits22to24 != 3 && bits22to24 != 1)
             {
-                throw new ArgumentException("Invalid coding data: bits 22-24 of codingDataHigh must be 1 or 3");
+                throw new ArgumentException($"Invalid coding data: ({bits22to24}). Bits 22-24 of codingDataHigh must be 1 or 3");
             }
 
             // Condition 4: ((COD_base[0] >> 0xd & 7) != 1 || (COD_base[0] >> 0x16 & 7) == 3)
             uint bits13to15 = codingHigh >> 0xd & 7;
             if (bits13to15 == 1 && bits22to24 != 3)
             {
-                throw new ArgumentException("Invalid coding data: if bits 13-15 of codingDataHigh are 1, then bits 22-24 must be 3");
+                throw new ArgumentException($"Invalid coding data({bits13to15}): if bits 13-15 of codingDataHigh are 1, then bits 22-24 must be 3");
             }
 
             // Condition 5: ((COD_base[0] >> 0xd & 7) != 0 || (COD_base[1] >> 0x15 & 3) == 2)
