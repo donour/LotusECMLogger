@@ -108,11 +108,9 @@ namespace LotusECMLogger
             {
                 throw new ArgumentException("Higher coding data must be exactly 4 bytes", nameof(codingDataHigh));
             }
-            //codingDataHigh[0] = (byte)(codingDataHigh[0] & 0xFC);
-            //codingDataHigh[1] = (byte)(CodingDataHigh[1] | 0xC0);
-            //_codingDataLow = (byte[])codingDataLow.Clone();
-            //_codingDataHigh = (byte[])codingDataHigh.Clone();
-            
+            _codingDataLow = (byte[])codingDataLow.Clone();
+            _codingDataHigh = (byte[])codingDataHigh.Clone();
+
             // Convert 8 bytes to 64-bit value for easier bit manipulation
             // High bytes (bits 32-63)
             ulong highBits = ((ulong)codingDataHigh[3] << 24) | 
