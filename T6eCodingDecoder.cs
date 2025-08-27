@@ -37,12 +37,13 @@ namespace LotusECMLogger
             new CodingOption(63, 1, "Oil Cooling System", ["Standard", "Additional"]),
             new CodingOption(60, 3, "Heating Ventilation Air Conditioning", ["None", "Heater Only", "Air Conditioning", "Climate Control"]),
             new CodingOption(57, 7, "Cruise System", ["None", "Basic", "Adaptive"]),
+            new CodingOption(54, 7, "ESP Variant Unknown", [.. Enumerable.Range(0, 7).Select(n => $"Variant{n}")]),
             new CodingOption(52, 1, "Wheel Profile", ["18/19 inch", "19/20 inch"]),
             new CodingOption(49, 7, "Number of Gears", ["1","2","3","4","5","6","7","8"]),
             new CodingOption(48, 1, "Close Ratio Gearset", FALSE_TRUE),
             new CodingOption(45, 7, "Transmission Type", ["Manual", "Auto", "MMT"]),
             new CodingOption(43, 1, "Speed Units", ["MPH", "KPH"]),
-            new CodingOption(36, 127, "Fuel Tank Capacity", [.. Enumerable.Range(0, 101).Select(n => n.ToString())]),
+            new CodingOption(36, 127, "Fuel Tank Capacity", [.. Enumerable.Range(0, 127).Select(n => n.ToString())]),
             new CodingOption(35, 1, "Rear Fog Fitted", FALSE_TRUE),
             new CodingOption(34, 1, "Japan Seatbelt Warning", FALSE_TRUE),
             new CodingOption(33, 1, "Symbol Display", ["ECE(ROW)", "SAE(FED)"]),
@@ -68,6 +69,7 @@ namespace LotusECMLogger
             new CodingOption(6, 1, "Speed Limiter", FALSE_TRUE),
             new CodingOption(5, 1, "Reverse Camera", FALSE_TRUE),
             new CodingOption(4, 1, "Powerfold Mirrors", FALSE_TRUE),
+            new CodingOption(2, 1, "TPS Config Unknown", FALSE_TRUE),
             new CodingOption(1, 1, "Central Door Locking", FALSE_TRUE),
             new CodingOption(0, 1, "Oil Sump System", ["Standard", "Upgrade"])
         ];
@@ -75,8 +77,8 @@ namespace LotusECMLogger
         public T6eCodingDecoder(ulong bitfield)
         {
             // TODO this is duplicated in the other constructor, refactor into a method
-            bitfield = bitfield & 0xfcffffff;
-            bitfield = bitfield | 0x00c00000;
+            //bitfield = bitfield & 0xfcffffff;
+            //bitfield = bitfield | 0x00c00000;
 
             _bitField = bitfield;
             _codingDataLow = new byte[4];
@@ -106,10 +108,10 @@ namespace LotusECMLogger
             {
                 throw new ArgumentException("Higher coding data must be exactly 4 bytes", nameof(codingDataHigh));
             }
-            codingDataHigh[0] = (byte)(codingDataHigh[0] & 0xFC);
-            codingDataHigh[1] = (byte)(CodingDataHigh[1] | 0xC0);
-            _codingDataLow = (byte[])codingDataLow.Clone();
-            _codingDataHigh = (byte[])codingDataHigh.Clone();
+            //codingDataHigh[0] = (byte)(codingDataHigh[0] & 0xFC);
+            //codingDataHigh[1] = (byte)(CodingDataHigh[1] | 0xC0);
+            //_codingDataLow = (byte[])codingDataLow.Clone();
+            //_codingDataHigh = (byte[])codingDataHigh.Clone();
             
             // Convert 8 bytes to 64-bit value for easier bit manipulation
             // High bytes (bits 32-63)
