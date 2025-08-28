@@ -51,13 +51,9 @@ namespace LotusECMLogger
             codingMainPanel = new Panel();
             codingScrollPanel = new Panel();
             codingTopPanel = new Panel();
-            readCodesButton = new Button();
-            writeCodesButton = new Button();
-            saveCodingButton = new Button();
-            resetCodingButton = new Button();
             vehicleInfoTab = new TabPage();
-            loadVehicleDataButton = new Button();
             vehicleInfoView = new ListView();
+            loadVehicleDataButton = new Button();
             menuStrip1.SuspendLayout();
             statusStrip1.SuspendLayout();
             mainTabControl.SuspendLayout();
@@ -65,16 +61,14 @@ namespace LotusECMLogger
             loggerControlPanel.SuspendLayout();
             codingDataTab.SuspendLayout();
             codingMainPanel.SuspendLayout();
-            codingTopPanel.SuspendLayout();
             vehicleInfoTab.SuspendLayout();
             SuspendLayout();
             // 
             // startLogger_button
             // 
-            startLogger_button.Location = new Point(14, 19);
-            startLogger_button.Margin = new Padding(3, 4, 3, 4);
+            startLogger_button.Location = new Point(12, 14);
             startLogger_button.Name = "startLogger_button";
-            startLogger_button.Size = new Size(86, 31);
+            startLogger_button.Size = new Size(75, 23);
             startLogger_button.TabIndex = 3;
             startLogger_button.Text = "Start";
             startLogger_button.UseVisualStyleBackColor = true;
@@ -83,10 +77,9 @@ namespace LotusECMLogger
             // stopLogger_button
             // 
             stopLogger_button.Enabled = false;
-            stopLogger_button.Location = new Point(106, 19);
-            stopLogger_button.Margin = new Padding(3, 4, 3, 4);
+            stopLogger_button.Location = new Point(93, 14);
             stopLogger_button.Name = "stopLogger_button";
-            stopLogger_button.Size = new Size(86, 31);
+            stopLogger_button.Size = new Size(75, 23);
             stopLogger_button.TabIndex = 4;
             stopLogger_button.Text = "Stop";
             stopLogger_button.UseVisualStyleBackColor = true;
@@ -95,9 +88,9 @@ namespace LotusECMLogger
             // currentLogfileName
             // 
             currentLogfileName.AutoSize = true;
-            currentLogfileName.Location = new Point(255, 30);
+            currentLogfileName.Location = new Point(223, 22);
             currentLogfileName.Name = "currentLogfileName";
-            currentLogfileName.Size = new Size(85, 20);
+            currentLogfileName.Size = new Size(67, 15);
             currentLogfileName.TabIndex = 5;
             currentLogfileName.Text = "No Log File";
             // 
@@ -106,11 +99,10 @@ namespace LotusECMLogger
             liveDataView.Dock = DockStyle.Fill;
             liveDataView.FullRowSelect = true;
             liveDataView.GridLines = true;
-            liveDataView.Location = new Point(0, 60);
-            liveDataView.Margin = new Padding(3, 4, 3, 4);
+            liveDataView.Location = new Point(0, 45);
             liveDataView.MultiSelect = false;
             liveDataView.Name = "liveDataView";
-            liveDataView.Size = new Size(705, 439);
+            liveDataView.Size = new Size(616, 322);
             liveDataView.TabIndex = 6;
             liveDataView.UseCompatibleStateImageBehavior = false;
             liveDataView.View = View.Details;
@@ -129,8 +121,7 @@ namespace LotusECMLogger
             menuStrip1.Items.AddRange(new ToolStripItem[] { helpToolStripMenuItem, obdConfigToolStripMenuItem });
             menuStrip1.Location = new Point(0, 0);
             menuStrip1.Name = "menuStrip1";
-            menuStrip1.Padding = new Padding(7, 3, 0, 3);
-            menuStrip1.Size = new Size(713, 30);
+            menuStrip1.Size = new Size(624, 24);
             menuStrip1.TabIndex = 7;
             menuStrip1.Text = "menuStrip1";
             // 
@@ -138,36 +129,37 @@ namespace LotusECMLogger
             // 
             helpToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { aboutLotusECMLoggerToolStripMenuItem });
             helpToolStripMenuItem.Name = "helpToolStripMenuItem";
-            helpToolStripMenuItem.Size = new Size(55, 24);
+            helpToolStripMenuItem.Size = new Size(44, 20);
             helpToolStripMenuItem.Text = "Help";
             // 
             // aboutLotusECMLoggerToolStripMenuItem
             // 
             aboutLotusECMLoggerToolStripMenuItem.Name = "aboutLotusECMLoggerToolStripMenuItem";
-            aboutLotusECMLoggerToolStripMenuItem.Size = new Size(249, 26);
+            aboutLotusECMLoggerToolStripMenuItem.Size = new Size(201, 22);
             aboutLotusECMLoggerToolStripMenuItem.Text = "About LotusECMLogger";
             aboutLotusECMLoggerToolStripMenuItem.Click += aboutLotusECMLoggerToolStripMenuItem_Click;
             // 
             // obdConfigToolStripMenuItem
             // 
             obdConfigToolStripMenuItem.Name = "obdConfigToolStripMenuItem";
-            obdConfigToolStripMenuItem.Size = new Size(102, 24);
+            obdConfigToolStripMenuItem.Size = new Size(82, 20);
             obdConfigToolStripMenuItem.Text = "OBD Config";
             // 
             // statusStrip1
             // 
             statusStrip1.ImageScalingSize = new Size(20, 20);
             statusStrip1.Items.AddRange(new ToolStripItem[] { refreshRateLabel });
-            statusStrip1.Location = new Point(0, 562);
+            statusStrip1.Location = new Point(0, 419);
             statusStrip1.Name = "statusStrip1";
-            statusStrip1.Size = new Size(713, 26);
+            statusStrip1.Padding = new Padding(1, 0, 12, 0);
+            statusStrip1.Size = new Size(624, 22);
             statusStrip1.TabIndex = 8;
             statusStrip1.Text = "statusStrip1";
             // 
             // refreshRateLabel
             // 
             refreshRateLabel.Name = "refreshRateLabel";
-            refreshRateLabel.Size = new Size(60, 20);
+            refreshRateLabel.Size = new Size(47, 17);
             refreshRateLabel.Text = "no data";
             // 
             // mainTabControl
@@ -176,19 +168,21 @@ namespace LotusECMLogger
             mainTabControl.Controls.Add(codingDataTab);
             mainTabControl.Controls.Add(vehicleInfoTab);
             mainTabControl.Dock = DockStyle.Fill;
-            mainTabControl.Location = new Point(0, 30);
+            mainTabControl.Location = new Point(0, 24);
+            mainTabControl.Margin = new Padding(3, 2, 3, 2);
             mainTabControl.Name = "mainTabControl";
             mainTabControl.SelectedIndex = 0;
-            mainTabControl.Size = new Size(713, 532);
+            mainTabControl.Size = new Size(624, 395);
             mainTabControl.TabIndex = 0;
             // 
             // liveDataTab
             // 
             liveDataTab.Controls.Add(liveDataView);
             liveDataTab.Controls.Add(loggerControlPanel);
-            liveDataTab.Location = new Point(4, 29);
+            liveDataTab.Location = new Point(4, 24);
+            liveDataTab.Margin = new Padding(3, 2, 3, 2);
             liveDataTab.Name = "liveDataTab";
-            liveDataTab.Size = new Size(705, 499);
+            liveDataTab.Size = new Size(616, 367);
             liveDataTab.TabIndex = 0;
             liveDataTab.Text = "Live Data";
             // 
@@ -199,16 +193,18 @@ namespace LotusECMLogger
             loggerControlPanel.Controls.Add(currentLogfileName);
             loggerControlPanel.Dock = DockStyle.Top;
             loggerControlPanel.Location = new Point(0, 0);
+            loggerControlPanel.Margin = new Padding(3, 2, 3, 2);
             loggerControlPanel.Name = "loggerControlPanel";
-            loggerControlPanel.Size = new Size(705, 60);
+            loggerControlPanel.Size = new Size(616, 45);
             loggerControlPanel.TabIndex = 7;
             // 
             // codingDataTab
             // 
             codingDataTab.Controls.Add(codingMainPanel);
-            codingDataTab.Location = new Point(4, 29);
+            codingDataTab.Location = new Point(4, 24);
+            codingDataTab.Margin = new Padding(3, 2, 3, 2);
             codingDataTab.Name = "codingDataTab";
-            codingDataTab.Size = new Size(705, 499);
+            codingDataTab.Size = new Size(616, 371);
             codingDataTab.TabIndex = 1;
             codingDataTab.Text = "ECU Coding";
             // 
@@ -218,118 +214,79 @@ namespace LotusECMLogger
             codingMainPanel.Controls.Add(codingTopPanel);
             codingMainPanel.Dock = DockStyle.Fill;
             codingMainPanel.Location = new Point(0, 0);
+            codingMainPanel.Margin = new Padding(3, 2, 3, 2);
             codingMainPanel.Name = "codingMainPanel";
-            codingMainPanel.Size = new Size(705, 499);
+            codingMainPanel.Size = new Size(616, 371);
             codingMainPanel.TabIndex = 0;
             // 
             // codingScrollPanel
             // 
             codingScrollPanel.AutoScroll = true;
             codingScrollPanel.Dock = DockStyle.Fill;
-            codingScrollPanel.Location = new Point(0, 40);
+            codingScrollPanel.Location = new Point(0, 30);
+            codingScrollPanel.Margin = new Padding(3, 2, 3, 2);
             codingScrollPanel.Name = "codingScrollPanel";
-            codingScrollPanel.Padding = new Padding(10);
-            codingScrollPanel.Size = new Size(705, 459);
+            codingScrollPanel.Padding = new Padding(9, 8, 9, 8);
+            codingScrollPanel.Size = new Size(616, 341);
             codingScrollPanel.TabIndex = 0;
             // 
             // codingTopPanel
             // 
-            codingTopPanel.Controls.Add(readCodesButton);
-            codingTopPanel.Controls.Add(writeCodesButton);
-            codingTopPanel.Controls.Add(saveCodingButton);
-            codingTopPanel.Controls.Add(resetCodingButton);
             codingTopPanel.Dock = DockStyle.Top;
             codingTopPanel.Location = new Point(0, 0);
+            codingTopPanel.Margin = new Padding(3, 2, 3, 2);
             codingTopPanel.Name = "codingTopPanel";
-            codingTopPanel.Size = new Size(705, 40);
+            codingTopPanel.Size = new Size(616, 30);
             codingTopPanel.TabIndex = 1;
-            // 
-            // readCodesButton
-            // 
-            readCodesButton.Location = new Point(10, 5);
-            readCodesButton.Name = "readCodesButton";
-            readCodesButton.Size = new Size(100, 30);
-            readCodesButton.TabIndex = 0;
-            readCodesButton.Text = "Read Codes";
-            readCodesButton.Enabled = true; // Enabled initially since logging is not active
-            readCodesButton.Click += ReadCodesButton_Click;
-            // 
-            // writeCodesButton
-            // 
-            writeCodesButton.Enabled = false;
-            writeCodesButton.Location = new Point(120, 5);
-            writeCodesButton.Name = "writeCodesButton";
-            writeCodesButton.Size = new Size(100, 30);
-            writeCodesButton.TabIndex = 1;
-            writeCodesButton.Text = "Write Codes";
-            writeCodesButton.Click += WriteCodesButton_Click;
-            // 
-            // saveCodingButton
-            // 
-            saveCodingButton.Enabled = false;
-            saveCodingButton.Location = new Point(230, 5);
-            saveCodingButton.Name = "saveCodingButton";
-            saveCodingButton.Size = new Size(110, 30);
-            saveCodingButton.TabIndex = 2;
-            saveCodingButton.Text = "Save Changes";
-            saveCodingButton.Click += SaveCodingButton_Click;
-            // 
-            // resetCodingButton
-            // 
-            resetCodingButton.Enabled = false;
-            resetCodingButton.Location = new Point(350, 5);
-            resetCodingButton.Name = "resetCodingButton";
-            resetCodingButton.Size = new Size(80, 30);
-            resetCodingButton.TabIndex = 3;
-            resetCodingButton.Text = "Reset";
-            resetCodingButton.Click += ResetCodingButton_Click;
             // 
             // vehicleInfoTab
             // 
             vehicleInfoTab.Controls.Add(vehicleInfoView);
             vehicleInfoTab.Controls.Add(loadVehicleDataButton);
-            vehicleInfoTab.Location = new Point(4, 29);
+            vehicleInfoTab.Location = new Point(4, 24);
+            vehicleInfoTab.Margin = new Padding(3, 2, 3, 2);
             vehicleInfoTab.Name = "vehicleInfoTab";
-            vehicleInfoTab.Size = new Size(705, 499);
+            vehicleInfoTab.Size = new Size(616, 367);
             vehicleInfoTab.TabIndex = 2;
             vehicleInfoTab.Text = "Extended Vehicle Information";
             vehicleInfoTab.UseVisualStyleBackColor = true;
-            // 
-            // loadVehicleDataButton
-            // 
-            loadVehicleDataButton.Enabled = true; // Enabled initially since logging is not active
-            loadVehicleDataButton.Location = new Point(10, 10);
-            loadVehicleDataButton.Name = "loadVehicleDataButton";
-            loadVehicleDataButton.Size = new Size(120, 30);
-            loadVehicleDataButton.TabIndex = 0;
-            loadVehicleDataButton.Text = "Load Vehicle Data";
-            loadVehicleDataButton.UseVisualStyleBackColor = true;
-            loadVehicleDataButton.Click += LoadVehicleDataButton_Click;
             // 
             // vehicleInfoView
             // 
             vehicleInfoView.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             vehicleInfoView.FullRowSelect = true;
             vehicleInfoView.GridLines = true;
-            vehicleInfoView.Location = new Point(10, 50);
+            vehicleInfoView.Location = new Point(9, 38);
+            vehicleInfoView.Margin = new Padding(3, 2, 3, 2);
             vehicleInfoView.MultiSelect = false;
             vehicleInfoView.Name = "vehicleInfoView";
-            vehicleInfoView.Size = new Size(685, 440);
+            vehicleInfoView.Size = new Size(600, 327);
             vehicleInfoView.TabIndex = 1;
             vehicleInfoView.UseCompatibleStateImageBehavior = false;
             vehicleInfoView.View = View.Details;
             // 
+            // loadVehicleDataButton
+            // 
+            loadVehicleDataButton.Location = new Point(9, 8);
+            loadVehicleDataButton.Margin = new Padding(3, 2, 3, 2);
+            loadVehicleDataButton.Name = "loadVehicleDataButton";
+            loadVehicleDataButton.Size = new Size(105, 22);
+            loadVehicleDataButton.TabIndex = 0;
+            loadVehicleDataButton.Text = "Load Vehicle Data";
+            loadVehicleDataButton.UseVisualStyleBackColor = true;
+            loadVehicleDataButton.Click += LoadVehicleDataButton_Click;
+            loadVehicleDataButton.Enabled = false;
+            // 
             // LoggerWindow
             // 
-            AutoScaleDimensions = new SizeF(8F, 20F);
+            AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(713, 588);
+            ClientSize = new Size(624, 441);
             Controls.Add(mainTabControl);
             Controls.Add(statusStrip1);
             Controls.Add(menuStrip1);
             MainMenuStrip = menuStrip1;
-            Margin = new Padding(3, 4, 3, 4);
-            MinimumSize = new Size(729, 624);
+            MinimumSize = new Size(640, 478);
             Name = "LoggerWindow";
             Text = "LotusECMLogger";
             menuStrip1.ResumeLayout(false);
@@ -342,7 +299,6 @@ namespace LotusECMLogger
             loggerControlPanel.PerformLayout();
             codingDataTab.ResumeLayout(false);
             codingMainPanel.ResumeLayout(false);
-            codingTopPanel.ResumeLayout(false);
             vehicleInfoTab.ResumeLayout(false);
             ResumeLayout(false);
             PerformLayout();
@@ -364,10 +320,6 @@ namespace LotusECMLogger
         private TabControl mainTabControl;
         private TabPage liveDataTab;
         private TabPage codingDataTab;
-        private Button readCodesButton;
-        private Button writeCodesButton;
-        private Button saveCodingButton;
-        private Button resetCodingButton;
         private Panel codingScrollPanel;
         private Panel loggerControlPanel;
         private Panel codingMainPanel;

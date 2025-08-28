@@ -7,6 +7,8 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Windows.Forms;
+using LotusECMLogger.Services;
+using LotusECMLogger.Controls;
 
 namespace LotusECMLogger
 {
@@ -46,11 +48,18 @@ namespace LotusECMLogger
                     // Update button states
                     startLogger_button.Enabled = !value;
                     stopLogger_button.Enabled = value;
-                    // Disable coding operations while logging is active
-                    writeCodesButton.Enabled = !value;
-                    readCodesButton.Enabled = !value;
+                    // Propagate to modular ECU Coding control if present
+                    try
+                    {
+                        var ecuControl = codingDataTab.Controls.OfType<EcuCodingControl>().FirstOrDefault();
+                        if (ecuControl != null)
+                            ecuControl.IsLoggerActive = value;
+                    }
+                    catch { 
+                        // TODO: don't ignore errors
+                            }
                     // Enable vehicle data loading only when logging is not active
-                    loadVehicleDataButton.Enabled = !value;
+                    //loadVehicleDataButton.Enabled = !value;
                 }
             }
         }
@@ -68,6 +77,20 @@ namespace LotusECMLogger
             this.FormClosing += LoggerWindow_FormClosing;
             // Initial button state
             loggerEnabled = false;
+
+            // Replace ECU Coding tab content with modular control
+            try
+            {
+                var ecuService = new J2534EcuCodingService();
+                var ecuControl = new EcuCodingControl(ecuService)
+                {
+                    Dock = DockStyle.Fill,
+                    IsLoggerActive = loggerEnabled
+                };
+                codingDataTab.Controls.Clear();
+                codingDataTab.Controls.Add(ecuControl);
+            }
+            catch { }
         }
 
         /// <summary>
@@ -265,381 +288,6 @@ namespace LotusECMLogger
         {
             var ab = new AboutBox1();
             ab.ShowDialog(this);
-        }
-
-        private void UpdateCodingView()
-        {
-            if (originalCodingDecoder == null)
-                return;
-            
-            // Clear existing controls
-            codingScrollPanel.Controls.Clear();
-            codingControls.Clear();
-            
-            var optionNames = originalCodingDecoder.GetAvailableOptions();
-            int yPosition = 10;
-            
-            foreach (var optionName in optionNames)
-            {
-                // Create label
-                Label label = new()
-                {
-                    Text = optionName + ":",
-                    Size = new Size(250, 23),
-                    Location = new Point(10, yPosition),
-                    Anchor = AnchorStyles.Top | AnchorStyles.Left
-                };
-                codingScrollPanel.Controls.Add(label);
-                
-                // Create control based on option type
-                Control control;
-                if (originalCodingDecoder.IsOptionNumeric(optionName))
-                {
-                    // Numeric input
-                    var numericUpDown = new NumericUpDown
-                    {
-                        Size = new Size(100, 23),
-                        Location = new Point(270, yPosition),
-                        Minimum = 0,
-                        Maximum = 999, // Will be set properly based on bit mask
-                        Value = originalCodingDecoder.GetOptionRawValue(optionName)
-                    };
-                    numericUpDown.ValueChanged += (s, e) => OnCodingValueChanged(optionName, (int)numericUpDown.Value);
-                    numericUpDown.Anchor = AnchorStyles.Top | AnchorStyles.Left;
-                    control = numericUpDown;
-                }
-                else
-                {
-                    // Dropdown for predefined options
-                    var comboBox = new ComboBox
-                    {
-                        Size = new Size(200, 23),
-                        Location = new Point(270, yPosition),
-                        DropDownStyle = ComboBoxStyle.DropDownList
-                    };
-                    var possibleValues = originalCodingDecoder.GetOptionPossibleValues(optionName);
-                    comboBox.Items.AddRange(possibleValues);
-                    comboBox.SelectedItem = originalCodingDecoder.GetOptionValue(optionName);
-                    comboBox.SelectedIndexChanged += (s, e) => OnCodingValueChanged(optionName, comboBox.SelectedItem?.ToString());
-                    comboBox.Anchor = AnchorStyles.Top | AnchorStyles.Left;
-                    control = comboBox;
-                }
-                
-                codingScrollPanel.Controls.Add(control);
-                codingControls[optionName] = control;
-                
-                yPosition += 35;
-            }
-            
-            // Enable buttons - these are for modifying the loaded coding data
-            saveCodingButton.Enabled = true;
-            resetCodingButton.Enabled = true;
-        }
-        
-        private void OnCodingValueChanged(string optionName, object value)
-        {
-            try
-            {
-                modifiedCodingDecoder = modifiedCodingDecoder.SetOptionValue(optionName, value);
-                
-                // Update button text to indicate changes
-                bool hasChanges = !modifiedCodingDecoder.BitField.Equals(originalCodingDecoder.BitField);
-                saveCodingButton.Text = hasChanges ? "Save Changes*" : "Save Changes";
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Invalid value for {optionName}: {ex.Message}", "Validation Error", 
-                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                
-                // Reset control to original value
-                ResetSingleControl(optionName);
-            }
-        }
-        
-        private void ResetSingleControl(string optionName)
-        {
-            if (!codingControls.TryGetValue(optionName, out var control))
-                return;
-                
-            if (control is ComboBox comboBox)
-            {
-                comboBox.SelectedItem = originalCodingDecoder.GetOptionValue(optionName);
-            }
-            else if (control is NumericUpDown numericUpDown)
-            {
-                numericUpDown.Value = originalCodingDecoder.GetOptionRawValue(optionName);
-            }
-        }
-        
-        private void SaveCodingButton_Click(object sender, EventArgs e)
-        {
-            if (modifiedCodingDecoder == null)
-                return;
-                
-            var result = MessageBox.Show(
-                "Are you sure you want to save the coding changes?\n\n" +
-                "This will create a backup of the current coding and attempt to write the new coding to the ECU.\n\n" +
-                "WARNING: Incorrect coding can cause vehicle malfunction!",
-                "Save Coding Confirmation",
-                MessageBoxButtons.YesNo,
-                MessageBoxIcon.Warning);
-                
-            if (result != DialogResult.Yes)
-                return;
-                
-            try
-            {
-                // Create backup file
-                var backupFileName = $"coding_backup_{DateTime.Now:yyyyMMdd_HHmmss}.txt";
-                var backupPath = Path.Combine(Directory.GetCurrentDirectory(), backupFileName);
-                
-                var backupContent = $"Coding Backup - {DateTime.Now}\n" +
-                    $"Original Coding Data: {originalCodingDecoder.ToHexString()}\n" +
-                    $"Original BitField: 0x{originalCodingDecoder.BitField:X16}\n\n" +
-                    "Original Configuration:\n" +
-                    originalCodingDecoder.ToString() + "\n\n" +
-                    $"Modified Coding Data: {modifiedCodingDecoder.ToHexString()}\n" +
-                    $"Modified BitField: 0x{modifiedCodingDecoder.BitField:X16}\n\n" +
-                    "Modified Configuration:\n" +
-                    modifiedCodingDecoder.ToString();
-                
-                File.WriteAllText(backupPath, backupContent);
-                
-                // Write coding data to ECU
-                bool writeSuccess = false;
-                string errorMessage = "";
-                
-                try
-                {
-                    if (logger?.IsConnected == true)
-                    {
-                        var (success, error) = logger.WriteCodingToECU(modifiedCodingDecoder);
-                        writeSuccess = success;
-                        if (!success && !string.IsNullOrEmpty(error))
-                        {
-                            errorMessage = error;
-                        }
-                    }
-                    else
-                    {
-                        errorMessage = "Logger is not connected to ECU.";
-                    }
-                }
-                catch (Exception writeEx)
-                {
-                    errorMessage = $"Exception during ECU write: {writeEx.Message}";
-                }
-                
-                string message;
-                if (writeSuccess)
-                {
-                    message = $"✓ Coding successfully written to ECU!\n\n" +
-                        $"Backup saved to: {backupFileName}\n\n" +
-                        $"Written to ECU:\n" +
-                        $"High bytes: {BitConverter.ToString(modifiedCodingDecoder.CodingDataHigh).Replace("-", " ")}\n" +
-                        $"Low bytes: {BitConverter.ToString(modifiedCodingDecoder.CodingDataLow).Replace("-", " ")}\n\n" +
-                        "The ECU has been updated with the new coding configuration.";
-                    
-                    MessageBox.Show(message, "Coding Written Successfully", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                }
-                else
-                {
-                    message = $"⚠ Failed to write coding to ECU\n\n" +
-                        $"Error: {errorMessage}\n\n" +
-                        $"Backup saved to: {backupFileName}\n\n" +
-                        $"Attempted to write:\n" +
-                        $"High bytes: {BitConverter.ToString(modifiedCodingDecoder.CodingDataHigh).Replace("-", " ")}\n" +
-                        $"Low bytes: {BitConverter.ToString(modifiedCodingDecoder.CodingDataLow).Replace("-", " ")}\n\n" +
-                        "Please check the connection and try again.";
-                    
-                    MessageBox.Show(message, "Coding Write Failed", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                }
-                
-                // Reset the modified state
-                originalCodingDecoder = modifiedCodingDecoder;
-                saveCodingButton.Text = "Save Changes";
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Error saving coding: {ex.Message}", "Save Error", 
-                    MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-        }
-        
-        private void ReadCodesButton_Click(object sender, EventArgs e)
-        {
-            // Safety check: prevent coding operations while logging is active
-            if (loggerEnabled)
-            {
-                MessageBox.Show("Cannot read codes while logging is active. Please stop the logger first.", 
-                    "Logger Active", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-            
-            try
-            {
-                loggerEnabled = false;
-
-                readCodesButton.Text = "Reading...";
-                
-                // Create temporary device connection for reading codes
-                string DllFileName = APIFactory.GetAPIinfo().First().Filename;
-                API API = APIFactory.GetAPI(DllFileName);
-                using Device device = API.GetDevice();
-                using Channel channel = device.GetChannel(Protocol.ISO15765, Baud.ISO15765, ConnectFlag.NONE);
-                
-                // Start message filter
-                var flowControlFilter = new MessageFilter
-                {
-                    FilterType = Filter.FLOW_CONTROL_FILTER,
-                    Mask = [0xFF, 0xFF, 0xFF, 0xFF],
-                    Pattern = [0x00, 0x00, 0x07, 0xE8],
-                    FlowControl = [0x00, 0x00, 0x07, 0xE0]
-                };
-                channel.StartMsgFilter(flowControlFilter);
-                
-                // Read coding data
-                originalCodingDecoder = GetCodingDataStandalone(channel);
-                modifiedCodingDecoder = originalCodingDecoder;
-                
-                // Update the UI
-                UpdateCodingView();
-                
-                // Enable write button
-                writeCodesButton.Enabled = true;
-                
-                MessageBox.Show("Coding data successfully read from ECU!", "Read Complete", 
-                    MessageBoxButtons.OK, MessageBoxIcon.Information);
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Failed to read coding data: {ex.Message}", "Read Error", 
-                    MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            finally
-            {
-                loggerEnabled = false;
-                readCodesButton.Text = "Read Codes";
-            }
-        }
-        
-        private void WriteCodesButton_Click(object sender, EventArgs e)
-        {
-            // Safety check: prevent coding operations while logging is active
-            if (loggerEnabled)
-            {
-                MessageBox.Show("Cannot write codes while logging is active. Please stop the logger first.", 
-                    "Logger Active", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-            
-            if (modifiedCodingDecoder == null)
-            {
-                MessageBox.Show("No coding data loaded. Please read codes first.", "No Data", 
-                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-            
-            var result = MessageBox.Show(
-                "Are you sure you want to write the coding changes to the ECU?\n\n" +
-                "This will create a backup of the current coding and write the new coding to the ECU.\n\n" +
-                "WARNING: Incorrect coding can cause vehicle malfunction!",
-                "Write Coding Confirmation",
-                MessageBoxButtons.YesNo,
-                MessageBoxIcon.Warning);
-                
-            if (result != DialogResult.Yes)
-                return;
-                
-            try
-            {
-                writeCodesButton.Enabled = false;
-                writeCodesButton.Text = "Writing...";
-                
-                // Create backup file
-                var backupFileName = $"coding_backup_{DateTime.Now:yyyyMMdd_HHmmss}.txt";
-                var backupPath = Path.Combine(Directory.GetCurrentDirectory(), backupFileName);
-                
-                var backupContent = $"Coding Backup - {DateTime.Now}\n" +
-                    $"Original Coding Data: {originalCodingDecoder.ToHexString()}\n" +
-                    $"Original BitField: 0x{originalCodingDecoder.BitField:X16}\n\n" +
-                    "Original Configuration:\n" +
-                    originalCodingDecoder.ToString() + "\n\n" +
-                    $"Modified Coding Data: {modifiedCodingDecoder.ToHexString()}\n" +
-                    $"Modified BitField: 0x{modifiedCodingDecoder.BitField:X16}\n\n" +
-                    "Modified Configuration:\n" +
-                    modifiedCodingDecoder.ToString();
-                
-                File.WriteAllText(backupPath, backupContent);
-                
-                // Write coding data to ECU
-                var (success, errorMessage) = WriteCodingToECUStandalone(modifiedCodingDecoder);
-                
-                if (success)
-                {
-                    var message = $"✓ Coding successfully written to ECU!\n\n" +
-                        $"Backup saved to: {backupFileName}\n\n" +
-                        $"Written to ECU:\n" +
-                        $"High bytes: {BitConverter.ToString(modifiedCodingDecoder.CodingDataHigh).Replace("-", " ")}\n" +
-                        $"Low bytes: {BitConverter.ToString(modifiedCodingDecoder.CodingDataLow).Replace("-", " ")}\n\n" +
-                        "The ECU has been updated with the new coding configuration.";
-                    
-                    MessageBox.Show(message, "Coding Written Successfully", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                    
-                    // Reset the modified state
-                    originalCodingDecoder = modifiedCodingDecoder;
-                    saveCodingButton.Text = "Save Changes";
-                }
-                else
-                {
-                    var message = $"⚠ Failed to write coding to ECU\n\n" +
-                        $"Error: {errorMessage}\n\n" +
-                        $"Backup saved to: {backupFileName}\n\n" +
-                        $"Attempted to write:\n" +
-                        $"High bytes: {BitConverter.ToString(modifiedCodingDecoder.CodingDataHigh).Replace("-", " ")}\n" +
-                        $"Low bytes: {BitConverter.ToString(modifiedCodingDecoder.CodingDataLow).Replace("-", " ")}\n\n" +
-                        "Please check the connection and try again.";
-                    
-                    MessageBox.Show(message, "Coding Write Failed", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Error writing coding: {ex.Message}", "Write Error", 
-                    MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            finally
-            {
-                writeCodesButton.Enabled = true;
-                writeCodesButton.Text = "Write Codes";
-            }
-        }
-
-        private void ResetCodingButton_Click(object sender, EventArgs e)
-        {
-            if (originalCodingDecoder == null)
-                return;
-                
-            var result = MessageBox.Show(
-                "Are you sure you want to reset all coding changes?",
-                "Reset Coding Confirmation",
-                MessageBoxButtons.YesNo,
-                MessageBoxIcon.Question);
-                
-            if (result != DialogResult.Yes)
-                return;
-                
-            // Reset modified decoder to original
-            modifiedCodingDecoder = originalCodingDecoder;
-            
-            // Reset all controls
-            foreach (var optionName in originalCodingDecoder.GetAvailableOptions())
-            {
-                ResetSingleControl(optionName);
-            }
-            
-            // Reset button text
-            saveCodingButton.Text = "Save Changes";
         }
         
         private void LoadVehicleDataButton_Click(object sender, EventArgs e)
