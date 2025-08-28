@@ -39,7 +39,7 @@ namespace LotusECMLogger
             FlowControl = [0x00, 0x00, 0x07, 0xE0]
         };
 
-        private readonly String output_filename;
+        private readonly String outputFilename;
         private readonly OBDConfiguration obdConfig;
         private bool terminate = false;
         private Thread? loggerThread;
@@ -85,7 +85,7 @@ namespace LotusECMLogger
             Action<Exception> exceptionHandler,
             OBDConfiguration configuration)
         {
-            this.output_filename = filename;
+            this.outputFilename = filename;
             this.obdConfig = configuration;
             this.DataLogged += logger_DataLogged;
             this.ExceptionOccurred += exceptionHandler;
@@ -194,7 +194,7 @@ namespace LotusECMLogger
         {
             try
             {
-                using (var writer = new CSVWriter(output_filename))
+                using (var writer = new CSVWriter(outputFilename))
                 {
                     while (!csvWriterShouldStop)
                     {
@@ -307,36 +307,24 @@ namespace LotusECMLogger
             
             try
             {
-                // Ensure we have a valid device for coding write
-                Device codingDevice = null;
-                try
+                // Always create fresh device connection for coding write to avoid invalid device issues
+                string DllFileName = APIFactory.GetAPIinfo().First().Filename;
+                API API = APIFactory.GetAPI(DllFileName);
+                
+                using Device codingDevice = API.GetDevice();
+                
+                // Use raw CAN approach (matching ECU expectations)
+                var (success, error) = WriteRawCANCoding(codingDecoder, codingDevice);
+                result = success;
+                errorMessage = error;
+                
+                if (result)
                 {
-                    // Always create fresh device connection for coding write to avoid invalid device issues
-                    string DllFileName = APIFactory.GetAPIinfo().First().Filename;
-                    API API = APIFactory.GetAPI(DllFileName);
-                    codingDevice = API.GetDevice();
-
-                    // Use raw CAN approach (matching ECU expectations)
-                    var (success, error) = WriteRawCANCoding(codingDecoder, codingDevice);
-                    result = success;
-                    errorMessage = error;
-                    
-                    if (result)
-                    {
-                        Debug.WriteLine("Successfully wrote coding using raw CAN 0x502");
-                    }
-                    else
-                    {
-                        Debug.WriteLine($"Raw CAN coding write failed: {errorMessage}");
-                    }
+                    Debug.WriteLine("Successfully wrote coding using raw CAN 0x502");
                 }
-                finally
+                else
                 {
-                    // Always dispose the fresh coding device
-                    if (codingDevice != null)
-                    {
-                        codingDevice.Dispose();
-                    }
+                    Debug.WriteLine($"Raw CAN coding write failed: {errorMessage}");
                 }
             }
             catch (Exception ex)
@@ -443,7 +431,7 @@ namespace LotusECMLogger
                         Channel.SendMessages(chunk);
                         readings.AddRange(ReadPendingMessages(Channel));
                     }
-
+                    
                     if (readings.Count > 0)
                     {
                         var tr = new LiveDataReading

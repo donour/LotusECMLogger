@@ -10,6 +10,7 @@ namespace LotusECMLogger
     /// </summary>
     public class T6eCodingDecoder
     {
+        // TODO are these individual fields needed now?
         private readonly byte[] _codingDataHigh;
         private readonly byte[] _codingDataLow;
         private readonly ulong _bitField;
@@ -20,20 +21,12 @@ namespace LotusECMLogger
         /// <summary>
         /// Coding option definition structure
         /// </summary>
-        private class CodingOption
+        private class CodingOption(int bitPosition, int bitMask, string name, string[] options)
         {
-            public int BitPosition { get; set; }
-            public int BitMask { get; set; }
-            public string Name { get; set; }
-            public string[] Options { get; set; }
-
-            public CodingOption(int bitPosition, int bitMask, string name, string[] options = null)
-            {
-                BitPosition = bitPosition;
-                BitMask = bitMask;
-                Name = name;
-                Options = options;
-            }
+            public int BitPosition { get; set; } = bitPosition;
+            public int BitMask { get; set; } = bitMask;
+            public string Name { get; set; } = name;
+            public string[] Options { get; set; } = options;
         }
 
         /// <summary>
@@ -41,19 +34,20 @@ namespace LotusECMLogger
         /// </summary>
         private static readonly CodingOption[] _codingOptions =
         [
-            new CodingOption(63, 1, "Oil Cooling System", new[] { "Standard", "Additional" }),
-            new CodingOption(60, 3, "Heating Ventilation Air Conditioning", new[] { "None", "Heater Only", "Air Conditioning", "Climate Control" }),
-            new CodingOption(57, 7, "Cruise System", new[] { "None", "Basic", "Adaptive" }),
-            new CodingOption(52, 1, "Wheel Profile", new[] { "18/19 inch", "19/20 inch" }),
-            new CodingOption(49, 7, "Number of Gears", new[] {"1","2","3","4","5","6","7","8"}),
+            new CodingOption(63, 1, "Oil Cooling System", ["Standard", "Additional"]),
+            new CodingOption(60, 3, "Heating Ventilation Air Conditioning", ["None", "Heater Only", "Air Conditioning", "Climate Control"]),
+            new CodingOption(57, 7, "Cruise System", ["None", "Basic", "Adaptive"]),
+            new CodingOption(54, 7, "ESP Variant Unknown", [.. Enumerable.Range(0, 7).Select(n => $"Variant{n}")]),
+            new CodingOption(52, 1, "Wheel Profile", ["18/19 inch", "19/20 inch"]),
+            new CodingOption(49, 7, "Number of Gears", ["1","2","3","4","5","6","7","8"]),
             new CodingOption(48, 1, "Close Ratio Gearset", FALSE_TRUE),
-            new CodingOption(45, 7, "Transmission Type", new[] { "Manual", "Auto", "MMT" }),
-            new CodingOption(43, 1, "Speed Units", new[] { "MPH", "KPH" }),
-            new CodingOption(36, 127, "Fuel Tank Capacity", null),
+            new CodingOption(45, 7, "Transmission Type", ["Manual", "Auto", "MMT"]),
+            new CodingOption(43, 1, "Speed Units", ["MPH", "KPH"]),
+            new CodingOption(36, 127, "Fuel Tank Capacity", [.. Enumerable.Range(0, 127).Select(n => n.ToString())]),
             new CodingOption(35, 1, "Rear Fog Fitted", FALSE_TRUE),
             new CodingOption(34, 1, "Japan Seatbelt Warning", FALSE_TRUE),
-            new CodingOption(33, 1, "Symbol Display", new[] { "ECE(ROW)", "SAE(FED)" }),
-            new CodingOption(32, 1, "Driver Position", new[] { "LHD", "RHD" }),
+            new CodingOption(33, 1, "Symbol Display", ["ECE(ROW)", "SAE(FED)"]),
+            new CodingOption(32, 1, "Driver Position", ["LHD", "RHD"]),
             new CodingOption(30, 1, "Exhaust Bypass Valve Override", FALSE_TRUE),
             new CodingOption(29, 1, "DPM Switch", FALSE_TRUE),
             new CodingOption(28, 1, "Seat Heaters", FALSE_TRUE),
@@ -62,25 +56,30 @@ namespace LotusECMLogger
             new CodingOption(25, 1, "Speed Alert Buzzer", FALSE_TRUE),
             new CodingOption(24, 1, "TC/ESP Button", FALSE_TRUE),
             new CodingOption(23, 1, "Sport Button", FALSE_TRUE),
-            new CodingOption(21, 3, "Clutch Input", new[] { "None", "Switch", "Potentiometer" }),
+            new CodingOption(21, 3, "Clutch Input", ["None", "Switch", "Potentiometer"]),
             new CodingOption(15, 1, "Body Control Module", FALSE_TRUE),
             new CodingOption(14, 1, "Transmission Control Unit", FALSE_TRUE),
             new CodingOption(13, 1, "Tyre Pressure Monitoring System", FALSE_TRUE),
             new CodingOption(12, 1, "Steering Angle Sensor", FALSE_TRUE),
             new CodingOption(11, 1, "Yaw Rate Sensor", FALSE_TRUE),
-            new CodingOption(10, 1, "Instrument Cluster", new[] { "MY08", "MY11/12" }),
+            new CodingOption(10, 1, "Instrument Cluster", ["MY08", "MY11/12"]),
             new CodingOption(9, 1, "Anti-Lock Braking System", FALSE_TRUE),
             new CodingOption(8, 1, "Launch Mode", FALSE_TRUE),
             new CodingOption(7, 1, "Race Mode", FALSE_TRUE),
             new CodingOption(6, 1, "Speed Limiter", FALSE_TRUE),
             new CodingOption(5, 1, "Reverse Camera", FALSE_TRUE),
             new CodingOption(4, 1, "Powerfold Mirrors", FALSE_TRUE),
+            new CodingOption(2, 1, "TPS Config Unknown", FALSE_TRUE),
             new CodingOption(1, 1, "Central Door Locking", FALSE_TRUE),
-            new CodingOption(0, 1, "Oil Sump System", new[] { "Standard", "Upgrade" })
+            new CodingOption(0, 1, "Oil Sump System", ["Standard", "Upgrade"])
         ];
 
         public T6eCodingDecoder(ulong bitfield)
         {
+            // TODO this is duplicated in the other constructor, refactor into a method
+            //bitfield = bitfield & 0xfcffffff;
+            //bitfield = bitfield | 0x00c00000;
+
             _bitField = bitfield;
             _codingDataLow = new byte[4];
             _codingDataHigh = new byte[4];
@@ -109,10 +108,9 @@ namespace LotusECMLogger
             {
                 throw new ArgumentException("Higher coding data must be exactly 4 bytes", nameof(codingDataHigh));
             }
-
             _codingDataLow = (byte[])codingDataLow.Clone();
             _codingDataHigh = (byte[])codingDataHigh.Clone();
-            
+
             // Convert 8 bytes to 64-bit value for easier bit manipulation
             // High bytes (bits 32-63)
             ulong highBits = ((ulong)codingDataHigh[3] << 24) | 
@@ -128,6 +126,10 @@ namespace LotusECMLogger
             
             // Combine into 64-bit field
             _bitField = (highBits << 32) | lowBits;
+
+            // TODO, add other validation rules from S2, Exige, and Emira
+            S1EvoraValidateCoding(_bitField);
+
         }
 
         /// <summary>
@@ -178,6 +180,61 @@ namespace LotusECMLogger
         private int ExtractValue(int bitPosition, int bitMask)
         {
             return (int)((_bitField >> bitPosition) & (ulong)bitMask);
+        }
+
+        /// <summary>
+        /// Validates that the coding data values are legal
+        /// </summary>
+        /// <param name="codingDataLow">Lower 4 bytes of coding data</param>
+        /// <param name="codingDataHigh">Higher 4 bytes of coding data</param>
+        /// <exception cref="ArgumentException">Thrown if coding data contains invalid values</exception>
+        private static void S1EvoraValidateCoding(ulong bitfield)
+        {
+            if (bitfield == 0) {
+                return;
+            }
+
+            // Convert byte arrays to 32-bit values for bit operations (little endian)
+            uint codingHigh = (uint)(bitfield >> 32);
+            uint codingLow = (uint)(bitfield & 0xFFFFFFFF);
+
+            // Condition 1: (COD_base[0] >> 0x1c & 7) < 3
+            if ((codingHigh >> 0x1c & 7) >= 3)
+            {
+                throw new ArgumentException("Invalid coding data: bits 28-30 of codingDataHigh must be < 3");
+            }
+
+            // Condition 2: (COD_base[0] >> 0x19 & 7) < 2
+            if ((codingHigh >> 0x19 & 7) >= 2)
+            {
+                throw new ArgumentException("Invalid coding data: bits 25-27 of codingDataHigh must be < 2");
+            }
+
+            // Condition 3: ((COD_base[0] >> 0x16 & 7) == 3 || (COD_base[0] >> 0x16 & 7) == 1)
+            uint bits22to24 = codingHigh >> 0x16 & 7;
+            if (bits22to24 != 3 && bits22to24 != 1)
+            {
+                throw new ArgumentException($"Invalid coding data: ({bits22to24}). Bits 22-24 of codingDataHigh must be 1 or 3");
+            }
+
+            // Condition 4: ((COD_base[0] >> 0xd & 7) != 1 || (COD_base[0] >> 0x16 & 7) == 3)
+            uint bits13to15 = codingHigh >> 0xd & 7;
+            if (bits13to15 == 1 && bits22to24 != 3)
+            {
+                throw new ArgumentException($"Invalid coding data({bits13to15}): if bits 13-15 of codingDataHigh are 1, then bits 22-24 must be 3");
+            }
+
+            // Condition 5: ((COD_base[0] >> 0xd & 7) != 0 || (COD_base[1] >> 0x15 & 3) == 2)
+            if (bits13to15 == 0 && (codingLow >> 0x15 & 3) != 2)
+            {
+                throw new ArgumentException("Invalid coding data: if bits 13-15 of codingDataHigh are 0, then bits 21-22 of codingDataLow must be 2");
+            }
+
+            // Condition 6: ((COD_base[1] >> 10 & 1) != 0 && (COD_base[1] >> 9 & 1) != 0)
+            if ((codingLow >> 10 & 1) == 0 || (codingLow >> 9 & 1) == 0)
+            {
+                throw new ArgumentException("Invalid coding data: bits 9 and 10 of codingDataLow must both be set");
+            }
         }
 
         /// <summary>

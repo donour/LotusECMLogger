@@ -7,6 +7,8 @@ namespace LotusECMLogger
     {
         public String name = "None";
         public double value_f;
+        public long value_l;
+
         public override string ToString()
         {
             return $"<{name}: {value_f}>";
@@ -209,6 +211,31 @@ namespace LotusECMLogger
                                 break;
                             default:
                                 Debug.WriteLine($"Unknown OBD Mode01: {data[idx]:X2}");
+                                idx++;
+                                break;
+                        }
+                    }
+                    break;
+                case 0x09: // request vehicle info
+                    while (idx < data.Length)
+                    {
+                        switch (data[idx])
+                        {
+                            case 0: //supported pids 01-20
+                                if (data.Length > idx + 4)
+                                {
+                                    uint supportedPIDs = (uint)((data[idx + 1] << 24) | (data[idx + 2] << 16) | (data[idx + 3] << 8) | data[idx + 4]);
+                                    LiveDataReading reading = new()
+                                    {
+                                        name = "SupportedPIDs_01_20",
+                                        value_l = supportedPIDs,
+                                    };
+                                    results.Add(reading);
+                                }
+                                idx += 5;
+                                break;
+                            default:
+                                Debug.WriteLine($"Unknown OBD Mode09: {data[idx]:X2}");
                                 idx++;
                                 break;
                         }
