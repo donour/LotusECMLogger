@@ -1,12 +1,6 @@
 using SAE.J2534;
 using System.ComponentModel;
-using System.Text.Unicode;
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
-using System.Linq;
-using System.Windows.Forms;
 using LotusECMLogger.Services;
 using LotusECMLogger.Controls;
 
@@ -22,7 +16,6 @@ namespace LotusECMLogger
         private J2534OBDLogger logger;
         private Dictionary<String, float> liveData = [];
         private DateTime lastUpdateTime = DateTime.Now;
-        private Dictionary<string, Control> codingControls = [];
         private List<LiveDataReading> vehicleDataSnapshot = [];
 
         public event PropertyChangedEventHandler? PropertyChanged;
@@ -480,136 +473,5 @@ namespace LotusECMLogger
             };
         }
         
-        /// <summary>
-        /// Standalone method to read coding data from ECU without starting the logger
-        /// </summary>
-        private static T6eCodingDecoder GetCodingDataStandalone(Channel channel)
-        {
-            byte[] result_cod0 = [0, 0, 0, 0];
-            byte[] result_cod1 = [0, 0, 0, 0];
-
-            byte[][] codingRequest =
-            [
-                [0x00, 0x00, 0x07, 0xE0, 0x22, 0x02, 0x63],
-                [0x00, 0x00, 0x07, 0xE0, 0x22, 0x02, 0x64]
-            ];
-            int done = 0;
-            do
-            {
-                channel.SendMessages(codingRequest);
-                GetMessageResults resp = channel.GetMessages(1, 100);
-                if (resp.Messages.Length > 0)
-                {
-                    var data = resp.Messages[0].Data;
-                    if (data.Length >= 11)
-                    {
-                        // These bytes are in the reverse order of the value at the sender.
-                        /*
-                          case 0x263:
-                                obd_ii_response[3] = (byte)COD_base[1];
-                                obd_ii_response[4] = COD_base[1]._2_1_;
-                                uVar4 = 7;
-                                obd_ii_response._5_2_ = CONCAT11(COD_base[1]._1_1_,COD_base[1]._0_1_);
-                                break;
-                          case 0x264:
-                                obd_ii_response[3] = (byte)COD_base[0];
-                                obd_ii_response[4] = COD_base[0]._2_1_;
-                                uVar4 = 7;
-                                obd_ii_response._5_2_ = CONCAT11(COD_base[0]._1_1_,COD_base[0]._0_1_);
-                                break;
-                         */
-                        if (data[4] == 0x62 && data[5] == 0x02)
-                        {
-                            if (data[6] == 0x63)
-                            {
-                                result_cod1 = data[7..11];
-                                done |= 1;
-                            }
-                            if (data[6] == 0x64)
-                            {
-                                result_cod0 = data[7..11];
-                                done |= 2;
-                            }
-                        }
-                    }
-                }
-            } while (done != 3);
-
-            return new T6eCodingDecoder(result_cod1, result_cod0);
-        }
-        
-        /// <summary>
-        /// Standalone method to write coding data to ECU without using the logger
-        /// </summary>
-        private static (bool success, string errorMessage) WriteCodingToECUStandalone(T6eCodingDecoder codingDecoder)
-        {
-            try
-            {
-                // Create device connection for coding write
-                string DllFileName = APIFactory.GetAPIinfo().First().Filename;
-                API API = APIFactory.GetAPI(DllFileName);
-                using Device device = API.GetDevice();
-
-                // Use raw CAN approach (matching ECU expectations)
-                return WriteRawCANCodingStandalone(codingDecoder, device);
-            }
-            catch (Exception ex)
-            {
-                return (false, $"Failed to write coding: {ex.Message}");
-            }
-        }
-        
-        /// <summary>
-        /// Standalone method to write raw CAN coding data
-        /// </summary>
-        private static (bool success, string errorMessage) WriteRawCANCodingStandalone(T6eCodingDecoder codingDecoder, Device device)
-        {
-            // Coding data is written as one continous 8 byte message.
-            /*
-                  if (input_format == 0) {
-                      COD_base[0] = CONCAT13(cod_new[3],CONCAT12(cod_new[2],CONCAT11(cod_new[1],*cod_new)));
-                      COD_base[1] = CONCAT13(cod_new[7],CONCAT12(cod_new[6],CONCAT11(cod_new[5],cod_new[4])));
-                    }
-                    else {
-                      COD_base[0] = *(uint32_t *)(cod_new + 4);
-                      COD_base[1] = *(uint32_t *)cod_new;
-                    }
-            */
-            try
-            {
-                // Use raw CAN protocol to send directly to 0x502
-                using Channel canChannel = device.GetChannel(Protocol.CAN, (Baud)500000, ConnectFlag.NONE);
-
-                // Get the high and low bytes separately to match ECU expectations
-                byte[] highBytes = codingDecoder.GetHighBytes();
-                byte[] lowBytes = codingDecoder.GetLowBytes();
-
-                // Create raw CAN message with ID 0x502 and 8 bytes of coding data
-                byte[] canMessage = new byte[12]; // 4 bytes header + 8 bytes data
-
-                // CAN header for 11-bit ID 0x502
-                canMessage[0] = 0x00;
-                canMessage[1] = 0x00;
-                canMessage[2] = 0x05;
-                canMessage[3] = 0x02;
-
-                // ECU expects: high bytes first (0-3), then low bytes (4-7)
-                Array.Copy(highBytes, 0, canMessage, 4, 4);  // Bytes 4-7: high bytes
-                Array.Copy(lowBytes, 0, canMessage, 8, 4);   // Bytes 8-11: low bytes
-
-                // TODO sent messages to other modules
-                // Send the message
-                canChannel.SendMessages([canMessage]);
-
-                // Wait a bit for ECU to process
-                Thread.Sleep(100);
-
-                return (true, "");
-            }
-            catch (Exception ex)
-            {
-                return (false, $"Raw CAN coding write failed: {ex.Message}");
-            }
-        }
     }
 }
