@@ -41,7 +41,7 @@ namespace LotusECMLogger
             }
         }
 
-        public string AssemblyVersion
+        public static string AssemblyVersion
         {
             get
             {

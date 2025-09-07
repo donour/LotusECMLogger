@@ -22,8 +22,6 @@ namespace LotusECMLogger
         private J2534OBDLogger logger;
         private Dictionary<String, float> liveData = new Dictionary<string, float>();
         private DateTime lastUpdateTime = DateTime.Now;
-        private T6eCodingDecoder originalCodingDecoder;
-        private T6eCodingDecoder modifiedCodingDecoder;
         private Dictionary<string, Control> codingControls = new Dictionary<string, Control>();
         private List<LiveDataReading> vehicleDataSnapshot = new List<LiveDataReading>();
 
@@ -90,7 +88,9 @@ namespace LotusECMLogger
                 codingDataTab.Controls.Clear();
                 codingDataTab.Controls.Add(ecuControl);
             }
-            catch { }
+            catch {
+                // TODO don't ignore exceptions
+            }
         }
 
         /// <summary>
@@ -360,7 +360,7 @@ namespace LotusECMLogger
             // For now, create a basic set of common PIDs
             var mode01Requests = new List<Mode01Request>
             {
-                new Mode01Request("Engine RPM", 0x0C),
+                new("Engine RPM", 0x0C),
             };
             
             foreach (var request in mode01Requests)
@@ -398,8 +398,8 @@ namespace LotusECMLogger
             // For now, create a basic set of Lotus-specific requests
             var mode22Requests = new List<Mode22Request>
             {
-                new Mode22Request("TPS Target", 0x02, 0x3B),
-                new Mode22Request("TPS Actual", 0x02, 0x45),
+                new("TPS Target", 0x02, 0x3B),
+                new("TPS Actual", 0x02, 0x45),
             };
             
             foreach (var request in mode22Requests)

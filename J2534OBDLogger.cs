@@ -22,7 +22,7 @@ namespace LotusECMLogger
             private set
             {
                 codingDecoder = value;
-                CodingDataUpdated?.Invoke(value);
+                CodingDataUpdated.Invoke(value);
             }
         }
 

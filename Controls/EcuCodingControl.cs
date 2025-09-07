@@ -351,7 +351,7 @@ namespace LotusECMLogger.Controls
 			UpdateBitFieldLabel();
 		}
 
-		private void OnCodingValueChanged(string optionName, object? value)
+		private void OnCodingValueChanged(string optionName, object value)
 		{
 			try
 			{
