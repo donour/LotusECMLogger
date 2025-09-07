@@ -8,7 +8,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Platforms>AnyCPU;x86</Platforms>
     <ApplicationIcon>assets\audio_video_media_control_resume_plain_icon_260667.ico</ApplicationIcon>
-    <Version>0.0.0.4</Version>
+    <Version>0.0.0.5</Version>
   </PropertyGroup>
 
   <ItemGroup>
