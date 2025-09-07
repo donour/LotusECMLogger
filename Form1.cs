@@ -20,12 +20,13 @@ namespace LotusECMLogger
         private System.ComponentModel.IContainer? components = null;
 
         private J2534OBDLogger logger;
-        private Dictionary<String, float> liveData = new Dictionary<string, float>();
+        private Dictionary<String, float> liveData = [];
         private DateTime lastUpdateTime = DateTime.Now;
-        private Dictionary<string, Control> codingControls = new Dictionary<string, Control>();
-        private List<LiveDataReading> vehicleDataSnapshot = new List<LiveDataReading>();
+        private Dictionary<string, Control> codingControls = [];
+        private List<LiveDataReading> vehicleDataSnapshot = [];
 
-        public event PropertyChangedEventHandler PropertyChanged;
+        public event PropertyChangedEventHandler? PropertyChanged;
+
         protected virtual void OnPropertyChanged(string propertyName)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
@@ -138,10 +139,12 @@ namespace LotusECMLogger
             ((ToolStripMenuItem)obdConfigToolStripMenuItem.DropDownItems[0]).Checked = true;
         }
 
-        private void ObdConfigMenuItem_Click(object sender, EventArgs e)
+        private void ObdConfigMenuItem_Click(object? sender, EventArgs e)
         {
             foreach (ToolStripMenuItem item in obdConfigToolStripMenuItem.DropDownItems)
                 item.Checked = false;
+            if (sender == null) return;
+
             var clicked = (ToolStripMenuItem)sender;
             clicked.Checked = true;
             selectedObdConfigName = clicked.Text ?? "NO CONFIG";

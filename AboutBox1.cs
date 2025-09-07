@@ -45,7 +45,8 @@ namespace LotusECMLogger
         {
             get
             {
-                return Assembly.GetExecutingAssembly().GetName().Version.ToString();
+                Version version = Assembly.GetExecutingAssembly().GetName().Version ?? new Version(0, 0, 0, 0);
+                return version.ToString();
             }
         }
 

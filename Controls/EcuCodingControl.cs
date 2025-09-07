@@ -335,7 +335,14 @@ namespace LotusECMLogger.Controls
 					var possibleValues = originalCodingDecoder.GetOptionPossibleValues(optionName);
 					comboBox.Items.AddRange(possibleValues);
 					comboBox.SelectedItem = originalCodingDecoder.GetOptionValue(optionName);
-					comboBox.SelectedIndexChanged += (s, e) => OnCodingValueChanged(optionName, comboBox.SelectedItem?.ToString());
+                    comboBox.SelectedIndexChanged += (s, e) =>
+                    {
+                        var selectedItem = comboBox.SelectedItem?.ToString();
+                        if (selectedItem != null)
+                        {
+                            OnCodingValueChanged(optionName, selectedItem);
+                        }
+                    };
 					comboBox.Anchor = AnchorStyles.Top | AnchorStyles.Left;
 					control = comboBox;
 				}
