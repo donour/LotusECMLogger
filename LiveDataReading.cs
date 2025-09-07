@@ -3,7 +3,7 @@ using System.Diagnostics;
 
 namespace LotusECMLogger
 {
-    internal class LiveDataReading
+    public class LiveDataReading
     {
         public String name = "None";
         public double value_f;
