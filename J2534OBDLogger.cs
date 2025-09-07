@@ -9,22 +9,7 @@ namespace LotusECMLogger
         public readonly int LogFileToUIRatio = 8; // UI update every 8th log entry
         public event Action<List<LiveDataReading>> DataLogged;
         public event Action<Exception> ExceptionOccurred;
-        public event Action<T6eCodingDecoder> CodingDataUpdated;
 
-        private T6eCodingDecoder codingDecoder = new(
-            [0,0,0,0],
-            [0,0,0,0]
-        );
-
-        public T6eCodingDecoder CodingDecoder
-        {
-            get => codingDecoder;
-            private set
-            {
-                codingDecoder = value;
-                CodingDataUpdated.Invoke(value);
-            }
-        }
 
         /// <summary>
         /// Flow control filter for Lotus ECM communication
@@ -245,169 +230,12 @@ namespace LotusECMLogger
             }
         }
 
-        private static T6eCodingDecoder GetCodingData(Channel Channel)
-        {
-            byte[][] result = [[0, 0, 0, 0], [0,0,0,0]];
-
-            byte[][] codingRequest =
-            [
-                [0x00, 0x00, 0x07, 0xE0, 0x22, 0x02, 0x63],
-                [0x00, 0x00, 0x07, 0xE0, 0x22, 0x02, 0x64]
-            ];
-            int done = 0;
-            do
-            {
-                Channel.SendMessages(codingRequest);
-                GetMessageResults resp = Channel.GetMessages(1, 100);
-                if (resp.Messages.Length > 0)
-                {
-                    var data = resp.Messages[0].Data;
-                    if (data.Length >= 11)
-                    {
-                        if (data[4] == 0x62 && data[5] == 0x02)
-                        {
-                            if (data[6] == 0x63)
-                            {
-                                result[1] = data[7..11];
-                                done |= 1;
-                            }
-                            if (data[6] == 0x64)
-                            {
-                                result[0] = data[7..11];
-                                done |= 2;
-                            }
-                        }
-                    }
-                }
-            } while (done != 3);
-
-            return new T6eCodingDecoder(result[1], result[0]);
-        }
-
-        public (bool success, string errorMessage) WriteCodingToECU(T6eCodingDecoder codingDecoder)
-        {
-            if (terminate)
-            {
-                string error = "Logger is terminating";
-                Debug.WriteLine($"Cannot write coding: {error}");
-                return (false, error);
-            }
-
-            // If logging is active, we need to pause it to avoid CAN hardware conflict
-            bool wasLogging = IsConnected;
-            if (wasLogging)
-            {
-                Debug.WriteLine("Pausing logger to write coding data...");
-                Stop();
-                Thread.Sleep(500); // Give time for logger to stop
-            }
-
-            bool result = false;
-            string errorMessage = "";
-            
-            try
-            {
-                // Always create fresh device connection for coding write to avoid invalid device issues
-                string DllFileName = APIFactory.GetAPIinfo().First().Filename;
-                API API = APIFactory.GetAPI(DllFileName);
-                
-                using Device codingDevice = API.GetDevice();
-                
-                // Use raw CAN approach (matching ECU expectations)
-                var (success, error) = WriteRawCANCoding(codingDecoder, codingDevice);
-                result = success;
-                errorMessage = error;
-                
-                if (result)
-                {
-                    Debug.WriteLine("Successfully wrote coding using raw CAN 0x502");
-                }
-                else
-                {
-                    Debug.WriteLine($"Raw CAN coding write failed: {errorMessage}");
-                }
-            }
-            catch (Exception ex)
-            {
-                result = false;
-                errorMessage = $"Unexpected error during coding write: {ex.Message}";
-                Debug.WriteLine($"Exception in WriteCodingToECU: {ex.Message}");
-            }
-            finally
-            {
-                // Restart logging if it was running before
-                if (wasLogging && !terminate)
-                {
-                    Debug.WriteLine("Restarting logger after coding write...");
-                    Thread.Sleep(200); // Brief pause before restart
-                    Start();
-                }
-            }
-
-            return (result, errorMessage);
-        }
-
-        private (bool success, string errorMessage) WriteRawCANCoding(T6eCodingDecoder codingDecoder, Device codingDevice)
-        {
-            try
-            {
-                // Use raw CAN protocol to send directly to 0x502
-                using Channel canChannel = codingDevice.GetChannel(Protocol.CAN, (Baud)500000, ConnectFlag.NONE);
-
-                // Get the high and low bytes separately to match ECU expectations
-                byte[] highBytes = codingDecoder.GetHighBytes();
-                byte[] lowBytes = codingDecoder.GetLowBytes();
-
-                // Create raw CAN message with ID 0x502 and 8 bytes of coding data
-                byte[] canMessage = new byte[12]; // 4 bytes header + 8 bytes data
-
-                // CAN header for 11-bit ID 0x502
-                // Format: [0x00, 0x00, 0x05, 0x02] for standard 11-bit CAN ID 0x502
-                canMessage[0] = 0x00;
-                canMessage[1] = 0x00;
-                canMessage[2] = 0x05;
-                canMessage[3] = 0x02;
-
-                // ECU expects: high bytes first (0-3), then low bytes (4-7)
-                // This matches the diagnostic read order: 0x0263=high, 0x0264=low
-                Array.Copy(highBytes, 0, canMessage, 4, 4);  // Bytes 4-7: high bytes
-                Array.Copy(lowBytes, 0, canMessage, 8, 4);   // Bytes 8-11: low bytes
-
-                Debug.WriteLine($"Sending raw CAN message to 0x502: {BitConverter.ToString(canMessage)}");
-                Debug.WriteLine($"High bytes (0x0263): {BitConverter.ToString(highBytes)}");
-                Debug.WriteLine($"Low bytes (0x0264): {BitConverter.ToString(lowBytes)}");
-
-                // Send the message
-                canChannel.SendMessages([canMessage]);
-
-                // Wait a bit for ECU to process
-                Thread.Sleep(100);
-
-                Debug.WriteLine("Raw CAN coding message sent successfully");
-                return (true, "");
-            }
-            catch (Exception ex)
-            {
-                string errorMsg = $"Raw CAN coding write failed: {ex.Message}";
-                Debug.WriteLine(errorMsg);
-                return (false, errorMsg);
-            }
-        }
-
         private void RunLogger(Device Device)
         {
             try
             {
                 using Channel Channel = Device.GetChannel(Protocol.ISO15765, Baud.ISO15765, ConnectFlag.NONE);
                 Channel.StartMsgFilter(FlowControlFilter);
-
-                CodingDecoder = GetCodingData(Channel);
-
-                // print each field of the coding decoder
-                foreach (var field in codingDecoder.GetAllOptions())
-                {
-                    Debug.WriteLine($"{field.Key}: {field.Value}");
-                }
 
                 // Build all OBD messages from configuration
                 var allMessages = obdConfig.BuildAllMessages();

@@ -97,7 +97,7 @@ namespace LotusECMLogger
         /// <summary>
         /// Handle form closing event to ensure logger is safely stopped
         /// </summary>
-        private void LoggerWindow_FormClosing(object sender, FormClosingEventArgs e)
+        private void LoggerWindow_FormClosing(object? sender, FormClosingEventArgs e)
         {
             // Stop the logger before the form closes
             logger?.Stop();
