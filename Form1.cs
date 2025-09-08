@@ -1,6 +1,5 @@
 using SAE.J2534;
 using System.ComponentModel;
-using System.Diagnostics;
 using LotusECMLogger.Services;
 using LotusECMLogger.Controls;
 
@@ -16,7 +15,6 @@ namespace LotusECMLogger
         private J2534OBDLogger logger;
         private Dictionary<String, float> liveData = [];
         private DateTime lastUpdateTime = DateTime.Now;
-        private List<LiveDataReading> vehicleDataSnapshot = [];
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -70,6 +68,8 @@ namespace LotusECMLogger
             // Initial button state
             loggerEnabled = false;
 
+            // VehicleInfoControl is now handled by the designer
+
             // Replace ECU Coding tab content with modular control
             try
             {
@@ -104,10 +104,6 @@ namespace LotusECMLogger
 
             codingDataView.Columns.Add("Option", 200);
             codingDataView.Columns.Add("Value", 100);
-            
-            vehicleInfoView.Columns.Add("Information", 300);
-            vehicleInfoView.Columns.Add("Value", 200);
-            vehicleInfoView.Columns.Add("Unit", 100);
         }
 
         private void PopulateObdConfigMenu()
@@ -280,197 +276,10 @@ namespace LotusECMLogger
             MessageBox.Show(errorMessage, "Logger Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
 
-        private void aboutLotusECMLoggerToolStripMenuItem_Click(object sender, EventArgs e)
+        private void AboutLotusECMLoggerToolStripMenuItem_Click(object sender, EventArgs e)
         {
             var ab = new AboutBox1();
             ab.ShowDialog(this);
-        }
-        
-        private void LoadVehicleDataButton_Click(object sender, EventArgs e)
-        {
-            // Safety check: prevent vehicle data loading while logging is active
-            if (loggerEnabled)
-            {
-                MessageBox.Show("Cannot load vehicle data while logging is active. Please stop the logger first.", 
-                    "Logger Active", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-            
-            try
-            {
-                loadVehicleDataButton.Enabled = false;
-                loadVehicleDataButton.Text = "Loading...";
-                
-                // Clear previous data
-                vehicleDataSnapshot.Clear();
-                
-                // Create temporary device connection for vehicle data loading
-                string DllFileName = APIFactory.GetAPIinfo().First().Filename;
-                API API = APIFactory.GetAPI(DllFileName);
-                using Device device = API.GetDevice();
-                using Channel channel = device.GetChannel(Protocol.ISO15765, Baud.ISO15765, ConnectFlag.NONE);
-                
-                // Start message filter
-                var flowControlFilter = new MessageFilter
-                {
-                    FilterType = Filter.FLOW_CONTROL_FILTER,
-                    Mask = [0xFF, 0xFF, 0xFF, 0xFF],
-                    Pattern = [0x00, 0x00, 0x07, 0xE8],
-                    FlowControl = [0x00, 0x00, 0x07, 0xE0]
-                };
-                channel.StartMsgFilter(flowControlFilter);
-                
-                // Create ECM header for Lotus vehicles
-                byte[] ecmHeader = [0x00, 0x00, 0x07, 0xE0];
-                
-                // Execute Mode 0x01 requests first
-                ExecuteMode01Requests(channel, ecmHeader);
-                
-                // Execute Mode 0x22 requests
-                ExecuteMode22Requests(channel, ecmHeader);
-                
-                // Update the vehicle info view with collected data
-                UpdateVehicleInfoView();
-                
-                MessageBox.Show($"Successfully loaded {vehicleDataSnapshot.Count} vehicle data points!", 
-                    "Load Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Error loading vehicle data: {ex.Message}", "Load Error", 
-                    MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            finally
-            {
-                loadVehicleDataButton.Enabled = true;
-                loadVehicleDataButton.Text = "Load Vehicle Data";
-            }
-        }
-        
-        /// <summary>
-        /// Execute Mode 0x01 (Service $01) OBD-II requests for standard vehicle data
-        /// </summary>
-        private void ExecuteMode01Requests(Channel channel, byte[] ecmHeader)
-        {
-            // Standard Mode 0x01 PIDs - these will be provided by user later
-            // For now, create a basic set of common PIDs
-            var mode01Requests = new List<Mode01Request>
-            {
-                new("Engine RPM", 0x0C),
-            };
-            
-            foreach (var request in mode01Requests)
-            {
-                try
-                {
-                    // Build and send the request
-                    byte[] message = request.BuildMessage(ecmHeader);
-                    channel.SendMessages([message]);
-                    
-                    // Read response with timeout
-                    var response = channel.GetMessages(1, 500); // 500ms timeout
-                    if (response.Messages.Length > 0)
-                    {
-                        var readings = LiveDataReading.ParseCanResponse(response.Messages[0].Data);
-                        vehicleDataSnapshot.AddRange(readings);
-                    }
-                    
-                    // Small delay between requests to avoid overwhelming ECU
-                    Thread.Sleep(50);
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"Failed to execute Mode 01 request {request.Name}: {ex.Message}");
-                }
-            }
-        }
-        
-        /// <summary>
-        /// Execute Mode 0x22 (Service $22) manufacturer-specific OBD-II requests
-        /// </summary>
-        private void ExecuteMode22Requests(Channel channel, byte[] ecmHeader)
-        {
-            // Mode 0x22 requests - these will be provided by user later
-            // For now, create a basic set of Lotus-specific requests
-            var mode22Requests = new List<Mode22Request>
-            {
-                new("TPS Target", 0x02, 0x3B),
-                new("TPS Actual", 0x02, 0x45),
-            };
-            
-            foreach (var request in mode22Requests)
-            {
-                try
-                {
-                    // Build and send the request
-                    byte[] message = request.BuildMessage(ecmHeader);
-                    channel.SendMessages([message]);
-                    
-                    // Read response with timeout
-                    var response = channel.GetMessages(1, 500); // 500ms timeout
-                    if (response.Messages.Length > 0)
-                    {
-                        var readings = LiveDataReading.ParseCanResponse(response.Messages[0].Data);
-                        vehicleDataSnapshot.AddRange(readings);
-                    }
-                    
-                    // Small delay between requests to avoid overwhelming ECU
-                    Thread.Sleep(50);
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"Failed to execute Mode 22 request {request.Name}: {ex.Message}");
-                }
-            }
-        }
-        
-        /// <summary>
-        /// Update the vehicle info ListView with the collected data snapshot
-        /// </summary>
-        private void UpdateVehicleInfoView()
-        {
-            vehicleInfoView.BeginUpdate();
-            vehicleInfoView.Items.Clear();
-            
-            foreach (var reading in vehicleDataSnapshot)
-            {
-                var item = new ListViewItem(reading.name);
-                item.SubItems.Add(reading.value_f.ToString("F2"));
-                
-                // Determine unit based on parameter name
-                string unit = DetermineUnit(reading.name);
-                item.SubItems.Add(unit);
-                
-                vehicleInfoView.Items.Add(item);
-            }
-            
-            vehicleInfoView.EndUpdate();
-        }
-        
-        /// <summary>
-        /// Determine the appropriate unit for a given parameter name
-        /// </summary>
-        private static string DetermineUnit(string parameterName)
-        {
-            return parameterName.ToLowerInvariant() switch
-            {
-                var name when name.Contains("temperature") || name.Contains("temp") => "°C",
-                var name when name.Contains("speed") && name.Contains("engine") => "RPM",
-                var name when name.Contains("speed") && name.Contains("vehicle") => "km/h",
-                var name when name.Contains("pressure") => "kPa",
-                var name when name.Contains("position") || name.Contains("throttle") || name.Contains("pedal") => "%",
-                var name when name.Contains("fuel") && name.Contains("trim") => "%",
-                var name when name.Contains("advance") || name.Contains("retard") || name.Contains("vvti") => "°",
-                var name when name.Contains("torque") => "Nm",
-                var name when name.Contains("maf") => "g/s",
-                var name when name.Contains("load") => "%",
-                var name when name.Contains("pulse") => "μs",
-                var name when name.Contains("misfire") => "count",
-                var name when name.Contains("octane") => "rating",
-                var name when name.Contains("duty") => "%",
-                var name when name.Contains("ratio") => "λ",
-                _ => ""
-            };
         }
         
     }

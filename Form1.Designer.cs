@@ -52,8 +52,7 @@ namespace LotusECMLogger
             codingScrollPanel = new Panel();
             codingTopPanel = new Panel();
             vehicleInfoTab = new TabPage();
-            vehicleInfoView = new ListView();
-            loadVehicleDataButton = new Button();
+            vehicleInfoControl = new LotusECMLogger.Controls.VehicleInfoControl();
             menuStrip1.SuspendLayout();
             statusStrip1.SuspendLayout();
             mainTabControl.SuspendLayout();
@@ -61,7 +60,6 @@ namespace LotusECMLogger
             loggerControlPanel.SuspendLayout();
             codingDataTab.SuspendLayout();
             codingMainPanel.SuspendLayout();
-            vehicleInfoTab.SuspendLayout();
             SuspendLayout();
             // 
             // startLogger_button
@@ -141,7 +139,7 @@ namespace LotusECMLogger
             aboutLotusECMLoggerToolStripMenuItem.Name = "aboutLotusECMLoggerToolStripMenuItem";
             aboutLotusECMLoggerToolStripMenuItem.Size = new Size(249, 26);
             aboutLotusECMLoggerToolStripMenuItem.Text = "About LotusECMLogger";
-            aboutLotusECMLoggerToolStripMenuItem.Click += aboutLotusECMLoggerToolStripMenuItem_Click;
+            aboutLotusECMLoggerToolStripMenuItem.Click += AboutLotusECMLoggerToolStripMenuItem_Click;
             // 
             // obdConfigToolStripMenuItem
             // 
@@ -234,42 +232,25 @@ namespace LotusECMLogger
             codingTopPanel.Name = "codingTopPanel";
             codingTopPanel.Size = new Size(705, 40);
             codingTopPanel.TabIndex = 1;
-            // 
+            //
             // vehicleInfoTab
-            // 
-            vehicleInfoTab.Controls.Add(vehicleInfoView);
-            vehicleInfoTab.Controls.Add(loadVehicleDataButton);
+            //
+            vehicleInfoTab.Controls.Add(vehicleInfoControl);
             vehicleInfoTab.Location = new Point(4, 29);
             vehicleInfoTab.Name = "vehicleInfoTab";
             vehicleInfoTab.Size = new Size(705, 499);
             vehicleInfoTab.TabIndex = 2;
             vehicleInfoTab.Text = "Extended Vehicle Information";
             vehicleInfoTab.UseVisualStyleBackColor = true;
-            // 
-            // vehicleInfoView
-            // 
-            vehicleInfoView.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
-            vehicleInfoView.FullRowSelect = true;
-            vehicleInfoView.GridLines = true;
-            vehicleInfoView.Location = new Point(10, 51);
-            vehicleInfoView.MultiSelect = false;
-            vehicleInfoView.Name = "vehicleInfoView";
-            vehicleInfoView.Size = new Size(685, 440);
-            vehicleInfoView.TabIndex = 1;
-            vehicleInfoView.UseCompatibleStateImageBehavior = false;
-            vehicleInfoView.View = View.Details;
-            // 
-            // loadVehicleDataButton
-            // 
-            loadVehicleDataButton.Enabled = false;
-            loadVehicleDataButton.Location = new Point(10, 11);
-            loadVehicleDataButton.Name = "loadVehicleDataButton";
-            loadVehicleDataButton.Size = new Size(120, 29);
-            loadVehicleDataButton.TabIndex = 0;
-            loadVehicleDataButton.Text = "Load Vehicle Data";
-            loadVehicleDataButton.UseVisualStyleBackColor = true;
-            loadVehicleDataButton.Click += LoadVehicleDataButton_Click;
-            // 
+            //
+            // vehicleInfoControl
+            //
+            vehicleInfoControl.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            vehicleInfoControl.Location = new Point(0, 0);
+            vehicleInfoControl.Name = "vehicleInfoControl";
+            vehicleInfoControl.Size = new Size(705, 499);
+            vehicleInfoControl.TabIndex = 0;
+            //
             // LoggerWindow
             // 
             AutoScaleDimensions = new SizeF(8F, 20F);
@@ -293,7 +274,6 @@ namespace LotusECMLogger
             loggerControlPanel.PerformLayout();
             codingDataTab.ResumeLayout(false);
             codingMainPanel.ResumeLayout(false);
-            vehicleInfoTab.ResumeLayout(false);
             ResumeLayout(false);
             PerformLayout();
         }
@@ -319,7 +299,6 @@ namespace LotusECMLogger
         private Panel codingMainPanel;
         private Panel codingTopPanel;
         private TabPage vehicleInfoTab;
-        private Button loadVehicleDataButton;
-        private ListView vehicleInfoView;
+        private LotusECMLogger.Controls.VehicleInfoControl vehicleInfoControl;
     }
 }
