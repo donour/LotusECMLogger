@@ -8,7 +8,7 @@ namespace LotusECMLogger.Services
     public record VehicleParameterReading
     {
         public required string Name { get; init; }
-        public double Value { get; init; }
+        public required string Value { get; init; }
         public required string Unit { get; init; }
     }
 

@@ -133,7 +133,7 @@ namespace LotusECMLogger.Services
                 return new VehicleParameterReading
                 {
                     Name = "Engine RPM",
-                    Value = rpm,
+                    Value = rpm.ToString(),
                     Unit = "RPM"
                 };
             }
@@ -232,7 +232,7 @@ namespace LotusECMLogger.Services
                 return new VehicleParameterReading
                 {
                     Name = "TPS Target",
-                    Value = Math.Round(tpsTarget, 2),
+                    Value = Math.Round(tpsTarget, 2).ToString(),
                     Unit = "%"
                 };
             }
@@ -249,7 +249,7 @@ namespace LotusECMLogger.Services
                 return new VehicleParameterReading
                 {
                     Name = "TPS Actual",
-                    Value = Math.Round(tpsActual, 2),
+                    Value = Math.Round(tpsActual, 2).ToString(),
                     Unit = "%"
                 };
             }

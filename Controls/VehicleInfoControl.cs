@@ -1,5 +1,7 @@
 using LotusECMLogger.Services;
 using SAE.J2534;
+using System.Collections;
+using System.Text;
 
 namespace LotusECMLogger.Controls
 {
@@ -12,6 +14,15 @@ namespace LotusECMLogger.Controls
         {
             InitializeComponent();
             _vehicleInfoService = new VehicleInfoService();
+            SetupListViewColumns();
+        }
+
+        private void SetupListViewColumns()
+        {
+            vehicleInfoView.Columns.Clear();
+            vehicleInfoView.Columns.Add("Parameter", 200);
+            vehicleInfoView.Columns.Add("Value", 150);
+            vehicleInfoView.Columns.Add("Unit", 150);
         }
 
         private void readDataButton_Click(object sender, EventArgs e)
@@ -105,7 +116,7 @@ namespace LotusECMLogger.Controls
             foreach (var reading in vehicleDataSnapshot)
             {
                 var item = new ListViewItem(reading.Name);
-                item.SubItems.Add(reading.Value.ToString("F2"));
+                item.SubItems.Add(reading.Value);
                 item.SubItems.Add(reading.Unit);
 
                 vehicleInfoView.Items.Add(item);
@@ -119,17 +130,12 @@ namespace LotusECMLogger.Controls
             // Parse based on PID
             return pid switch
             {
-                0x02 => ParseVIN(data),           // VIN
-                //0x02 => ParseCalibrationID(data), // Calibration ID
-                //0x03 => ParseCalibrationVerificationNumbers(data), // CVN
-                //0x04 => ParseInUsePerformanceTracking(data, "Compression Ignition IPT"),
-                //0x05 => ParseECUName(data),       // ECU Name
-                //0x06 => ParseInUsePerformanceTracking(data, "Spark Ignition IPT"),
-                //0x07 => ParseInUsePerformanceTracking(data, "Compression Ignition IPT 2"),
-                //0x08 => ParseInUsePerformanceTracking(data, "Spark Ignition IPT 2"),
-                //0x09 => ParseECUName(data),       // ECU Name 2
-                //0x0A => ParseInUsePerformanceTracking(data, "Compression Ignition IPT 3"),
-                //0x0B => ParseInUsePerformanceTracking(data, "Spark Ignition IPT 3"),
+                0x02 => ParseVIN(data),
+                0x04 => ParseCalibrationID(data),
+                0x06 => ParseCalibrationVerificationNumbers(data),
+                0x05 => ParseInUsePerformanceTracking(data, "Compression Ignition IPT"),
+                0x0A => ParseECUName(data),
+                0x0C => ParseInUsePerformanceTracking(data, "Spark Ignition IPT 3"),
                 _ => null
             };
         }
@@ -138,19 +144,13 @@ namespace LotusECMLogger.Controls
         {
             if (data.Length == 17) // VIN is 17 characters, plus header
             {
-                // TODO this seems needless complicatd
-                var vinChars = new char[17];
-                for (int i = 0; i < 17; i++)
-                {
-                    vinChars[i] = (char)data[i];
-                }
-                var vin = new string(vinChars);
+                var vin = Encoding.UTF8.GetString(data);
 
                 return new VehicleParameterReading
                 {
                     Name = "Vehicle Identification Number",
-                    Value = 0, // VIN is text, not numeric
-                    Unit = vin
+                    Value = vin,
+                    Unit = ""
                 };
             }
             return null;
@@ -160,19 +160,13 @@ namespace LotusECMLogger.Controls
         {
             if (data.Length >= 10)
             {
-                // Calibration ID is typically ASCII text
-                var calIdChars = new char[Math.Min(16, data.Length - 6)];
-                for (int i = 0; i < calIdChars.Length; i++)
-                {
-                    calIdChars[i] = (char)data[i + 6];
-                }
-                var calId = new string(calIdChars).TrimEnd('\0');
+                var calId= Encoding.UTF8.GetString(data);
 
                 return new VehicleParameterReading
                 {
                     Name = "Calibration ID",
-                    Value = 0,
-                    Unit = calId
+                    Value = calId,
+                    Unit = ""
                 };
             }
             return null;
@@ -180,15 +174,15 @@ namespace LotusECMLogger.Controls
 
         private VehicleParameterReading? ParseCalibrationVerificationNumbers(byte[] data)
         {
-            if (data.Length >= 14) // CVN is 4 bytes
+            if (data.Length >= 4) // CVN is 4 bytes
             {
                 // CVN is 4 bytes starting at offset 6
-                uint cvn = (uint)((data[6] << 24) | (data[7] << 16) | (data[8] << 8) | data[9]);
+                uint cvn = (uint)((data[0] << 24) | (data[1] << 16) | (data[2] << 8) | data[3]);
 
                 return new VehicleParameterReading
                 {
                     Name = "Calibration Verification Numbers",
-                    Value = cvn,
+                    Value = cvn.ToString(),
                     Unit = "CVN"
                 };
             }
@@ -199,19 +193,13 @@ namespace LotusECMLogger.Controls
         {
             if (data.Length >= 10)
             {
-                // ECU Name is typically ASCII text
-                var ecuNameChars = new char[Math.Min(16, data.Length - 6)];
-                for (int i = 0; i < ecuNameChars.Length; i++)
-                {
-                    ecuNameChars[i] = (char)data[i + 6];
-                }
-                var ecuName = new string(ecuNameChars).TrimEnd('\0');
+                var ecuName = Encoding.UTF8.GetString(data);
 
                 return new VehicleParameterReading
                 {
                     Name = "ECU Name",
-                    Value = 0,
-                    Unit = ecuName
+                    Value = ecuName,
+                    Unit = ""
                 };
             }
             return null;
@@ -227,7 +215,7 @@ namespace LotusECMLogger.Controls
                 return new VehicleParameterReading
                 {
                     Name = name,
-                    Value = ipt,
+                    Value = ipt.ToString(),
                     Unit = "IPT"
                 };
             }

@@ -43,21 +43,23 @@ namespace LotusECMLogger.Services
             {
                 if (mode == OBDIIMode.RequestVehicleInformation)
                 {
-                    if (pid == 0x02)
-                    {
-                        var resp = GetMultiMessageRequest(_channel, mode, [pid]);
-                        if (resp.Length >= 19)
-                        {
-                            return resp[2..]; // skip first byte which is the length
-                        } else
-                        {
-                            throw new IOException("Invalid VIN response length");
-                        }
-                    } else
-                    {
-                        return [];
+                    switch (pid)
+                    {                       
+                        case 0x02:
+                        case 0x04:
+                        case 0x06:
+                        case 0x0A:
+                            var resp = GetMultiMessageRequest(_channel, mode, [pid]);
+                            if (resp.Length >= 2)
+                            {
+                                return resp[2..];                            }
+                            else
+                            {
+                                throw new IOException("Invalid response length");
+                            }
+                        default:
+                            return [];
                     }
-
                 } else
                 {
                     throw new NotImplementedException();
@@ -172,35 +174,6 @@ namespace LotusECMLogger.Services
             }
 
             return supportedPIDs;
-        }
-
-        public static byte[] ReadVinResponseFromChannel(Channel channel)
-        {
-            byte[] vin = [];
-            int retry_count = 0;
-            while (vin.Length < 17 && retry_count++ < 3)
-            {
-                // send a mode 0x9, pids 0x02 request and process the multiple frame response
-                byte[] request = BuildModeMessage(OBDIIMode.RequestVehicleInformation, 0x02);
-                channel.SendMessages([request]);
-
-                // VIN is one response frame and 2 continusous frames
-                var response = channel.GetMessages(3, 1000);
-                var messages = response.Messages;
-                
-                // verify that first message is VIN response
-                if (messages.Length >= 3)
-                {
-                    var msg1 = messages[0].Data;
-                    var msg2 = messages[1].Data;    
-                    var msg3 = messages[2].Data;
-                }
-
-
-
-            }
-
-            return vin;
         }
 
         private static byte[] readMultiFrameResponse(Channel channel, OBDIIMode mode)
