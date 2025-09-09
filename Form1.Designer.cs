@@ -53,6 +53,8 @@ namespace LotusECMLogger
             codingTopPanel = new Panel();
             vehicleInfoTab = new TabPage();
             vehicleInfoControl = new LotusECMLogger.Controls.VehicleInfoControl();
+            dtcTab = new TabPage();
+            dtcControl = new LotusECMLogger.Controls.DTCControl();
             menuStrip1.SuspendLayout();
             statusStrip1.SuspendLayout();
             mainTabControl.SuspendLayout();
@@ -60,6 +62,7 @@ namespace LotusECMLogger
             loggerControlPanel.SuspendLayout();
             codingDataTab.SuspendLayout();
             codingMainPanel.SuspendLayout();
+            dtcTab.SuspendLayout();
             SuspendLayout();
             // 
             // startLogger_button
@@ -168,6 +171,7 @@ namespace LotusECMLogger
             mainTabControl.Controls.Add(liveDataTab);
             mainTabControl.Controls.Add(codingDataTab);
             mainTabControl.Controls.Add(vehicleInfoTab);
+            mainTabControl.Controls.Add(dtcTab);
             mainTabControl.Dock = DockStyle.Fill;
             mainTabControl.Location = new Point(0, 30);
             mainTabControl.Name = "mainTabControl";
@@ -251,6 +255,24 @@ namespace LotusECMLogger
             vehicleInfoControl.Size = new Size(705, 499);
             vehicleInfoControl.TabIndex = 0;
             //
+            // dtcTab
+            //
+            dtcTab.Controls.Add(dtcControl);
+            dtcTab.Location = new Point(4, 29);
+            dtcTab.Name = "dtcTab";
+            dtcTab.Size = new Size(705, 499);
+            dtcTab.TabIndex = 3;
+            dtcTab.Text = "Diagnostic Trouble Codes";
+            dtcTab.UseVisualStyleBackColor = true;
+            //
+            // dtcControl
+            //
+            dtcControl.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            dtcControl.Location = new Point(0, 0);
+            dtcControl.Name = "dtcControl";
+            dtcControl.Size = new Size(705, 499);
+            dtcControl.TabIndex = 0;
+            //
             // LoggerWindow
             // 
             AutoScaleDimensions = new SizeF(8F, 20F);
@@ -274,6 +296,7 @@ namespace LotusECMLogger
             loggerControlPanel.PerformLayout();
             codingDataTab.ResumeLayout(false);
             codingMainPanel.ResumeLayout(false);
+            dtcTab.ResumeLayout(false);
             ResumeLayout(false);
             PerformLayout();
         }
@@ -300,5 +323,7 @@ namespace LotusECMLogger
         private Panel codingTopPanel;
         private TabPage vehicleInfoTab;
         private LotusECMLogger.Controls.VehicleInfoControl vehicleInfoControl;
+        private TabPage dtcTab;
+        private LotusECMLogger.Controls.DTCControl dtcControl;
     }
 }

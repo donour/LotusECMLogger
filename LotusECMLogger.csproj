@@ -46,6 +46,9 @@
     <EmbeddedResource Update="Controls\VehicleInfoControl.resx">
       <DependentUpon>VehicleInfoControl.cs</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Update="Controls\DTCControl.resx">
+      <DependentUpon>DTCControl.cs</DependentUpon>
+    </EmbeddedResource>
   </ItemGroup>
 
   <ItemGroup>
