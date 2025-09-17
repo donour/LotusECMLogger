@@ -12,15 +12,17 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="tests\**" />
+    <EmbeddedResource Remove="tests\**" />
+    <None Remove="tests\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Content Include="assets\audio_video_media_control_resume_plain_icon_260667.ico" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="J2534-Sharp" Version="1.0.0-CI00036" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="tests\" />
   </ItemGroup>
 
   <ItemGroup>
@@ -40,6 +42,12 @@
     <EmbeddedResource Update="Properties\Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+    <EmbeddedResource Update="Controls\VehicleInfoControl.resx">
+      <DependentUpon>VehicleInfoControl.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Update="Controls\DTCControl.resx">
+      <DependentUpon>DTCControl.cs</DependentUpon>
     </EmbeddedResource>
   </ItemGroup>
 
