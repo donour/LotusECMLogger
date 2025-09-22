@@ -297,8 +297,8 @@ namespace LotusECMLogger
 
         private void CLIRunnerToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            var cliRunner = new CLIRunnerForm();
-            cliRunner.ShowDialog(this);
+            var t6eFlasher = new T6EFlasher();
+            t6eFlasher.ShowDialog(this);
         }
 
     }

@@ -145,7 +145,7 @@ namespace LotusECMLogger
             //
             cliRunnerToolStripMenuItem.Name = "cliRunnerToolStripMenuItem";
             cliRunnerToolStripMenuItem.Size = new Size(100, 26);
-            cliRunnerToolStripMenuItem.Text = "CLI Runner";
+            cliRunnerToolStripMenuItem.Text = "T6E Flasher";
             cliRunnerToolStripMenuItem.Click += CLIRunnerToolStripMenuItem_Click;
             //
             // aboutLotusECMLoggerToolStripMenuItem
