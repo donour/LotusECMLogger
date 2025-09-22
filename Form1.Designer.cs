@@ -40,6 +40,7 @@ namespace LotusECMLogger
             codingDataView = new ListView();
             menuStrip1 = new MenuStrip();
             helpToolStripMenuItem = new ToolStripMenuItem();
+            cliRunnerToolStripMenuItem = new ToolStripMenuItem();
             aboutLotusECMLoggerToolStripMenuItem = new ToolStripMenuItem();
             obdConfigToolStripMenuItem = new ToolStripMenuItem();
             statusStrip1 = new StatusStrip();
@@ -134,14 +135,21 @@ namespace LotusECMLogger
             menuStrip1.Text = "menuStrip1";
             // 
             // helpToolStripMenuItem
-            // 
-            helpToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { aboutLotusECMLoggerToolStripMenuItem });
+            //
+            helpToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { cliRunnerToolStripMenuItem, aboutLotusECMLoggerToolStripMenuItem });
             helpToolStripMenuItem.Name = "helpToolStripMenuItem";
             helpToolStripMenuItem.Size = new Size(55, 24);
             helpToolStripMenuItem.Text = "Help";
-            // 
+            //
+            // cliRunnerToolStripMenuItem
+            //
+            cliRunnerToolStripMenuItem.Name = "cliRunnerToolStripMenuItem";
+            cliRunnerToolStripMenuItem.Size = new Size(100, 26);
+            cliRunnerToolStripMenuItem.Text = "CLI Runner";
+            cliRunnerToolStripMenuItem.Click += CLIRunnerToolStripMenuItem_Click;
+            //
             // aboutLotusECMLoggerToolStripMenuItem
-            // 
+            //
             aboutLotusECMLoggerToolStripMenuItem.Name = "aboutLotusECMLoggerToolStripMenuItem";
             aboutLotusECMLoggerToolStripMenuItem.Size = new Size(249, 26);
             aboutLotusECMLoggerToolStripMenuItem.Text = "About LotusECMLogger";
@@ -313,6 +321,7 @@ namespace LotusECMLogger
         private ListView codingDataView;
         private MenuStrip menuStrip1;
         private ToolStripMenuItem helpToolStripMenuItem;
+        private ToolStripMenuItem cliRunnerToolStripMenuItem;
         private ToolStripMenuItem aboutLotusECMLoggerToolStripMenuItem;
         private StatusStrip statusStrip1;
         private ToolStripStatusLabel refreshRateLabel;
