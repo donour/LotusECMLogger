@@ -2,6 +2,7 @@ using SAE.J2534;
 using System.ComponentModel;
 using LotusECMLogger.Services;
 using LotusECMLogger.Controls;
+using System.Reflection.Metadata.Ecma335;
 
 namespace LotusECMLogger
 {
@@ -15,6 +16,7 @@ namespace LotusECMLogger
         private J2534OBDLogger logger;
         private Dictionary<String, float> liveData = [];
         private DateTime lastUpdateTime = DateTime.Now;
+        private double lastListViewUpdate = 0;
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -220,6 +222,17 @@ namespace LotusECMLogger
 
         private void UpdateListView()
         {
+            // rate limit list view upates
+            DateTime now = DateTime.Now;
+            if (now.Millisecond - lastListViewUpdate  < 66)
+            {
+                return;
+            }
+            else
+            {
+                lastListViewUpdate = now.Millisecond;
+            }
+
             // create collection of listView items fom LiveData dictionary
             ListViewItem[] items = [.. liveData.Select(kvp => new ListViewItem([kvp.Key, kvp.Value.ToString("F2")]))];
 

@@ -18,7 +18,7 @@ namespace LotusECMLogger
         private StreamWriter writer;
         private int linesRx = 0;
         private Dictionary<string, double> recentValues = new();
-        private readonly int data_sample_lines = 20;
+        private readonly int data_sample_lines = 100;
 
         public CSVWriter(string filename)
         {
@@ -47,7 +47,7 @@ namespace LotusECMLogger
             }
             else
             {
-                // scan 20 lines for headers before writing.
+                // scan N lines for headers before writing.
                 foreach (var r in readings)
                 {
                     recentValues[r.name] = r.value_f;
