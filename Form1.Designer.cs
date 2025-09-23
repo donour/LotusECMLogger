@@ -139,7 +139,7 @@ namespace LotusECMLogger
             helpToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { cliRunnerToolStripMenuItem, aboutLotusECMLoggerToolStripMenuItem });
             helpToolStripMenuItem.Name = "helpToolStripMenuItem";
             helpToolStripMenuItem.Size = new Size(55, 24);
-            helpToolStripMenuItem.Text = "Help";
+            helpToolStripMenuItem.Text = "File";
             //
             // cliRunnerToolStripMenuItem
             //

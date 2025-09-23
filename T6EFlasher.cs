@@ -304,7 +304,7 @@ namespace LotusECMLogger
 
                 using (var writer = new StreamWriter(batchFilePath))
                 {
-                    writer.WriteLine($"@echo off");
+                    writer.WriteLine($"@echo on");
                     writer.WriteLine($"cd /d \"{workingDirectoryTextBox.Text}\"");
                     if (!string.IsNullOrEmpty(inputFileTextBox.Text))
                     {
