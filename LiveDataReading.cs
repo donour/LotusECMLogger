@@ -62,6 +62,19 @@ namespace LotusECMLogger
                                 }
                                 idx += 2;
                                 break;
+                            case 0x07: // long term fuel trim bank 1
+                                if (data.Length > idx + 1)
+                                {
+                                    float longTermFuelTrimBank1 = data[idx + 1] / 1.28f - 100.0f; // convert to percentage
+                                    LiveDataReading reading = new()
+                                    {
+                                        name = "Lont Term Fuel Trim Bank 1",
+                                        value_f = longTermFuelTrimBank1,
+                                    };
+                                    results.Add(reading);
+                                }
+                                idx += 2;
+                                break;
                             case 0x08: // short term fuel trim bank 2
                                 if (data.Length > idx + 1)
                                 {
@@ -70,6 +83,19 @@ namespace LotusECMLogger
                                     {
                                         name = "Short Term Fuel Trim Bank 2",
                                         value_f = shortTermFuelTrimBank2,
+                                    };
+                                    results.Add(reading);
+                                }
+                                idx += 2;
+                                break;
+                            case 0x09: // long term fuel trim bank 2
+                                if (data.Length > idx + 1)
+                                {
+                                    float longTermFuelTrimBank2 = data[idx + 1] / 1.28f - 100.0f; // convert to percentage
+                                    LiveDataReading reading = new()
+                                    {
+                                        name = "Lont Term Fuel Trim Bank 2",
+                                        value_f = longTermFuelTrimBank2,
                                     };
                                     results.Add(reading);
                                 }
@@ -209,6 +235,20 @@ namespace LotusECMLogger
                                 }
                                 idx += 3;
                                 break;
+                            case 0x46: // ambient air temperature
+                                if (data.Length > idx + 1)
+                                {
+                                    int ambientTemp = data[idx + 1] - 40; // convert to Celsius
+                                    LiveDataReading reading = new()
+                                    {
+                                        name = "Ambient Air Temperature",
+                                        value_f = ambientTemp,
+                                    };
+                                    results.Add(reading);
+                                }
+                                idx += 2;
+                                break;
+
                             default:
                                 Debug.WriteLine($"Unknown OBD Mode01: {data[idx]:X2}");
                                 idx++;

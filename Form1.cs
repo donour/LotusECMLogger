@@ -313,6 +313,12 @@ namespace LotusECMLogger
             var ab = new AboutBox1();
             ab.ShowDialog(this);
         }
-        
+
+        private void CLIRunnerToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            var t6eFlasher = new T6EFlasher();
+            t6eFlasher.ShowDialog(this);
+        }
+
     }
 }
