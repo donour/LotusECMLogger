@@ -13,7 +13,8 @@ namespace LotusECMLogger.Services
         ShowPendingDiagnosticTroubleCodes = 0x07,
         ControlOperationOfOnBoardSystems = 0x08,
         RequestVehicleInformation = 0x09,
-        PermanentDiagnosticTroubleCodes = 0x0A
+        PermanentDiagnosticTroubleCodes = 0x0A,
+        ResetLearnedValues = 0x11
     }
 
 
@@ -27,6 +28,25 @@ namespace LotusECMLogger.Services
         {
             _channel = channel ?? throw new ArgumentNullException(nameof(channel));
         }
+
+        public void SendLearningDataClear()
+        {
+            byte[] request = new byte[ECM_HEADER.Length + 1];
+            Array.Copy(ECM_HEADER, request, ECM_HEADER.Length);
+            request[ECM_HEADER.Length] = (byte)OBDIIMode.ResetLearnedValues;
+            _channel.SendMessage(request);
+        }
+
+        public void SendPermanentDtcClear()
+		{
+			// Service 0x0A: Permanent Diagnostic Trouble Codes (request message has only the service byte)
+			// For Lotus ECM, prepend the 4-byte CAN header targeting ECM (0x07E0)
+			byte[] request = new byte[ECM_HEADER.Length + 1];
+			Array.Copy(ECM_HEADER, request, ECM_HEADER.Length);
+			request[ECM_HEADER.Length] = (byte)OBDIIMode.PermanentDiagnosticTroubleCodes; // 0x0A
+
+			_channel.SendMessage(request);
+		}
 
         public List<int> GetSupportedPIDs(OBDIIMode mode)
         {
