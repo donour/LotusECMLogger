@@ -2,7 +2,6 @@ using SAE.J2534;
 using System.ComponentModel;
 using LotusECMLogger.Services;
 using LotusECMLogger.Controls;
-using System.Reflection.Metadata.Ecma335;
 
 namespace LotusECMLogger
 {
@@ -46,6 +45,9 @@ namespace LotusECMLogger
                         var ecuControl = codingDataTab.Controls.OfType<EcuCodingControl>().FirstOrDefault();
                         if (ecuControl != null)
                             ecuControl.IsLoggerActive = value;
+                        var resetControl = obdResetTab.Controls.OfType<ObdResetControl>().FirstOrDefault();
+                        if (resetControl != null)
+                            resetControl.IsLoggerActive = value;
                     }
                     catch { 
                         // TODO: don't ignore errors
@@ -85,6 +87,23 @@ namespace LotusECMLogger
                 codingDataTab.Controls.Add(ecuControl);
             }
             catch {
+                // TODO don't ignore exceptions
+            }
+
+            // Add OBD reset control
+            try
+            {
+                var resetService = new J2534ObdResetService();
+                var resetControl = new ObdResetControl(resetService)
+                {
+                    Dock = DockStyle.Fill,
+                    IsLoggerActive = loggerEnabled
+                };
+                obdResetTab.Controls.Clear();
+                obdResetTab.Controls.Add(resetControl);
+            }
+            catch
+            {
                 // TODO don't ignore exceptions
             }
         }

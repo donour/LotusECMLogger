@@ -183,6 +183,8 @@ namespace LotusECMLogger
             mainTabControl.Controls.Add(codingDataTab);
             mainTabControl.Controls.Add(vehicleInfoTab);
             mainTabControl.Controls.Add(dtcTab);
+            obdResetTab = new TabPage();
+            mainTabControl.Controls.Add(obdResetTab);
             mainTabControl.Dock = DockStyle.Fill;
             mainTabControl.Location = new Point(0, 30);
             mainTabControl.Name = "mainTabControl";
@@ -276,6 +278,15 @@ namespace LotusECMLogger
             dtcTab.Text = "Diagnostic Trouble Codes";
             dtcTab.UseVisualStyleBackColor = true;
             //
+            // obdResetTab
+            //
+            obdResetTab.Location = new Point(4, 29);
+            obdResetTab.Name = "obdResetTab";
+            obdResetTab.Size = new Size(705, 499);
+            obdResetTab.TabIndex = 4;
+            obdResetTab.Text = "Learned Data Reset";
+            obdResetTab.UseVisualStyleBackColor = true;
+            //
             // dtcControl
             //
             dtcControl.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
@@ -337,5 +348,6 @@ namespace LotusECMLogger
         private LotusECMLogger.Controls.VehicleInfoControl vehicleInfoControl;
         private TabPage dtcTab;
         private LotusECMLogger.Controls.DTCControl dtcControl;
+        private TabPage obdResetTab;
     }
 }
