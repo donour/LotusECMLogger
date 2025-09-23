@@ -222,16 +222,16 @@ namespace LotusECMLogger
 
         private void UpdateListView()
         {
-            //// rate limit list view upates
-            //DateTime now = DateTime.Now;
-            //if (now.Millisecond - lastListViewUpdate  < 66)
-            //{
-            //    return;
-            //}
-            //else
-            //{
-            //    lastListViewUpdate = now.Millisecond;
-            //}
+            // rate limit list view upates
+            DateTime now = DateTime.Now;
+            if (now.Millisecond - lastListViewUpdate > 66)
+            {
+                return;
+            }
+            else
+            {
+                lastListViewUpdate = now.Millisecond;
+            }
 
             // create collection of listView items fom LiveData dictionary
             ListViewItem[] items = [.. liveData.Select(kvp => new ListViewItem([kvp.Key, kvp.Value.ToString("F2")]))];
