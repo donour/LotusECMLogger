@@ -17,13 +17,13 @@ namespace LotusECMLogger
         public T6EFlasher()
         {
             // Create main table layout panel with margins
-            var mainTable = new TableLayoutPanel
+			var mainTable = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
                 Margin = new Padding(20),
                 ColumnCount = 3,
-                RowCount = 6,
-                AutoSize = true
+				RowCount = 6,
+				AutoSize = false
             };
 
             // Configure column styles (Label : TextBox : Button)
@@ -32,10 +32,12 @@ namespace LotusECMLogger
             mainTable.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 80)); // Button column
 
             // Configure row styles
-            for (int i = 0; i < 6; i++)
-            {
-                mainTable.RowStyles.Add(new RowStyle(SizeType.Absolute, i == 1 ? 45 : 35)); // Row 1 (input file help) is taller
-            }
+			mainTable.RowStyles.Add(new RowStyle(SizeType.AutoSize)); // Program row
+			mainTable.RowStyles.Add(new RowStyle(SizeType.AutoSize)); // Input file row
+			mainTable.RowStyles.Add(new RowStyle(SizeType.AutoSize)); // Help row
+			mainTable.RowStyles.Add(new RowStyle(SizeType.AutoSize)); // Working dir row
+			mainTable.RowStyles.Add(new RowStyle(SizeType.AutoSize)); // Buttons row
+			mainTable.RowStyles.Add(new RowStyle(SizeType.AutoSize)); // Status row
 
             // Initialize controls
             var programLabel = new Label
@@ -84,14 +86,15 @@ namespace LotusECMLogger
             };
             browseInputButton.Click += BrowseInputButton_Click;
 
-            var inputFileHelpLabel = new Label
+			var inputFileHelpLabel = new Label
             {
                 Text = "File will be passed as first argument to the program",
                 Font = new Font(SystemFonts.DefaultFont.FontFamily, 8f),
                 ForeColor = Color.Gray,
                 TextAlign = ContentAlignment.MiddleLeft,
-                Dock = DockStyle.Fill,
-                Margin = new Padding(100, 0, 5, 2)
+				Dock = DockStyle.Fill,
+				AutoSize = true,
+				Margin = new Padding(0, 0, 5, 2)
             };
 
             var workingDirLabel = new Label
@@ -118,10 +121,10 @@ namespace LotusECMLogger
             browseWorkingDirButton.Click += BrowseWorkingDirButton_Click;
 
             // Button panel for Launch and Close buttons
-            var buttonPanel = new FlowLayoutPanel
+			var buttonPanel = new FlowLayoutPanel
             {
                 FlowDirection = FlowDirection.LeftToRight,
-                AutoSize = true,
+				AutoSize = true,
                 Margin = new Padding(0, 10, 0, 0)
             };
 
@@ -144,12 +147,12 @@ namespace LotusECMLogger
             buttonPanel.Controls.Add(closeButton);
 
             // Status label
-            statusLabel = new Label
+			statusLabel = new Label
             {
                 Text = "Ready",
                 TextAlign = ContentAlignment.MiddleLeft,
-                Dock = DockStyle.Fill,
-                Margin = new Padding(0, 15, 0, 0),
+				Dock = DockStyle.Fill,
+				Margin = new Padding(0, 15, 0, 0),
                 ForeColor = Color.DarkGreen
             };
 
@@ -162,9 +165,9 @@ namespace LotusECMLogger
             mainTable.Controls.Add(inputFileTextBox, 1, 1);
             mainTable.Controls.Add(browseInputButton, 2, 1);
 
-            // Add help label spanning across columns in row 2
-            mainTable.SetColumnSpan(inputFileHelpLabel, 3);
-            mainTable.Controls.Add(inputFileHelpLabel, 0, 2);
+			// Add help label aligned with textboxes (span columns 1-2)
+			mainTable.SetColumnSpan(inputFileHelpLabel, 2);
+			mainTable.Controls.Add(inputFileHelpLabel, 1, 2);
 
             mainTable.Controls.Add(workingDirLabel, 0, 3);
             mainTable.Controls.Add(workingDirectoryTextBox, 1, 3);
@@ -186,7 +189,7 @@ namespace LotusECMLogger
             Size = new Size(650, 315);
             MinimumSize = new Size(650, 315);
             StartPosition = FormStartPosition.CenterParent;
-            MaximizeBox = false;
+			MaximizeBox = true;
             Padding = new Padding(10);
         }
 
