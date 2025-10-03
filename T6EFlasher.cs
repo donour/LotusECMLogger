@@ -250,14 +250,17 @@ namespace LotusECMLogger
             }
 
             // Validate input file if specified
-            if (!string.IsNullOrWhiteSpace(inputFileTextBox.Text))
+            if (string.IsNullOrWhiteSpace(inputFileTextBox.Text))
             {
-                if (!File.Exists(inputFileTextBox.Text))
-                {
-                    MessageBox.Show("The specified input file does not exist.", "Invalid Input File",
-                        MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    return;
-                }
+                MessageBox.Show("Missing Input File", "Invalid Input File",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+            if (!File.Exists(inputFileTextBox.Text))
+            {
+                MessageBox.Show("The specified input file does not exist.", "Invalid Input File",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
             }
 
             // Validate working directory if specified
