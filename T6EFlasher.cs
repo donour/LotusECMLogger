@@ -334,12 +334,6 @@ namespace LotusECMLogger
                 string displayArgs = !string.IsNullOrEmpty(inputFileTextBox.Text) ? $"\"{inputFileTextBox.Text}\"" : "";
                 statusLabel.Text = $"Launching: \"{programPath}\" {displayArgs}".Trim();
 
-                // Debug: Show detailed information
-                System.Diagnostics.Debug.WriteLine($"Program path: '{programPath}'");
-                System.Diagnostics.Debug.WriteLine($"Input file: '{inputFileTextBox.Text}'");
-                System.Diagnostics.Debug.WriteLine($"Working directory: '{workingDirectoryTextBox.Text}'");
-                System.Diagnostics.Debug.WriteLine($"Batch file: {batchFilePath}");
-
                 var process = Process.Start(startInfo);
                 if (process != null)
                 {
