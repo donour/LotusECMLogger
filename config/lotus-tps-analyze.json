@@ -17,14 +17,6 @@
     },
     {
       "type": "Mode22",
-      "name": "Load PCT",
-      "pidHigh": 2,
-      "pidLow": 42,
-      "category": "Engine Management",
-      "unit": "%"
-    },
-    {
-      "type": "Mode22",
       "name": "Accelerator Pedal Position",
       "pidHigh": 2,
       "pidLow": 70,
@@ -47,6 +39,5 @@
       "category": "Engine Management",
       "unit": "%"
     }
-
   ]
 } 
