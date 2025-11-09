@@ -1,0 +1,37 @@
+name: .NET Build
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 8.0.x
+
+    - name: Restore dependencies
+      run: dotnet restore LotusECMLogger.sln
+
+    - name: Build solution
+      run: dotnet build LotusECMLogger.sln --configuration Release --no-restore
+
+    - name: Publish application
+      run: dotnet publish LotusECMLogger.csproj --configuration Release --output ./publish --no-build
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: LotusECMLogger-Release
+        path: ./publish/
+        retention-days: 30
