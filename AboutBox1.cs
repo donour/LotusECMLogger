@@ -9,7 +9,7 @@ namespace LotusECMLogger
             InitializeComponent();
             this.Text = String.Format("About {0}", AssemblyTitle);
             this.labelProductName.Text = AssemblyProduct;
-            this.labelVersion.Text = $"Version {AssemblyVersion}";
+            labelVersion.Text = $"Version {AssemblyVersion}\nBuild Date: {AssemblyBuildDate}";
             this.labelCopyright.Text = AssemblyCopyright;
             this.labelCompanyName.Text = AssemblyCompany;
             this.textBoxDescription.Text = AssemblyDescription;
@@ -40,6 +40,16 @@ namespace LotusECMLogger
             {
                 Version version = Assembly.GetExecutingAssembly().GetName().Version ?? new Version(0, 0, 0, 0);
                 return version.ToString();
+            }
+        }
+
+        public string AssemblyBuildDate
+        {
+            get
+            {
+                string assemblyPath = Assembly.GetExecutingAssembly().Location;
+                DateTime buildDate = System.IO.File.GetLastWriteTime(assemblyPath);
+                return buildDate.ToString("yyyy-MM-dd HH:mm:ss");
             }
         }
 

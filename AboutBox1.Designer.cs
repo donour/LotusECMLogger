@@ -97,9 +97,9 @@
             labelVersion.Dock = DockStyle.Fill;
             labelVersion.Location = new Point(57, 30);
             labelVersion.Margin = new Padding(7, 0, 4, 0);
-            labelVersion.MaximumSize = new Size(0, 20);
+            labelVersion.MaximumSize = new Size(0, 50);
             labelVersion.Name = "labelVersion";
-            labelVersion.Size = new Size(550, 20);
+            labelVersion.Size = new Size(550, 50);
             labelVersion.TabIndex = 0;
             labelVersion.Text = "Version";
             labelVersion.TextAlign = ContentAlignment.MiddleLeft;
