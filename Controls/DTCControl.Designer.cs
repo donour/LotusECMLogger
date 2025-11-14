@@ -28,11 +28,24 @@ namespace LotusECMLogger.Controls
         /// </summary>
         private void InitializeComponent()
         {
+            topPanel = new Panel();
             readCodesButton = new Button();
             clearCodesButton = new Button();
-            dtcListView = new ListView();
             statusLabel = new Label();
+            dtcListView = new ListView();
+            topPanel.SuspendLayout();
             SuspendLayout();
+            //
+            // topPanel
+            //
+            topPanel.Controls.Add(readCodesButton);
+            topPanel.Controls.Add(clearCodesButton);
+            topPanel.Controls.Add(statusLabel);
+            topPanel.Dock = DockStyle.Top;
+            topPanel.Location = new Point(0, 0);
+            topPanel.Name = "topPanel";
+            topPanel.Size = new Size(600, 60);
+            topPanel.TabIndex = 4;
             //
             // readCodesButton
             //
@@ -55,43 +68,43 @@ namespace LotusECMLogger.Controls
             clearCodesButton.UseVisualStyleBackColor = true;
             clearCodesButton.Click += clearCodesButton_Click;
             //
-            // dtcListView
-            //
-            dtcListView.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
-            dtcListView.FullRowSelect = true;
-            dtcListView.GridLines = true;
-            dtcListView.Location = new Point(12, 53);
-            dtcListView.Name = "dtcListView";
-            dtcListView.Size = new Size(576, 424);
-            dtcListView.TabIndex = 2;
-            dtcListView.UseCompatibleStateImageBehavior = false;
-            dtcListView.View = View.Details;
-            //
             // statusLabel
             //
             statusLabel.AutoSize = true;
-            statusLabel.Location = new Point(264, 16);
+            statusLabel.Location = new Point(264, 21);
             statusLabel.Name = "statusLabel";
             statusLabel.Size = new Size(0, 15);
             statusLabel.TabIndex = 3;
+            //
+            // dtcListView
+            //
+            dtcListView.Dock = DockStyle.Fill;
+            dtcListView.FullRowSelect = true;
+            dtcListView.GridLines = true;
+            dtcListView.Location = new Point(0, 60);
+            dtcListView.Name = "dtcListView";
+            dtcListView.Size = new Size(600, 429);
+            dtcListView.TabIndex = 2;
+            dtcListView.UseCompatibleStateImageBehavior = false;
+            dtcListView.View = View.Details;
             //
             // DTCControl
             //
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
-            Controls.Add(statusLabel);
             Controls.Add(dtcListView);
-            Controls.Add(clearCodesButton);
-            Controls.Add(readCodesButton);
+            Controls.Add(topPanel);
             Margin = new Padding(3, 2, 3, 2);
             Name = "DTCControl";
             Size = new Size(600, 489);
+            topPanel.ResumeLayout(false);
+            topPanel.PerformLayout();
             ResumeLayout(false);
-            PerformLayout();
         }
 
         #endregion
 
+        private Panel topPanel;
         private Button readCodesButton;
         private Button clearCodesButton;
         private ListView dtcListView;
