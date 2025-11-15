@@ -114,7 +114,8 @@ namespace LotusECMLogger.Controls
 
 			// Row 3: CSV Path
 			csvPathLabel = new Label { Text = "CSV Output File:", AutoSize = true, Anchor = AnchorStyles.Left };
-			csvPathTextBox = new TextBox { Dock = DockStyle.Fill, Text = "rma_log.csv" };
+			string defaultCsvPath = $"{Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)}\\T6RMA_{DateTime.Now:yyyyMMddTHHmmss}.csv";
+			csvPathTextBox = new TextBox { Dock = DockStyle.Fill, Text = defaultCsvPath };
 			browseCsvButton = new Button { Text = "Browse...", AutoSize = true };
 			browseCsvButton.Click += BrowseCsvButton_Click;
 
