@@ -280,11 +280,11 @@ namespace LotusECMLogger.Services
 			canMessage[3] = 0x53; // Lower 8 bits of 0x53
 
 			// Data payload: 5 bytes (4-byte address + 1-byte length)
-			// Address is little-endian (as per firmware analysis)
-			canMessage[4] = (byte)(address & 0xFF);
-			canMessage[5] = (byte)((address >> 8) & 0xFF);
-			canMessage[6] = (byte)((address >> 16) & 0xFF);
-			canMessage[7] = (byte)((address >> 24) & 0xFF);
+			// Address is BIG-ENDIAN (network byte order, standard for CAN bus and PowerPC ECU)
+			canMessage[4] = (byte)((address >> 24) & 0xFF);
+			canMessage[5] = (byte)((address >> 16) & 0xFF);
+			canMessage[6] = (byte)((address >> 8) & 0xFF);
+			canMessage[7] = (byte)(address & 0xFF);
 			canMessage[8] = length;
 
 			try
