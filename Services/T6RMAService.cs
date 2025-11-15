@@ -262,23 +262,25 @@ namespace LotusECMLogger.Services
 			}
 
 			// Build CAN message for memory read request (CAN ID 0x53)
-			// Format: [CAN ID (4 bytes)] [DLC + Data (max 12 bytes)]
-			// CAN ID encoding: Standard 11-bit ID is in bits 18-28 of the 32-bit arbitration field
-			// For ID 0x53: (0x53 << 18) = 0x0014C000
+			// Format: [CAN ID (4 bytes)] [Data (5 bytes: 4-byte address + 1-byte length)]
+			// Total: 9 bytes
+			// CAN ID encoding format (from J2534EcuCodingService reference):
+			// For 11-bit CAN ID, split into upper 3 bits and lower 8 bits
+			// Example: 0x502 = [0x00, 0x00, 0x05, 0x02]
+			//          0x053 = [0x00, 0x00, 0x00, 0x53]
 
-			byte[] canMessage = new byte[4 + 1 + length]; // CAN header (4) + DLC indicator (1) + data (5)
+			byte[] canMessage = new byte[9]; // 4 bytes CAN ID + 5 bytes data
 
-			// CAN Arbitration ID (29-bit extended frame format, but we use 11-bit standard)
-			// Standard ID 0x53 is placed at bits 18-28
-			uint arbId = REQUEST_CAN_ID << 18;
-			canMessage[0] = (byte)((arbId >> 24) & 0xFF);
-			canMessage[1] = (byte)((arbId >> 16) & 0xFF);
-			canMessage[2] = (byte)((arbId >> 8) & 0xFF);
-			canMessage[3] = (byte)(arbId & 0xFF);
+			// CAN ID 0x53: 11-bit ID = 0b000 0101 0011
+			// Upper 3 bits (10-8): 0b000 = 0x00
+			// Lower 8 bits (7-0):  0b0101 0011 = 0x53
+			canMessage[0] = 0x00;
+			canMessage[1] = 0x00;
+			canMessage[2] = 0x00; // Upper 3 bits of 0x53
+			canMessage[3] = 0x53; // Lower 8 bits of 0x53
 
 			// Data payload: 5 bytes (4-byte address + 1-byte length)
-			// DLC is encoded in the message - for J2534, we use TxFlags and DataSize
-			// Address is little-endian
+			// Address is little-endian (as per firmware analysis)
 			canMessage[4] = (byte)(address & 0xFF);
 			canMessage[5] = (byte)((address >> 8) & 0xFF);
 			canMessage[6] = (byte)((address >> 16) & 0xFF);
@@ -313,10 +315,13 @@ namespace LotusECMLogger.Services
 		private byte[]? ParseMemoryReadResponse(SAE.J2534.Message message)
 		{
 			// Response should be on CAN ID 0x7A0
-			// Extract CAN ID from arbitration field (bits 18-28 for standard 11-bit ID)
-			uint arbId = ((uint)message.Data[0] << 24) | ((uint)message.Data[1] << 16) |
-			             ((uint)message.Data[2] << 8) | message.Data[3];
-			uint canId = (arbId >> 18) & 0x7FF;
+			// CAN ID format: [0x00, 0x00, upper 3 bits, lower 8 bits]
+			// For 0x7A0 = 0b111 1010 0000
+			// Upper 3 bits: 0b111 = 0x07
+			// Lower 8 bits: 0b1010 0000 = 0xA0
+			// Expected: [0x00, 0x00, 0x07, 0xA0]
+
+			uint canId = ((uint)message.Data[2] << 8) | message.Data[3];
 
 			if (canId != RESPONSE_CAN_ID)
 			{
