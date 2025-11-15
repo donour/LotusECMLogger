@@ -4,7 +4,7 @@ using System.Text;
 namespace LotusECMLogger.Controls
 {
 	/// <summary>
-	/// User control for T6 RMA (Read Memory Address) logging
+	/// User control for T6 RMA (Remote Memory Access) logging
 	/// Allows users to log specific ECU memory addresses to CSV files
 	/// </summary>
 	public sealed class T6RMAControl : UserControl

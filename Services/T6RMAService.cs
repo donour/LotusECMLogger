@@ -5,13 +5,13 @@ using System.Text;
 namespace LotusECMLogger.Services
 {
 	/// <summary>
-	/// Implementation of T6 RMA (Read Memory Address) protocol
+	/// Implementation of T6 RMA (Remote Memory Access) protocol
 	/// Based on reverse-engineered ECU firmware function flexcan_a_rx_50_51_52_53()
 	///
 	/// Protocol Summary:
 	/// - Request CAN ID: 0x53 (11-bit standard CAN)
 	/// - Response CAN ID: 0x7A0 (11-bit standard CAN)
-	/// - Request Format: [Address(4 bytes, little-endian)] [Length(1 byte)]
+	/// - Request Format: [Address(4 bytes, big-endian)] [Length(1 byte)]
 	/// - Response Format: [Data bytes...]
 	/// - Multi-frame responses supported for >8 bytes
 	/// </summary>

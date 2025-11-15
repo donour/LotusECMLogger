@@ -3,7 +3,7 @@ using SAE.J2534;
 namespace LotusECMLogger.Services
 {
 	/// <summary>
-	/// Event arguments for T6 RMA (Read Memory Address) data received
+	/// Event arguments for T6 RMA (Remote Memory Access) data received
 	/// </summary>
 	public class T6RMADataEventArgs : EventArgs
 	{
@@ -14,7 +14,7 @@ namespace LotusECMLogger.Services
 	}
 
 	/// <summary>
-	/// Service for reading ECU memory addresses using the T6 RMA protocol
+	/// Service for reading ECU memory addresses using the T6 RMA (Remote Memory Access) protocol
 	/// Protocol reverse-engineered from firmware function flexcan_a_rx_50_51_52_53()
 	/// </summary>
 	public interface IT6RMAService : IDisposable
