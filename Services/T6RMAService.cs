@@ -8,12 +8,49 @@ namespace LotusECMLogger.Services
 	/// Implementation of T6 RMA (Remote Memory Access) protocol
 	/// Based on reverse-engineered ECU firmware function flexcan_a_rx_50_51_52_53()
 	///
-	/// Protocol Summary:
-	/// - Request CAN ID: 0x53 (11-bit standard CAN)
-	/// - Response CAN ID: 0x7A0 (11-bit standard CAN)
-	/// - Request Format: [Address(4 bytes, big-endian)] [Length(1 byte)]
-	/// - Response Format: [Data bytes...]
-	/// - Multi-frame responses supported for >8 bytes
+	/// ═══════════════════════════════════════════════════════════════════════════════
+	/// COMPLETE RMA PROTOCOL SPECIFICATION
+	/// ═══════════════════════════════════════════════════════════════════════════════
+	///
+	/// READ OPERATIONS (All respond on CAN ID 0x7A0):
+	/// ─────────────────────────────────────────────────────────────────────────────
+	/// CAN ID  | DLC | Format                      | Function
+	/// ─────────────────────────────────────────────────────────────────────────────
+	/// 0x50    | 4   | [Address(4)]                | Read 4 bytes (dword/uint32)
+	/// 0x51    | 4   | [Address(4)]                | Read 2 bytes (word/uint16)
+	/// 0x52    | 4   | [Address(4)]                | Read 1 byte (byte/uint8)
+	/// 0x53    | 5   | [Address(4)][Length(1)]     | Read variable length (1-255 bytes)
+	///                                               | Multi-frame support for >8 bytes
+	///
+	/// WRITE OPERATIONS (No response, writes are fire-and-forget):
+	/// ─────────────────────────────────────────────────────────────────────────────
+	/// CAN ID  | DLC | Format                      | Function
+	/// ─────────────────────────────────────────────────────────────────────────────
+	/// 0x54    | 8   | [Address(4)][Data(4)]       | Write 4 bytes (dword/uint32)
+	/// 0x55    | 6   | [Address(4)][Data(2)]       | Write 2 bytes (word/uint16)
+	/// 0x56    | 5   | [Address(4)][Data(1)]       | Write 1 byte (byte/uint8)
+	/// 0x57    | 5+  | [Address(4)][Length(1)]     | Write variable length (multi-frame)
+	///                | + continuation frames       | First frame: address + length
+	///                                               | Subsequent frames: data payload
+	///
+	/// KEY PROTOCOL DETAILS:
+	/// ─────────────────────────────────────────────────────────────────────────────
+	/// • Byte Order: BIG-ENDIAN (network byte order) for all addresses and multi-byte data
+	/// • Response CAN ID: 0x7A0 (all read operations)
+	/// • Security: Requires ecu_unlocked == true (calibration must contain "WTF?" magic)
+	/// • Valid Address Range: 0x40000000 - 0x4000FFFF (64KB RAM only)
+	/// • Multi-frame Read (0x53): ECU sends first 8 bytes immediately, continuation via 0x7A0
+	/// • Multi-frame Write (0x57): Host sends continuation frames after initial command
+	/// • Fixed-length reads (0x50-0x52): Optimized for atomic register/variable access
+	/// • Variable-length (0x53/0x57): Flexible for arbitrary memory dumps/updates
+	///
+	/// CURRENT IMPLEMENTATION:
+	/// ─────────────────────────────────────────────────────────────────────────────
+	/// This service currently implements CAN ID 0x53 (variable-length read) only.
+	/// Future expansion could add support for:
+	/// - Fixed-length reads (0x50-0x52) for faster single-value polling
+	/// - Write operations (0x54-0x57) for memory modification and calibration updates
+	/// ═══════════════════════════════════════════════════════════════════════════════
 	/// </summary>
 	public sealed class T6RMAService : IT6RMAService
 	{
