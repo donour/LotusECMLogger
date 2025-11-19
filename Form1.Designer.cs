@@ -185,6 +185,8 @@ namespace LotusECMLogger
             mainTabControl.Controls.Add(dtcTab);
             obdResetTab = new TabPage();
             mainTabControl.Controls.Add(obdResetTab);
+            t6RmaTab = new TabPage();
+            mainTabControl.Controls.Add(t6RmaTab);
             mainTabControl.Dock = DockStyle.Fill;
             mainTabControl.Location = new Point(0, 30);
             mainTabControl.Name = "mainTabControl";
@@ -287,6 +289,15 @@ namespace LotusECMLogger
             obdResetTab.Text = "Learned Data Reset";
             obdResetTab.UseVisualStyleBackColor = true;
             //
+            // t6RmaTab
+            //
+            t6RmaTab.Location = new Point(4, 29);
+            t6RmaTab.Name = "t6RmaTab";
+            t6RmaTab.Size = new Size(705, 499);
+            t6RmaTab.TabIndex = 5;
+            t6RmaTab.Text = "T6 RMA Logging";
+            t6RmaTab.UseVisualStyleBackColor = true;
+            //
             // dtcControl
             //
             dtcControl.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
@@ -349,5 +360,6 @@ namespace LotusECMLogger
         private TabPage dtcTab;
         private LotusECMLogger.Controls.DTCControl dtcControl;
         private TabPage obdResetTab;
+        private TabPage t6RmaTab;
     }
 }

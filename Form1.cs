@@ -48,8 +48,11 @@ namespace LotusECMLogger
                         var resetControl = obdResetTab.Controls.OfType<ObdResetControl>().FirstOrDefault();
                         if (resetControl != null)
                             resetControl.IsLoggerActive = value;
+                        var rmaControl = t6RmaTab.Controls.OfType<T6RMAControl>().FirstOrDefault();
+                        if (rmaControl != null)
+                            rmaControl.IsLoggerActive = value;
                     }
-                    catch { 
+                    catch {
                         // TODO: don't ignore errors
                             }
                     // Enable vehicle data loading only when logging is not active
@@ -101,6 +104,23 @@ namespace LotusECMLogger
                 };
                 obdResetTab.Controls.Clear();
                 obdResetTab.Controls.Add(resetControl);
+            }
+            catch
+            {
+                // TODO don't ignore exceptions
+            }
+
+            // Add T6 RMA logging control
+            try
+            {
+                var rmaService = new T6RMAService();
+                var rmaControl = new T6RMAControl(rmaService)
+                {
+                    Dock = DockStyle.Fill,
+                    IsLoggerActive = loggerEnabled
+                };
+                t6RmaTab.Controls.Clear();
+                t6RmaTab.Controls.Add(rmaControl);
             }
             catch
             {
