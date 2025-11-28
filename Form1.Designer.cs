@@ -179,9 +179,9 @@ namespace LotusECMLogger
             // 
             // mainTabControl
             // 
+            mainTabControl.Controls.Add(vehicleInfoTab);
             mainTabControl.Controls.Add(liveDataTab);
             mainTabControl.Controls.Add(codingDataTab);
-            mainTabControl.Controls.Add(vehicleInfoTab);
             mainTabControl.Controls.Add(dtcTab);
             obdResetTab = new TabPage();
             mainTabControl.Controls.Add(obdResetTab);
