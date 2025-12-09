@@ -29,7 +29,7 @@ jobs:
       run: dotnet build LotusECMLogger.sln --configuration Release --no-restore /p:Platform=x86
 
     - name: Publish application
-      run: dotnet publish LotusECMLogger/LotusECMLogger.csproj --configuration Release --output ./publish --no-build /p:Platform=x86
+      run: dotnet publish LotusECMLogger/LotusECMLogger.csproj --configuration Release --output ./publish /p:Platform=x86 --no-restore
 
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
