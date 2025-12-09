@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(\"/mnt/c/Program Files/dotnet/dotnet.exe\" build --no-restore)"
+      "Bash(\"/mnt/c/Program Files/dotnet/dotnet.exe\" build --no-restore)",
+      "Bash(dotnet build:*)"
     ],
     "deny": [],
     "ask": []

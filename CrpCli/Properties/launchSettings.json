@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "CrpCli": {
+      "commandName": "Project",
+      "commandLineArgs": "C:\\Users\\donour\\source\\repos\\Lotus-T4e\\lotusecu-tools\\test.cpt C:\\Users\\donour\\source\\repos\\Lotus-T4e\\lotusecu-tools\\test.crp"
+    }
+  }
+}

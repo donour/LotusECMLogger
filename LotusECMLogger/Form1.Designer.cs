@@ -40,6 +40,7 @@ namespace LotusECMLogger
             codingDataView = new ListView();
             menuStrip1 = new MenuStrip();
             helpToolStripMenuItem = new ToolStripMenuItem();
+            cptToCrpConverterToolStripMenuItem = new ToolStripMenuItem();
             cliRunnerToolStripMenuItem = new ToolStripMenuItem();
             aboutLotusECMLoggerToolStripMenuItem = new ToolStripMenuItem();
             obdConfigToolStripMenuItem = new ToolStripMenuItem();
@@ -136,15 +137,22 @@ namespace LotusECMLogger
             // 
             // helpToolStripMenuItem
             //
-            helpToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { cliRunnerToolStripMenuItem, aboutLotusECMLoggerToolStripMenuItem });
+            helpToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { cptToCrpConverterToolStripMenuItem, cliRunnerToolStripMenuItem, aboutLotusECMLoggerToolStripMenuItem });
             helpToolStripMenuItem.Name = "helpToolStripMenuItem";
             helpToolStripMenuItem.Size = new Size(55, 24);
             helpToolStripMenuItem.Text = "File";
             //
+            // cptToCrpConverterToolStripMenuItem
+            //
+            cptToCrpConverterToolStripMenuItem.Name = "cptToCrpConverterToolStripMenuItem";
+            cptToCrpConverterToolStripMenuItem.Size = new Size(249, 26);
+            cptToCrpConverterToolStripMenuItem.Text = "CPT to CRP Converter";
+            cptToCrpConverterToolStripMenuItem.Click += CptToCrpConverterToolStripMenuItem_Click;
+            //
             // cliRunnerToolStripMenuItem
             //
             cliRunnerToolStripMenuItem.Name = "cliRunnerToolStripMenuItem";
-            cliRunnerToolStripMenuItem.Size = new Size(100, 26);
+            cliRunnerToolStripMenuItem.Size = new Size(249, 26);
             cliRunnerToolStripMenuItem.Text = "T6E Flasher";
             cliRunnerToolStripMenuItem.Click += CLIRunnerToolStripMenuItem_Click;
             //
@@ -343,6 +351,7 @@ namespace LotusECMLogger
         private ListView codingDataView;
         private MenuStrip menuStrip1;
         private ToolStripMenuItem helpToolStripMenuItem;
+        private ToolStripMenuItem cptToCrpConverterToolStripMenuItem;
         private ToolStripMenuItem cliRunnerToolStripMenuItem;
         private ToolStripMenuItem aboutLotusECMLoggerToolStripMenuItem;
         private StatusStrip statusStrip1;
