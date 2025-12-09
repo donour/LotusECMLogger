@@ -340,11 +340,5 @@ namespace LotusECMLogger
             t6eFlasher.ShowDialog(this);
         }
 
-        private void CptToCrpConverterToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            var converterForm = new CptToCrpConverterForm();
-            converterForm.ShowDialog(this);
-        }
-
     }
 }

@@ -88,7 +88,7 @@ namespace LotusECMLogger
 
 			var inputFileHelpLabel = new Label
             {
-                Text = "File will be passed as first argument to the program",
+                Text = "Select a CRP or CPT file. CPT files will be automatically converted to CRP before flashing.",
                 Font = new Font(SystemFonts.DefaultFont.FontFamily, 8f),
                 ForeColor = Color.Gray,
                 TextAlign = ContentAlignment.MiddleLeft,
@@ -185,7 +185,7 @@ namespace LotusECMLogger
             Controls.Add(mainTable);
 
             // Form properties
-            Text = "T6E Flasher";
+            Text = "T6E Calibration Flasher";
             Size = new Size(650, 315);
             MinimumSize = new Size(650, 315);
             StartPosition = FormStartPosition.CenterParent;
@@ -214,7 +214,7 @@ namespace LotusECMLogger
             using var openFileDialog = new OpenFileDialog
             {
                 Title = "Select Input File",
-                Filter = "CRP files (*.crp)|*.crp",
+                Filter = "Calibration files (*.crp;*.cpt)|*.crp;*.cpt|CRP files (*.crp)|*.crp|CPT files (*.cpt)|*.cpt|All files (*.*)|*.*",
                 CheckFileExists = true,
                 CheckPathExists = true
             };
@@ -303,6 +303,49 @@ namespace LotusECMLogger
                 return;
             }
 
+            // Handle CPT to CRP conversion if needed
+            string fileToFlash = inputFileTextBox.Text;
+            string? tempCrpFile = null;
+
+            if (Path.GetExtension(fileToFlash).Equals(".cpt", StringComparison.OrdinalIgnoreCase))
+            {
+                try
+                {
+                    statusLabel.Text = "Converting CPT to CRP...";
+                    statusLabel.ForeColor = Color.Blue;
+                    Application.DoEvents();
+
+                    // Generate CRP filename in the same directory as the CPT file
+                    string cptDirectory = Path.GetDirectoryName(fileToFlash) ?? Path.GetTempPath();
+                    string cptFileName = Path.GetFileNameWithoutExtension(fileToFlash);
+                    tempCrpFile = Path.Combine(cptDirectory, $"{cptFileName}_converted.crp");
+
+                    // Convert CPT to CRP
+                    bool conversionSuccess = CptToCrpConverter.Convert(fileToFlash, tempCrpFile);
+
+                    if (!conversionSuccess)
+                    {
+                        MessageBox.Show("Failed to convert CPT to CRP format. Check console for details.",
+                            "Conversion Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        statusLabel.Text = "Conversion failed";
+                        statusLabel.ForeColor = Color.Red;
+                        return;
+                    }
+
+                    fileToFlash = tempCrpFile;
+                    statusLabel.Text = $"Converted to: {Path.GetFileName(tempCrpFile)}";
+                    statusLabel.ForeColor = Color.Green;
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Error during CPT to CRP conversion: {ex.Message}",
+                        "Conversion Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    statusLabel.Text = "Conversion error";
+                    statusLabel.ForeColor = Color.Red;
+                    return;
+                }
+            }
+
             try
             {
                 // Create a batch file to execute the command with proper argument handling
@@ -312,9 +355,9 @@ namespace LotusECMLogger
                 {
                     writer.WriteLine($"@echo on");
                     writer.WriteLine($"cd /d \"{workingDirectoryTextBox.Text}\"");
-                    if (!string.IsNullOrEmpty(inputFileTextBox.Text))
+                    if (!string.IsNullOrEmpty(fileToFlash))
                     {
-                        writer.WriteLine($"\"{programPath}\" \"{inputFileTextBox.Text}\"");
+                        writer.WriteLine($"\"{programPath}\" \"{fileToFlash}\"");
                     }
                     else
                     {
@@ -331,7 +374,7 @@ namespace LotusECMLogger
                     WindowStyle = ProcessWindowStyle.Normal
                 };
 
-                string displayArgs = !string.IsNullOrEmpty(inputFileTextBox.Text) ? $"\"{inputFileTextBox.Text}\"" : "";
+                string displayArgs = !string.IsNullOrEmpty(fileToFlash) ? $"\"{fileToFlash}\"" : "";
                 statusLabel.Text = $"Launching: \"{programPath}\" {displayArgs}".Trim();
 
                 var process = Process.Start(startInfo);
