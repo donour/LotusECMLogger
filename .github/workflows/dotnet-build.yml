@@ -3,6 +3,8 @@ name: .NET Build
 on:
   push:
     branches: [ master ]
+    tags:
+      - 'v*.*.*.*'
   pull_request:
     branches: [ master ]
   workflow_dispatch:
@@ -24,14 +26,63 @@ jobs:
       run: dotnet restore LotusECMLogger.sln
 
     - name: Build solution
-      run: dotnet build LotusECMLogger.sln --configuration Release --no-restore
+      run: dotnet build LotusECMLogger.sln --configuration Release --no-restore /p:Platform=x86
 
     - name: Publish application
-      run: dotnet publish LotusECMLogger/LotusECMLogger.csproj --configuration Release --output ./publish --no-build
+      run: dotnet publish LotusECMLogger/LotusECMLogger.csproj --configuration Release --output ./publish --no-build /p:Platform=x86
 
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: LotusECMLogger-Release
+        name: LotusECMLogger-Release-x86
         path: ./publish/
         retention-days: 30
+
+  release:
+    runs-on: windows-latest
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+
+    steps:
+    - name: Download build artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: LotusECMLogger-Release-x86
+        path: ./publish/
+
+    - name: Extract version from tag
+      id: version
+      shell: pwsh
+      run: |
+        $tag = "${{ github.ref_name }}"
+        $version = $tag -replace '^v', ''
+        echo "VERSION=$version" >> $env:GITHUB_OUTPUT
+        echo "Version: $version"
+
+    - name: Create release archive
+      shell: pwsh
+      run: |
+        $version = "${{ steps.version.outputs.VERSION }}"
+        $zipName = "LotusECMLogger-$version-x86.zip"
+        Compress-Archive -Path ./publish/* -DestinationPath $zipName
+        echo "ZIP_NAME=$zipName" >> $env:GITHUB_OUTPUT
+        echo "Created archive: $zipName"
+      id: archive
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: ${{ steps.archive.outputs.ZIP_NAME }}
+        tag_name: ${{ github.ref_name }}
+        name: LotusECMLogger ${{ steps.version.outputs.VERSION }}
+        draft: false
+        prerelease: false
+        generate_release_notes: true
+        body: |
+          Release ${{ steps.version.outputs.VERSION }} (x86 Windows)
+
+          This release is built for x86 Windows only. x64 and ARM are not supported.
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
