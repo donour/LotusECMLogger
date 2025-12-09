@@ -2,13 +2,9 @@ using LotusECMLogger.Services;
 
 namespace LotusECMLogger.Controls
 {
-	public sealed class ObdResetControl : UserControl
+	public partial class ObdResetControl : UserControl
 	{
 		private readonly IObdResetService resetService;
-		private readonly TableLayoutPanel layoutPanel;
-		private readonly FlowLayoutPanel actionsPanel;
-		private readonly Label infoLabel;
-		private readonly Button resetButton;
 
 		private bool isLoggerActive;
 		public bool IsLoggerActive
@@ -24,46 +20,14 @@ namespace LotusECMLogger.Controls
 		public ObdResetControl(IObdResetService resetService)
 		{
 			this.resetService = resetService;
+			InitializeComponent();
 
 			Dock = DockStyle.Fill;
+			UpdateWrappedLabelWidth();
+		}
 
-			layoutPanel = new TableLayoutPanel
-			{
-				Dock = DockStyle.Fill,
-				ColumnCount = 1,
-				RowCount = 2,
-				Padding = new Padding(10)
-			};
-			layoutPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-			layoutPanel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-			layoutPanel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-
-			infoLabel = new Label
-			{
-				AutoSize = true,
-				Text = "OBD-II Learned Data Reset\nThis sends a Mode 0x11 request to the ECM.",
-				Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
-			};
-
-			actionsPanel = new FlowLayoutPanel
-			{
-				Dock = DockStyle.Top,
-				AutoSize = true,
-				FlowDirection = FlowDirection.LeftToRight,
-				WrapContents = false,
-				Margin = new Padding(0, 8, 0, 0)
-			};
-
-			resetButton = new Button { Text = "Perform Reset", AutoSize = true };
-			resetButton.Click += (s, e) => HandleResetClick();
-			actionsPanel.Controls.Add(resetButton);
-
-			layoutPanel.Controls.Add(infoLabel, 0, 0);
-			layoutPanel.Controls.Add(actionsPanel, 0, 1);
-
-			Controls.Add(layoutPanel);
-
-			Resize += (s, e) => UpdateWrappedLabelWidth();
+		private void ObdResetControl_Resize(object? sender, EventArgs e)
+		{
 			UpdateWrappedLabelWidth();
 		}
 
@@ -75,7 +39,7 @@ namespace LotusECMLogger.Controls
 			infoLabel.MaximumSize = new Size(maxWidth, 0);
 		}
 
-		private void HandleResetClick()
+		private void resetButton_Click(object? sender, EventArgs e)
 		{
 			if (IsLoggerActive)
 			{
