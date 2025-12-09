@@ -6,7 +6,7 @@
     <Nullable>enable</Nullable>
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
-    <Platforms>AnyCPU;x86</Platforms>
+    <Platforms>x86</Platforms>
     <ApplicationIcon>assets\audio_video_media_control_resume_plain_icon_260667.ico</ApplicationIcon>
     <Version>0.0.1.2</Version>
   </PropertyGroup>
