@@ -326,7 +326,7 @@ namespace LotusECMLogger
             // 
             AutoScaleDimensions = new SizeF(8F, 20F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(713, 588);
+            ClientSize = new Size(800, 600);
             Controls.Add(mainTabControl);
             Controls.Add(statusStrip1);
             Controls.Add(menuStrip1);
