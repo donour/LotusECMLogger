@@ -65,7 +65,7 @@ namespace LotusECMLogger
         {
             InitializeComponent();
             // Populate OBD config menu
-            PopulateObdConfigMenu();
+            PopulateObdConfigComboBox();
             // Initialize ListView columns
             InitializeListView();
             // dummy logger to avoid null reference exceptions
@@ -147,37 +147,31 @@ namespace LotusECMLogger
             codingDataView.Columns.Add("Value", 100);
         }
 
-        private void PopulateObdConfigMenu()
+        private void PopulateObdConfigComboBox()
         {
-            obdConfigToolStripMenuItem.DropDownItems.Clear();
+            obdConfigComboBox.Items.Clear();
             var configs = OBDConfigurationLoader.GetAvailableConfigurations();
             if (configs.Count == 0)
             {
-                var noneItem = new ToolStripMenuItem("No configs found") { Enabled = false };
-                obdConfigToolStripMenuItem.DropDownItems.Add(noneItem);
+                obdConfigComboBox.Items.Add("No configs found");
+                obdConfigComboBox.SelectedIndex = 0;
+                obdConfigComboBox.Enabled = false;
                 selectedObdConfigName = "NO CONFIG";
                 return;
             }
             foreach (var config in configs)
             {
-                var item = new ToolStripMenuItem(config);
-                item.Click += ObdConfigMenuItem_Click;
-                obdConfigToolStripMenuItem.DropDownItems.Add(item);
+                obdConfigComboBox.Items.Add(config);
             }
             // Default to first config
+            obdConfigComboBox.SelectedIndex = 0;
             selectedObdConfigName = configs[0];
-            ((ToolStripMenuItem)obdConfigToolStripMenuItem.DropDownItems[0]).Checked = true;
         }
 
-        private void ObdConfigMenuItem_Click(object? sender, EventArgs e)
+        private void ObdConfigComboBox_SelectedIndexChanged(object? sender, EventArgs e)
         {
-            foreach (ToolStripMenuItem item in obdConfigToolStripMenuItem.DropDownItems)
-                item.Checked = false;
-            if (sender == null) return;
-
-            var clicked = (ToolStripMenuItem)sender;
-            clicked.Checked = true;
-            selectedObdConfigName = clicked.Text ?? "NO CONFIG";
+            if (obdConfigComboBox.SelectedItem == null) return;
+            selectedObdConfigName = obdConfigComboBox.SelectedItem.ToString() ?? "NO CONFIG";
         }
 
         private void startLogger_button_Click(object sender, EventArgs e)
