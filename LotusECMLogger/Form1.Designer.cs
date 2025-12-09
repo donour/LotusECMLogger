@@ -72,7 +72,7 @@ namespace LotusECMLogger
             startLogger_button.Location = new Point(14, 19);
             startLogger_button.Margin = new Padding(3, 4, 3, 4);
             startLogger_button.Name = "startLogger_button";
-            startLogger_button.Size = new Size(86, 31);
+            startLogger_button.Size = new Size(86, 32);
             startLogger_button.TabIndex = 3;
             startLogger_button.Text = "Start";
             startLogger_button.UseVisualStyleBackColor = true;
@@ -84,7 +84,7 @@ namespace LotusECMLogger
             stopLogger_button.Location = new Point(106, 19);
             stopLogger_button.Margin = new Padding(3, 4, 3, 4);
             stopLogger_button.Name = "stopLogger_button";
-            stopLogger_button.Size = new Size(86, 31);
+            stopLogger_button.Size = new Size(86, 32);
             stopLogger_button.TabIndex = 4;
             stopLogger_button.Text = "Stop";
             stopLogger_button.UseVisualStyleBackColor = true;
@@ -95,7 +95,7 @@ namespace LotusECMLogger
             currentLogfileName.AutoSize = true;
             currentLogfileName.Location = new Point(255, 29);
             currentLogfileName.Name = "currentLogfileName";
-            currentLogfileName.Size = new Size(85, 20);
+            currentLogfileName.Size = new Size(85, 32);
             currentLogfileName.TabIndex = 5;
             currentLogfileName.Text = "No Log File";
             //
@@ -114,7 +114,7 @@ namespace LotusECMLogger
             obdConfigComboBox.FormattingEnabled = true;
             obdConfigComboBox.Location = new Point(510, 25);
             obdConfigComboBox.Name = "obdConfigComboBox";
-            obdConfigComboBox.Size = new Size(180, 28);
+            obdConfigComboBox.Size = new Size(180, 32);
             obdConfigComboBox.TabIndex = 9;
             obdConfigComboBox.SelectedIndexChanged += ObdConfigComboBox_SelectedIndexChanged;
             //
@@ -131,6 +131,7 @@ namespace LotusECMLogger
             liveDataView.TabIndex = 6;
             liveDataView.UseCompatibleStateImageBehavior = false;
             liveDataView.View = View.Details;
+            // TODO only enable this property on release builds
             liveDataView.GetType().GetProperty("DoubleBuffered", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
                           ?.SetValue(liveDataView, true, null); // Enable double buffering for smoother scrolling
 
