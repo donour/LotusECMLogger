@@ -334,5 +334,11 @@ namespace LotusECMLogger
             t6eFlasher.ShowDialog(this);
         }
 
+        private void UserGuideToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            var helpDialog = new HelpDialog();
+            helpDialog.ShowDialog(this);
+        }
+
     }
 }
