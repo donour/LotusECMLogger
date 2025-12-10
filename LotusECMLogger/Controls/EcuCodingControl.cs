@@ -2,16 +2,9 @@ using LotusECMLogger.Services;
 
 namespace LotusECMLogger.Controls
 {
-	public sealed class EcuCodingControl : UserControl
+	public partial class EcuCodingControl : UserControl
 	{
 		private readonly IEcuCodingService service;
-		private readonly Panel codingTopPanel;
-		private readonly Panel codingScrollPanel;
-		private readonly Button readCodesButton;
-		private readonly Button writeCodesButton;
-		private readonly Button saveCodingButton;
-		private readonly Button resetCodingButton;
-		private readonly Label bitFieldLabel;
 
 		private T6eCodingDecoder? originalCodingDecoder;
 		private T6eCodingDecoder? modifiedCodingDecoder;
@@ -32,34 +25,12 @@ namespace LotusECMLogger.Controls
 		public EcuCodingControl(IEcuCodingService service)
 		{
 			this.service = service;
+			InitializeComponent();
 
 			Dock = DockStyle.Fill;
-
-			codingTopPanel = new Panel { Dock = DockStyle.Top, Height = 40 };
-			codingScrollPanel = new Panel { Dock = DockStyle.Fill, AutoScroll = true, Padding = new Padding(10) };
-
-			readCodesButton = new Button { Text = "Read Codes", Location = new Point(10, 5), Size = new Size(100, 30) };
-			writeCodesButton = new Button { Text = "Write Codes", Location = new Point(120, 5), Size = new Size(100, 30), Enabled = false };
-			saveCodingButton = new Button { Text = "Save Changes", Location = new Point(230, 5), Size = new Size(110, 30), Enabled = false };
-			resetCodingButton = new Button { Text = "Reset", Location = new Point(350, 5), Size = new Size(80, 30), Enabled = false };
-			bitFieldLabel = new Label { AutoSize = true, Location = new Point(450, 12), Text = "BitField: -" };
-
-			readCodesButton.Click += (s, e) => HandleReadCodes();
-			writeCodesButton.Click += (s, e) => HandleWriteCodes();
-			saveCodingButton.Click += (s, e) => HandleSaveCoding();
-			resetCodingButton.Click += (s, e) => HandleResetCoding();
-
-			codingTopPanel.Controls.Add(readCodesButton);
-			codingTopPanel.Controls.Add(writeCodesButton);
-			codingTopPanel.Controls.Add(saveCodingButton);
-			codingTopPanel.Controls.Add(resetCodingButton);
-			codingTopPanel.Controls.Add(bitFieldLabel);
-
-			Controls.Add(codingScrollPanel);
-			Controls.Add(codingTopPanel);
 		}
 
-		private void HandleReadCodes()
+		private void readCodesButton_Click(object? sender, EventArgs e)
 		{
 			if (IsLoggerActive)
 			{
@@ -91,7 +62,7 @@ namespace LotusECMLogger.Controls
 			}
 		}
 
-		private void HandleWriteCodes()
+		private void writeCodesButton_Click(object? sender, EventArgs e)
 		{
 			if (IsLoggerActive)
 			{
@@ -177,7 +148,7 @@ namespace LotusECMLogger.Controls
 			}
 		}
 
-		private void HandleSaveCoding()
+		private void saveCodingButton_Click(object? sender, EventArgs e)
 		{
 			if (modifiedCodingDecoder == null)
 				return;
@@ -260,7 +231,7 @@ namespace LotusECMLogger.Controls
 			}
 		}
 
-		private void HandleResetCoding()
+		private void resetCodingButton_Click(object? sender, EventArgs e)
 		{
 			if (originalCodingDecoder == null)
 				return;

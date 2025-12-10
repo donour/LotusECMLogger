@@ -9,6 +9,14 @@ With LotusECMLogger, you can log not only generic OBD-II parameters, but also Lo
 - **Capture Lotus-specific data**: Log unique parameters such as variable cam control, knock control, and more.
 - **Free and open source**: No cost, no restrictions, and community-driven development.
 
+## Supported Adapters
+
+LotusECMLogger should work with an J2534-compliant pass-thru device connected via USB. Popular options include:
+
+- **Tactrix OpenPort 2.0**: A widely used J2534 device known for its reliability and performance.
+- **GO-DIAG GD101**: Low-cost J2534 device.
+
+
 ## User Interface Features
 
 LotusECMLogger provides a tabbed interface with specialized tools for different diagnostic and logging tasks:
@@ -30,3 +38,6 @@ The Learned Data Reset tab allows you to perform an OBD-II Mode 0x11 reset to cl
 
 ### T6 RMA Logging
 The T6 RMA (Remote Memory Access) Logging tab enables direct reading of ECU memory addresses for advanced diagnostics and development. You can specify any valid RAM address (0x40000000-0x4000FFFF), configure the number of bytes to read and polling interval, then log the data as a time series to CSV. This feature requires a debug-enabled ECU with developer calibration and provides real-time hex dump, ASCII, and numeric interpretations of the memory contents.
+
+### T6E Calibration Flasher
+The T6E Calibration Flasher provides a convenient interface for flashing ECU calibrations to Lotus T6e engine control units. The tool supports both .CRP and .CPT file formats, automatically converting .CPT files to XTEA-encrypted .CRP format (CRP08) before flashing to ensure compatibility with the ECU's flash programming protocol.
