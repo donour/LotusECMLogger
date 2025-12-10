@@ -9,6 +9,14 @@ With LotusECMLogger, you can log not only generic OBD-II parameters, but also Lo
 - **Capture Lotus-specific data**: Log unique parameters such as variable cam control, knock control, and more.
 - **Free and open source**: No cost, no restrictions, and community-driven development.
 
+## Supported Adapters
+
+LotusECMLogger should work with an J2534-compliant pass-thru device connected via USB. Popular options include:
+
+- **Tactrix OpenPort 2.0**: A widely used J2534 device known for its reliability and performance.
+- **GO-DIAG GD101**: Low-cost J2534 device.
+
+
 ## User Interface Features
 
 LotusECMLogger provides a tabbed interface with specialized tools for different diagnostic and logging tasks:
