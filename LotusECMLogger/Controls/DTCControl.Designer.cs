@@ -43,17 +43,15 @@ namespace LotusECMLogger.Controls
             topPanel.Controls.Add(statusLabel);
             topPanel.Dock = DockStyle.Top;
             topPanel.Location = new Point(0, 0);
-            topPanel.Margin = new Padding(4, 5, 4, 5);
             topPanel.Name = "topPanel";
-            topPanel.Size = new Size(857, 100);
+            topPanel.Size = new Size(600, 60);
             topPanel.TabIndex = 4;
             // 
             // readCodesButton
             // 
-            readCodesButton.Location = new Point(17, 20);
-            readCodesButton.Margin = new Padding(4, 5, 4, 5);
+            readCodesButton.Location = new Point(12, 12);
             readCodesButton.Name = "readCodesButton";
-            readCodesButton.Size = new Size(171, 32);
+            readCodesButton.Size = new Size(120, 32);
             readCodesButton.TabIndex = 0;
             readCodesButton.Text = "Read Codes";
             readCodesButton.UseVisualStyleBackColor = true;
@@ -62,10 +60,9 @@ namespace LotusECMLogger.Controls
             // clearCodesButton
             // 
             clearCodesButton.Enabled = false;
-            clearCodesButton.Location = new Point(197, 20);
-            clearCodesButton.Margin = new Padding(4, 5, 4, 5);
+            clearCodesButton.Location = new Point(138, 12);
             clearCodesButton.Name = "clearCodesButton";
-            clearCodesButton.Size = new Size(171, 32);
+            clearCodesButton.Size = new Size(120, 32);
             clearCodesButton.TabIndex = 1;
             clearCodesButton.Text = "Clear Codes";
             clearCodesButton.UseVisualStyleBackColor = true;
@@ -74,10 +71,9 @@ namespace LotusECMLogger.Controls
             // statusLabel
             // 
             statusLabel.AutoSize = true;
-            statusLabel.Location = new Point(377, 35);
-            statusLabel.Margin = new Padding(4, 0, 4, 0);
+            statusLabel.Location = new Point(264, 21);
             statusLabel.Name = "statusLabel";
-            statusLabel.Size = new Size(0, 25);
+            statusLabel.Size = new Size(0, 15);
             statusLabel.TabIndex = 3;
             // 
             // dtcListView
@@ -85,23 +81,22 @@ namespace LotusECMLogger.Controls
             dtcListView.Dock = DockStyle.Fill;
             dtcListView.FullRowSelect = true;
             dtcListView.GridLines = true;
-            dtcListView.Location = new Point(0, 100);
-            dtcListView.Margin = new Padding(4, 5, 4, 5);
+            dtcListView.Location = new Point(0, 60);
             dtcListView.Name = "dtcListView";
-            dtcListView.Size = new Size(857, 715);
+            dtcListView.Size = new Size(600, 429);
             dtcListView.TabIndex = 2;
             dtcListView.UseCompatibleStateImageBehavior = false;
             dtcListView.View = View.Details;
             // 
             // DTCControl
             // 
-            AutoScaleDimensions = new SizeF(10F, 25F);
+            AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             Controls.Add(dtcListView);
             Controls.Add(topPanel);
-            Margin = new Padding(4, 3, 4, 3);
+            Margin = new Padding(3, 2, 3, 2);
             Name = "DTCControl";
-            Size = new Size(857, 815);
+            Size = new Size(600, 489);
             topPanel.ResumeLayout(false);
             topPanel.PerformLayout();
             ResumeLayout(false);

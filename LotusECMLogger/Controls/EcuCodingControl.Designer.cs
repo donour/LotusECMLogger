@@ -47,28 +47,25 @@ namespace LotusECMLogger.Controls
             codingTopPanel.Controls.Add(readCodesButton);
             codingTopPanel.Dock = DockStyle.Top;
             codingTopPanel.Location = new Point(0, 0);
-            codingTopPanel.Margin = new Padding(4, 5, 4, 5);
             codingTopPanel.Name = "codingTopPanel";
-            codingTopPanel.Size = new Size(1143, 67);
+            codingTopPanel.Size = new Size(800, 40);
             codingTopPanel.TabIndex = 0;
             // 
             // bitFieldLabel
             // 
             bitFieldLabel.AutoSize = true;
-            bitFieldLabel.Location = new Point(643, 20);
-            bitFieldLabel.Margin = new Padding(4, 0, 4, 0);
+            bitFieldLabel.Location = new Point(450, 12);
             bitFieldLabel.Name = "bitFieldLabel";
-            bitFieldLabel.Size = new Size(85, 25);
+            bitFieldLabel.Size = new Size(57, 15);
             bitFieldLabel.TabIndex = 4;
             bitFieldLabel.Text = "BitField: -";
             // 
             // resetCodingButton
             // 
             resetCodingButton.Enabled = false;
-            resetCodingButton.Location = new Point(500, 8);
-            resetCodingButton.Margin = new Padding(4, 5, 4, 5);
+            resetCodingButton.Location = new Point(350, 5);
             resetCodingButton.Name = "resetCodingButton";
-            resetCodingButton.Size = new Size(114, 32);
+            resetCodingButton.Size = new Size(80, 32);
             resetCodingButton.TabIndex = 3;
             resetCodingButton.Text = "Reset";
             resetCodingButton.UseVisualStyleBackColor = true;
@@ -77,10 +74,9 @@ namespace LotusECMLogger.Controls
             // saveCodingButton
             // 
             saveCodingButton.Enabled = false;
-            saveCodingButton.Location = new Point(329, 8);
-            saveCodingButton.Margin = new Padding(4, 5, 4, 5);
+            saveCodingButton.Location = new Point(230, 5);
             saveCodingButton.Name = "saveCodingButton";
-            saveCodingButton.Size = new Size(157, 32);
+            saveCodingButton.Size = new Size(110, 32);
             saveCodingButton.TabIndex = 2;
             saveCodingButton.Text = "Save Changes";
             saveCodingButton.UseVisualStyleBackColor = true;
@@ -89,10 +85,9 @@ namespace LotusECMLogger.Controls
             // writeCodesButton
             // 
             writeCodesButton.Enabled = false;
-            writeCodesButton.Location = new Point(171, 8);
-            writeCodesButton.Margin = new Padding(4, 5, 4, 5);
+            writeCodesButton.Location = new Point(120, 5);
             writeCodesButton.Name = "writeCodesButton";
-            writeCodesButton.Size = new Size(143, 32);
+            writeCodesButton.Size = new Size(100, 32);
             writeCodesButton.TabIndex = 1;
             writeCodesButton.Text = "Write Codes";
             writeCodesButton.UseVisualStyleBackColor = true;
@@ -100,10 +95,9 @@ namespace LotusECMLogger.Controls
             // 
             // readCodesButton
             // 
-            readCodesButton.Location = new Point(14, 8);
-            readCodesButton.Margin = new Padding(4, 5, 4, 5);
+            readCodesButton.Location = new Point(10, 5);
             readCodesButton.Name = "readCodesButton";
-            readCodesButton.Size = new Size(143, 32);
+            readCodesButton.Size = new Size(100, 32);
             readCodesButton.TabIndex = 0;
             readCodesButton.Text = "Read Codes";
             readCodesButton.UseVisualStyleBackColor = true;
@@ -113,22 +107,20 @@ namespace LotusECMLogger.Controls
             // 
             codingScrollPanel.AutoScroll = true;
             codingScrollPanel.Dock = DockStyle.Fill;
-            codingScrollPanel.Location = new Point(0, 67);
-            codingScrollPanel.Margin = new Padding(4, 5, 4, 5);
+            codingScrollPanel.Location = new Point(0, 40);
             codingScrollPanel.Name = "codingScrollPanel";
-            codingScrollPanel.Padding = new Padding(14, 17, 14, 17);
-            codingScrollPanel.Size = new Size(1143, 933);
+            codingScrollPanel.Padding = new Padding(10, 10, 10, 10);
+            codingScrollPanel.Size = new Size(800, 560);
             codingScrollPanel.TabIndex = 1;
             // 
             // EcuCodingControl
             // 
-            AutoScaleDimensions = new SizeF(10F, 25F);
+            AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             Controls.Add(codingScrollPanel);
             Controls.Add(codingTopPanel);
-            Margin = new Padding(4, 5, 4, 5);
             Name = "EcuCodingControl";
-            Size = new Size(1143, 1000);
+            Size = new Size(800, 600);
             codingTopPanel.ResumeLayout(false);
             codingTopPanel.PerformLayout();
             ResumeLayout(false);

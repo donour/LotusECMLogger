@@ -61,6 +61,7 @@ namespace LotusECMLogger
             dtcControl = new LotusECMLogger.Controls.DTCControl();
             obdResetTab = new TabPage();
             t6RmaTab = new TabPage();
+            liveTuningTab = new TabPage();
             menuStrip1.SuspendLayout();
             statusStrip1.SuspendLayout();
             mainTabControl.SuspendLayout();
@@ -227,6 +228,7 @@ namespace LotusECMLogger
             mainTabControl.Controls.Add(dtcTab);
             mainTabControl.Controls.Add(obdResetTab);
             mainTabControl.Controls.Add(t6RmaTab);
+            mainTabControl.Controls.Add(liveTuningTab);
             mainTabControl.Dock = DockStyle.Fill;
             mainTabControl.Location = new Point(0, 37);
             mainTabControl.Margin = new Padding(4, 4, 4, 4);
@@ -360,6 +362,18 @@ namespace LotusECMLogger
             t6RmaTab.TabIndex = 5;
             t6RmaTab.Text = "T6 RMA Logging";
             t6RmaTab.UseVisualStyleBackColor = true;
+
+            //
+            // liveTuningTab
+            //
+            liveTuningTab.Location = new Point(4, 34);
+            liveTuningTab.Margin = new Padding(4, 4, 4, 4);
+            liveTuningTab.Name = "liveTuningTab";
+            liveTuningTab.Size = new Size(883, 627);
+            liveTuningTab.TabIndex = 6;
+            liveTuningTab.Text = "Live Tuning";
+            liveTuningTab.UseVisualStyleBackColor = true;
+
             // 
             // LoggerWindow
             // 
@@ -420,5 +434,6 @@ namespace LotusECMLogger
         private LotusECMLogger.Controls.DTCControl dtcControl;
         private TabPage obdResetTab;
         private TabPage t6RmaTab;
+        private TabPage liveTuningTab;
     }
 }
