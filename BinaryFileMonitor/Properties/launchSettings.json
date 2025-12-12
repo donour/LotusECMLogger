@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "BinaryFileMonitor": {
+      "commandName": "Project",
+      "commandLineArgs": "C:\\Users\\donour\\Desktop\\test.cpt"
+    }
+  }
+}
