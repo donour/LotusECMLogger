@@ -26,6 +26,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\BinaryFileMonitor\BinaryFileMonitor.csproj" />
     <ProjectReference Include="..\CrpTools\CrpTools.csproj" />
   </ItemGroup>
 
