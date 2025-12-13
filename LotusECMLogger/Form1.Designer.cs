@@ -144,16 +144,10 @@ namespace LotusECMLogger
             liveDataView.TabIndex = 6;
             liveDataView.UseCompatibleStateImageBehavior = false;
             liveDataView.View = View.Details;
-
-#if !DEBUG
-            // Enable double buffering for smoother scrolling (Release builds only)
-            liveDataView.GetType().GetProperty("DoubleBuffered", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
-                                      ?.SetValue(liveDataView, true, null);
-#endif
-             // 
+             //
              // codingDataView
              // 
-                        codingDataView.Location = new Point(0, 0);
+            codingDataView.Location = new Point(0, 0);
             codingDataView.Name = "codingDataView";
             codingDataView.Size = new Size(121, 97);
             codingDataView.TabIndex = 0;
