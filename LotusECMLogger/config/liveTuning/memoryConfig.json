@@ -1,0 +1,22 @@
+{
+  "presets": [
+    {
+      "name": "E132E0288: calibration",
+      "baseAddress": "40008654",
+      "length": 27052,
+      "description": "2020 Evora Live Calibration"
+    },
+    {
+      "name": "C132E0278: calibration",
+      "baseAddress": "40008654",
+      "length": 27052,
+      "description": "2019 Evora GT430 Live Calibration"
+    },
+    {
+      "name": "Full RAM (64KB)",
+      "baseAddress": "40000000",
+      "length": 65536,
+      "description": "Complete ECU RAM region (0x40000000-0x4000FFFF)"
+    }
+  ]
+}

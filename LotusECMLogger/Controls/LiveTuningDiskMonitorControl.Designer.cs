@@ -16,6 +16,8 @@ namespace LotusECMLogger.Controls
         private void InitializeComponent()
         {
             configPanel = new Panel();
+            presetLabel = new Label();
+            presetComboBox = new ComboBox();
             fileConfigGroup = new GroupBox();
             browseButton = new Button();
             filePathTextBox = new TextBox();
@@ -42,6 +44,8 @@ namespace LotusECMLogger.Controls
             // 
             // configPanel
             // 
+            configPanel.Controls.Add(presetLabel);
+            configPanel.Controls.Add(presetComboBox);
             configPanel.Controls.Add(fileConfigGroup);
             configPanel.Controls.Add(memoryConfigGroup);
             configPanel.Dock = DockStyle.Top;
@@ -49,26 +53,47 @@ namespace LotusECMLogger.Controls
             configPanel.Margin = new Padding(4, 5, 4, 5);
             configPanel.Name = "configPanel";
             configPanel.Padding = new Padding(14, 17, 14, 17);
-            configPanel.Size = new Size(1143, 233);
+            configPanel.Size = new Size(1143, 213);
             configPanel.TabIndex = 0;
+            // 
+            // presetLabel
+            // 
+            presetLabel.AutoSize = true;
+            presetLabel.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            presetLabel.Location = new Point(14, 17);
+            presetLabel.Margin = new Padding(4, 0, 4, 0);
+            presetLabel.Name = "presetLabel";
+            presetLabel.Size = new Size(147, 25);
+            presetLabel.TabIndex = 0;
+            presetLabel.Text = "Memory Preset:";
+            // 
+            // presetComboBox
+            // 
+            presetComboBox.DropDownStyle = ComboBoxStyle.DropDownList;
+            presetComboBox.Location = new Point(169, 13);
+            presetComboBox.Margin = new Padding(4, 5, 4, 5);
+            presetComboBox.Name = "presetComboBox";
+            presetComboBox.Size = new Size(740, 33);
+            presetComboBox.TabIndex = 1;
+            presetComboBox.SelectedIndexChanged += presetComboBox_SelectedIndexChanged;
             // 
             // fileConfigGroup
             // 
             fileConfigGroup.Controls.Add(browseButton);
             fileConfigGroup.Controls.Add(filePathTextBox);
             fileConfigGroup.Controls.Add(filePathLabel);
-            fileConfigGroup.Location = new Point(600, 17);
+            fileConfigGroup.Location = new Point(430, 67);
             fileConfigGroup.Margin = new Padding(4, 5, 4, 5);
             fileConfigGroup.Name = "fileConfigGroup";
             fileConfigGroup.Padding = new Padding(14, 17, 14, 17);
-            fileConfigGroup.Size = new Size(529, 200);
-            fileConfigGroup.TabIndex = 1;
+            fileConfigGroup.Size = new Size(699, 141);
+            fileConfigGroup.TabIndex = 3;
             fileConfigGroup.TabStop = false;
             fileConfigGroup.Text = "File Configuration";
             // 
             // browseButton
             // 
-            browseButton.Location = new Point(400, 80);
+            browseButton.Location = new Point(292, 33);
             browseButton.Margin = new Padding(4, 5, 4, 5);
             browseButton.Name = "browseButton";
             browseButton.Size = new Size(107, 42);
@@ -82,7 +107,7 @@ namespace LotusECMLogger.Controls
             filePathTextBox.Location = new Point(21, 80);
             filePathTextBox.Margin = new Padding(4, 5, 4, 5);
             filePathTextBox.Name = "filePathTextBox";
-            filePathTextBox.Size = new Size(370, 31);
+            filePathTextBox.Size = new Size(378, 31);
             filePathTextBox.TabIndex = 1;
             // 
             // filePathLabel
@@ -101,31 +126,31 @@ namespace LotusECMLogger.Controls
             memoryConfigGroup.Controls.Add(lengthLabel);
             memoryConfigGroup.Controls.Add(baseAddressTextBox);
             memoryConfigGroup.Controls.Add(baseAddressLabel);
-            memoryConfigGroup.Location = new Point(14, 17);
+            memoryConfigGroup.Location = new Point(14, 67);
             memoryConfigGroup.Margin = new Padding(4, 5, 4, 5);
             memoryConfigGroup.Name = "memoryConfigGroup";
             memoryConfigGroup.Padding = new Padding(14, 17, 14, 17);
-            memoryConfigGroup.Size = new Size(571, 200);
-            memoryConfigGroup.TabIndex = 0;
+            memoryConfigGroup.Size = new Size(408, 141);
+            memoryConfigGroup.TabIndex = 2;
             memoryConfigGroup.TabStop = false;
             memoryConfigGroup.Text = "ECU Memory Configuration";
             // 
             // lengthNumericUpDown
             // 
             lengthNumericUpDown.Hexadecimal = true;
-            lengthNumericUpDown.Location = new Point(314, 80);
+            lengthNumericUpDown.Location = new Point(205, 76);
             lengthNumericUpDown.Margin = new Padding(4, 5, 4, 5);
             lengthNumericUpDown.Maximum = new decimal(new int[] { 65536, 0, 0, 0 });
             lengthNumericUpDown.Minimum = new decimal(new int[] { 4, 0, 0, 0 });
             lengthNumericUpDown.Name = "lengthNumericUpDown";
-            lengthNumericUpDown.Size = new Size(236, 31);
+            lengthNumericUpDown.Size = new Size(103, 31);
             lengthNumericUpDown.TabIndex = 3;
             lengthNumericUpDown.Value = new decimal(new int[] { 4096, 0, 0, 0 });
             // 
             // lengthLabel
             // 
             lengthLabel.AutoSize = true;
-            lengthLabel.Location = new Point(314, 42);
+            lengthLabel.Location = new Point(24, 82);
             lengthLabel.Margin = new Padding(4, 0, 4, 0);
             lengthLabel.Name = "lengthLabel";
             lengthLabel.Size = new Size(166, 25);
@@ -135,18 +160,18 @@ namespace LotusECMLogger.Controls
             // baseAddressTextBox
             // 
             baseAddressTextBox.CharacterCasing = CharacterCasing.Upper;
-            baseAddressTextBox.Location = new Point(21, 80);
+            baseAddressTextBox.Location = new Point(202, 39);
             baseAddressTextBox.Margin = new Padding(4, 5, 4, 5);
             baseAddressTextBox.MaxLength = 8;
             baseAddressTextBox.Name = "baseAddressTextBox";
-            baseAddressTextBox.Size = new Size(270, 31);
+            baseAddressTextBox.Size = new Size(107, 31);
             baseAddressTextBox.TabIndex = 1;
             baseAddressTextBox.Text = "40000000";
             // 
             // baseAddressLabel
             // 
             baseAddressLabel.AutoSize = true;
-            baseAddressLabel.Location = new Point(21, 42);
+            baseAddressLabel.Location = new Point(23, 42);
             baseAddressLabel.Margin = new Padding(4, 0, 4, 0);
             baseAddressLabel.Name = "baseAddressLabel";
             baseAddressLabel.Size = new Size(167, 25);
@@ -159,7 +184,7 @@ namespace LotusECMLogger.Controls
             operationsPanel.Controls.Add(startMonitoringButton);
             operationsPanel.Controls.Add(readFromEcuButton);
             operationsPanel.Dock = DockStyle.Top;
-            operationsPanel.Location = new Point(0, 233);
+            operationsPanel.Location = new Point(0, 213);
             operationsPanel.Margin = new Padding(4, 5, 4, 5);
             operationsPanel.Name = "operationsPanel";
             operationsPanel.Padding = new Padding(14, 17, 14, 17);
@@ -206,11 +231,11 @@ namespace LotusECMLogger.Controls
             statusPanel.Controls.Add(statusTextBox);
             statusPanel.Controls.Add(statusLabel);
             statusPanel.Dock = DockStyle.Fill;
-            statusPanel.Location = new Point(0, 333);
+            statusPanel.Location = new Point(0, 313);
             statusPanel.Margin = new Padding(4, 5, 4, 5);
             statusPanel.Name = "statusPanel";
             statusPanel.Padding = new Padding(14, 17, 14, 17);
-            statusPanel.Size = new Size(1143, 667);
+            statusPanel.Size = new Size(1143, 687);
             statusPanel.TabIndex = 2;
             // 
             // statusTextBox
@@ -223,7 +248,7 @@ namespace LotusECMLogger.Controls
             statusTextBox.Name = "statusTextBox";
             statusTextBox.ReadOnly = true;
             statusTextBox.ScrollBars = ScrollBars.Both;
-            statusTextBox.Size = new Size(1115, 608);
+            statusTextBox.Size = new Size(1115, 628);
             statusTextBox.TabIndex = 1;
             statusTextBox.WordWrap = false;
             // 
@@ -241,8 +266,7 @@ namespace LotusECMLogger.Controls
             // 
             // LiveTuningDiskMonitorControl
             // 
-            AutoScaleDimensions = new SizeF(10F, 25F);
-            AutoScaleMode = AutoScaleMode.Font;
+            AutoScaleMode = AutoScaleMode.None;
             Controls.Add(statusPanel);
             Controls.Add(operationsPanel);
             Controls.Add(configPanel);
@@ -250,6 +274,7 @@ namespace LotusECMLogger.Controls
             Name = "LiveTuningDiskMonitorControl";
             Size = new Size(1143, 1000);
             configPanel.ResumeLayout(false);
+            configPanel.PerformLayout();
             fileConfigGroup.ResumeLayout(false);
             fileConfigGroup.PerformLayout();
             memoryConfigGroup.ResumeLayout(false);
@@ -264,6 +289,8 @@ namespace LotusECMLogger.Controls
         #endregion
 
         private Panel configPanel;
+        private Label presetLabel;
+        private ComboBox presetComboBox;
         private GroupBox memoryConfigGroup;
         private Label baseAddressLabel;
         private TextBox baseAddressTextBox;

@@ -1,5 +1,7 @@
+using LotusECMLogger.Models;
 using LotusECMLogger.Services;
 using System.Diagnostics;
+using System.Text.Json;
 
 namespace LotusECMLogger.Controls
 {
@@ -7,19 +9,34 @@ namespace LotusECMLogger.Controls
     {
         private T6LiveTuningService? _liveTuningService;
         private string? _currentFilePath;
+        private List<MemoryPreset> _presets = new();
+
+        private bool _isInitialized = false;
 
         public LiveTuningDiskMonitorControl()
         {
             InitializeComponent();
-            InitializeControl();
         }
 
-        private void InitializeControl()
+        protected override void OnLoad(EventArgs e)
         {
+            base.OnLoad(e);
+
+            // Only initialize once at runtime, never in designer
+            if (_isInitialized || DesignMode)
+            {
+                return;
+            }
+
+            _isInitialized = true;
+
             // Set default output directory to Documents folder
             string documentsPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
             string defaultPath = Path.Combine(documentsPath, "LotusECMLogger", "LiveTuning");
             filePathTextBox.Text = defaultPath;
+
+            // Load memory presets from JSON
+            LoadMemoryPresets();
 
             // Subscribe to text changed event to validate inputs
             baseAddressTextBox.TextChanged += ValidateInputs;
@@ -27,6 +44,63 @@ namespace LotusECMLogger.Controls
             filePathTextBox.TextChanged += ValidateInputs;
 
             LogStatus("Live Tuning control initialized");
+        }
+
+        private void LoadMemoryPresets()
+        {
+            try
+            {
+                string configPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "config", "liveTuning", "memoryConfig.json");
+
+                if (!File.Exists(configPath))
+                {
+                    LogStatus($"Warning: Memory config file not found at {configPath}");
+                    return;
+                }
+
+                string jsonContent = File.ReadAllText(configPath);
+                var config = JsonSerializer.Deserialize<MemoryPresetsConfig>(jsonContent);
+
+                if (config?.Presets != null && config.Presets.Count > 0)
+                {
+                    _presets = config.Presets;
+                    presetComboBox.Items.Clear();
+                    presetComboBox.Items.AddRange(_presets.ToArray());
+
+                    // Select first preset by default
+                    if (presetComboBox.Items.Count > 0)
+                    {
+                        presetComboBox.SelectedIndex = 0;
+                    }
+
+                    LogStatus($"Loaded {_presets.Count} memory presets");
+                }
+                else
+                {
+                    LogStatus("Warning: No presets found in config file");
+                }
+            }
+            catch (Exception ex)
+            {
+                LogStatus($"Error loading memory presets: {ex.Message}");
+                Debug.WriteLine($"Error loading memory presets: {ex}");
+            }
+        }
+
+        private void presetComboBox_SelectedIndexChanged(object? sender, EventArgs e)
+        {
+            if (presetComboBox.SelectedItem is MemoryPreset preset)
+            {
+                // Update the base address and length fields
+                baseAddressTextBox.Text = preset.BaseAddress;
+                lengthNumericUpDown.Value = preset.Length;
+
+                // Log the selection
+                string description = string.IsNullOrEmpty(preset.Description)
+                    ? ""
+                    : $" - {preset.Description}";
+                LogStatus($"Preset selected: {preset.Name}{description}");
+            }
         }
 
         /// <summary>
