@@ -1,10 +1,10 @@
 {
   "presets": [
     {
-      "name": "E132E0288: calibration",
+      "name": "E132E0288/302: calibration",
       "baseAddress": "40008654",
       "length": 27052,
-      "description": "2020 Evora Live Calibration"
+      "description": "2020/1 Evora GT (Fed) Live Calibration"
     },
     {
       "name": "C132E0278: calibration",

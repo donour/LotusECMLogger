@@ -217,7 +217,7 @@ namespace LotusECMLogger
             refreshRateLabel.Text = "no data";
             // 
             // mainTabControl
-            // 
+            //
             mainTabControl.Controls.Add(vehicleInfoTab);
             mainTabControl.Controls.Add(liveDataTab);
             mainTabControl.Controls.Add(codingDataTab);
@@ -228,6 +228,7 @@ namespace LotusECMLogger
             mainTabControl.Dock = DockStyle.Fill;
             mainTabControl.Location = new Point(0, 37);
             mainTabControl.Margin = new Padding(4, 4, 4, 4);
+            mainTabControl.Multiline = true;
             mainTabControl.Name = "mainTabControl";
             mainTabControl.SelectedIndex = 0;
             mainTabControl.Size = new Size(1000, 681);
