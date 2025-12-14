@@ -52,5 +52,15 @@ namespace LotusECMLogger.Services
 		/// Get the current memory address being logged
 		/// </summary>
 		uint? CurrentAddress { get; }
+
+		/// <summary>
+		/// Read a block of ECU memory and save it to a binary file
+		/// </summary>
+		/// <param name="startAddress">Starting memory address (RAM: 0x40000000-0x4000FFFF)</param>
+		/// <param name="length">Number of bytes to read</param>
+		/// <param name="filePath">Path where the binary file will be saved</param>
+		/// <param name="progress">Optional progress callback (bytesRead, totalBytes)</param>
+		/// <returns>True if successful, false otherwise</returns>
+		Task<bool> ReadMemoryToFileAsync(uint startAddress, uint length, string filePath, IProgress<(int bytesRead, int totalBytes)>? progress = null);
 	}
 }

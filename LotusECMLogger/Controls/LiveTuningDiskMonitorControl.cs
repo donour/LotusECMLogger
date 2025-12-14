@@ -153,72 +153,90 @@ namespace LotusECMLogger.Controls
 
         private async void ReadFromEcuButton_Click(object sender, EventArgs e)
         {
-            if (_liveTuningService == null)
-            {
-                MessageBox.Show("Live tuning service not initialized", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                return;
-            }
-
             // Validate and parse inputs
             if (!TryParseReadFromEcuInputs(out uint baseAddress, out uint length, out string outputDir))
             {
                 return;
             }
 
-            // Generate filename with ISO-8601 date and .cpt extension
-            _currentFilePath = GenerateFilePath(outputDir, baseAddress);
-
-            // Ensure directory exists
             try
             {
+                var rmaService = new T6RMAService();
+                _liveTuningService = new T6LiveTuningService(rmaService);
+
+                // Subscribe to service events
+                _liveTuningService.WordWritten += OnWordWritten;
+                _liveTuningService.ErrorOccurred += OnError;
+
+                LogStatus("Live tuning service created");
+                LogStatus($"Configuration: Address=0x{baseAddress:X8}, Length={length} bytes");
+                LogStatus($"Output directory: {outputDir}");
+
+                // Disable new workflows
+                SetLoadFileControlsEnabled(false);
+                SetReadFromEcuControlsEnabled(false);
+
+                // Enable stop button to allow canceling/stopping
+                stopMonitoringButton.Enabled = true;
+
+                // Generate filename with ISO-8601 date and .cpt extension
+                _currentFilePath = GenerateFilePath(outputDir, baseAddress);
+
+                // Ensure directory exists
                 string? directory = Path.GetDirectoryName(_currentFilePath);
                 if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
                 {
                     Directory.CreateDirectory(directory);
                     LogStatus($"Created directory: {directory}");
                 }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Failed to create output directory: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                return;
-            }
 
-            // Disable controls during operation
-            SetReadFromEcuControlsEnabled(false);
-            SetLoadFileControlsEnabled(false);
-            LogStatus($"Reading ECU memory: Address=0x{baseAddress:X8}, Length={length} bytes");
-            LogStatus($"Output file: {_currentFilePath}");
+                LogStatus($"Reading ECU memory to file: {Path.GetFileName(_currentFilePath)}");
 
-            try
-            {
-                bool success = await T6LiveTuningService.ReadEcuImageToFileAsync(baseAddress, length, _currentFilePath);
+                // Create progress reporter
+                var progress = new Progress<(int bytesRead, int totalBytes)>(p =>
+                {
+                    if (InvokeRequired)
+                    {
+                        Invoke(() => LogStatus($"Progress: {p.bytesRead}/{p.totalBytes} bytes ({p.bytesRead * 100 / p.totalBytes}%)"));
+                    }
+                    else
+                    {
+                        LogStatus($"Progress: {p.bytesRead}/{p.totalBytes} bytes ({p.bytesRead * 100 / p.totalBytes}%)");
+                    }
+                });
+
+                // Read memory from ECU
+                bool success = await rmaService.ReadMemoryToFileAsync(baseAddress, length, _currentFilePath, progress);
 
                 if (success)
                 {
-                    LogStatus($"Successfully read {length} bytes from ECU to {Path.GetFileName(_currentFilePath)}");
-
-                    // Automatically start monitoring after successful read
-                    _liveTuningService.StartMonitoring(_currentFilePath, baseAddress);
-                    LogStatus($"Started monitoring: {Path.GetFileName(_currentFilePath)}");
-                    LogStatus($"Changes will be written to ECU at base address 0x{baseAddress:X8}");
-
-                    stopMonitoringButton.Enabled = true;
+                    LogStatus($"Successfully read {length} bytes from ECU");
+                    LogStatus($"File saved: {_currentFilePath}");
+                    MessageBox.Show($"ECU memory successfully read to:\n{_currentFilePath}",
+                        "Read Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
                 else
                 {
-                    LogStatus("Failed to read ECU memory (stub not implemented)");
-                    MessageBox.Show("Read operation not yet implemented (stub)", "Information", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    LogStatus("Failed to read ECU memory");
+                    MessageBox.Show("Failed to read ECU memory. Check the status log for details.",
+                        "Read Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+
+                    // Re-enable controls on failure
                     SetReadFromEcuControlsEnabled(true);
                     SetLoadFileControlsEnabled(true);
+                    stopMonitoringButton.Enabled = false;
                 }
             }
             catch (Exception ex)
             {
                 LogStatus($"Error reading ECU: {ex.Message}");
-                MessageBox.Show($"Failed to read ECU memory: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show($"Failed to read ECU memory: {ex.Message}",
+                    "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+
+                // Re-enable controls on error
                 SetReadFromEcuControlsEnabled(true);
                 SetLoadFileControlsEnabled(true);
+                stopMonitoringButton.Enabled = false;
             }
         }
 
