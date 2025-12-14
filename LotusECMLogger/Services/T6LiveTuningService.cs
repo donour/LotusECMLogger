@@ -3,21 +3,25 @@ using System.Diagnostics;
 
 namespace LotusECMLogger.Services
 {
-	/// <summary>
-	/// Service for live tuning ECU memory by synchronizing a binary file with ECU RAM.
-	///
-	/// This service enables real-time calibration editing by:
-	/// 1. Reading ECU memory to a binary file on disk
-	/// 2. Monitoring the file for changes (using BinaryFileMonitor)
-	/// 3. Writing detected changes back to ECU memory via T6 RMA protocol
-	///
-	/// The service monitors 32-bit word-level changes for efficient synchronization.
-	/// </summary>
-	public class T6LiveTuningService : IDisposable
+    /// <summary>
+    /// Service for live tuning ECU memory by synchronizing a binary file with ECU RAM.
+    ///
+    /// This service enables real-time calibration editing by:
+    /// 1. Reading ECU memory to a binary file on disk
+    /// 2. Monitoring the file for changes (using BinaryFileMonitor)
+    /// 3. Writing detected changes back to ECU memory via T6 RMA protocol
+    ///
+    /// The service monitors 32-bit word-level changes for efficient synchronization.
+    /// </summary>
+    /// <remarks>
+    /// Initializes a new instance of the T6LiveTuningService
+    /// </remarks>
+    /// <param name="rmaService">The T6 RMA service for ECU communication</param>
+    public class T6LiveTuningService(IT6RMAService rmaService) : IDisposable
 	{
-		private readonly IT6RMAService _rmaService;
-		private BinaryFileMonitor.BinaryFileMonitor? _fileMonitor;
-		private string? _monitoredFilePath;
+		private readonly IT6RMAService _rmaService = rmaService;
+        private BinaryFileMonitor.BinaryFileMonitor? _fileMonitor;
+        private string? _monitoredFilePath;
 		private uint _baseMemoryAddress;
 		private uint _memoryLength;
 		private bool _isMonitoring;
@@ -75,33 +79,24 @@ namespace LotusECMLogger.Services
 			}
 		}
 
-		/// <summary>
-		/// Initializes a new instance of the T6LiveTuningService
-		/// </summary>
-		/// <param name="rmaService">The T6 RMA service for ECU communication</param>
-		public T6LiveTuningService(IT6RMAService rmaService)
-		{
-			_rmaService = rmaService ?? throw new ArgumentNullException(nameof(rmaService));
-		}
-
-		/// <summary>
-		/// Reads ECU memory and saves it to a binary file on disk.
-		/// This creates the initial binary image that can be monitored for changes.
-		/// </summary>
-		/// <param name="startAddress">Starting ECU memory address (must be in RAM: 0x40000000-0x4000FFFF)</param>
-		/// <param name="length">Number of bytes to read (should be multiple of 4 for word alignment)</param>
-		/// <param name="filePath">Path where the binary file will be saved</param>
-		/// <returns>True if successful, false otherwise</returns>
-		/// <remarks>
-		/// STUB: Implementation pending
-		/// TODO:
-		/// - Validate address range (RAM only)
-		/// - Read memory in chunks using T6RMAService
-		/// - Handle multi-frame reads for large blocks
-		/// - Write binary data to file
-		/// - Verify file write success
-		/// </remarks>
-		public async Task<bool> ReadEcuImageToFileAsync(uint startAddress, uint length, string filePath)
+        /// <summary>
+        /// Reads ECU memory and saves it to a binary file on disk.
+        /// This creates the initial binary image that can be monitored for changes.
+        /// </summary>
+        /// <param name="startAddress">Starting ECU memory address (must be in RAM: 0x40000000-0x4000FFFF)</param>
+        /// <param name="length">Number of bytes to read (should be multiple of 4 for word alignment)</param>
+        /// <param name="filePath">Path where the binary file will be saved</param>
+        /// <returns>True if successful, false otherwise</returns>
+        /// <remarks>
+        /// STUB: Implementation pending
+        /// TODO:
+        /// - Validate address range (RAM only)
+        /// - Read memory in chunks using T6RMAService
+        /// - Handle multi-frame reads for large blocks
+        /// - Write binary data to file
+        /// - Verify file write success
+        /// </remarks>
+        public static async Task<bool> ReadEcuImageToFileAsync(uint startAddress, uint length, string filePath)
 		{
 			Debug.WriteLine($"[STUB] ReadEcuImageToFileAsync: Address=0x{startAddress:X8}, Length={length}, File={filePath}");
 
@@ -222,7 +217,7 @@ namespace LotusECMLogger.Services
 		/// - Note: Write operations are fire-and-forget (no response expected)
 		/// - Add error handling for J2534 communication failures
 		/// </remarks>
-		private async Task WriteWordToEcuAsync(uint address, uint value)
+		private static async Task WriteWordToEcuAsync(uint address, uint value)
 		{
 			Debug.WriteLine($"[STUB] WriteWordToEcuAsync: Address=0x{address:X8}, Value=0x{value:X8}");
 

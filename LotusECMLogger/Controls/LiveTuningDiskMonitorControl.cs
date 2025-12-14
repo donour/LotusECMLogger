@@ -9,7 +9,7 @@ namespace LotusECMLogger.Controls
     {
         private T6LiveTuningService? _liveTuningService;
         private string? _currentFilePath;
-        private List<MemoryPreset> _presets = new();
+        private List<MemoryPreset> _presets = [];
 
         private bool _isInitialized = false;
 
@@ -65,7 +65,7 @@ namespace LotusECMLogger.Controls
                 {
                     _presets = config.Presets;
                     presetComboBox.Items.Clear();
-                    presetComboBox.Items.AddRange(_presets.ToArray());
+                    presetComboBox.Items.AddRange([.. _presets]);
 
                     // Select first preset by default
                     if (presetComboBox.Items.Count > 0)
@@ -103,9 +103,6 @@ namespace LotusECMLogger.Controls
             }
         }
 
-        /// <summary>
-        /// Sets the T6LiveTuningService instance to use
-        /// </summary>
         public void SetLiveTuningService(T6LiveTuningService service)
         {
             _liveTuningService = service;
@@ -119,7 +116,7 @@ namespace LotusECMLogger.Controls
             }
         }
 
-        private void browseButton_Click(object sender, EventArgs e)
+        private void BrowseButton_Click(object sender, EventArgs e)
         {
             using var folderDialog = new FolderBrowserDialog
             {
@@ -135,7 +132,7 @@ namespace LotusECMLogger.Controls
             }
         }
 
-        private async void readFromEcuButton_Click(object sender, EventArgs e)
+        private async void ReadFromEcuButton_Click(object sender, EventArgs e)
         {
             if (_liveTuningService == null)
             {
@@ -175,7 +172,7 @@ namespace LotusECMLogger.Controls
 
             try
             {
-                bool success = await _liveTuningService.ReadEcuImageToFileAsync(baseAddress, length, _currentFilePath);
+                bool success = await T6LiveTuningService.ReadEcuImageToFileAsync(baseAddress, length, _currentFilePath);
 
                 if (success)
                 {
@@ -199,7 +196,7 @@ namespace LotusECMLogger.Controls
             }
         }
 
-        private void startMonitoringButton_Click(object sender, EventArgs e)
+        private void StartMonitoringButton_Click(object sender, EventArgs e)
         {
             if (_liveTuningService == null)
             {
@@ -239,7 +236,7 @@ namespace LotusECMLogger.Controls
             }
         }
 
-        private void stopMonitoringButton_Click(object sender, EventArgs e)
+        private void StopMonitoringButton_Click(object sender, EventArgs e)
         {
             if (_liveTuningService == null)
             {
@@ -331,7 +328,7 @@ namespace LotusECMLogger.Controls
             return true;
         }
 
-        private bool TryParseHexAddress(string hexString, out uint address)
+        private static bool TryParseHexAddress(string hexString, out uint address)
         {
             address = 0;
 
@@ -344,14 +341,14 @@ namespace LotusECMLogger.Controls
             hexString = hexString.Trim();
             if (hexString.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
             {
-                hexString = hexString.Substring(2);
+                hexString = hexString[2..];
             }
 
             // Try to parse as hex
             return uint.TryParse(hexString, System.Globalization.NumberStyles.HexNumber, null, out address);
         }
 
-        private string GenerateFilePath(string directory, uint baseAddress)
+        private static string GenerateFilePath(string directory, uint baseAddress)
         {
             // Generate filename: YYYY-MM-DDTHH-MM-SS_ADDRESS.cpt
             // Using ISO 8601 format but replacing colons with hyphens for filesystem compatibility

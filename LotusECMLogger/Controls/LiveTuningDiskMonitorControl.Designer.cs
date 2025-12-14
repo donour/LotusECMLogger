@@ -100,7 +100,7 @@ namespace LotusECMLogger.Controls
             browseButton.TabIndex = 2;
             browseButton.Text = "Browse...";
             browseButton.UseVisualStyleBackColor = true;
-            browseButton.Click += browseButton_Click;
+            browseButton.Click += BrowseButton_Click;
             // 
             // filePathTextBox
             // 
@@ -201,7 +201,7 @@ namespace LotusECMLogger.Controls
             stopMonitoringButton.TabIndex = 2;
             stopMonitoringButton.Text = "Stop Monitoring";
             stopMonitoringButton.UseVisualStyleBackColor = true;
-            stopMonitoringButton.Click += stopMonitoringButton_Click;
+            stopMonitoringButton.Click += StopMonitoringButton_Click;
             // 
             // startMonitoringButton
             // 
@@ -213,7 +213,7 @@ namespace LotusECMLogger.Controls
             startMonitoringButton.TabIndex = 1;
             startMonitoringButton.Text = "Start Monitoring";
             startMonitoringButton.UseVisualStyleBackColor = true;
-            startMonitoringButton.Click += startMonitoringButton_Click;
+            startMonitoringButton.Click += StartMonitoringButton_Click;
             // 
             // readFromEcuButton
             // 
@@ -224,7 +224,7 @@ namespace LotusECMLogger.Controls
             readFromEcuButton.TabIndex = 0;
             readFromEcuButton.Text = "Read from ECU";
             readFromEcuButton.UseVisualStyleBackColor = true;
-            readFromEcuButton.Click += readFromEcuButton_Click;
+            readFromEcuButton.Click += ReadFromEcuButton_Click;
             // 
             // statusPanel
             // 
