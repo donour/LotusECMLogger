@@ -33,7 +33,7 @@ namespace LotusECMLogger.Controls
             // Set default output directory to Documents folder
             string documentsPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
             string defaultPath = Path.Combine(documentsPath, "LotusECMLogger", "LiveTuning");
-            filePathTextBox.Text = defaultPath;
+            outputDirectoryTextBox.Text = defaultPath;
 
             // Load memory presets from JSON
             LoadMemoryPresets();
@@ -41,7 +41,8 @@ namespace LotusECMLogger.Controls
             // Subscribe to text changed event to validate inputs
             baseAddressTextBox.TextChanged += ValidateInputs;
             lengthNumericUpDown.ValueChanged += ValidateInputs;
-            filePathTextBox.TextChanged += ValidateInputs;
+            outputDirectoryTextBox.TextChanged += ValidateReadFromEcuInputs;
+            existingFileTextBox.TextChanged += ValidateLoadFileInputs;
 
             LogStatus("Live Tuning control initialized");
         }
@@ -116,19 +117,37 @@ namespace LotusECMLogger.Controls
             }
         }
 
-        private void BrowseButton_Click(object sender, EventArgs e)
+        private void BrowseOutputButton_Click(object sender, EventArgs e)
         {
             using var folderDialog = new FolderBrowserDialog
             {
                 Description = "Select output directory for calibration files",
                 UseDescriptionForTitle = true,
-                SelectedPath = filePathTextBox.Text
+                SelectedPath = outputDirectoryTextBox.Text
             };
 
             if (folderDialog.ShowDialog() == DialogResult.OK)
             {
-                filePathTextBox.Text = folderDialog.SelectedPath;
+                outputDirectoryTextBox.Text = folderDialog.SelectedPath;
                 LogStatus($"Output directory changed to: {folderDialog.SelectedPath}");
+            }
+        }
+
+        private void BrowseFileButton_Click(object sender, EventArgs e)
+        {
+            using var fileDialog = new OpenFileDialog
+            {
+                Title = "Select Calibration File",
+                Filter = "Calibration Files (*.cpt)|*.cpt|All Files (*.*)|*.*",
+                InitialDirectory = string.IsNullOrEmpty(existingFileTextBox.Text)
+                    ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "LotusECMLogger", "LiveTuning")
+                    : Path.GetDirectoryName(existingFileTextBox.Text)
+            };
+
+            if (fileDialog.ShowDialog() == DialogResult.OK)
+            {
+                existingFileTextBox.Text = fileDialog.FileName;
+                LogStatus($"Selected file: {fileDialog.FileName}");
             }
         }
 
@@ -141,7 +160,7 @@ namespace LotusECMLogger.Controls
             }
 
             // Validate and parse inputs
-            if (!TryParseInputs(out uint baseAddress, out uint length, out string outputDir))
+            if (!TryParseReadFromEcuInputs(out uint baseAddress, out uint length, out string outputDir))
             {
                 return;
             }
@@ -166,7 +185,8 @@ namespace LotusECMLogger.Controls
             }
 
             // Disable controls during operation
-            SetControlsEnabled(false);
+            SetReadFromEcuControlsEnabled(false);
+            SetLoadFileControlsEnabled(false);
             LogStatus($"Reading ECU memory: Address=0x{baseAddress:X8}, Length={length} bytes");
             LogStatus($"Output file: {_currentFilePath}");
 
@@ -177,22 +197,28 @@ namespace LotusECMLogger.Controls
                 if (success)
                 {
                     LogStatus($"Successfully read {length} bytes from ECU to {Path.GetFileName(_currentFilePath)}");
-                    startMonitoringButton.Enabled = true;
+
+                    // Automatically start monitoring after successful read
+                    _liveTuningService.StartMonitoring(_currentFilePath, baseAddress);
+                    LogStatus($"Started monitoring: {Path.GetFileName(_currentFilePath)}");
+                    LogStatus($"Changes will be written to ECU at base address 0x{baseAddress:X8}");
+
+                    stopMonitoringButton.Enabled = true;
                 }
                 else
                 {
                     LogStatus("Failed to read ECU memory (stub not implemented)");
                     MessageBox.Show("Read operation not yet implemented (stub)", "Information", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    SetReadFromEcuControlsEnabled(true);
+                    SetLoadFileControlsEnabled(true);
                 }
             }
             catch (Exception ex)
             {
                 LogStatus($"Error reading ECU: {ex.Message}");
                 MessageBox.Show($"Failed to read ECU memory: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            finally
-            {
-                SetControlsEnabled(true);
+                SetReadFromEcuControlsEnabled(true);
+                SetLoadFileControlsEnabled(true);
             }
         }
 
@@ -204,9 +230,12 @@ namespace LotusECMLogger.Controls
                 return;
             }
 
-            if (string.IsNullOrEmpty(_currentFilePath) || !File.Exists(_currentFilePath))
+            // Get file path from existing file textbox
+            string filePath = existingFileTextBox.Text.Trim();
+
+            if (string.IsNullOrEmpty(filePath) || !File.Exists(filePath))
             {
-                MessageBox.Show("No calibration file loaded. Please read from ECU first.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show("Please select a valid calibration file.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
@@ -219,15 +248,14 @@ namespace LotusECMLogger.Controls
 
             try
             {
+                _currentFilePath = filePath;
                 _liveTuningService.StartMonitoring(_currentFilePath, baseAddress);
-                LogStatus($"Started monitoring: {Path.GetFileName(_currentFilePath)}");
+                LogStatus($"Started monitoring existing file: {Path.GetFileName(_currentFilePath)}");
                 LogStatus($"Changes will be written to ECU at base address 0x{baseAddress:X8}");
 
-                startMonitoringButton.Enabled = false;
+                SetReadFromEcuControlsEnabled(false);
+                SetLoadFileControlsEnabled(false);
                 stopMonitoringButton.Enabled = true;
-                readFromEcuButton.Enabled = false;
-                baseAddressTextBox.Enabled = false;
-                lengthNumericUpDown.Enabled = false;
             }
             catch (Exception ex)
             {
@@ -249,10 +277,8 @@ namespace LotusECMLogger.Controls
                 LogStatus("Monitoring stopped");
 
                 stopMonitoringButton.Enabled = false;
-                startMonitoringButton.Enabled = true;
-                readFromEcuButton.Enabled = true;
-                baseAddressTextBox.Enabled = true;
-                lengthNumericUpDown.Enabled = true;
+                SetReadFromEcuControlsEnabled(true);
+                SetLoadFileControlsEnabled(true);
             }
             catch (Exception ex)
             {
@@ -287,14 +313,29 @@ namespace LotusECMLogger.Controls
 
         private void ValidateInputs(object? sender, EventArgs e)
         {
-            // Enable/disable Read button based on input validation
+            ValidateReadFromEcuInputs(sender, e);
+            ValidateLoadFileInputs(sender, e);
+        }
+
+        private void ValidateReadFromEcuInputs(object? sender, EventArgs e)
+        {
+            // Enable/disable Read & Start button based on input validation
             bool hasValidAddress = TryParseHexAddress(baseAddressTextBox.Text, out _);
-            bool hasValidPath = !string.IsNullOrWhiteSpace(filePathTextBox.Text);
+            bool hasValidPath = !string.IsNullOrWhiteSpace(outputDirectoryTextBox.Text);
 
             readFromEcuButton.Enabled = hasValidAddress && hasValidPath;
         }
 
-        private bool TryParseInputs(out uint baseAddress, out uint length, out string outputDir)
+        private void ValidateLoadFileInputs(object? sender, EventArgs e)
+        {
+            // Enable/disable Start Monitoring button based on input validation
+            bool hasValidAddress = TryParseHexAddress(baseAddressTextBox.Text, out _);
+            bool hasValidFile = !string.IsNullOrWhiteSpace(existingFileTextBox.Text) && File.Exists(existingFileTextBox.Text.Trim());
+
+            startMonitoringButton.Enabled = hasValidAddress && hasValidFile;
+        }
+
+        private bool TryParseReadFromEcuInputs(out uint baseAddress, out uint length, out string outputDir)
         {
             baseAddress = 0;
             length = 0;
@@ -318,7 +359,7 @@ namespace LotusECMLogger.Controls
             }
 
             // Get output directory
-            outputDir = filePathTextBox.Text.Trim();
+            outputDir = outputDirectoryTextBox.Text.Trim();
             if (string.IsNullOrEmpty(outputDir))
             {
                 MessageBox.Show("Please specify an output directory", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
@@ -376,18 +417,36 @@ namespace LotusECMLogger.Controls
             Debug.WriteLine($"LiveTuning: {message}");
         }
 
-        private void SetControlsEnabled(bool enabled)
+        private void SetReadFromEcuControlsEnabled(bool enabled)
         {
             baseAddressTextBox.Enabled = enabled;
             lengthNumericUpDown.Enabled = enabled;
-            filePathTextBox.Enabled = enabled;
-            browseButton.Enabled = enabled;
-            readFromEcuButton.Enabled = enabled;
+            outputDirectoryTextBox.Enabled = enabled;
+            browseOutputButton.Enabled = enabled;
+            presetComboBox.Enabled = enabled;
 
-            // Don't enable start button if we haven't read from ECU yet
-            if (enabled && !string.IsNullOrEmpty(_currentFilePath))
+            if (enabled)
             {
-                startMonitoringButton.Enabled = true;
+                ValidateReadFromEcuInputs(null, EventArgs.Empty);
+            }
+            else
+            {
+                readFromEcuButton.Enabled = false;
+            }
+        }
+
+        private void SetLoadFileControlsEnabled(bool enabled)
+        {
+            existingFileTextBox.Enabled = enabled;
+            browseFileButton.Enabled = enabled;
+
+            if (enabled)
+            {
+                ValidateLoadFileInputs(null, EventArgs.Empty);
+            }
+            else
+            {
+                startMonitoringButton.Enabled = false;
             }
         }
 

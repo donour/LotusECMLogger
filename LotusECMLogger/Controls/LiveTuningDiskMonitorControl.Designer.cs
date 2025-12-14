@@ -15,297 +15,268 @@ namespace LotusECMLogger.Controls
         /// </summary>
         private void InitializeComponent()
         {
-            configPanel = new Panel();
+            mainTableLayout = new TableLayoutPanel();
             presetLabel = new Label();
             presetComboBox = new ComboBox();
-            fileConfigGroup = new GroupBox();
-            browseButton = new Button();
-            filePathTextBox = new TextBox();
-            filePathLabel = new Label();
-            memoryConfigGroup = new GroupBox();
-            lengthNumericUpDown = new NumericUpDown();
-            lengthLabel = new Label();
-            baseAddressTextBox = new TextBox();
             baseAddressLabel = new Label();
-            operationsPanel = new Panel();
-            stopMonitoringButton = new Button();
-            startMonitoringButton = new Button();
+            baseAddressTextBox = new TextBox();
+            lengthLabel = new Label();
+            lengthNumericUpDown = new NumericUpDown();
+            outputDirectoryLabel = new Label();
+            outputDirectoryTextBox = new TextBox();
+            browseOutputButton = new Button();
             readFromEcuButton = new Button();
-            statusPanel = new Panel();
+            existingFileLabel = new Label();
+            existingFileTextBox = new TextBox();
+            browseFileButton = new Button();
+            startMonitoringButton = new Button();
+            stopMonitoringButton = new Button();
             statusTextBox = new TextBox();
-            statusLabel = new Label();
-            configPanel.SuspendLayout();
-            fileConfigGroup.SuspendLayout();
-            memoryConfigGroup.SuspendLayout();
+            mainTableLayout.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)lengthNumericUpDown).BeginInit();
-            operationsPanel.SuspendLayout();
-            statusPanel.SuspendLayout();
             SuspendLayout();
-            // 
-            // configPanel
-            // 
-            configPanel.Controls.Add(presetLabel);
-            configPanel.Controls.Add(presetComboBox);
-            configPanel.Controls.Add(fileConfigGroup);
-            configPanel.Controls.Add(memoryConfigGroup);
-            configPanel.Dock = DockStyle.Top;
-            configPanel.Location = new Point(0, 0);
-            configPanel.Margin = new Padding(4, 5, 4, 5);
-            configPanel.Name = "configPanel";
-            configPanel.Padding = new Padding(14, 17, 14, 17);
-            configPanel.Size = new Size(1143, 213);
-            configPanel.TabIndex = 0;
-            // 
+            //
+            // mainTableLayout
+            //
+            mainTableLayout.ColumnCount = 5;
+            mainTableLayout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            mainTableLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+            mainTableLayout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            mainTableLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+            mainTableLayout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            mainTableLayout.Controls.Add(presetLabel, 0, 0);
+            mainTableLayout.Controls.Add(presetComboBox, 1, 0);
+            mainTableLayout.Controls.Add(baseAddressLabel, 0, 1);
+            mainTableLayout.Controls.Add(baseAddressTextBox, 1, 1);
+            mainTableLayout.Controls.Add(lengthLabel, 2, 1);
+            mainTableLayout.Controls.Add(lengthNumericUpDown, 3, 1);
+            mainTableLayout.Controls.Add(outputDirectoryLabel, 0, 2);
+            mainTableLayout.Controls.Add(outputDirectoryTextBox, 1, 2);
+            mainTableLayout.Controls.Add(browseOutputButton, 3, 2);
+            mainTableLayout.Controls.Add(readFromEcuButton, 4, 2);
+            mainTableLayout.Controls.Add(existingFileLabel, 0, 3);
+            mainTableLayout.Controls.Add(existingFileTextBox, 1, 3);
+            mainTableLayout.Controls.Add(browseFileButton, 3, 3);
+            mainTableLayout.Controls.Add(startMonitoringButton, 4, 3);
+            mainTableLayout.Controls.Add(stopMonitoringButton, 0, 4);
+            mainTableLayout.Controls.Add(statusTextBox, 0, 5);
+            mainTableLayout.Dock = DockStyle.Fill;
+            mainTableLayout.Location = new Point(0, 0);
+            mainTableLayout.Name = "mainTableLayout";
+            mainTableLayout.Padding = new Padding(10);
+            mainTableLayout.RowCount = 6;
+            mainTableLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            mainTableLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            mainTableLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            mainTableLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            mainTableLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            mainTableLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+            mainTableLayout.Size = new Size(1143, 1000);
+            mainTableLayout.TabIndex = 0;
+            //
             // presetLabel
-            // 
+            //
+            presetLabel.Anchor = AnchorStyles.Left;
             presetLabel.AutoSize = true;
             presetLabel.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            presetLabel.Location = new Point(14, 17);
-            presetLabel.Margin = new Padding(4, 0, 4, 0);
+            presetLabel.Location = new Point(13, 18);
             presetLabel.Name = "presetLabel";
-            presetLabel.Size = new Size(147, 25);
+            presetLabel.Size = new Size(96, 15);
             presetLabel.TabIndex = 0;
             presetLabel.Text = "Memory Preset:";
-            // 
+            //
             // presetComboBox
-            // 
+            //
+            mainTableLayout.SetColumnSpan(presetComboBox, 4);
+            presetComboBox.Dock = DockStyle.Fill;
             presetComboBox.DropDownStyle = ComboBoxStyle.DropDownList;
-            presetComboBox.Location = new Point(169, 13);
-            presetComboBox.Margin = new Padding(4, 5, 4, 5);
+            presetComboBox.Location = new Point(115, 13);
             presetComboBox.Name = "presetComboBox";
-            presetComboBox.Size = new Size(740, 33);
+            presetComboBox.Size = new Size(1015, 23);
             presetComboBox.TabIndex = 1;
             presetComboBox.SelectedIndexChanged += presetComboBox_SelectedIndexChanged;
-            // 
-            // fileConfigGroup
-            // 
-            fileConfigGroup.Controls.Add(browseButton);
-            fileConfigGroup.Controls.Add(filePathTextBox);
-            fileConfigGroup.Controls.Add(filePathLabel);
-            fileConfigGroup.Location = new Point(430, 67);
-            fileConfigGroup.Margin = new Padding(4, 5, 4, 5);
-            fileConfigGroup.Name = "fileConfigGroup";
-            fileConfigGroup.Padding = new Padding(14, 17, 14, 17);
-            fileConfigGroup.Size = new Size(699, 141);
-            fileConfigGroup.TabIndex = 3;
-            fileConfigGroup.TabStop = false;
-            fileConfigGroup.Text = "File Configuration";
-            // 
-            // browseButton
-            // 
-            browseButton.Location = new Point(292, 33);
-            browseButton.Margin = new Padding(4, 5, 4, 5);
-            browseButton.Name = "browseButton";
-            browseButton.Size = new Size(107, 42);
-            browseButton.TabIndex = 2;
-            browseButton.Text = "Browse...";
-            browseButton.UseVisualStyleBackColor = true;
-            browseButton.Click += BrowseButton_Click;
-            // 
-            // filePathTextBox
-            // 
-            filePathTextBox.Location = new Point(21, 80);
-            filePathTextBox.Margin = new Padding(4, 5, 4, 5);
-            filePathTextBox.Name = "filePathTextBox";
-            filePathTextBox.Size = new Size(378, 31);
-            filePathTextBox.TabIndex = 1;
-            // 
-            // filePathLabel
-            // 
-            filePathLabel.AutoSize = true;
-            filePathLabel.Location = new Point(21, 42);
-            filePathLabel.Margin = new Padding(4, 0, 4, 0);
-            filePathLabel.Name = "filePathLabel";
-            filePathLabel.Size = new Size(263, 25);
-            filePathLabel.TabIndex = 0;
-            filePathLabel.Text = "Output Directory (auto-named):";
-            // 
-            // memoryConfigGroup
-            // 
-            memoryConfigGroup.Controls.Add(lengthNumericUpDown);
-            memoryConfigGroup.Controls.Add(lengthLabel);
-            memoryConfigGroup.Controls.Add(baseAddressTextBox);
-            memoryConfigGroup.Controls.Add(baseAddressLabel);
-            memoryConfigGroup.Location = new Point(14, 67);
-            memoryConfigGroup.Margin = new Padding(4, 5, 4, 5);
-            memoryConfigGroup.Name = "memoryConfigGroup";
-            memoryConfigGroup.Padding = new Padding(14, 17, 14, 17);
-            memoryConfigGroup.Size = new Size(408, 141);
-            memoryConfigGroup.TabIndex = 2;
-            memoryConfigGroup.TabStop = false;
-            memoryConfigGroup.Text = "ECU Memory Configuration";
-            // 
+            //
+            // baseAddressLabel
+            //
+            baseAddressLabel.Anchor = AnchorStyles.Left;
+            baseAddressLabel.AutoSize = true;
+            baseAddressLabel.Location = new Point(13, 50);
+            baseAddressLabel.Name = "baseAddressLabel";
+            baseAddressLabel.Size = new Size(110, 15);
+            baseAddressLabel.TabIndex = 2;
+            baseAddressLabel.Text = "Base Address (Hex):";
+            //
+            // baseAddressTextBox
+            //
+            baseAddressTextBox.Anchor = AnchorStyles.Left;
+            baseAddressTextBox.CharacterCasing = CharacterCasing.Upper;
+            baseAddressTextBox.Location = new Point(129, 46);
+            baseAddressTextBox.MaxLength = 8;
+            baseAddressTextBox.Name = "baseAddressTextBox";
+            baseAddressTextBox.Size = new Size(120, 23);
+            baseAddressTextBox.TabIndex = 3;
+            baseAddressTextBox.Text = "40000000";
+            //
+            // lengthLabel
+            //
+            lengthLabel.Anchor = AnchorStyles.Left;
+            lengthLabel.AutoSize = true;
+            lengthLabel.Location = new Point(558, 50);
+            lengthLabel.Name = "lengthLabel";
+            lengthLabel.Size = new Size(112, 15);
+            lengthLabel.TabIndex = 4;
+            lengthLabel.Text = "Length (Bytes, Hex):";
+            //
             // lengthNumericUpDown
-            // 
+            //
+            lengthNumericUpDown.Anchor = AnchorStyles.Left;
             lengthNumericUpDown.Hexadecimal = true;
-            lengthNumericUpDown.Location = new Point(205, 76);
-            lengthNumericUpDown.Margin = new Padding(4, 5, 4, 5);
+            lengthNumericUpDown.Location = new Point(676, 46);
             lengthNumericUpDown.Maximum = new decimal(new int[] { 65536, 0, 0, 0 });
             lengthNumericUpDown.Minimum = new decimal(new int[] { 4, 0, 0, 0 });
             lengthNumericUpDown.Name = "lengthNumericUpDown";
-            lengthNumericUpDown.Size = new Size(103, 31);
-            lengthNumericUpDown.TabIndex = 3;
+            lengthNumericUpDown.Size = new Size(120, 23);
+            lengthNumericUpDown.TabIndex = 5;
             lengthNumericUpDown.Value = new decimal(new int[] { 4096, 0, 0, 0 });
-            // 
-            // lengthLabel
-            // 
-            lengthLabel.AutoSize = true;
-            lengthLabel.Location = new Point(24, 82);
-            lengthLabel.Margin = new Padding(4, 0, 4, 0);
-            lengthLabel.Name = "lengthLabel";
-            lengthLabel.Size = new Size(166, 25);
-            lengthLabel.TabIndex = 2;
-            lengthLabel.Text = "Length (Bytes, Hex):";
-            // 
-            // baseAddressTextBox
-            // 
-            baseAddressTextBox.CharacterCasing = CharacterCasing.Upper;
-            baseAddressTextBox.Location = new Point(202, 39);
-            baseAddressTextBox.Margin = new Padding(4, 5, 4, 5);
-            baseAddressTextBox.MaxLength = 8;
-            baseAddressTextBox.Name = "baseAddressTextBox";
-            baseAddressTextBox.Size = new Size(107, 31);
-            baseAddressTextBox.TabIndex = 1;
-            baseAddressTextBox.Text = "40000000";
-            // 
-            // baseAddressLabel
-            // 
-            baseAddressLabel.AutoSize = true;
-            baseAddressLabel.Location = new Point(23, 42);
-            baseAddressLabel.Margin = new Padding(4, 0, 4, 0);
-            baseAddressLabel.Name = "baseAddressLabel";
-            baseAddressLabel.Size = new Size(167, 25);
-            baseAddressLabel.TabIndex = 0;
-            baseAddressLabel.Text = "Base Address (Hex):";
-            // 
-            // operationsPanel
-            // 
-            operationsPanel.Controls.Add(stopMonitoringButton);
-            operationsPanel.Controls.Add(startMonitoringButton);
-            operationsPanel.Controls.Add(readFromEcuButton);
-            operationsPanel.Dock = DockStyle.Top;
-            operationsPanel.Location = new Point(0, 213);
-            operationsPanel.Margin = new Padding(4, 5, 4, 5);
-            operationsPanel.Name = "operationsPanel";
-            operationsPanel.Padding = new Padding(14, 17, 14, 17);
-            operationsPanel.Size = new Size(1143, 100);
-            operationsPanel.TabIndex = 1;
-            // 
-            // stopMonitoringButton
-            // 
-            stopMonitoringButton.Enabled = false;
-            stopMonitoringButton.Location = new Point(414, 25);
-            stopMonitoringButton.Margin = new Padding(4, 5, 4, 5);
-            stopMonitoringButton.Name = "stopMonitoringButton";
-            stopMonitoringButton.Size = new Size(186, 58);
-            stopMonitoringButton.TabIndex = 2;
-            stopMonitoringButton.Text = "Stop Monitoring";
-            stopMonitoringButton.UseVisualStyleBackColor = true;
-            stopMonitoringButton.Click += StopMonitoringButton_Click;
-            // 
+            //
+            // outputDirectoryLabel
+            //
+            outputDirectoryLabel.Anchor = AnchorStyles.Left;
+            outputDirectoryLabel.AutoSize = true;
+            outputDirectoryLabel.Location = new Point(13, 88);
+            outputDirectoryLabel.Name = "outputDirectoryLabel";
+            outputDirectoryLabel.Size = new Size(99, 15);
+            outputDirectoryLabel.TabIndex = 6;
+            outputDirectoryLabel.Text = "Output Directory:";
+            //
+            // outputDirectoryTextBox
+            //
+            mainTableLayout.SetColumnSpan(outputDirectoryTextBox, 2);
+            outputDirectoryTextBox.Anchor = AnchorStyles.Left | AnchorStyles.Right;
+            outputDirectoryTextBox.Location = new Point(129, 84);
+            outputDirectoryTextBox.Name = "outputDirectoryTextBox";
+            outputDirectoryTextBox.Size = new Size(541, 23);
+            outputDirectoryTextBox.TabIndex = 7;
+            //
+            // browseOutputButton
+            //
+            browseOutputButton.Anchor = AnchorStyles.Left;
+            browseOutputButton.Location = new Point(676, 81);
+            browseOutputButton.Name = "browseOutputButton";
+            browseOutputButton.Size = new Size(90, 29);
+            browseOutputButton.TabIndex = 8;
+            browseOutputButton.Text = "Browse...";
+            browseOutputButton.UseVisualStyleBackColor = true;
+            browseOutputButton.Click += BrowseOutputButton_Click;
+            //
+            // readFromEcuButton
+            //
+            readFromEcuButton.Anchor = AnchorStyles.Left;
+            readFromEcuButton.Location = new Point(1003, 81);
+            readFromEcuButton.Name = "readFromEcuButton";
+            readFromEcuButton.Size = new Size(120, 29);
+            readFromEcuButton.TabIndex = 9;
+            readFromEcuButton.Text = "Read && Start";
+            readFromEcuButton.UseVisualStyleBackColor = true;
+            readFromEcuButton.Click += ReadFromEcuButton_Click;
+            //
+            // existingFileLabel
+            //
+            existingFileLabel.Anchor = AnchorStyles.Left;
+            existingFileLabel.AutoSize = true;
+            existingFileLabel.Location = new Point(13, 126);
+            existingFileLabel.Name = "existingFileLabel";
+            existingFileLabel.Size = new Size(89, 15);
+            existingFileLabel.TabIndex = 10;
+            existingFileLabel.Text = "Calibration File:";
+            //
+            // existingFileTextBox
+            //
+            mainTableLayout.SetColumnSpan(existingFileTextBox, 2);
+            existingFileTextBox.Anchor = AnchorStyles.Left | AnchorStyles.Right;
+            existingFileTextBox.Location = new Point(129, 122);
+            existingFileTextBox.Name = "existingFileTextBox";
+            existingFileTextBox.Size = new Size(541, 23);
+            existingFileTextBox.TabIndex = 11;
+            //
+            // browseFileButton
+            //
+            browseFileButton.Anchor = AnchorStyles.Left;
+            browseFileButton.Location = new Point(676, 119);
+            browseFileButton.Name = "browseFileButton";
+            browseFileButton.Size = new Size(90, 29);
+            browseFileButton.TabIndex = 12;
+            browseFileButton.Text = "Browse...";
+            browseFileButton.UseVisualStyleBackColor = true;
+            browseFileButton.Click += BrowseFileButton_Click;
+            //
             // startMonitoringButton
-            // 
-            startMonitoringButton.Enabled = false;
-            startMonitoringButton.Location = new Point(214, 25);
-            startMonitoringButton.Margin = new Padding(4, 5, 4, 5);
+            //
+            startMonitoringButton.Anchor = AnchorStyles.Left;
+            startMonitoringButton.Location = new Point(1003, 119);
             startMonitoringButton.Name = "startMonitoringButton";
-            startMonitoringButton.Size = new Size(186, 58);
-            startMonitoringButton.TabIndex = 1;
+            startMonitoringButton.Size = new Size(120, 29);
+            startMonitoringButton.TabIndex = 13;
             startMonitoringButton.Text = "Start Monitoring";
             startMonitoringButton.UseVisualStyleBackColor = true;
             startMonitoringButton.Click += StartMonitoringButton_Click;
-            // 
-            // readFromEcuButton
-            // 
-            readFromEcuButton.Location = new Point(14, 25);
-            readFromEcuButton.Margin = new Padding(4, 5, 4, 5);
-            readFromEcuButton.Name = "readFromEcuButton";
-            readFromEcuButton.Size = new Size(186, 58);
-            readFromEcuButton.TabIndex = 0;
-            readFromEcuButton.Text = "Read from ECU";
-            readFromEcuButton.UseVisualStyleBackColor = true;
-            readFromEcuButton.Click += ReadFromEcuButton_Click;
-            // 
-            // statusPanel
-            // 
-            statusPanel.Controls.Add(statusTextBox);
-            statusPanel.Controls.Add(statusLabel);
-            statusPanel.Dock = DockStyle.Fill;
-            statusPanel.Location = new Point(0, 313);
-            statusPanel.Margin = new Padding(4, 5, 4, 5);
-            statusPanel.Name = "statusPanel";
-            statusPanel.Padding = new Padding(14, 17, 14, 17);
-            statusPanel.Size = new Size(1143, 687);
-            statusPanel.TabIndex = 2;
-            // 
+            //
+            // stopMonitoringButton
+            //
+            stopMonitoringButton.Enabled = false;
+            stopMonitoringButton.Location = new Point(13, 161);
+            stopMonitoringButton.Name = "stopMonitoringButton";
+            stopMonitoringButton.Size = new Size(120, 29);
+            stopMonitoringButton.TabIndex = 14;
+            stopMonitoringButton.Text = "Stop Monitoring";
+            stopMonitoringButton.UseVisualStyleBackColor = true;
+            stopMonitoringButton.Click += StopMonitoringButton_Click;
+            //
             // statusTextBox
-            // 
+            //
+            mainTableLayout.SetColumnSpan(statusTextBox, 5);
             statusTextBox.Dock = DockStyle.Fill;
             statusTextBox.Font = new Font("Consolas", 9F);
-            statusTextBox.Location = new Point(14, 42);
-            statusTextBox.Margin = new Padding(4, 5, 4, 5);
+            statusTextBox.Location = new Point(13, 203);
             statusTextBox.Multiline = true;
             statusTextBox.Name = "statusTextBox";
             statusTextBox.ReadOnly = true;
             statusTextBox.ScrollBars = ScrollBars.Both;
-            statusTextBox.Size = new Size(1115, 628);
-            statusTextBox.TabIndex = 1;
+            statusTextBox.Size = new Size(1117, 784);
+            statusTextBox.TabIndex = 15;
             statusTextBox.WordWrap = false;
-            // 
-            // statusLabel
-            // 
-            statusLabel.AutoSize = true;
-            statusLabel.Dock = DockStyle.Top;
-            statusLabel.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            statusLabel.Location = new Point(14, 17);
-            statusLabel.Margin = new Padding(4, 0, 4, 0);
-            statusLabel.Name = "statusLabel";
-            statusLabel.Size = new Size(190, 25);
-            statusLabel.TabIndex = 0;
-            statusLabel.Text = "Status / Activity Log:";
-            // 
+            //
             // LiveTuningDiskMonitorControl
-            // 
+            //
             AutoScaleMode = AutoScaleMode.None;
-            Controls.Add(statusPanel);
-            Controls.Add(operationsPanel);
-            Controls.Add(configPanel);
+            Controls.Add(mainTableLayout);
             Margin = new Padding(4, 5, 4, 5);
             Name = "LiveTuningDiskMonitorControl";
             Size = new Size(1143, 1000);
-            configPanel.ResumeLayout(false);
-            configPanel.PerformLayout();
-            fileConfigGroup.ResumeLayout(false);
-            fileConfigGroup.PerformLayout();
-            memoryConfigGroup.ResumeLayout(false);
-            memoryConfigGroup.PerformLayout();
+            mainTableLayout.ResumeLayout(false);
+            mainTableLayout.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)lengthNumericUpDown).EndInit();
-            operationsPanel.ResumeLayout(false);
-            statusPanel.ResumeLayout(false);
-            statusPanel.PerformLayout();
             ResumeLayout(false);
         }
 
         #endregion
 
-        private Panel configPanel;
+        private TableLayoutPanel mainTableLayout;
         private Label presetLabel;
         private ComboBox presetComboBox;
-        private GroupBox memoryConfigGroup;
         private Label baseAddressLabel;
         private TextBox baseAddressTextBox;
         private Label lengthLabel;
         private NumericUpDown lengthNumericUpDown;
-        private GroupBox fileConfigGroup;
-        private Label filePathLabel;
-        private TextBox filePathTextBox;
-        private Button browseButton;
-        private Panel operationsPanel;
+        private Label outputDirectoryLabel;
+        private TextBox outputDirectoryTextBox;
+        private Button browseOutputButton;
         private Button readFromEcuButton;
+        private Label existingFileLabel;
+        private TextBox existingFileTextBox;
+        private Button browseFileButton;
         private Button startMonitoringButton;
         private Button stopMonitoringButton;
-        private Panel statusPanel;
-        private Label statusLabel;
         private TextBox statusTextBox;
     }
 }
