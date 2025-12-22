@@ -329,16 +329,65 @@ namespace LotusECMLogger.Services
 				// Send the request
 				_channel.SendMessages([canMessage]);
 
-				// Wait for response with timeout
-				var response = _channel.GetMessages(1, 500); // 500ms timeout
+				// For multi-frame responses, we need to collect multiple CAN messages
+				// Each CAN frame can carry ~8 bytes of data
+				List<byte> assembledData = new List<byte>(length);
+				var stopwatch = Stopwatch.StartNew();
+				const int TOTAL_TIMEOUT_MS = 2000; // Total timeout for collecting all frames
 
-				if (response.Messages.Length > 0)
+				while (assembledData.Count < length && stopwatch.ElapsedMilliseconds < TOTAL_TIMEOUT_MS)
 				{
-					return ParseMemoryReadResponse(response.Messages[0]);
+					// Calculate remaining bytes needed
+					int remainingBytes = length - assembledData.Count;
+
+					// Calculate how many messages we might need (assuming ~8 bytes per message)
+					int messagesToRequest = Math.Max(1, (remainingBytes + 7) / 8);
+
+					// Wait for response messages
+					var response = _channel.GetMessages(messagesToRequest, 200);
+
+					if (response.Messages.Length > 0)
+					{
+						foreach (var message in response.Messages)
+						{
+							byte[]? frameData = ParseMemoryReadResponse(message);
+							if (frameData != null && frameData.Length > 0)
+							{
+								// Add the data from this frame
+								int bytesToTake = Math.Min(frameData.Length, remainingBytes);
+								assembledData.AddRange(frameData.Take(bytesToTake));
+
+								// Break if we have all the data we need
+								if (assembledData.Count >= length)
+								{
+									break;
+								}
+							}
+						}
+					}
+					else
+					{
+						// No more messages available
+						if (assembledData.Count > 0)
+						{
+							Debug.WriteLine($"T6RMA: Collected {assembledData.Count} of {length} requested bytes before timeout");
+							break;
+						}
+						else
+						{
+							Debug.WriteLine("T6RMA: No response received within timeout");
+							return null;
+						}
+					}
+				}
+
+				if (assembledData.Count > 0)
+				{
+					return [.. assembledData];
 				}
 				else
 				{
-					Debug.WriteLine("T6RMA: No response received within timeout");
+					Debug.WriteLine("T6RMA: No data received");
 					return null;
 				}
 			}
@@ -448,6 +497,289 @@ namespace LotusECMLogger.Services
 					nameof(address),
 					$"Invalid memory address 0x{address:X8}. Valid range: " +
 					$"RAM (0x{RAM_START:X8}-0x{RAM_END:X8})");
+			}
+		}
+
+		public async Task<bool> ReadMemoryToFileAsync(uint startAddress, uint length, string filePath, IProgress<(int bytesRead, int totalBytes)>? progress = null)
+		{
+			const byte MAX_CHUNK_SIZE = 255; // Maximum bytes per RMA read request
+
+			// Validate parameters
+			if (length == 0)
+			{
+				throw new ArgumentException("Length must be greater than 0", nameof(length));
+			}
+
+			if (string.IsNullOrWhiteSpace(filePath))
+			{
+				throw new ArgumentException("File path cannot be empty", nameof(filePath));
+			}
+
+			// Validate address range
+			if (startAddress < RAM_START || startAddress > RAM_END)
+			{
+				throw new ArgumentOutOfRangeException(
+					nameof(startAddress),
+					$"Invalid memory address 0x{startAddress:X8}. Valid range: RAM (0x{RAM_START:X8}-0x{RAM_END:X8})");
+			}
+
+			if (startAddress + length - 1 > RAM_END)
+			{
+				throw new ArgumentOutOfRangeException(
+					nameof(length),
+					$"Memory range exceeds RAM bounds. Start: 0x{startAddress:X8}, Length: {length}, End: 0x{startAddress + length - 1:X8}, Max: 0x{RAM_END:X8}");
+			}
+
+			Device? tempDevice = null;
+			Channel? tempChannel = null;
+
+			try
+			{
+				// Initialize J2534 device and CAN channel
+				string dllFileName = APIFactory.GetAPIinfo().First().Filename;
+				API api = APIFactory.GetAPI(dllFileName);
+				tempDevice = api.GetDevice();
+
+				tempChannel = tempDevice.GetChannel(Protocol.CAN, (Baud)500000, ConnectFlag.NONE);
+
+				// Set up CAN filter to receive responses on 0x7A0
+				var passFilter = new MessageFilter
+				{
+					FilterType = Filter.PASS_FILTER,
+					Mask = [0x00, 0x00, 0x07, 0xFF],
+					Pattern = [0x00, 0x00, 0x07, 0xA0]
+				};
+				tempChannel.StartMsgFilter(passFilter);
+
+				Debug.WriteLine($"T6RMA: Reading {length} bytes from 0x{startAddress:X8} to {filePath}");
+
+				// Create output file
+				using var fileStream = new FileStream(filePath, FileMode.Create, FileAccess.Write);
+
+				uint currentAddress = startAddress;
+				uint bytesRemaining = length;
+				int totalBytesRead = 0;
+				int chunkNumber = 0;
+
+				while (bytesRemaining > 0)
+				{
+					chunkNumber++;
+
+					// Calculate chunk size for this iteration
+					byte chunkSize = (byte)Math.Min(bytesRemaining, MAX_CHUNK_SIZE);
+
+					// Read chunk from ECU
+					byte[]? chunkData = await Task.Run(() => SendMemoryReadRequestWithChannel(tempChannel, currentAddress, chunkSize));
+
+					if (chunkData == null || chunkData.Length == 0)
+					{
+						Debug.WriteLine($"T6RMA: Failed to read chunk {chunkNumber} at address 0x{currentAddress:X8}");
+						return false;
+					}
+
+					// Only write the exact number of bytes we requested (ECU might return more)
+					int bytesToWrite = Math.Min(chunkData.Length, chunkSize);
+					await fileStream.WriteAsync(chunkData, 0, bytesToWrite);
+
+					// Update progress based on bytes actually written (which is the requested amount)
+					totalBytesRead += bytesToWrite;
+					currentAddress += (uint)bytesToWrite;
+					bytesRemaining -= (uint)bytesToWrite;
+
+					progress?.Report((totalBytesRead, (int)length));
+
+					int percentComplete = totalBytesRead * 100 / (int)length;
+					Debug.WriteLine($"T6RMA: Chunk {chunkNumber}: Read 0x{currentAddress - (uint)bytesToWrite:X8}-0x{currentAddress - 1:X8} ({bytesToWrite} bytes) - Total: {totalBytesRead}/{length} ({percentComplete}%)");
+				}
+
+				Debug.WriteLine($"T6RMA: Successfully read {totalBytesRead} bytes to {filePath}");
+				return true;
+			}
+			catch (Exception ex)
+			{
+				Debug.WriteLine($"T6RMA: Error reading memory to file: {ex.Message}");
+				throw new InvalidOperationException($"Failed to read ECU memory: {ex.Message}", ex);
+			}
+			finally
+			{
+				// Cleanup temporary channel and device
+				tempChannel?.Dispose();
+				tempDevice?.Dispose();
+			}
+		}
+
+		private byte[]? SendMemoryReadRequestWithChannel(Channel channel, uint address, byte length)
+		{
+			// Build CAN message for memory read request (CAN ID 0x53)
+			byte[] canMessage = new byte[9];
+
+			canMessage[0] = 0x00;
+			canMessage[1] = 0x00;
+			canMessage[2] = 0x00;
+			canMessage[3] = 0x53;
+
+			// Address in BIG-ENDIAN
+			canMessage[4] = (byte)((address >> 24) & 0xFF);
+			canMessage[5] = (byte)((address >> 16) & 0xFF);
+			canMessage[6] = (byte)((address >> 8) & 0xFF);
+			canMessage[7] = (byte)(address & 0xFF);
+			canMessage[8] = length;
+
+			try
+			{
+				// Send the request
+				channel.SendMessages([canMessage]);
+
+				// For multi-frame responses, we need to collect multiple CAN messages
+				// Each CAN frame can carry ~8 bytes of data, so for 255 bytes we need ~32 frames
+				// We'll collect messages until we have the requested length or timeout
+				List<byte> assembledData = new List<byte>(length);
+				var stopwatch = Stopwatch.StartNew();
+				const int TOTAL_TIMEOUT_MS = 2000; // Total timeout for collecting all frames
+
+				while (assembledData.Count < length && stopwatch.ElapsedMilliseconds < TOTAL_TIMEOUT_MS)
+				{
+					// Calculate remaining bytes needed
+					int remainingBytes = length - assembledData.Count;
+
+					// Calculate how many messages we might need (assuming ~8 bytes per message)
+					// Request a few more than calculated to avoid multiple iterations
+					int messagesToRequest = Math.Max(1, (remainingBytes + 7) / 8);
+
+					// Wait for response messages (shorter timeout per batch)
+					var response = channel.GetMessages(messagesToRequest, 200);
+
+					if (response.Messages.Length > 0)
+					{
+						foreach (var message in response.Messages)
+						{
+							byte[]? frameData = ParseMemoryReadResponse(message);
+							if (frameData != null && frameData.Length > 0)
+							{
+								// Add the data from this frame
+								int bytesToTake = Math.Min(frameData.Length, remainingBytes);
+								assembledData.AddRange(frameData.Take(bytesToTake));
+
+								// Break if we have all the data we need
+								if (assembledData.Count >= length)
+								{
+									break;
+								}
+							}
+						}
+					}
+					else
+					{
+						// No more messages available, break out
+						if (assembledData.Count > 0)
+						{
+							// We got some data, so return what we have
+							Debug.WriteLine($"T6RMA: Collected {assembledData.Count} of {length} requested bytes before timeout");
+							break;
+						}
+						else
+						{
+							Debug.WriteLine("T6RMA: No response received within timeout");
+							return null;
+						}
+					}
+				}
+
+				if (assembledData.Count > 0)
+				{
+					Debug.WriteLine($"T6RMA: Assembled {assembledData.Count} bytes from multi-frame response");
+					return [.. assembledData];
+				}
+				else
+				{
+					Debug.WriteLine("T6RMA: No data received");
+					return null;
+				}
+			}
+			catch (Exception ex)
+			{
+				Debug.WriteLine($"T6RMA: Error sending memory read request: {ex.Message}");
+				throw;
+			}
+		}
+
+		public async Task WriteWordAsync(uint address, uint value)
+		{
+			// Validate address is in RAM range
+			if (address < RAM_START || address > RAM_END - 3)
+			{
+				throw new ArgumentOutOfRangeException(
+					nameof(address),
+					$"Invalid memory address 0x{address:X8}. Valid range: RAM (0x{RAM_START:X8}-0x{RAM_END - 3:X8})");
+			}
+
+			Channel? channelToUse = null;
+			Device? tempDevice = null;
+			bool usingTemporaryDevice = false;
+
+			try
+			{
+				// Check if we have an active channel from logging
+				lock (_lock)
+				{
+					if (_channel != null && _isLogging)
+					{
+						channelToUse = _channel;
+					}
+				}
+
+				// If no active channel, create a temporary one
+				if (channelToUse == null)
+				{
+					usingTemporaryDevice = true;
+					string dllFileName = APIFactory.GetAPIinfo().First().Filename;
+					API api = APIFactory.GetAPI(dllFileName);
+					tempDevice = api.GetDevice();
+					channelToUse = tempDevice.GetChannel(Protocol.CAN, (Baud)500000, ConnectFlag.NONE);
+				}
+
+				Debug.WriteLine($"T6RMA: Writing word to ECU - Address=0x{address:X8}, Value=0x{value:X8}");
+
+				// Build CAN message for memory write (CAN ID 0x54)
+				// Format: [CAN ID (4 bytes)][Address (4 bytes, big-endian)][Data (4 bytes, big-endian)]
+				byte[] canMessage = new byte[12];
+
+				// CAN ID 0x54
+				canMessage[0] = 0x00;
+				canMessage[1] = 0x00;
+				canMessage[2] = 0x00;
+				canMessage[3] = 0x54;
+
+				// Address in BIG-ENDIAN format
+				canMessage[4] = (byte)((address >> 24) & 0xFF);
+				canMessage[5] = (byte)((address >> 16) & 0xFF);
+				canMessage[6] = (byte)((address >> 8) & 0xFF);
+				canMessage[7] = (byte)(address & 0xFF);
+
+				// Value in BIG-ENDIAN format
+				canMessage[8] = (byte)((value >> 24) & 0xFF);
+				canMessage[9] = (byte)((value >> 16) & 0xFF);
+				canMessage[10] = (byte)((value >> 8) & 0xFF);
+				canMessage[11] = (byte)(value & 0xFF);
+
+				// Send the write command (fire-and-forget, no response expected)
+				await Task.Run(() => channelToUse.SendMessages([canMessage]));
+
+				Debug.WriteLine($"T6RMA: Write command sent successfully");
+			}
+			catch (Exception ex)
+			{
+				Debug.WriteLine($"T6RMA: Error writing word to ECU: {ex.Message}");
+				throw new InvalidOperationException($"Failed to write word to ECU: {ex.Message}", ex);
+			}
+			finally
+			{
+				// Only cleanup if we created a temporary device
+				if (usingTemporaryDevice)
+				{
+					channelToUse?.Dispose();
+					tempDevice?.Dispose();
+				}
 			}
 		}
 	}

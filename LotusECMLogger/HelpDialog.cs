@@ -186,7 +186,7 @@ namespace LotusECMLogger
             AddHeading("Getting Started");
 
             AddSubheading("Requirements:");
-            AddBulletPoint("A J2534-compliant pass-thru device (e.g., Tactrix OpenPort 2.0, GO-DIAG GD101)");
+            AddBulletPoint("A J2534-compliant pass-thru device (e.g., Tactrix OpenPort 2.0)");
             AddBulletPoint("USB connection to your computer");
             AddBulletPoint("OBD-II connection to your Lotus vehicle");
             AddBulletPoint("Windows operating system");
@@ -411,12 +411,6 @@ namespace LotusECMLogger
             AddBulletPoint("Regular driver updates");
             AddBulletPoint("Extensive community support");
 
-            AddSubheading("GO-DIAG GD101");
-            AddParagraph("A low-cost J2534 device that provides good basic functionality for OBD-II diagnostics and logging.");
-            AddBulletPoint("Affordable option");
-            AddBulletPoint("J2534 compliant");
-            AddBulletPoint("Suitable for basic logging and diagnostics");
-
             AddSubheading("Requirements:");
             AddBulletPoint("Device must be J2534 compliant");
             AddBulletPoint("Manufacturer drivers must be installed");
@@ -426,8 +420,6 @@ namespace LotusECMLogger
             AddSubheading("Troubleshooting Adapter Issues:");
             AddParagraph("If your adapter is not working:");
             AddBulletPoint("Ensure the latest drivers are installed from the manufacturer's website");
-            AddBulletPoint("Check that the device is recognized by Windows Device Manager");
-            AddBulletPoint("Verify the device LED indicators show proper connection status");
             AddBulletPoint("Try a different USB port or USB cable");
             AddBulletPoint("Ensure your vehicle's ignition is on but engine may be off");
         }

@@ -61,6 +61,8 @@ namespace LotusECMLogger
             dtcControl = new LotusECMLogger.Controls.DTCControl();
             obdResetTab = new TabPage();
             t6RmaTab = new TabPage();
+            liveTuningTab = new TabPage();
+            liveTuningControl = new LotusECMLogger.Controls.LiveTuningDiskMonitorControl();
             menuStrip1.SuspendLayout();
             statusStrip1.SuspendLayout();
             mainTabControl.SuspendLayout();
@@ -70,6 +72,7 @@ namespace LotusECMLogger
             codingDataTab.SuspendLayout();
             codingMainPanel.SuspendLayout();
             dtcTab.SuspendLayout();
+            liveTuningTab.SuspendLayout();
             SuspendLayout();
             // 
             // startLogger_button
@@ -141,16 +144,10 @@ namespace LotusECMLogger
             liveDataView.TabIndex = 6;
             liveDataView.UseCompatibleStateImageBehavior = false;
             liveDataView.View = View.Details;
-
-#if !DEBUG
-            // Enable double buffering for smoother scrolling (Release builds only)
-            liveDataView.GetType().GetProperty("DoubleBuffered", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
-                                      ?.SetValue(liveDataView, true, null);
-#endif
-             // 
+             //
              // codingDataView
              // 
-                        codingDataView.Location = new Point(0, 0);
+            codingDataView.Location = new Point(0, 0);
             codingDataView.Name = "codingDataView";
             codingDataView.Size = new Size(121, 97);
             codingDataView.TabIndex = 0;
@@ -220,16 +217,18 @@ namespace LotusECMLogger
             refreshRateLabel.Text = "no data";
             // 
             // mainTabControl
-            // 
+            //
             mainTabControl.Controls.Add(vehicleInfoTab);
             mainTabControl.Controls.Add(liveDataTab);
             mainTabControl.Controls.Add(codingDataTab);
             mainTabControl.Controls.Add(dtcTab);
             mainTabControl.Controls.Add(obdResetTab);
             mainTabControl.Controls.Add(t6RmaTab);
+            mainTabControl.Controls.Add(liveTuningTab);
             mainTabControl.Dock = DockStyle.Fill;
             mainTabControl.Location = new Point(0, 37);
             mainTabControl.Margin = new Padding(4, 4, 4, 4);
+            mainTabControl.Multiline = true;
             mainTabControl.Name = "mainTabControl";
             mainTabControl.SelectedIndex = 0;
             mainTabControl.Size = new Size(1000, 681);
@@ -360,6 +359,27 @@ namespace LotusECMLogger
             t6RmaTab.TabIndex = 5;
             t6RmaTab.Text = "T6 RMA Logging";
             t6RmaTab.UseVisualStyleBackColor = true;
+
+            //
+            // liveTuningTab
+            //
+            liveTuningTab.Controls.Add(liveTuningControl);
+            liveTuningTab.Location = new Point(4, 34);
+            liveTuningTab.Margin = new Padding(4, 4, 4, 4);
+            liveTuningTab.Name = "liveTuningTab";
+            liveTuningTab.Size = new Size(883, 627);
+            liveTuningTab.TabIndex = 6;
+            liveTuningTab.Text = "Live Tuning";
+            liveTuningTab.UseVisualStyleBackColor = true;
+            //
+            // liveTuningControl
+            //
+            liveTuningControl.Dock = DockStyle.Fill;
+            liveTuningControl.Location = new Point(0, 0);
+            liveTuningControl.Name = "liveTuningControl";
+            liveTuningControl.Size = new Size(883, 627);
+            liveTuningControl.TabIndex = 0;
+
             // 
             // LoggerWindow
             // 
@@ -386,6 +406,7 @@ namespace LotusECMLogger
             codingDataTab.ResumeLayout(false);
             codingMainPanel.ResumeLayout(false);
             dtcTab.ResumeLayout(false);
+            liveTuningTab.ResumeLayout(false);
             ResumeLayout(false);
             PerformLayout();
         }
@@ -420,5 +441,7 @@ namespace LotusECMLogger
         private LotusECMLogger.Controls.DTCControl dtcControl;
         private TabPage obdResetTab;
         private TabPage t6RmaTab;
+        private TabPage liveTuningTab;
+        private LotusECMLogger.Controls.LiveTuningDiskMonitorControl liveTuningControl;
     }
 }

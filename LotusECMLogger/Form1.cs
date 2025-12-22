@@ -64,6 +64,11 @@ namespace LotusECMLogger
         public LoggerWindow()
         {
             InitializeComponent();
+
+            // Enable double buffering for smoother scrolling (must be done at runtime, not in designer)
+            liveDataView.GetType().GetProperty("DoubleBuffered", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                                      ?.SetValue(liveDataView, true, null);
+
             // Populate OBD config menu
             PopulateObdConfigComboBox();
             // Initialize ListView columns

@@ -41,17 +41,17 @@ namespace LotusECMLogger.Controls
             topPanel.Controls.Add(statusLabel);
             topPanel.Dock = DockStyle.Top;
             topPanel.Location = new Point(0, 0);
-            topPanel.Margin = new Padding(4, 5, 4, 5);
             topPanel.Name = "topPanel";
-            topPanel.Size = new Size(881, 67);
+            topPanel.Size = new Size(617, 40);
             topPanel.TabIndex = 3;
             // 
             // readDataButton
             // 
-            readDataButton.Location = new Point(13, 13);
-            readDataButton.Margin = new Padding(4, 3, 4, 3);
+            readDataButton.AutoSize = true;
+            readDataButton.Location = new Point(9, 8);
+            readDataButton.Margin = new Padding(3, 2, 3, 2);
             readDataButton.Name = "readDataButton";
-            readDataButton.Size = new Size(150, 32);
+            readDataButton.Size = new Size(110, 32);
             readDataButton.TabIndex = 0;
             readDataButton.Text = "Load Vehicle Data";
             readDataButton.UseVisualStyleBackColor = true;
@@ -60,10 +60,9 @@ namespace LotusECMLogger.Controls
             // statusLabel
             // 
             statusLabel.AutoSize = true;
-            statusLabel.Location = new Point(174, 22);
-            statusLabel.Margin = new Padding(4, 0, 4, 0);
+            statusLabel.Location = new Point(122, 13);
             statusLabel.Name = "statusLabel";
-            statusLabel.Size = new Size(0, 25);
+            statusLabel.Size = new Size(0, 15);
             statusLabel.TabIndex = 2;
             // 
             // vehicleInfoView
@@ -71,24 +70,24 @@ namespace LotusECMLogger.Controls
             vehicleInfoView.Dock = DockStyle.Fill;
             vehicleInfoView.FullRowSelect = true;
             vehicleInfoView.GridLines = true;
-            vehicleInfoView.Location = new Point(0, 67);
-            vehicleInfoView.Margin = new Padding(4, 3, 4, 3);
+            vehicleInfoView.Location = new Point(0, 40);
+            vehicleInfoView.Margin = new Padding(3, 2, 3, 2);
             vehicleInfoView.MultiSelect = false;
             vehicleInfoView.Name = "vehicleInfoView";
-            vehicleInfoView.Size = new Size(881, 556);
+            vehicleInfoView.Size = new Size(617, 334);
             vehicleInfoView.TabIndex = 1;
             vehicleInfoView.UseCompatibleStateImageBehavior = false;
             vehicleInfoView.View = View.Details;
             // 
             // VehicleInfoControl
             // 
-            AutoScaleDimensions = new SizeF(10F, 25F);
+            AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             Controls.Add(vehicleInfoView);
             Controls.Add(topPanel);
-            Margin = new Padding(4, 3, 4, 3);
+            Margin = new Padding(3, 2, 3, 2);
             Name = "VehicleInfoControl";
-            Size = new Size(881, 623);
+            Size = new Size(617, 374);
             topPanel.ResumeLayout(false);
             topPanel.PerformLayout();
             ResumeLayout(false);
