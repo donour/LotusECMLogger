@@ -8,7 +8,6 @@ namespace LotusECMLogger.Controls
     public partial class LiveTuningDiskMonitorControl : UserControl
     {
         private T6LiveTuningService? _liveTuningService;
-        private BinaryFileMonitor.BinaryFileMonitor? _fileMonitor;
         private string? _currentFilePath;
         private uint _baseAddress;
         private List<MemoryPreset> _presets = [];
@@ -164,13 +163,8 @@ namespace LotusECMLogger.Controls
             try
             {
                 var rmaService = new T6RMAService();
-                _liveTuningService = new T6LiveTuningService(rmaService);
 
-                // Subscribe to service events
-                _liveTuningService.WordWritten += OnWordWritten;
-                _liveTuningService.ErrorOccurred += OnError;
-
-                LogStatus("Live tuning service created");
+                LogStatus("Reading ECU memory...");
                 LogStatus($"Configuration: Address=0x{baseAddress:X8}, Length={length} bytes");
                 LogStatus($"Output directory: {outputDir}");
 
@@ -214,7 +208,29 @@ namespace LotusECMLogger.Controls
                 {
                     LogStatus($"Successfully read {length} bytes from ECU");
                     LogStatus($"File saved: {_currentFilePath}");
-                    MessageBox.Show($"ECU memory successfully read to:\n{_currentFilePath}",
+
+                    // Dispose the RMA service since we're done reading
+                    rmaService.Dispose();
+
+                    // Now create the live tuning service for monitoring
+                    _liveTuningService = new T6LiveTuningService();
+
+                    // Subscribe to service events
+                    _liveTuningService.WordWritten += OnWordWritten;
+                    _liveTuningService.ErrorOccurred += OnError;
+
+                    // Store base address for monitoring
+                    _baseAddress = baseAddress;
+
+                    // Start monitoring the file we just created
+                    _liveTuningService.StartMonitoring(_currentFilePath, _baseAddress, scanIntervalMs: 100);
+
+                    LogStatus($"Started live tuning: {Path.GetFileName(_currentFilePath)}");
+                    LogStatus($"Base address: 0x{_baseAddress:X8}");
+                    LogStatus($"Monitoring for changes every 100ms...");
+                    LogStatus($"Changes will be automatically written to ECU");
+
+                    MessageBox.Show($"ECU memory successfully read and live tuning started:\n{_currentFilePath}\n\nYou can now edit this file and changes will be written to the ECU automatically.",
                         "Read Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
                 else
@@ -222,6 +238,9 @@ namespace LotusECMLogger.Controls
                     LogStatus("Failed to read ECU memory");
                     MessageBox.Show("Failed to read ECU memory. Check the status log for details.",
                         "Read Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+
+                    // Dispose the RMA service on failure
+                    rmaService.Dispose();
 
                     // Re-enable controls on failure
                     SetReadFromEcuControlsEnabled(true);
@@ -234,6 +253,21 @@ namespace LotusECMLogger.Controls
                 LogStatus($"Error reading ECU: {ex.Message}");
                 MessageBox.Show($"Failed to read ECU memory: {ex.Message}",
                     "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+
+                // Cleanup on error
+                if (_liveTuningService != null)
+                {
+                    try
+                    {
+                        _liveTuningService.StopMonitoring();
+                        _liveTuningService.Dispose();
+                        _liveTuningService = null;
+                    }
+                    catch
+                    {
+                        // Ignore cleanup errors
+                    }
+                }
 
                 // Re-enable controls on error
                 SetReadFromEcuControlsEnabled(true);
@@ -265,21 +299,23 @@ namespace LotusECMLogger.Controls
                 _currentFilePath = filePath;
                 _baseAddress = baseAddress;
 
-                // Create and configure the binary file monitor
-                _fileMonitor = new BinaryFileMonitor.BinaryFileMonitor(_currentFilePath, scanIntervalMs: 100);
+                // Create T6LiveTuningService if not already created
+                if (_liveTuningService == null)
+                {
+                    _liveTuningService = new T6LiveTuningService();
 
-                // Subscribe to events
-                _fileMonitor.WordChanged += OnFileWordChanged;
-                _fileMonitor.FileReloaded += OnFileReloaded;
-                _fileMonitor.MonitorError += OnFileMonitorError;
+                    // Subscribe to service events
+                    _liveTuningService.WordWritten += OnWordWritten;
+                    _liveTuningService.ErrorOccurred += OnError;
+                }
 
-                // Start monitoring
-                _fileMonitor.Start();
+                // Start live tuning monitoring (this will monitor file AND write to ECU)
+                _liveTuningService.StartMonitoring(_currentFilePath, _baseAddress, scanIntervalMs: 100);
 
-                LogStatus($"Started monitoring file: {Path.GetFileName(_currentFilePath)}");
-                LogStatus($"File size: {new FileInfo(_currentFilePath).Length} bytes ({_fileMonitor.WordCount} words)");
+                LogStatus($"Started live tuning: {Path.GetFileName(_currentFilePath)}");
                 LogStatus($"Base address: 0x{_baseAddress:X8}");
                 LogStatus($"Monitoring for changes every 100ms...");
+                LogStatus($"Changes will be automatically written to ECU");
 
                 SetReadFromEcuControlsEnabled(false);
                 SetLoadFileControlsEnabled(false);
@@ -287,17 +323,20 @@ namespace LotusECMLogger.Controls
             }
             catch (Exception ex)
             {
-                LogStatus($"Error starting monitoring: {ex.Message}");
-                MessageBox.Show($"Failed to start monitoring: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                LogStatus($"Error starting live tuning: {ex.Message}");
+                MessageBox.Show($"Failed to start live tuning: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
 
                 // Clean up on error
-                if (_fileMonitor != null)
+                if (_liveTuningService != null)
                 {
-                    _fileMonitor.WordChanged -= OnFileWordChanged;
-                    _fileMonitor.FileReloaded -= OnFileReloaded;
-                    _fileMonitor.MonitorError -= OnFileMonitorError;
-                    _fileMonitor.Dispose();
-                    _fileMonitor = null;
+                    try
+                    {
+                        _liveTuningService.StopMonitoring();
+                    }
+                    catch
+                    {
+                        // Ignore cleanup errors
+                    }
                 }
             }
         }
@@ -306,25 +345,10 @@ namespace LotusECMLogger.Controls
         {
             try
             {
-                if (_fileMonitor != null)
-                {
-                    // Unsubscribe from events
-                    _fileMonitor.WordChanged -= OnFileWordChanged;
-                    _fileMonitor.FileReloaded -= OnFileReloaded;
-                    _fileMonitor.MonitorError -= OnFileMonitorError;
-
-                    // Stop and dispose
-                    _fileMonitor.Stop();
-                    _fileMonitor.Dispose();
-                    _fileMonitor = null;
-
-                    LogStatus("File monitoring stopped");
-                }
-
                 if (_liveTuningService != null)
                 {
                     _liveTuningService.StopMonitoring();
-                    LogStatus("Live tuning service stopped");
+                    LogStatus("Live tuning stopped");
                 }
 
                 stopMonitoringButton.Enabled = false;
@@ -333,61 +357,11 @@ namespace LotusECMLogger.Controls
             }
             catch (Exception ex)
             {
-                LogStatus($"Error stopping monitoring: {ex.Message}");
-                MessageBox.Show($"Failed to stop monitoring: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                LogStatus($"Error stopping live tuning: {ex.Message}");
+                MessageBox.Show($"Failed to stop live tuning: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
-        private void OnFileWordChanged(object? sender, BinaryFileMonitor.WordChangedEventArgs e)
-        {
-            if (InvokeRequired)
-            {
-                Invoke(() => OnFileWordChanged(sender, e));
-                return;
-            }
-
-            // Calculate the ECU memory address for this change
-            uint memoryAddress = _baseAddress + (uint)e.ByteOffset;
-
-            string message = $"[{DateTime.Now:HH:mm:ss.fff}] File Change Detected: " +
-                             $"FileOffset=0x{e.ByteOffset:X}, MemoryAddr=0x{memoryAddress:X8}, " +
-                             $"Old=0x{e.OldValue:X8}, New=0x{e.NewValue:X8}";
-
-            LogStatus(message);
-            Debug.WriteLine($"LiveTuning: {message}");
-        }
-
-        private void OnFileReloaded(object? sender, BinaryFileMonitor.FileReloadedEventArgs e)
-        {
-            if (InvokeRequired)
-            {
-                Invoke(() => OnFileReloaded(sender, e));
-                return;
-            }
-
-            if (e.ChangeCount > 0)
-            {
-                string message = $"[{DateTime.Now:HH:mm:ss.fff}] File scan complete: " +
-                                 $"{e.ChangeCount} word(s) changed" +
-                                 (e.SizeChanged ? " (file size changed)" : "");
-
-                LogStatus(message);
-                Debug.WriteLine($"LiveTuning: {message}");
-            }
-        }
-
-        private void OnFileMonitorError(object? sender, BinaryFileMonitor.FileMonitorErrorEventArgs e)
-        {
-            if (InvokeRequired)
-            {
-                Invoke(() => OnFileMonitorError(sender, e));
-                return;
-            }
-
-            string message = $"[{DateTime.Now:HH:mm:ss.fff}] File Monitor Error: {e.Exception.Message}";
-            LogStatus(message);
-            Debug.WriteLine($"LiveTuning ERROR: {e.Exception}");
-        }
 
         private void OnWordWritten(object? sender, LiveTuningWordWrittenEventArgs e)
         {
@@ -556,22 +530,14 @@ namespace LotusECMLogger.Controls
         {
             if (disposing)
             {
-                // Stop and dispose file monitor
-                if (_fileMonitor != null)
-                {
-                    _fileMonitor.WordChanged -= OnFileWordChanged;
-                    _fileMonitor.FileReloaded -= OnFileReloaded;
-                    _fileMonitor.MonitorError -= OnFileMonitorError;
-                    _fileMonitor.Stop();
-                    _fileMonitor.Dispose();
-                    _fileMonitor = null;
-                }
-
-                // Unsubscribe from service events
+                // Stop and dispose live tuning service
                 if (_liveTuningService != null)
                 {
                     _liveTuningService.WordWritten -= OnWordWritten;
                     _liveTuningService.ErrorOccurred -= OnError;
+                    _liveTuningService.StopMonitoring();
+                    _liveTuningService.Dispose();
+                    _liveTuningService = null;
                 }
 
                 components?.Dispose();

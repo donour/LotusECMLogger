@@ -13,12 +13,29 @@
       "description": "2019 Evora GT430 Live Calibration"
     },
     {
+      "name": "A132E0263: calibration",
+      "baseAddress": "40008654",
+      "length": 27052,
+      "description": "2017 Evora GT430 Live Calibration"
+    },
+    {
       "name": "C132E0044: calibration",
       "baseAddress": "40002768",
       "length": 18552,
       "description": "2010 Evora (Fed) Live Calibration"
     },
-
+    {
+      "name": "B132E0091: calibration",
+      "baseAddress": "40008e24",
+      "length": 25052,
+      "description": "2011 Evora NA (Fed) Live Calibration"
+    },
+    {
+      "name": "C132E0077: calibration",
+      "baseAddress": "40008e24",
+      "length": 25052,
+      "description": "2011 Evora S (Fed) Live Calibration"
+    },
     {
       "name": "Full RAM (64KB)",
       "baseAddress": "40000000",

@@ -702,5 +702,85 @@ namespace LotusECMLogger.Services
 				throw;
 			}
 		}
+
+		public async Task WriteWordAsync(uint address, uint value)
+		{
+			// Validate address is in RAM range
+			if (address < RAM_START || address > RAM_END - 3)
+			{
+				throw new ArgumentOutOfRangeException(
+					nameof(address),
+					$"Invalid memory address 0x{address:X8}. Valid range: RAM (0x{RAM_START:X8}-0x{RAM_END - 3:X8})");
+			}
+
+			Channel? channelToUse = null;
+			Device? tempDevice = null;
+			bool usingTemporaryDevice = false;
+
+			try
+			{
+				// Check if we have an active channel from logging
+				lock (_lock)
+				{
+					if (_channel != null && _isLogging)
+					{
+						channelToUse = _channel;
+					}
+				}
+
+				// If no active channel, create a temporary one
+				if (channelToUse == null)
+				{
+					usingTemporaryDevice = true;
+					string dllFileName = APIFactory.GetAPIinfo().First().Filename;
+					API api = APIFactory.GetAPI(dllFileName);
+					tempDevice = api.GetDevice();
+					channelToUse = tempDevice.GetChannel(Protocol.CAN, (Baud)500000, ConnectFlag.NONE);
+				}
+
+				Debug.WriteLine($"T6RMA: Writing word to ECU - Address=0x{address:X8}, Value=0x{value:X8}");
+
+				// Build CAN message for memory write (CAN ID 0x54)
+				// Format: [CAN ID (4 bytes)][Address (4 bytes, big-endian)][Data (4 bytes, big-endian)]
+				byte[] canMessage = new byte[12];
+
+				// CAN ID 0x54
+				canMessage[0] = 0x00;
+				canMessage[1] = 0x00;
+				canMessage[2] = 0x00;
+				canMessage[3] = 0x54;
+
+				// Address in BIG-ENDIAN format
+				canMessage[4] = (byte)((address >> 24) & 0xFF);
+				canMessage[5] = (byte)((address >> 16) & 0xFF);
+				canMessage[6] = (byte)((address >> 8) & 0xFF);
+				canMessage[7] = (byte)(address & 0xFF);
+
+				// Value in BIG-ENDIAN format
+				canMessage[8] = (byte)((value >> 24) & 0xFF);
+				canMessage[9] = (byte)((value >> 16) & 0xFF);
+				canMessage[10] = (byte)((value >> 8) & 0xFF);
+				canMessage[11] = (byte)(value & 0xFF);
+
+				// Send the write command (fire-and-forget, no response expected)
+				await Task.Run(() => channelToUse.SendMessages([canMessage]));
+
+				Debug.WriteLine($"T6RMA: Write command sent successfully");
+			}
+			catch (Exception ex)
+			{
+				Debug.WriteLine($"T6RMA: Error writing word to ECU: {ex.Message}");
+				throw new InvalidOperationException($"Failed to write word to ECU: {ex.Message}", ex);
+			}
+			finally
+			{
+				// Only cleanup if we created a temporary device
+				if (usingTemporaryDevice)
+				{
+					channelToUse?.Dispose();
+					tempDevice?.Dispose();
+				}
+			}
+		}
 	}
 }
