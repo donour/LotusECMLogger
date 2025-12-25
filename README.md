@@ -14,8 +14,10 @@ With LotusECMLogger, you can log not only generic OBD-II parameters, but also Lo
 LotusECMLogger should work with an J2534-compliant pass-thru device connected via USB. Popular options include:
 
 - **Tactrix OpenPort 2.0**: A widely used J2534 device known for its reliability and performance.
-- **GO-DIAG GD101**: Low-cost J2534 device.
 
+## Known Incompatible Adapters
+
+- **GO-DIAG GD101**: Low-cost device. Known to have driver issues and is not recommended.
 
 ## User Interface Features
 
