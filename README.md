@@ -12,7 +12,7 @@ With LotusECMLogger, you can log not only generic OBD-II parameters, but also Lo
 ## Requirements
 
 - **Lotus Vehicle with CAN**: This should be any 2008+ model.
-- **Window Computer**: Tested with Windows 11, but Windows 7+ is supported. Note that the software is 32bit.
+- **x86 Windows Computer**: Tested with Windows 11, but Windows 7+ is supported. Note that the software is 32bit.
 - **J2534-compliant Pass-Thru Device**: This is a widely supported industry stanard. Beware cheap devices that are not standards compliant.
 
 ## Supported Adapters
