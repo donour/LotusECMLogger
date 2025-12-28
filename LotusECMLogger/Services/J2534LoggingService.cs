@@ -1,35 +1,26 @@
-﻿using SAE.J2534;
+using SAE.J2534;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 
-namespace LotusECMLogger
+namespace LotusECMLogger.Services
 {
-    internal class J2534OBDLogger : IDisposable
+    internal class J2534LoggingService : IDisposable
     {
         public readonly int LogFileToUIRatio = 8; // UI update every 8th log entry
-        public event Action<List<LiveDataReading>> DataLogged;
-        public event Action<Exception> ExceptionOccurred;
+        public event Action<List<LiveDataReading>>? DataLogged;
+        public event Action<Exception>? ExceptionOccurred;
 
-
-        /// <summary>
-        /// Flow control filter for Lotus ECM communication
-        /// Pattern: [0x00, 0x00, 0x07, 0xE8] - ECM response header
-        /// FlowControl: [0x00, 0x00, 0x07, 0xE0] - ECM request header
-        /// </summary>
-        private static readonly MessageFilter FlowControlFilter = new()
-        {
-            FilterType = Filter.FLOW_CONTROL_FILTER,
-            Mask = [0xFF, 0xFF, 0xFF, 0xFF],
-            Pattern = [0x00, 0x00, 0x07, 0xE8],
-            FlowControl = [0x00, 0x00, 0x07, 0xE0]
-        };
-
-        private readonly String outputFilename;
-        private readonly OBDConfiguration obdConfig;
+        private readonly string outputFilename;
+        private readonly MultiECUConfiguration multiEcuConfig;
         private bool terminate = false;
         private Thread? loggerThread;
         private Thread? csvWriterThread;
         private Device? device;
+
+        /// <summary>
+        /// Whether to prefix reading names with ECU name (useful when logging from multiple ECUs)
+        /// </summary>
+        public bool PrefixReadingsWithEcuName { get; set; } = true;
 
         public bool IsConnected => device != null && !terminate;
 
@@ -39,41 +30,40 @@ namespace LotusECMLogger
         private volatile bool csvWriterShouldStop = false;
 
         /// <summary>
-        /// Creates logger with custom OBD configuration
+        /// Creates logger with multi-ECU configuration for logging from multiple control units
         /// </summary>
         /// <param name="filename">Output CSV file path</param>
         /// <param name="logger_DataLogged">Data received callback</param>
         /// <param name="exceptionHandler">Exception handler callback</param>
-        /// <param name="configuration">OBD request configuration</param>
-        /// <example>
-        /// // Use fast logging (fewer requests for better performance)
-        /// var logger = new J2534OBDLogger("log.csv", OnData, OnError,
-        ///     OBDConfiguration.CreateFastLogging());
-        ///
-        /// // Use complete Lotus configuration (ALL available parameters)
-        /// var logger = new J2534OBDLogger("log.csv", OnData, OnError,
-        ///     OBDConfiguration.CreateCompleteLotusConfiguration());
-        ///
-        /// // Use diagnostic mode (extended parameters)
-        /// var logger = new J2534OBDLogger("log.csv", OnData, OnError,
-        ///     OBDConfiguration.CreateDiagnosticMode());
-        ///
-        /// // Create custom configuration
-        /// var customConfig = new OBDConfiguration();
-        /// customConfig.Requests.Add(new Mode01Request("RPM Only", 0x0C));
-        /// customConfig.Requests.Add(new Mode22Request("Sport Button", 0x02, 0x5D));
-        /// var logger = new J2534OBDLogger("log.csv", OnData, OnError, customConfig);
-        /// </example>
-        public J2534OBDLogger(
-            String filename,
+        /// <param name="configuration">Multi-ECU configuration</param>
+        public J2534LoggingService(
+            string filename,
+            Action<List<LiveDataReading>> logger_DataLogged,
+            Action<Exception> exceptionHandler,
+            MultiECUConfiguration configuration)
+        {
+            this.outputFilename = filename;
+            this.multiEcuConfig = configuration;
+            this.DataLogged += logger_DataLogged;
+            this.ExceptionOccurred += exceptionHandler;
+
+            // Auto-enable prefix if multiple ECUs are configured
+            PrefixReadingsWithEcuName = configuration.ECUGroups.Count > 1;
+        }
+
+        /// <summary>
+        /// Creates logger with legacy single-ECU OBD configuration (backward compatible)
+        /// </summary>
+        public J2534LoggingService(
+            string filename,
             Action<List<LiveDataReading>> logger_DataLogged,
             Action<Exception> exceptionHandler,
             OBDConfiguration configuration)
+            : this(filename, logger_DataLogged, exceptionHandler,
+                   MultiECUConfiguration.FromLegacyConfig(configuration))
         {
-            this.outputFilename = filename;
-            this.obdConfig = configuration;
-            this.DataLogged += logger_DataLogged;
-            this.ExceptionOccurred += exceptionHandler;
+            // Legacy mode: don't prefix readings
+            PrefixReadingsWithEcuName = false;
         }
 
         public void Stop()
@@ -110,7 +100,6 @@ namespace LotusECMLogger
 
                 // Start main logger thread
                 loggerThread = new Thread(() => RunLoggerWithExceptionHandling(device))
-                //loggerThread = new Thread(() => Test())
                 {
                     IsBackground = true,
                     Name = "J2534 Logger"
@@ -134,6 +123,7 @@ namespace LotusECMLogger
                 OnExceptionOccurred(ex);
             }
         }
+
         private void OnDataLogged(List<LiveDataReading> data)
         {
             if (terminate == false)
@@ -212,39 +202,32 @@ namespace LotusECMLogger
             }
         }
 
-        private void Test()
-        {
-            while (true)
-            {
-                LiveDataReading reading = new LiveDataReading
-                {
-                    name = DateTime.Now.Second.ToString(),
-                    value_f = (float)(DateTime.Now.TimeOfDay.Milliseconds)
-                };
-                OnDataLogged([reading]);
-                Thread.Sleep(10);
-                if (terminate)
-                {
-                    return;
-                }
-            }
-        }
-
         private void RunLogger(Device Device)
         {
             try
             {
                 using Channel Channel = Device.GetChannel(Protocol.ISO15765, Baud.ISO15765, ConnectFlag.NONE);
-                Channel.StartMsgFilter(FlowControlFilter);
 
-                // Build all OBD messages from configuration
-                var allMessages = obdConfig.BuildAllMessages();
+                // Set up flow control filters for ALL ECUs in the configuration
+                var filters = multiEcuConfig.GetAllFlowControlFilters().ToList();
+                foreach (var filter in filters)
+                {
+                    Channel.StartMsgFilter(filter);
+                    Debug.WriteLine($"Added flow control filter: Pattern=0x{BitConverter.ToString(filter.Pattern).Replace("-", "")}, FlowControl=0x{BitConverter.ToString(filter.FlowControl).Replace("-", "")}");
+                }
+
+                // Build all messages grouped by ECU
+                var messagesByEcu = multiEcuConfig.BuildAllMessagesByECU();
 
                 // Log configuration for debugging
-                Debug.WriteLine($"Loaded {obdConfig.Requests.Count} OBD requests:");
-                foreach (var request in obdConfig.Requests)
+                Debug.WriteLine($"Multi-ECU logging configured with {multiEcuConfig.ECUGroups.Count} ECU(s):");
+                foreach (var group in multiEcuConfig.ECUGroups)
                 {
-                    Debug.WriteLine($"  - {request.Name} (Mode 0x{request.Mode:X2})");
+                    Debug.WriteLine($"  {group.ECU.Name} (0x{group.ECU.RequestId:X3}/0x{group.ECU.ResponseId:X3}): {group.Requests.Count} requests");
+                    foreach (var request in group.Requests)
+                    {
+                        Debug.WriteLine($"    - {request.Name} (Mode 0x{request.Mode:X2})");
+                    }
                 }
 
                 uint ui_update_counter = 0;
@@ -252,14 +235,16 @@ namespace LotusECMLogger
                 {
                     List<LiveDataReading> readings = [];
 
-                    foreach (var chunk in allMessages.Chunk(5))
+                    // Send requests to each ECU and collect responses
+                    foreach (var (ecu, messages) in messagesByEcu)
                     {
-                        // TODO: allow no more than 6250 messages per second
-                        // in order to not overload either the CAN bus are the ECM
-                        Channel.SendMessages(chunk);
-                        readings.AddRange(ReadPendingMessages(Channel));
+                        foreach (var chunk in messages.Chunk(5))
+                        {
+                            Channel.SendMessages(chunk);
+                            readings.AddRange(ReadPendingMessages(Channel, ecu));
+                        }
                     }
-                    
+
                     if (readings.Count > 0)
                     {
                         var tr = new LiveDataReading
@@ -297,7 +282,12 @@ namespace LotusECMLogger
             csvDataAvailable.Set();
         }
 
-        private static List<LiveDataReading> ReadPendingMessages(Channel Channel)
+        /// <summary>
+        /// Read pending messages and parse them with ECU context
+        /// </summary>
+        /// <param name="channel">J2534 channel</param>
+        /// <param name="expectedEcu">ECU we expect responses from (for context-aware parsing)</param>
+        private List<LiveDataReading> ReadPendingMessages(Channel channel, ECUDefinition expectedEcu)
         {
             List<LiveDataReading> readings = [];
 
@@ -306,11 +296,27 @@ namespace LotusECMLogger
                 GetMessageResults resp;
                 do
                 {
-                    resp = Channel.GetMessages(1, 0);
+                    resp = channel.GetMessages(1, 0);
                     if (resp.Messages.Length > 0)
                     {
                         var mesg = resp.Messages[0];
-                        readings.AddRange(LiveDataReading.ParseCanResponse(mesg.Data));
+
+                        // Try to find which ECU this response is from
+                        var matchingEcu = multiEcuConfig.FindECUForResponse(mesg.Data);
+
+                        if (matchingEcu != null)
+                        {
+                            // Parse with the matching ECU context
+                            readings.AddRange(LiveDataReading.ParseCanResponse(
+                                mesg.Data,
+                                matchingEcu,
+                                PrefixReadingsWithEcuName));
+                        }
+                        else
+                        {
+                            // Unknown ECU response - try legacy parsing
+                            readings.AddRange(LiveDataReading.ParseCanResponse(mesg.Data));
+                        }
                     }
                 } while (resp.Messages.Length > 0);
             }
