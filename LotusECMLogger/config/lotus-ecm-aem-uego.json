@@ -1,0 +1,60 @@
+{
+  "name": "ECM + AEM UEGO Logging",
+  "description": "Log from Lotus ECM and AEM X-Series UEGO wideband simultaneously. ECM provides engine data, UEGO provides precise lambda/AFR readings.",
+  "ecus": [
+    {
+      "name": "ECM",
+      "requestId": 2016,
+      "responseId": 2024,
+      "requests": [
+        {
+          "type": "Mode01",
+          "name": "Core Engine Data",
+          "pids": [12, 14, 17],
+          "description": "Engine speed, timing advance, throttle position"
+        },
+        {
+          "type": "Mode01",
+          "name": "Fuel Trims",
+          "pids": [6, 7, 8, 9],
+          "description": "Short and long term fuel trims for both banks"
+        },
+        {
+          "type": "Mode22",
+          "name": "Knock Retard Cyl 1-4",
+          "pidHigh": 2,
+          "pidLow": 49,
+          "description": "Knock-induced spark retard for cylinders 1-4"
+        },
+        {
+          "type": "Mode22",
+          "name": "Knock Retard Cyl 5-6",
+          "pidHigh": 2,
+          "pidLow": 86,
+          "description": "Knock-induced spark retard for cylinders 5-6"
+        },
+        {
+          "type": "Mode22",
+          "name": "AFR Target",
+          "pidHigh": 2,
+          "pidLow": 19,
+          "description": "ECU commanded air-fuel ratio target"
+        }
+      ]
+    },
+    {
+      "name": "AEM UEGO",
+      "requestId": 2017,
+      "responseId": 2025,
+      "requests": [
+        {
+          "type": "Mode22",
+          "name": "Wideband Lambda",
+          "pidHigh": 0,
+          "pidLow": 1,
+          "description": "AEM X-Series wideband O2 sensor lambda reading"
+        }
+      ]
+    }
+  ]
+}

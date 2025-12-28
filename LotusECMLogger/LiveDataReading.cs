@@ -8,21 +8,122 @@ namespace LotusECMLogger
         public String name = "None";
         public double value_f;
         public long value_l;
+        public string? ecuSource; // Optional: which ECU this reading came from
 
         public override string ToString()
         {
             return $"<{name}: {value_f}>";
         }
 
+        /// <summary>
+        /// Parse CAN response from any ECU (legacy method - assumes ECM 0x7E8)
+        /// </summary>
         public static List<LiveDataReading> ParseCanResponse(byte[] data)
+        {
+            return ParseCanResponse(data, null);
+        }
+
+        /// <summary>
+        /// Parse CAN response with ECU context for multi-ECU logging
+        /// </summary>
+        /// <param name="data">Raw CAN message data</param>
+        /// <param name="ecu">ECU definition (null for legacy single-ECU mode)</param>
+        /// <param name="prefixWithEcuName">Whether to prefix reading names with ECU name</param>
+        public static List<LiveDataReading> ParseCanResponse(byte[] data, ECUDefinition? ecu, bool prefixWithEcuName = false)
         {
             List<LiveDataReading> results = [];
 
-            // determine if the response if from the ECU because is has id 0x7e8
-            if (data.Length <= 4 || data[0] != 0x00 || data[1] != 0x00 || data[2] != 0x07 || data[3] != 0xE8)
+            if (data.Length <= 4)
+                return results;
+
+            // Check if response matches expected ECU
+            uint responseId = (uint)((data[0] << 24) | (data[1] << 16) | (data[2] << 8) | data[3]);
+
+            if (ecu != null)
             {
-                return results; // non ECU data
+                // Multi-ECU mode: check against specific ECU
+                if (responseId != ecu.ResponseId)
+                    return results;
             }
+            else
+            {
+                // Legacy mode: only accept ECM responses (0x7E8)
+                if (responseId != 0x7E8)
+                    return results;
+            }
+
+            // Check for AEM UEGO specific parsing
+            if (ecu != null && ecu.Name.Contains("UEGO", StringComparison.OrdinalIgnoreCase))
+            {
+                results = ParseAemUegoResponse(data, ecu, prefixWithEcuName);
+                return results;
+            }
+
+            // Standard OBD-II parsing
+            results = ParseStandardObdResponse(data, ecu, prefixWithEcuName);
+            return results;
+        }
+
+        /// <summary>
+        /// Parse AEM X-Series UEGO specific response
+        /// </summary>
+        private static List<LiveDataReading> ParseAemUegoResponse(byte[] data, ECUDefinition ecu, bool prefixWithEcuName)
+        {
+            List<LiveDataReading> results = [];
+            string prefix = prefixWithEcuName ? $"{ecu.Name}:" : "";
+
+            // AEM UEGO typically sends lambda/AFR data in a specific format
+            // Common AEM X-Series CAN format: Lambda is sent as 2 bytes (0-65535 = 0.5-1.523 lambda)
+            // Or AFR sent as 2 bytes where value / 10 = AFR
+
+            if (data.Length >= 6)
+            {
+                int obdMode = data[4] - 0x40;
+
+                if (obdMode == 0x22 && data.Length >= 8)
+                {
+                    // Mode 22 response from UEGO
+                    // Parse based on PID
+                    byte pidHigh = data[5];
+                    byte pidLow = data[6];
+
+                    // Generic lambda/AFR parsing - adjust based on actual AEM protocol
+                    if (data.Length >= 9)
+                    {
+                        int rawValue = (data[7] << 8) | data[8];
+
+                        // Lambda calculation (typical AEM: 0-65535 maps to 0.5-1.523)
+                        double lambda = 0.5 + (rawValue / 65535.0) * 1.023;
+                        results.Add(new LiveDataReading
+                        {
+                            name = $"{prefix}Lambda",
+                            value_f = lambda,
+                            ecuSource = ecu.Name
+                        });
+
+                        // Also provide AFR (assuming gasoline stoich of 14.7)
+                        double afr = lambda * 14.7;
+                        results.Add(new LiveDataReading
+                        {
+                            name = $"{prefix}AFR",
+                            value_f = afr,
+                            ecuSource = ecu.Name
+                        });
+                    }
+                }
+            }
+
+            return results;
+        }
+
+        /// <summary>
+        /// Parse standard OBD-II response (Mode 01, 09, 22)
+        /// </summary>
+        private static List<LiveDataReading> ParseStandardObdResponse(byte[] data, ECUDefinition? ecu, bool prefixWithEcuName)
+        {
+            List<LiveDataReading> results = [];
+            string prefix = (prefixWithEcuName && ecu != null) ? $"{ecu.Name}:" : "";
+            string? ecuSource = ecu?.Name;
             int obd_mode = data[4] - 0x40;
             int idx = 5;
 
@@ -594,6 +695,20 @@ namespace LotusECMLogger
                     break;
 
             }
+
+            // Apply prefix and ecuSource to all readings if in multi-ECU mode
+            if (prefixWithEcuName || ecuSource != null)
+            {
+                foreach (var reading in results)
+                {
+                    if (prefixWithEcuName && !string.IsNullOrEmpty(prefix))
+                    {
+                        reading.name = $"{prefix}{reading.name}";
+                    }
+                    reading.ecuSource = ecuSource;
+                }
+            }
+
             return results;
         }
     }

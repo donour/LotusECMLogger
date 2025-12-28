@@ -106,7 +106,8 @@ namespace LotusECMLogger.Controls
                     return;
                 }
 
-                OBDConfiguration config = OBDConfiguration.LoadFromConfig(selectedObdConfigName);
+                // Load configuration (supports both legacy single-ECU and new multi-ECU formats)
+                MultiECUConfiguration config = MultiECUConfiguration.LoadFromConfig(selectedObdConfigName);
                 logger = new J2534LoggingService(outfn, Logger_DataLogged, Logger_ExceptionOccurred, config);
                 logger.Start();
                 currentLogfileName.Text = outfn;
