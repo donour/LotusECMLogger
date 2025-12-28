@@ -57,28 +57,28 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Update="config\lotus-complete.json">
+    <None Update="config\obdLogger\lotus-complete.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="config\lotus-fuel-diag.json">
+    <None Update="config\obdLogger\lotus-fuel-diag.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="config\lotus-knock-learning.json">
+    <None Update="config\obdLogger\lotus-knock-learning.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="config\lotus-tps-analyze.json">
+    <None Update="config\obdLogger\lotus-tps-analyze.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="config\lotus-misfire.json">
+    <None Update="config\obdLogger\lotus-misfire.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="config\lotus-default.json">
+    <None Update="config\obdLogger\lotus-default.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="config\lotus-diagnostic.json">
+    <None Update="config\obdLogger\lotus-diagnostic.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="config\lotus-fast.json">
+    <None Update="config\obdLogger\lotus-fast.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="config\liveTuning\memoryConfig.json">
