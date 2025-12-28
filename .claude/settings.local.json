@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(\"/mnt/c/Program Files/dotnet/dotnet.exe\" build --no-restore)",
-      "Bash(dotnet build:*)"
+      "Bash(dotnet build:*)",
+      "Bash(dir \"C:\\\\Users\\\\donour\\\\source\\\\repos\\\\LotusECMLogger\\\\LotusECMLogger\\\\config\\\\obdLogger\")",
+      "Bash(dir \"C:\\\\Users\\\\donour\\\\source\\\\repos\\\\LotusECMLogger\\\\LotusECMLogger\\\\bin\\\\x86\\\\Debug\\\\net8.0-windows\\\\config\\\\obdLogger\")"
     ],
     "deny": [],
     "ask": []
