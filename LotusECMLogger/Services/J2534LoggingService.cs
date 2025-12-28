@@ -1,10 +1,10 @@
-﻿using SAE.J2534;
+using SAE.J2534;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 
-namespace LotusECMLogger
+namespace LotusECMLogger.Services
 {
-    internal class J2534OBDLogger : IDisposable
+    internal class J2534LoggingService : IDisposable
     {
         public readonly int LogFileToUIRatio = 8; // UI update every 8th log entry
         public event Action<List<LiveDataReading>> DataLogged;
@@ -47,24 +47,24 @@ namespace LotusECMLogger
         /// <param name="configuration">OBD request configuration</param>
         /// <example>
         /// // Use fast logging (fewer requests for better performance)
-        /// var logger = new J2534OBDLogger("log.csv", OnData, OnError,
+        /// var logger = new J2534LoggingService("log.csv", OnData, OnError,
         ///     OBDConfiguration.CreateFastLogging());
         ///
         /// // Use complete Lotus configuration (ALL available parameters)
-        /// var logger = new J2534OBDLogger("log.csv", OnData, OnError,
+        /// var logger = new J2534LoggingService("log.csv", OnData, OnError,
         ///     OBDConfiguration.CreateCompleteLotusConfiguration());
         ///
         /// // Use diagnostic mode (extended parameters)
-        /// var logger = new J2534OBDLogger("log.csv", OnData, OnError,
+        /// var logger = new J2534LoggingService("log.csv", OnData, OnError,
         ///     OBDConfiguration.CreateDiagnosticMode());
         ///
         /// // Create custom configuration
         /// var customConfig = new OBDConfiguration();
         /// customConfig.Requests.Add(new Mode01Request("RPM Only", 0x0C));
         /// customConfig.Requests.Add(new Mode22Request("Sport Button", 0x02, 0x5D));
-        /// var logger = new J2534OBDLogger("log.csv", OnData, OnError, customConfig);
+        /// var logger = new J2534LoggingService("log.csv", OnData, OnError, customConfig);
         /// </example>
-        public J2534OBDLogger(
+        public J2534LoggingService(
             String filename,
             Action<List<LiveDataReading>> logger_DataLogged,
             Action<Exception> exceptionHandler,
@@ -259,7 +259,7 @@ namespace LotusECMLogger
                         Channel.SendMessages(chunk);
                         readings.AddRange(ReadPendingMessages(Channel));
                     }
-                    
+
                     if (readings.Count > 0)
                     {
                         var tr = new LiveDataReading
