@@ -10,8 +10,22 @@
         {
           "type": "Mode01",
           "name": "Core Engine Data",
-          "pids": [12, 14, 17, 11],
-          "description": "Engine speed, timing advance, throttle position, MAP"
+          "pids": [ 12, 14, 17, 67 ],
+          "description": "Engine speed, timing advance, throttle position, load_abs"
+        },
+        {
+          "type": "Mode01",
+          "name": "Essential Engine Data2",
+          "pids": [ 14, 11, 16 ],
+          "description": "timing, MAP, MAF"
+        },
+        {
+          "type": "Mode22",
+          "name": "Accelerator Pedal Position",
+          "pidHigh": 2,
+          "pidLow": 70,
+          "category": "Engine Management",
+          "unit": "%"
         }
       ]
     },

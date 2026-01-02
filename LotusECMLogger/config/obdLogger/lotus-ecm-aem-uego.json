@@ -10,14 +10,8 @@
         {
           "type": "Mode01",
           "name": "Core Engine Data",
-          "pids": [12, 14, 17],
-          "description": "Engine speed, timing advance, throttle position"
-        },
-        {
-          "type": "Mode01",
-          "name": "Fuel Trims",
-          "pids": [6, 7, 8, 9],
-          "description": "Short and long term fuel trims for both banks"
+          "pids": [12, 14, 17, 11],
+          "description": "Engine speed, timing advance, throttle position, MAP"
         },
         {
           "type": "Mode22",
@@ -48,10 +42,9 @@
       "responseId": 2025,
       "requests": [
         {
-          "type": "Mode22",
+          "type": "Mode01",
           "name": "Wideband Lambda",
-          "pidHigh": 0,
-          "pidLow": 1,
+          "pids": [ 36 ],
           "description": "AEM X-Series wideband O2 sensor lambda reading"
         }
       ]
