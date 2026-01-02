@@ -80,7 +80,50 @@ namespace LotusECMLogger
             {
                 int obdMode = data[4] - 0x40;
 
-                if (obdMode == 0x22 && data.Length >= 8)
+                if (obdMode == 0x01 && data.Length >= 7)
+                {
+                    // Mode 01 response from UEGO
+                    byte pid = data[5];
+
+                    if (pid == 0x24 && data.Length >= 10)
+                    {
+                        // PID 0x24: O2 Sensor 1 (Bank 1, Sensor 1) - Air-Fuel Equivalence Ratio (lambda) and Voltage
+                        // Bytes: A, B for lambda; C, D for voltage
+                        // Lambda = (2/65536) * (256*A + B)
+                        // Voltage = (8/65536) * (256*C + D)
+                        int A = data[6];
+                        int B = data[7];
+                        int C = data[8];
+                        int D = data[9];
+
+                        double lambda = (2.0 / 65536.0) * ((A << 8) | B);
+                        double voltage = (8.0 / 65536.0) * ((C << 8) | D);
+
+                        results.Add(new LiveDataReading
+                        {
+                            name = $"{prefix}Lambda",
+                            value_f = lambda,
+                            ecuSource = ecu.Name
+                        });
+
+                        // Also provide AFR (assuming gasoline stoich of 14.7)
+                        double afr = lambda * 14.7;
+                        results.Add(new LiveDataReading
+                        {
+                            name = $"{prefix}AFR",
+                            value_f = afr,
+                            ecuSource = ecu.Name
+                        });
+
+                        results.Add(new LiveDataReading
+                        {
+                            name = $"{prefix}O2 Voltage",
+                            value_f = voltage,
+                            ecuSource = ecu.Name
+                        });
+                    }
+                }
+                else if (obdMode == 0x22 && data.Length >= 8)
                 {
                     // Mode 22 response from UEGO
                     // Parse based on PID

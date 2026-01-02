@@ -68,7 +68,7 @@ namespace LotusECMLogger.Controls
         private void PopulateObdConfigComboBox()
         {
             obdConfigComboBox.Items.Clear();
-            var configs = OBDConfigurationLoader.GetAvailableConfigurations();
+            var configs = MultiECUConfigurationLoader.GetAvailableConfigurations();
             if (configs.Count == 0)
             {
                 obdConfigComboBox.Items.Add("No configs found");

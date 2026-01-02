@@ -81,27 +81,58 @@ namespace LotusECMLogger
             }
         }
 
+        private const string ConfigSubDir = "config\\obdLogger";
+
+        /// <summary>
+        /// Get list of available configuration files
+        /// </summary>
+        public static List<string> GetAvailableConfigurations()
+        {
+            var configs = new List<string>();
+
+            // Try working directory first
+            if (Directory.Exists(ConfigSubDir))
+            {
+                var files = Directory.GetFiles(ConfigSubDir, "*.json");
+                configs.AddRange(files.Select(f => Path.GetFileNameWithoutExtension(f)));
+            }
+
+            // Try relative to executable if nothing found
+            if (configs.Count == 0)
+            {
+                var exeDir = AppDomain.CurrentDomain.BaseDirectory;
+                var exeConfigDir = Path.Combine(exeDir, ConfigSubDir);
+                if (Directory.Exists(exeConfigDir))
+                {
+                    var files = Directory.GetFiles(exeConfigDir, "*.json");
+                    configs.AddRange(files.Select(f => Path.GetFileNameWithoutExtension(f)));
+                }
+            }
+
+            return configs;
+        }
+
         /// <summary>
         /// Load configuration by name from config directory
         /// </summary>
         public static MultiECUConfiguration LoadByName(string configName)
         {
-            // Try config directory first
-            var configFile = Path.Combine("config", $"{configName}.json");
+            // Try config directory first (working directory)
+            var configFile = Path.Combine(ConfigSubDir, $"{configName}.json");
             if (File.Exists(configFile))
             {
                 return LoadFromFile(configFile);
             }
 
             // Try relative to executable
-            var exeDir = Path.GetDirectoryName(AppDomain.CurrentDomain.BaseDirectory) ?? "";
-            configFile = Path.Combine(exeDir, "config", $"{configName}.json");
+            var exeDir = AppDomain.CurrentDomain.BaseDirectory;
+            configFile = Path.Combine(exeDir, ConfigSubDir, $"{configName}.json");
             if (File.Exists(configFile))
             {
                 return LoadFromFile(configFile);
             }
 
-            throw new FileNotFoundException($"Configuration '{configName}' not found in config directory");
+            throw new FileNotFoundException($"Configuration '{configName}' not found in {ConfigSubDir}");
         }
 
         /// <summary>
