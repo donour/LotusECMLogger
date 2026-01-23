@@ -159,6 +159,30 @@ namespace LotusECMLogger
             return results;
         }
 
+
+        private static void proccessO2Sensor(byte[] data, List<LiveDataReading> results, int idx, int sensorNum)
+        {
+            int A = data[idx + 1];
+            int B = data[idx + 2];
+            int C = data[idx + 3];
+            int D = data[idx + 4];
+            double lambda = (2.0 / 65536.0) * ((A << 8) | B);
+            double voltage = (8.0 / 65536.0) * ((C << 8) | D);
+            LiveDataReading lambdaReading = new()
+            {
+                name = "O2SensorLambda"+sensorNum,
+                value_f = lambda,
+            };
+            results.Add(lambdaReading);
+            LiveDataReading voltageReading = new()
+            {
+                name = "O2SensorVoltage"+sensorNum,
+                value_f = voltage,
+            };
+            results.Add(voltageReading);
+        }
+
+
         /// <summary>
         /// Parse standard OBD-II response (Mode 01, 09, 22)
         /// </summary>
@@ -351,6 +375,40 @@ namespace LotusECMLogger
                                 }
                                 idx += 2;
                                 break;
+
+                            case 0x24:// oxygen sensor 1 (bank 1, sensor 1) ABCD => (AB lambda) and (CD voltage)
+                                if (data.Length > idx + 4)
+                                {
+                                    proccessO2Sensor(data, results, idx,1);
+                                }
+
+                                idx += 5;
+                                break;
+                            case 0x25:
+                                if (data.Length > idx + 4)
+                                {
+                                    proccessO2Sensor(data, results, idx, 2);
+                                }
+
+                                idx += 5;
+                                break;
+                            case 0x28:
+                                if (data.Length > idx + 4)
+                                {
+                                    proccessO2Sensor(data, results, idx, 5);
+                                }
+
+                                idx += 5;
+                                break;
+                            case 0x29:
+                                if (data.Length > idx + 4)
+                                {
+                                    proccessO2Sensor(data, results, idx, 9);
+                                }
+
+                                idx += 5;
+                                break;
+
                             case 0x43: // absolute load value
                                 if (data.Length > idx + 2)
                                 {

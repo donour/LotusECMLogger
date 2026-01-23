@@ -26,7 +26,35 @@
           "pidLow": 70,
           "category": "Engine Management",
           "unit": "%"
+        },
+        {
+          "type": "Mode22",
+          "name": "Knock Spark Advance Retard",
+          "pidHigh": 2,
+          "pidLow": 49,
+          "category": "Performance",
+          "unit": "degrees",
+          "description": "1-4"
+        },
+        {
+          "type": "Mode22",
+          "name": "Knock Spark Advance Retard",
+          "pidHigh": 2,
+          "pidLow": 86,
+          "category": "Performance",
+          "unit": "degrees",
+          "description": "5-6"
+        },
+        {
+          "type": "Mode22",
+          "name": "EngineTorque(nm)",
+          "pidHigh": 2,
+          "pidLow": 106,
+          "category": "Engine Management",
+          "unit": "nm"
         }
+
+
       ]
     },
     {

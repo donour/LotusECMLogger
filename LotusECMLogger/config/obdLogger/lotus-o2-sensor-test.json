@@ -1,0 +1,20 @@
+{
+  "name": "Lotus Misfire Configuration",
+  "description": "Misfire Diagnosis",
+  "ecmHeader": [0, 0, 7, 224],
+  "requests": [
+    {
+      "type": "Mode01",
+      "name": "Essential Engine Data",
+      "pids": [ 12, 67 ],
+      "description": "Engine speed, load"
+    },
+    {
+      "type": "Mode01",
+      "name": "o2 sensors",
+      "pids": [ 36, 37 ],
+      "description": "O2_1, O2_2"
+    }
+
+  ]
+} 

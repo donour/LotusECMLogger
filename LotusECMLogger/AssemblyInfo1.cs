@@ -16,7 +16,7 @@ using System.Runtime.InteropServices;
 // The following GUID is for the ID of the typelib if this project is exposed to COM.
 
 [assembly: Guid("f30daffb-ba1f-4ae6-8f96-b896fcc6f5e9")]
-[assembly: AssemblyCopyright("Copyright © 2025 Donour Sizemore, Zachary Friss")]
+[assembly: AssemblyCopyright("Copyright © 2025, 2026 Donour Sizemore, Zachary Friss")]
 [assembly: AssemblyDescription(
     @"Lotus ECM Logger for J2534 CAN devices
 
