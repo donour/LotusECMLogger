@@ -186,8 +186,8 @@ namespace LotusECMLogger
 
             // Form properties
             Text = "T6E Calibration Flasher";
-            Size = new Size(650, 315);
-            MinimumSize = new Size(650, 315);
+            Size = new Size(650, 350);
+            MinimumSize = new Size(650, 350);
             StartPosition = FormStartPosition.CenterParent;
 			MaximizeBox = true;
             Padding = new Padding(10);
