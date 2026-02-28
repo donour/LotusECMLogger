@@ -789,8 +789,140 @@ namespace LotusECMLogger
                                 break;
                         }
                     }
-                    break;
+                    /*
+                     * 
+                     * TODO
+                     *  New Mode $22 PIDs Added (WIDEBAND option)
 
+  Both PIDs read from the wb_bank1/wb_bank2 structs in RAM (each 20 bytes, 4-byte aligned):
+
+  Offset  Size  Type               Description
+    0     u16   state              0–2000 = calibrating, 2001 = ready, 2002 = NB mode
+    4     u32   sampleA            accumulated ADC at cal point 1 (1.667V)
+    8     u32   sampleB            accumulated ADC at cal point 2 (3.333V)
+   12     u16   wb_slope           calibration slope, u16 factor (4096 = 1.0×)
+   14     i16   wb_offset          calibration intercept, signed ADC counts
+   16     u16   wb_corr_adc        corrected live ADC value (0–1023 → 0–5V)
+   18     u16   wb_ht_th           heater current threshold, mA
+
+  ---
+  PID $0403 — Bank 1 WB Calibration Parameters
+
+  Request: 7E0: 03 22 04 03
+
+  CAN response (0x7E8, ISO-TP single frame):
+
+  Byte  Value     Description
+    0   0x07      ISO-TP: Single Frame, 7 payload bytes
+    1   0x62      UDS positive response (0x40 | 0x22)
+    2   0x04      PID high byte
+    3   0x03      PID low byte
+    4   slope_MSB  wb_bank1.wb_slope [11:8] — calibration slope
+    5   slope_LSB  wb_bank1.wb_slope [7:0]
+    6   offset_MSB wb_bank1.wb_offset [15:8] — calibration offset (signed)
+    7   offset_LSB wb_bank1.wb_offset [7:0]
+
+  Fits in a single 8-byte CAN frame with no padding needed.
+
+  Decoding the values:
+
+  wb_slope (u16, units: 1/4096 factor) — The scale factor that maps raw ADC to a linearized value. Computed at
+  calibration time (~10s after ECU-on) as:
+
+  slope = (WB_CAL_B − WB_CAL_A) × 2^21 / (mean_sampleB − mean_sampleA)
+        = 341 × 2097152 / (avg B samples − avg A samples)
+
+  wb_offset (i16, signed ADC counts) — The additive intercept:
+
+  offset = WB_CAL_A − (mean_sampleA × slope / 2^21)
+         = 341 − (avg A samples × slope / 2097152)
+
+  The live correction applied every main loop:
+  corrected = (raw_adc >> 4) * slope >> 12 + offset
+
+  A nominal sensor with no ADC error gives slope ≈ 4096 and offset ≈ 0.
+
+  ---
+  PID $0404 — Bank 2 WB Calibration Parameters
+
+  Identical frame structure, sourced from wb_bank2 instead of wb_bank1:
+
+  Byte  Value     Description
+    0   0x07
+    1   0x62
+    2   0x04
+    3   0x04
+    4–5           wb_bank2.wb_slope (u16, big-endian)
+    6–7           wb_bank2.wb_offset (i16, big-endian, signed)
+
+  ---
+  Mode $01 PIDs $24/$25 — Live Wideband Lambda (WIDEBAND option)
+
+  These use OBD-II standard PID format for Wide Range O2 Sensor. The corrected ADC (wb_corr_adc) drives both fields:
+
+  AB (equivalence ratio):
+  AB = 0.68 × (1 + adc/1023) × 32768
+     = adc × 22304 / 1024 + 22282
+
+  At adc=0   (0V, ~10 AFR):  AB ≈ 22282 → λ = 22282/32768 ≈ 0.680
+  At adc=512 (2.5V, ~15 AFR): AB ≈ 33419 → λ = 33419/32768 ≈ 1.020
+  At adc=1023 (5V, ~20 AFR):  AB ≈ 44563 → λ = 44563/32768 ≈ 1.360
+
+  CD (sensor voltage):
+  CD = adc / 1023 × 5 × 8192
+     = adc × 20500 / 512
+
+  At adc=0:    CD = 0     → 0.000 V
+  At adc=1023: CD ≈ 40961 → 5.000 V
+
+  CAN frame for PID $24 (Bank 1):
+  0x7E8: 07 41 24 [AB_hi] [AB_lo] [CD_hi] [CD_lo] [00]
+
+  ---
+  Calibration State Machine
+
+  Before wb_slope/wb_offset are valid, wb_state < 2001. During this period:
+  - wb_corr_adc = 0 (no live OBD reading meaningful)
+  - The narrow-band simulation feeds NB_STOI (stoichiometric) to prevent closed-loop disruption
+  - PIDs $0403/$0404 will show slope=0, offset=0 until calibration completes (~10s after power-on)
+
+  If wb_state = 2002, the controller fell back to NB mode (calibration voltages weren't detected), meaning a standard
+  narrow-band sensor was wired — the slope/offset still show 0.
+
+                    */
+                    if (data[idx] == 0x04)
+                    {
+                        switch (data[idx + 1])
+                        {
+                            case 0x3: // PID 0x0403 — Bank 1 WB Calibration Parameters
+                                bank_num = 1;
+                                goto case 0x4;
+                            case 0x4: // PID 0x0404 — Bank 2 WB Calibration Parameters
+                                if (data.Length > idx + 5)
+                                {
+                                    // slope: u16, 4096 = 1.0x scale factor
+                                    ushort wbSlope = (ushort)((data[idx + 2] << 8) | data[idx + 3]);
+                                    // offset: i16, signed ADC counts intercept
+                                    short wbOffset = (short)((data[idx + 4] << 8) | data[idx + 5]);
+                                    results.Add(new LiveDataReading
+                                    {
+                                        name = $"WBCalSlope{bank_num}",
+                                        value_f = wbSlope,
+                                    });
+                                    results.Add(new LiveDataReading
+                                    {
+                                        name = $"WBCalOffset{bank_num}",
+                                        value_f = wbOffset,
+                                    });
+                                }
+                                break;
+                            default:
+                                Debug.WriteLine($"Unknown OBD-II mode 22 submode: {data[idx + 1]:X2}");
+                                break;
+                        }
+                    }
+
+                    break;
                 default:
                     Debug.WriteLine($"Unknown OBD-II mode: {obd_mode:X2}");
                     break;

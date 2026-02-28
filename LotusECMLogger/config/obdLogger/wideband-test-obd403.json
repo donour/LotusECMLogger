@@ -1,0 +1,27 @@
+{
+  "name": "Wideband Calibration Test - OBD 0x0403",
+  "description": "WB calibration parameters (slope/offset) for bank 1 and 2, plus RPM",
+  "ecmHeader": [0, 0, 7, 224],
+  "requests": [
+    {
+      "type": "Mode01",
+      "name": "Engine Speed",
+      "pids": [12],
+      "description": "RPM"
+    },
+    {
+      "type": "Mode22",
+      "name": "WB Cal Bank 1",
+      "pidHigh": 4,
+      "pidLow": 3,
+      "description": "Wideband calibration slope and offset for bank 1 (PID 0x0403)"
+    },
+    {
+      "type": "Mode22",
+      "name": "WB Cal Bank 2",
+      "pidHigh": 4,
+      "pidLow": 4,
+      "description": "Wideband calibration slope and offset for bank 2 (PID 0x0404)"
+    }
+  ]
+}
