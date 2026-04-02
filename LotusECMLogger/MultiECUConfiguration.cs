@@ -23,7 +23,12 @@ namespace LotusECMLogger
         public byte[][] BuildMessages()
         {
             var header = ECU.GetRequestHeader();
-            return Requests.Select(r => r.BuildMessage(header)).ToArray();
+            // Send Mode22 (single-frame responses) before Mode01 (potentially multi-frame
+            // responses) to avoid ISO-TP session conflicts on the same ECU CAN ID.
+            return Requests
+                .OrderByDescending(r => r.Mode)
+                .Select(r => r.BuildMessage(header))
+                .ToArray();
         }
     }
 
