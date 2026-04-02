@@ -304,6 +304,7 @@ namespace LotusECMLogger
             }
 
             // Handle CPT to CRP conversion if needed
+            // WARNING: Only flash T6 calibrations with this tool. The CPT conversion specifically sets a target address for T6 calibration data, not PROG, bootloader, or learned data.
             string fileToFlash = inputFileTextBox.Text;
             string? tempCrpFile = null;
 
