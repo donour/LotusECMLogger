@@ -36,6 +36,22 @@ namespace LotusECMLogger
                 // TODO don't ignore exceptions
             }
 
+            // Add logging configuration editor
+            try
+            {
+                var loggingConfigEditor = new LoggingConfigEditorControl
+                {
+                    Dock = DockStyle.Fill
+                };
+                loggingConfigEditor.ConfigurationSaved += configName => obdLoggerControl?.RefreshAvailableConfigurations(configName);
+                loggingConfigTab.Controls.Clear();
+                loggingConfigTab.Controls.Add(loggingConfigEditor);
+            }
+            catch
+            {
+                // TODO don't ignore exceptions
+            }
+
             // Replace ECU Coding tab content with modular control
             try
             {

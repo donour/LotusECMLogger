@@ -51,7 +51,7 @@ namespace LotusECMLogger.Controls
             InitializeListView();
 
             // Populate OBD config menu
-            PopulateObdConfigComboBox();
+            RefreshAvailableConfigurations();
 
             // Initial button state
             IsLogging = false;
@@ -65,7 +65,7 @@ namespace LotusECMLogger.Controls
             liveDataView.Columns.Add("Value", 100);
         }
 
-        private void PopulateObdConfigComboBox()
+        public void RefreshAvailableConfigurations(string? preferredConfigName = null)
         {
             obdConfigComboBox.Items.Clear();
             var configs = MultiECUConfigurationLoader.GetAvailableConfigurations();
@@ -81,9 +81,15 @@ namespace LotusECMLogger.Controls
             {
                 obdConfigComboBox.Items.Add(config);
             }
-            // Default to first config
-            obdConfigComboBox.SelectedIndex = 0;
-            selectedObdConfigName = configs[0];
+
+            var selectedConfig = preferredConfigName;
+            if (string.IsNullOrWhiteSpace(selectedConfig) || !configs.Contains(selectedConfig))
+            {
+                selectedConfig = configs.Contains(selectedObdConfigName) ? selectedObdConfigName : configs[0];
+            }
+
+            obdConfigComboBox.SelectedItem = selectedConfig;
+            selectedObdConfigName = selectedConfig;
         }
 
         private void ObdConfigComboBox_SelectedIndexChanged(object? sender, EventArgs e)

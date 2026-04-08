@@ -41,6 +41,7 @@ namespace LotusECMLogger
             vehicleInfoTab = new TabPage();
             vehicleInfoControl = new LotusECMLogger.Controls.VehicleInfoControl();
             liveDataTab = new TabPage();
+            loggingConfigTab = new TabPage();
             codingDataTab = new TabPage();
             dtcTab = new TabPage();
             dtcControl = new LotusECMLogger.Controls.DTCControl();
@@ -123,6 +124,7 @@ namespace LotusECMLogger
             //
             mainTabControl.Controls.Add(vehicleInfoTab);
             mainTabControl.Controls.Add(liveDataTab);
+            mainTabControl.Controls.Add(loggingConfigTab);
             mainTabControl.Controls.Add(codingDataTab);
             mainTabControl.Controls.Add(dtcTab);
             mainTabControl.Controls.Add(obdResetTab);
@@ -166,6 +168,16 @@ namespace LotusECMLogger
             liveDataTab.TabIndex = 0;
             liveDataTab.Text = "Live Data";
             liveDataTab.UseVisualStyleBackColor = true;
+            //
+            // loggingConfigTab
+            //
+            loggingConfigTab.Location = new Point(4, 34);
+            loggingConfigTab.Margin = new Padding(4, 4, 4, 4);
+            loggingConfigTab.Name = "loggingConfigTab";
+            loggingConfigTab.Size = new Size(992, 643);
+            loggingConfigTab.TabIndex = 7;
+            loggingConfigTab.Text = "Logging Config Editor";
+            loggingConfigTab.UseVisualStyleBackColor = true;
             //
             // codingDataTab
             //
@@ -273,6 +285,7 @@ namespace LotusECMLogger
         private ToolStripStatusLabel refreshRateLabel;
         private TabControl mainTabControl;
         private TabPage liveDataTab;
+        private TabPage loggingConfigTab;
         private TabPage codingDataTab;
         private TabPage vehicleInfoTab;
         private LotusECMLogger.Controls.VehicleInfoControl vehicleInfoControl;
