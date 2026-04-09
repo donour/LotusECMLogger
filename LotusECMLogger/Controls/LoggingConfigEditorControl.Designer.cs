@@ -20,7 +20,6 @@ namespace LotusECMLogger.Controls
             topButtonPanel = new FlowLayoutPanel();
             configPickerLabel = new Label();
             configPickerComboBox = new ComboBox();
-            loadConfigButton = new Button();
             refreshConfigsButton = new Button();
             newConfigButton = new Button();
             saveConfigButton = new Button();
@@ -33,7 +32,7 @@ namespace LotusECMLogger.Controls
             configDescriptionLabel = new Label();
             configDescriptionTextBox = new TextBox();
             filePathLabel = new Label();
-            filePathValueLabel = new Label();
+            filePathValueTextBox = new TextBox();
             editorSplitContainer = new SplitContainer();
             ecuGroupBox = new GroupBox();
             ecuLayout = new TableLayoutPanel();
@@ -53,8 +52,7 @@ namespace LotusECMLogger.Controls
             requestsGroupBox = new GroupBox();
             requestsLayout = new TableLayoutPanel();
             requestButtonsPanel = new FlowLayoutPanel();
-            addMode01Button = new Button();
-            addMode22Button = new Button();
+            addRequestButton = new Button();
             removeRequestButton = new Button();
             moveRequestUpButton = new Button();
             moveRequestDownButton = new Button();
@@ -85,7 +83,6 @@ namespace LotusECMLogger.Controls
             topButtonPanel.AutoSize = true;
             topButtonPanel.Controls.Add(configPickerLabel);
             topButtonPanel.Controls.Add(configPickerComboBox);
-            topButtonPanel.Controls.Add(loadConfigButton);
             topButtonPanel.Controls.Add(refreshConfigsButton);
             topButtonPanel.Controls.Add(newConfigButton);
             topButtonPanel.Controls.Add(saveConfigButton);
@@ -116,53 +113,44 @@ namespace LotusECMLogger.Controls
             configPickerComboBox.Name = "configPickerComboBox";
             configPickerComboBox.Size = new Size(250, 33);
             configPickerComboBox.TabIndex = 1;
-            //
-            // loadConfigButton
-            //
-            loadConfigButton.Location = new Point(358, 7);
-            loadConfigButton.Name = "loadConfigButton";
-            loadConfigButton.Size = new Size(90, 34);
-            loadConfigButton.TabIndex = 2;
-            loadConfigButton.Text = "Load";
-            loadConfigButton.UseVisualStyleBackColor = true;
-            loadConfigButton.Click += LoadConfigButton_Click;
+            configPickerComboBox.SelectedIndexChanged += ConfigPickerComboBox_SelectedIndexChanged;
             //
             // refreshConfigsButton
             //
-            refreshConfigsButton.Location = new Point(454, 7);
+            refreshConfigsButton.Location = new Point(358, 7);
             refreshConfigsButton.Name = "refreshConfigsButton";
             refreshConfigsButton.Size = new Size(90, 34);
-            refreshConfigsButton.TabIndex = 3;
+            refreshConfigsButton.TabIndex = 2;
             refreshConfigsButton.Text = "Refresh";
             refreshConfigsButton.UseVisualStyleBackColor = true;
             refreshConfigsButton.Click += RefreshConfigsButton_Click;
             //
             // newConfigButton
             //
-            newConfigButton.Location = new Point(550, 7);
+            newConfigButton.Location = new Point(454, 7);
             newConfigButton.Name = "newConfigButton";
             newConfigButton.Size = new Size(90, 34);
-            newConfigButton.TabIndex = 4;
+            newConfigButton.TabIndex = 3;
             newConfigButton.Text = "New";
             newConfigButton.UseVisualStyleBackColor = true;
             newConfigButton.Click += NewConfigButton_Click;
             //
             // saveConfigButton
             //
-            saveConfigButton.Location = new Point(646, 7);
+            saveConfigButton.Location = new Point(550, 7);
             saveConfigButton.Name = "saveConfigButton";
             saveConfigButton.Size = new Size(90, 34);
-            saveConfigButton.TabIndex = 5;
+            saveConfigButton.TabIndex = 4;
             saveConfigButton.Text = "Save";
             saveConfigButton.UseVisualStyleBackColor = true;
             saveConfigButton.Click += SaveConfigButton_Click;
             //
             // saveAsConfigButton
             //
-            saveAsConfigButton.Location = new Point(742, 7);
+            saveAsConfigButton.Location = new Point(646, 7);
             saveAsConfigButton.Name = "saveAsConfigButton";
             saveAsConfigButton.Size = new Size(90, 34);
-            saveAsConfigButton.TabIndex = 6;
+            saveAsConfigButton.TabIndex = 5;
             saveAsConfigButton.Text = "Save As";
             saveAsConfigButton.UseVisualStyleBackColor = true;
             saveAsConfigButton.Click += SaveAsConfigButton_Click;
@@ -179,7 +167,7 @@ namespace LotusECMLogger.Controls
             editorLayout.Name = "editorLayout";
             editorLayout.RowCount = 3;
             editorLayout.RowStyles.Add(new RowStyle());
-            editorLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 130F));
+            editorLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 176F));
             editorLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
             editorLayout.Size = new Size(992, 643);
             editorLayout.TabIndex = 0;
@@ -190,7 +178,7 @@ namespace LotusECMLogger.Controls
             metadataGroupBox.Dock = DockStyle.Fill;
             metadataGroupBox.Location = new Point(3, 53);
             metadataGroupBox.Name = "metadataGroupBox";
-            metadataGroupBox.Size = new Size(986, 124);
+            metadataGroupBox.Size = new Size(986, 170);
             metadataGroupBox.TabIndex = 1;
             metadataGroupBox.TabStop = false;
             metadataGroupBox.Text = "Configuration Details";
@@ -205,15 +193,15 @@ namespace LotusECMLogger.Controls
             metadataLayout.Controls.Add(configDescriptionLabel, 0, 1);
             metadataLayout.Controls.Add(configDescriptionTextBox, 1, 1);
             metadataLayout.Controls.Add(filePathLabel, 0, 2);
-            metadataLayout.Controls.Add(filePathValueLabel, 1, 2);
+            metadataLayout.Controls.Add(filePathValueTextBox, 1, 2);
             metadataLayout.Dock = DockStyle.Fill;
             metadataLayout.Location = new Point(3, 27);
             metadataLayout.Name = "metadataLayout";
             metadataLayout.RowCount = 3;
+            metadataLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38F));
+            metadataLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 62F));
             metadataLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 36F));
-            metadataLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-            metadataLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 28F));
-            metadataLayout.Size = new Size(980, 94);
+            metadataLayout.Size = new Size(980, 140);
             metadataLayout.TabIndex = 0;
             //
             // configNameLabel
@@ -248,10 +236,11 @@ namespace LotusECMLogger.Controls
             // configDescriptionTextBox
             //
             configDescriptionTextBox.Dock = DockStyle.Fill;
-            configDescriptionTextBox.Location = new Point(143, 39);
+            configDescriptionTextBox.Location = new Point(143, 41);
             configDescriptionTextBox.Multiline = true;
             configDescriptionTextBox.Name = "configDescriptionTextBox";
-            configDescriptionTextBox.Size = new Size(834, 24);
+            configDescriptionTextBox.ScrollBars = ScrollBars.Vertical;
+            configDescriptionTextBox.Size = new Size(834, 56);
             configDescriptionTextBox.TabIndex = 3;
             configDescriptionTextBox.TextChanged += EditorField_TextChanged;
             //
@@ -259,27 +248,31 @@ namespace LotusECMLogger.Controls
             //
             filePathLabel.Anchor = AnchorStyles.Left;
             filePathLabel.AutoSize = true;
-            filePathLabel.Location = new Point(3, 68);
+            filePathLabel.Location = new Point(3, 103);
             filePathLabel.Name = "filePathLabel";
             filePathLabel.Size = new Size(74, 25);
             filePathLabel.TabIndex = 4;
             filePathLabel.Text = "File path";
             //
-            // filePathValueLabel
+            // filePathValueTextBox
             //
-            filePathValueLabel.Anchor = AnchorStyles.Left;
-            filePathValueLabel.AutoEllipsis = true;
-            filePathValueLabel.AutoSize = true;
-            filePathValueLabel.Location = new Point(143, 68);
-            filePathValueLabel.Name = "filePathValueLabel";
-            filePathValueLabel.Size = new Size(74, 25);
-            filePathValueLabel.TabIndex = 5;
-            filePathValueLabel.Text = "Unsaved";
+            filePathValueTextBox.Dock = DockStyle.Fill;
+            filePathValueTextBox.Location = new Point(143, 103);
+            filePathValueTextBox.Margin = new Padding(3, 3, 3, 0);
+            filePathValueTextBox.MinimumSize = new Size(0, 34);
+            filePathValueTextBox.Name = "filePathValueTextBox";
+            filePathValueTextBox.ReadOnly = true;
+            filePathValueTextBox.ScrollBars = ScrollBars.Horizontal;
+            filePathValueTextBox.ShortcutsEnabled = true;
+            filePathValueTextBox.Size = new Size(834, 34);
+            filePathValueTextBox.TabIndex = 5;
+            filePathValueTextBox.TabStop = false;
+            filePathValueTextBox.Text = "Unsaved";
             //
             // editorSplitContainer
             //
             editorSplitContainer.Dock = DockStyle.Fill;
-            editorSplitContainer.Location = new Point(3, 183);
+            editorSplitContainer.Location = new Point(3, 195);
             editorSplitContainer.Name = "editorSplitContainer";
             //
             // editorSplitContainer.Panel1
@@ -289,8 +282,10 @@ namespace LotusECMLogger.Controls
             // editorSplitContainer.Panel2
             //
             editorSplitContainer.Panel2.Controls.Add(requestEditorLayout);
+            editorSplitContainer.FixedPanel = FixedPanel.Panel1;
             editorSplitContainer.Size = new Size(986, 457);
             editorSplitContainer.SplitterDistance = 255;
+            editorSplitContainer.SplitterWidth = 8;
             editorSplitContainer.TabIndex = 2;
             //
             // ecuGroupBox
@@ -371,7 +366,7 @@ namespace LotusECMLogger.Controls
             requestEditorLayout.Location = new Point(0, 0);
             requestEditorLayout.Name = "requestEditorLayout";
             requestEditorLayout.RowCount = 2;
-            requestEditorLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 110F));
+            requestEditorLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 148F));
             requestEditorLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
             requestEditorLayout.Size = new Size(727, 457);
             requestEditorLayout.TabIndex = 0;
@@ -382,7 +377,7 @@ namespace LotusECMLogger.Controls
             ecuDetailsGroupBox.Dock = DockStyle.Fill;
             ecuDetailsGroupBox.Location = new Point(3, 3);
             ecuDetailsGroupBox.Name = "ecuDetailsGroupBox";
-            ecuDetailsGroupBox.Size = new Size(721, 104);
+            ecuDetailsGroupBox.Size = new Size(721, 142);
             ecuDetailsGroupBox.TabIndex = 0;
             ecuDetailsGroupBox.TabStop = false;
             ecuDetailsGroupBox.Text = "Selected ECU";
@@ -402,17 +397,17 @@ namespace LotusECMLogger.Controls
             ecuDetailsLayout.Location = new Point(3, 27);
             ecuDetailsLayout.Name = "ecuDetailsLayout";
             ecuDetailsLayout.RowCount = 3;
-            ecuDetailsLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 33.3333321F));
-            ecuDetailsLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 33.3333321F));
-            ecuDetailsLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 33.3333321F));
-            ecuDetailsLayout.Size = new Size(715, 74);
+            ecuDetailsLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 36F));
+            ecuDetailsLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 36F));
+            ecuDetailsLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 36F));
+            ecuDetailsLayout.Size = new Size(715, 112);
             ecuDetailsLayout.TabIndex = 0;
             //
             // ecuNameLabel
             //
             ecuNameLabel.Anchor = AnchorStyles.Left;
             ecuNameLabel.AutoSize = true;
-            ecuNameLabel.Location = new Point(3, 0);
+            ecuNameLabel.Location = new Point(3, 5);
             ecuNameLabel.Name = "ecuNameLabel";
             ecuNameLabel.Size = new Size(91, 24);
             ecuNameLabel.TabIndex = 0;
@@ -422,8 +417,9 @@ namespace LotusECMLogger.Controls
             //
             ecuNameTextBox.Dock = DockStyle.Fill;
             ecuNameTextBox.Location = new Point(143, 3);
+            ecuNameTextBox.MinimumSize = new Size(0, 34);
             ecuNameTextBox.Name = "ecuNameTextBox";
-            ecuNameTextBox.Size = new Size(569, 31);
+            ecuNameTextBox.Size = new Size(569, 34);
             ecuNameTextBox.TabIndex = 1;
             ecuNameTextBox.TextChanged += EditorField_TextChanged;
             //
@@ -431,7 +427,7 @@ namespace LotusECMLogger.Controls
             //
             requestIdLabel.Anchor = AnchorStyles.Left;
             requestIdLabel.AutoSize = true;
-            requestIdLabel.Location = new Point(3, 24);
+            requestIdLabel.Location = new Point(3, 41);
             requestIdLabel.Name = "requestIdLabel";
             requestIdLabel.Size = new Size(128, 24);
             requestIdLabel.TabIndex = 2;
@@ -440,9 +436,10 @@ namespace LotusECMLogger.Controls
             // requestIdTextBox
             //
             requestIdTextBox.Dock = DockStyle.Fill;
-            requestIdTextBox.Location = new Point(143, 27);
+            requestIdTextBox.Location = new Point(143, 39);
+            requestIdTextBox.MinimumSize = new Size(0, 34);
             requestIdTextBox.Name = "requestIdTextBox";
-            requestIdTextBox.Size = new Size(569, 31);
+            requestIdTextBox.Size = new Size(569, 34);
             requestIdTextBox.TabIndex = 3;
             requestIdTextBox.TextChanged += EditorField_TextChanged;
             //
@@ -450,7 +447,7 @@ namespace LotusECMLogger.Controls
             //
             responseIdLabel.Anchor = AnchorStyles.Left;
             responseIdLabel.AutoSize = true;
-            responseIdLabel.Location = new Point(3, 49);
+            responseIdLabel.Location = new Point(3, 77);
             responseIdLabel.Name = "responseIdLabel";
             responseIdLabel.Size = new Size(137, 25);
             responseIdLabel.TabIndex = 4;
@@ -459,9 +456,10 @@ namespace LotusECMLogger.Controls
             // responseIdTextBox
             //
             responseIdTextBox.Dock = DockStyle.Fill;
-            responseIdTextBox.Location = new Point(143, 51);
+            responseIdTextBox.Location = new Point(143, 75);
+            responseIdTextBox.MinimumSize = new Size(0, 34);
             responseIdTextBox.Name = "responseIdTextBox";
-            responseIdTextBox.Size = new Size(569, 31);
+            responseIdTextBox.Size = new Size(569, 34);
             responseIdTextBox.TabIndex = 5;
             responseIdTextBox.TextChanged += EditorField_TextChanged;
             //
@@ -495,8 +493,7 @@ namespace LotusECMLogger.Controls
             //
             // requestButtonsPanel
             //
-            requestButtonsPanel.Controls.Add(addMode01Button);
-            requestButtonsPanel.Controls.Add(addMode22Button);
+            requestButtonsPanel.Controls.Add(addRequestButton);
             requestButtonsPanel.Controls.Add(removeRequestButton);
             requestButtonsPanel.Controls.Add(moveRequestUpButton);
             requestButtonsPanel.Controls.Add(moveRequestDownButton);
@@ -507,52 +504,62 @@ namespace LotusECMLogger.Controls
             requestButtonsPanel.TabIndex = 0;
             requestButtonsPanel.WrapContents = false;
             //
-            // addMode01Button
+            // addRequestButton
             //
-            addMode01Button.Location = new Point(3, 3);
-            addMode01Button.Name = "addMode01Button";
-            addMode01Button.Size = new Size(118, 30);
-            addMode01Button.TabIndex = 0;
-            addMode01Button.Text = "Add Mode01";
-            addMode01Button.UseVisualStyleBackColor = true;
-            addMode01Button.Click += AddMode01Button_Click;
-            //
-            // addMode22Button
-            //
-            addMode22Button.Location = new Point(127, 3);
-            addMode22Button.Name = "addMode22Button";
-            addMode22Button.Size = new Size(118, 30);
-            addMode22Button.TabIndex = 1;
-            addMode22Button.Text = "Add Mode22";
-            addMode22Button.UseVisualStyleBackColor = true;
-            addMode22Button.Click += AddMode22Button_Click;
+            addRequestButton.AutoSize = true;
+            addRequestButton.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+            addRequestButton.Location = new Point(3, 3);
+            addRequestButton.Margin = new Padding(3, 3, 8, 3);
+            addRequestButton.MinimumSize = new Size(130, 30);
+            addRequestButton.Name = "addRequestButton";
+            addRequestButton.Padding = new Padding(10, 0, 10, 0);
+            addRequestButton.Size = new Size(130, 34);
+            addRequestButton.TabIndex = 0;
+            addRequestButton.Text = "Add Request";
+            addRequestButton.UseVisualStyleBackColor = true;
+            addRequestButton.Click += AddRequestButton_Click;
             //
             // removeRequestButton
             //
-            removeRequestButton.Location = new Point(251, 3);
+            removeRequestButton.AutoSize = true;
+            removeRequestButton.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+            removeRequestButton.Location = new Point(141, 3);
+            removeRequestButton.Margin = new Padding(3, 3, 8, 3);
+            removeRequestButton.MinimumSize = new Size(138, 30);
             removeRequestButton.Name = "removeRequestButton";
-            removeRequestButton.Size = new Size(138, 30);
-            removeRequestButton.TabIndex = 2;
+            removeRequestButton.Padding = new Padding(10, 0, 10, 0);
+            removeRequestButton.Size = new Size(150, 34);
+            removeRequestButton.TabIndex = 1;
             removeRequestButton.Text = "Remove Request";
             removeRequestButton.UseVisualStyleBackColor = true;
             removeRequestButton.Click += RemoveRequestButton_Click;
             //
             // moveRequestUpButton
             //
-            moveRequestUpButton.Location = new Point(395, 3);
+            moveRequestUpButton.AutoSize = true;
+            moveRequestUpButton.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+            moveRequestUpButton.Location = new Point(299, 3);
+            moveRequestUpButton.Margin = new Padding(3, 3, 8, 3);
+            moveRequestUpButton.MinimumSize = new Size(90, 30);
             moveRequestUpButton.Name = "moveRequestUpButton";
-            moveRequestUpButton.Size = new Size(89, 30);
-            moveRequestUpButton.TabIndex = 3;
+            moveRequestUpButton.Padding = new Padding(10, 0, 10, 0);
+            moveRequestUpButton.Size = new Size(104, 34);
+            moveRequestUpButton.TabIndex = 2;
             moveRequestUpButton.Text = "Move Up";
             moveRequestUpButton.UseVisualStyleBackColor = true;
             moveRequestUpButton.Click += MoveRequestUpButton_Click;
             //
             // moveRequestDownButton
             //
-            moveRequestDownButton.Location = new Point(490, 3);
+            moveRequestDownButton.AutoSize = true;
+            moveRequestDownButton.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+            moveRequestDownButton.Location = new Point(411, 3);
+            moveRequestDownButton.Margin = new Padding(3, 3, 8, 3);
+            moveRequestDownButton.MinimumSize = new Size(110, 30);
             moveRequestDownButton.Name = "moveRequestDownButton";
-            moveRequestDownButton.Size = new Size(109, 30);
-            moveRequestDownButton.TabIndex = 4;
+            moveRequestDownButton.Padding = new Padding(10, 0, 10, 0);
+            moveRequestDownButton.Size = new Size(123, 34);
+            moveRequestDownButton.TabIndex = 3;
             moveRequestDownButton.Text = "Move Down";
             moveRequestDownButton.UseVisualStyleBackColor = true;
             moveRequestDownButton.Click += MoveRequestDownButton_Click;
@@ -561,13 +568,14 @@ namespace LotusECMLogger.Controls
             //
             requestsDataGridView.AllowUserToAddRows = false;
             requestsDataGridView.AllowUserToDeleteRows = false;
-            requestsDataGridView.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
-            requestsDataGridView.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
+            requestsDataGridView.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None;
+            requestsDataGridView.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing;
             requestsDataGridView.Dock = DockStyle.Fill;
             requestsDataGridView.Location = new Point(3, 45);
             requestsDataGridView.MultiSelect = false;
             requestsDataGridView.Name = "requestsDataGridView";
-            requestsDataGridView.RowHeadersWidth = 62;
+            requestsDataGridView.RowHeadersVisible = false;
+            requestsDataGridView.RowHeadersWidth = 28;
             requestsDataGridView.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
             requestsDataGridView.Size = new Size(709, 227);
             requestsDataGridView.TabIndex = 1;
@@ -623,7 +631,6 @@ namespace LotusECMLogger.Controls
         private FlowLayoutPanel topButtonPanel;
         private Label configPickerLabel;
         private ComboBox configPickerComboBox;
-        private Button loadConfigButton;
         private Button refreshConfigsButton;
         private Button newConfigButton;
         private Button saveConfigButton;
@@ -636,7 +643,7 @@ namespace LotusECMLogger.Controls
         private Label configDescriptionLabel;
         private TextBox configDescriptionTextBox;
         private Label filePathLabel;
-        private Label filePathValueLabel;
+        private TextBox filePathValueTextBox;
         private SplitContainer editorSplitContainer;
         private GroupBox ecuGroupBox;
         private TableLayoutPanel ecuLayout;
@@ -656,8 +663,7 @@ namespace LotusECMLogger.Controls
         private GroupBox requestsGroupBox;
         private TableLayoutPanel requestsLayout;
         private FlowLayoutPanel requestButtonsPanel;
-        private Button addMode01Button;
-        private Button addMode22Button;
+        private Button addRequestButton;
         private Button removeRequestButton;
         private Button moveRequestUpButton;
         private Button moveRequestDownButton;

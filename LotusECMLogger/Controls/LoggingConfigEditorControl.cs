@@ -11,24 +11,149 @@ namespace LotusECMLogger.Controls
         private readonly BindingList<EditableRequestRow> requestRows = new();
         private MultiECUConfigurationJson currentConfig = LoggingConfigFileService.CreateDefaultConfig();
         private string? currentFilePath;
+        private string? currentLoadedConfigName;
         private int currentEcuIndex = -1;
         private bool isDirty;
         private bool suppressDirtyTracking;
         private bool suppressSelectionEvents;
+        private Form? hostForm;
+        private bool isResizeOptimizationActive;
+        private bool requestHelpWasVisible;
+        private bool requestsGridWasVisible;
 
         public LoggingConfigEditorControl()
         {
             InitializeComponent();
+            SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.UserPaint, true);
+            UpdateStyles();
+            ConfigureLayoutBehavior();
             InitializeRequestGrid();
             Dock = DockStyle.Fill;
             LoadAvailableConfigurations();
             LoadInitialConfiguration();
         }
 
+        private void ConfigureLayoutBehavior()
+        {
+            editorSplitContainer.Panel1MinSize = 220;
+            editorSplitContainer.Panel2MinSize = 420;
+
+            EnableDoubleBuffering(requestsDataGridView);
+            EnableDoubleBuffering(editorLayout);
+            EnableDoubleBuffering(metadataLayout);
+            EnableDoubleBuffering(requestEditorLayout);
+            EnableDoubleBuffering(editorSplitContainer);
+        }
+
+        protected override void OnHandleCreated(EventArgs e)
+        {
+            base.OnHandleCreated(e);
+            AttachHostFormHandlers();
+        }
+
+        protected override void OnParentChanged(EventArgs e)
+        {
+            base.OnParentChanged(e);
+            AttachHostFormHandlers();
+        }
+
+        protected override void OnHandleDestroyed(EventArgs e)
+        {
+            DetachHostFormHandlers();
+            base.OnHandleDestroyed(e);
+        }
+
+        private void AttachHostFormHandlers()
+        {
+            var form = FindForm();
+            if (ReferenceEquals(hostForm, form))
+            {
+                return;
+            }
+
+            DetachHostFormHandlers();
+            hostForm = form;
+
+            if (hostForm != null)
+            {
+                hostForm.ResizeBegin += HostForm_ResizeBegin;
+                hostForm.ResizeEnd += HostForm_ResizeEnd;
+            }
+        }
+
+        private void DetachHostFormHandlers()
+        {
+            if (hostForm == null)
+            {
+                return;
+            }
+
+            hostForm.ResizeBegin -= HostForm_ResizeBegin;
+            hostForm.ResizeEnd -= HostForm_ResizeEnd;
+            hostForm = null;
+        }
+
+        private void HostForm_ResizeBegin(object? sender, EventArgs e)
+        {
+            if (!Visible || isResizeOptimizationActive)
+            {
+                return;
+            }
+
+            isResizeOptimizationActive = true;
+            requestsGridWasVisible = requestsDataGridView.Visible;
+            requestHelpWasVisible = requestHelpLabel.Visible;
+
+            SuspendHeavyLayout();
+            requestsDataGridView.Visible = false;
+            requestHelpLabel.Visible = false;
+        }
+
+        private void HostForm_ResizeEnd(object? sender, EventArgs e)
+        {
+            if (!isResizeOptimizationActive)
+            {
+                return;
+            }
+
+            requestsDataGridView.Visible = requestsGridWasVisible;
+            requestHelpLabel.Visible = requestHelpWasVisible;
+            ResumeHeavyLayout();
+            isResizeOptimizationActive = false;
+        }
+
+        private void SuspendHeavyLayout()
+        {
+            SuspendLayout();
+            editorLayout.SuspendLayout();
+            metadataLayout.SuspendLayout();
+            editorSplitContainer.SuspendLayout();
+            requestEditorLayout.SuspendLayout();
+            ecuDetailsLayout.SuspendLayout();
+            requestsGroupBox.SuspendLayout();
+        }
+
+        private void ResumeHeavyLayout()
+        {
+            requestsGroupBox.ResumeLayout(true);
+            ecuDetailsLayout.ResumeLayout(true);
+            requestEditorLayout.ResumeLayout(true);
+            editorSplitContainer.ResumeLayout(true);
+            metadataLayout.ResumeLayout(true);
+            editorLayout.ResumeLayout(true);
+            ResumeLayout(true);
+            Invalidate(true);
+            Update();
+        }
+
         private void InitializeRequestGrid()
         {
             requestsDataGridView.AutoGenerateColumns = false;
             requestsDataGridView.Columns.Clear();
+            requestsDataGridView.AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.None;
+            requestsDataGridView.RowHeadersWidthSizeMode = DataGridViewRowHeadersWidthSizeMode.DisableResizing;
+            requestsDataGridView.AllowUserToResizeRows = false;
+            requestsDataGridView.AllowUserToOrderColumns = false;
 
             var typeColumn = new DataGridViewComboBoxColumn
             {
@@ -36,50 +161,58 @@ namespace LotusECMLogger.Controls
                 HeaderText = "Type",
                 DisplayStyle = DataGridViewComboBoxDisplayStyle.DropDownButton,
                 DataSource = new[] { "Mode01", "Mode22" },
-                FillWeight = 70
+                Width = 110,
+                MinimumWidth = 100
             };
             requestsDataGridView.Columns.Add(typeColumn);
             requestsDataGridView.Columns.Add(new DataGridViewTextBoxColumn
             {
                 DataPropertyName = nameof(EditableRequestRow.Name),
                 HeaderText = "Name",
-                FillWeight = 160
+                Width = 170,
+                MinimumWidth = 140
             });
             requestsDataGridView.Columns.Add(new DataGridViewTextBoxColumn
             {
                 DataPropertyName = nameof(EditableRequestRow.Description),
                 HeaderText = "Description",
-                FillWeight = 150
+                Width = 300,
+                MinimumWidth = 220
             });
             requestsDataGridView.Columns.Add(new DataGridViewTextBoxColumn
             {
                 DataPropertyName = nameof(EditableRequestRow.Category),
                 HeaderText = "Category",
-                FillWeight = 100
+                Width = 170,
+                MinimumWidth = 130
             });
             requestsDataGridView.Columns.Add(new DataGridViewTextBoxColumn
             {
                 DataPropertyName = nameof(EditableRequestRow.Unit),
                 HeaderText = "Unit",
-                FillWeight = 70
+                Width = 80,
+                MinimumWidth = 70
             });
             requestsDataGridView.Columns.Add(new DataGridViewTextBoxColumn
             {
                 DataPropertyName = nameof(EditableRequestRow.PidsText),
                 HeaderText = "PIDs",
-                FillWeight = 110
+                Width = 180,
+                MinimumWidth = 140
             });
             requestsDataGridView.Columns.Add(new DataGridViewTextBoxColumn
             {
                 DataPropertyName = nameof(EditableRequestRow.PidHighText),
                 HeaderText = "PID High",
-                FillWeight = 75
+                Width = 90,
+                MinimumWidth = 80
             });
             requestsDataGridView.Columns.Add(new DataGridViewTextBoxColumn
             {
                 DataPropertyName = nameof(EditableRequestRow.PidLowText),
                 HeaderText = "PID Low",
-                FillWeight = 75
+                Width = 90,
+                MinimumWidth = 80
             });
 
             requestsDataGridView.DataSource = requestRows;
@@ -89,8 +222,7 @@ namespace LotusECMLogger.Controls
         {
             if (configPickerComboBox.Items.Count > 0)
             {
-                configPickerComboBox.SelectedIndex = 0;
-                LoadConfigurationByName(configPickerComboBox.SelectedItem?.ToString());
+                LoadConfigurationByName(configPickerComboBox.Items[0]?.ToString());
                 return;
             }
 
@@ -131,6 +263,8 @@ namespace LotusECMLogger.Controls
             {
                 currentConfig = LoggingConfigFileService.LoadEditableConfigFromName(configName);
                 currentFilePath = LoggingConfigFileService.TryGetConfigPath(configName);
+                currentLoadedConfigName = configName;
+                UpdateConfigPickerSelection(configName);
                 BindConfigurationToUi();
                 SetDirty(false);
             }
@@ -146,7 +280,7 @@ namespace LotusECMLogger.Controls
 
             configNameTextBox.Text = currentConfig.Name;
             configDescriptionTextBox.Text = currentConfig.Description;
-            filePathValueLabel.Text = currentFilePath ?? "Unsaved";
+            filePathValueTextBox.Text = currentFilePath ?? "Unsaved";
 
             RebuildEcuList();
 
@@ -221,6 +355,8 @@ namespace LotusECMLogger.Controls
         {
             currentConfig = LoggingConfigFileService.CreateDefaultConfig();
             currentFilePath = null;
+            currentLoadedConfigName = null;
+            UpdateConfigPickerSelection(null);
             BindConfigurationToUi();
             SetDirty(false);
         }
@@ -243,22 +379,29 @@ namespace LotusECMLogger.Controls
 
         private void RefreshConfigsButton_Click(object? sender, EventArgs e)
         {
-            LoadAvailableConfigurations();
+            LoadAvailableConfigurations(currentLoadedConfigName);
         }
 
-        private void LoadConfigButton_Click(object? sender, EventArgs e)
+        private void ConfigPickerComboBox_SelectedIndexChanged(object? sender, EventArgs e)
         {
             if (suppressSelectionEvents)
             {
                 return;
             }
 
-            if (!ConfirmDiscardUnsavedChanges())
+            var selectedConfigName = configPickerComboBox.SelectedItem?.ToString();
+            if (string.IsNullOrWhiteSpace(selectedConfigName) || string.Equals(selectedConfigName, currentLoadedConfigName, StringComparison.Ordinal))
             {
                 return;
             }
 
-            LoadConfigurationByName(configPickerComboBox.SelectedItem?.ToString());
+            if (!ConfirmDiscardUnsavedChanges())
+            {
+                UpdateConfigPickerSelection(currentLoadedConfigName);
+                return;
+            }
+
+            LoadConfigurationByName(selectedConfigName);
         }
 
         private void NewConfigButton_Click(object? sender, EventArgs e)
@@ -316,8 +459,9 @@ namespace LotusECMLogger.Controls
                 currentFilePath = filePath;
 
                 var savedConfigName = Path.GetFileNameWithoutExtension(filePath);
+                currentLoadedConfigName = savedConfigName;
                 LoadAvailableConfigurations(savedConfigName);
-                filePathValueLabel.Text = filePath;
+                filePathValueTextBox.Text = filePath;
                 SetDirty(false);
                 ConfigurationSaved?.Invoke(savedConfigName);
 
@@ -494,8 +638,6 @@ namespace LotusECMLogger.Controls
                 convertedRequests.Add(request);
             }
 
-            convertedRequests = OrderRequestsWithMode22First(convertedRequests);
-
             var targetGroup = currentConfig.Ecus[currentEcuIndex];
             targetGroup.Name = ecuNameTextBox.Text.Trim();
             targetGroup.RequestId = requestId;
@@ -566,26 +708,28 @@ namespace LotusECMLogger.Controls
             return true;
         }
 
-        private void AddMode01Button_Click(object? sender, EventArgs e)
+        private void AddRequestButton_Click(object? sender, EventArgs e)
         {
-            requestRows.Add(new EditableRequestRow
+            using var dialog = new AddRequestDialog();
+            if (dialog.ShowDialog(this) != DialogResult.OK)
             {
-                Type = "Mode01",
-                Name = "New Mode01 Request",
-                PidsText = "0x0C"
-            });
-            SetDirty();
-        }
+                return;
+            }
 
-        private void AddMode22Button_Click(object? sender, EventArgs e)
-        {
-            requestRows.Add(new EditableRequestRow
+            requestRows.Add(dialog.BuildRow());
+
+            var lastRowIndex = requestRows.Count - 1;
+            if (lastRowIndex >= 0 && lastRowIndex < requestsDataGridView.Rows.Count)
             {
-                Type = "Mode22",
-                Name = "New Mode22 Request",
-                PidHighText = "0x00",
-                PidLowText = "0x00"
-            });
+                requestsDataGridView.ClearSelection();
+                var gridRow = requestsDataGridView.Rows[lastRowIndex];
+                gridRow.Selected = true;
+                if (gridRow.Cells.Count > 0)
+                {
+                    requestsDataGridView.CurrentCell = gridRow.Cells[Math.Min(1, gridRow.Cells.Count - 1)];
+                }
+            }
+
             SetDirty();
         }
 
@@ -632,7 +776,12 @@ namespace LotusECMLogger.Controls
             requestRows.RemoveAt(currentIndex);
             requestRows.Insert(newIndex, requestRow);
             requestsDataGridView.ClearSelection();
-            requestsDataGridView.Rows[newIndex].Selected = true;
+            var targetRow = requestsDataGridView.Rows[newIndex];
+            targetRow.Selected = true;
+            if (targetRow.Cells.Count > 0)
+            {
+                requestsDataGridView.CurrentCell = targetRow.Cells[Math.Min(1, targetRow.Cells.Count - 1)];
+            }
             SetDirty();
         }
 
@@ -678,8 +827,7 @@ namespace LotusECMLogger.Controls
         {
             var hasEcuSelection = currentEcuIndex >= 0;
             removeEcuButton.Enabled = (currentConfig.Ecus?.Count ?? 0) > 1;
-            addMode01Button.Enabled = hasEcuSelection;
-            addMode22Button.Enabled = hasEcuSelection;
+            addRequestButton.Enabled = hasEcuSelection;
             removeRequestButton.Enabled = hasEcuSelection && requestRows.Count > 0;
             moveRequestUpButton.Enabled = hasEcuSelection && requestRows.Count > 1;
             moveRequestDownButton.Enabled = hasEcuSelection && requestRows.Count > 1;
@@ -705,21 +853,6 @@ namespace LotusECMLogger.Controls
             requestRows.ResetBindings();
             suppressDirtyTracking = false;
             UpdateButtonState();
-        }
-
-        private static List<OBDRequestJson> OrderRequestsWithMode22First(IEnumerable<OBDRequestJson> requests)
-        {
-            return requests
-                .Select((request, index) => new { request, index })
-                .OrderBy(item => IsMode22(item.request) ? 0 : 1)
-                .ThenBy(item => item.index)
-                .Select(item => item.request)
-                .ToList();
-        }
-
-        private static bool IsMode22(OBDRequestJson request)
-        {
-            return string.Equals(request.Type, "Mode22", StringComparison.OrdinalIgnoreCase);
         }
 
         private static string FormatUInt(uint value)
@@ -792,6 +925,210 @@ namespace LotusECMLogger.Controls
 
             values = parsedValues.ToArray();
             return true;
+        }
+
+        private void UpdateConfigPickerSelection(string? configName)
+        {
+            suppressSelectionEvents = true;
+            configPickerComboBox.SelectedIndex = string.IsNullOrWhiteSpace(configName)
+                ? -1
+                : configPickerComboBox.Items.IndexOf(configName);
+            suppressSelectionEvents = false;
+        }
+
+        private static void EnableDoubleBuffering(Control control)
+        {
+            typeof(Control)
+                .GetProperty("DoubleBuffered", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                ?.SetValue(control, true, null);
+        }
+
+        private sealed class AddRequestDialog : Form
+        {
+            private readonly ComboBox typeComboBox;
+            private readonly TextBox nameTextBox;
+            private readonly TextBox descriptionTextBox;
+            private readonly TextBox categoryTextBox;
+            private readonly TextBox unitTextBox;
+            private readonly TextBox pidsTextBox;
+            private readonly TextBox pidHighTextBox;
+            private readonly TextBox pidLowTextBox;
+            private readonly Label pidsLabel;
+            private readonly Label pidHighLabel;
+            private readonly Label pidLowLabel;
+
+            public AddRequestDialog()
+            {
+                Text = "Add Request";
+                FormBorderStyle = FormBorderStyle.FixedDialog;
+                StartPosition = FormStartPosition.CenterParent;
+                MaximizeBox = false;
+                MinimizeBox = false;
+                ShowInTaskbar = false;
+                ClientSize = new Size(700, 470);
+                MinimumSize = new Size(700, 470);
+                AutoScaleMode = AutoScaleMode.Font;
+
+                var layout = new TableLayoutPanel
+                {
+                    AutoScroll = true,
+                    Dock = DockStyle.Fill,
+                    ColumnCount = 2,
+                    RowCount = 9,
+                    Padding = new Padding(12)
+                };
+                layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 145F));
+                layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+                layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 40F));
+                layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 40F));
+                layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 96F));
+                layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 40F));
+                layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 40F));
+                layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 40F));
+                layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 40F));
+                layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 40F));
+                layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 56F));
+
+                typeComboBox = new ComboBox { Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDownList };
+                typeComboBox.Items.AddRange(["Mode01", "Mode22"]);
+                typeComboBox.SelectedIndex = 0;
+                typeComboBox.SelectedIndexChanged += (_, _) => UpdateTypeSpecificFields();
+
+                nameTextBox = new TextBox { Dock = DockStyle.Fill, Text = "New Mode01 Request" };
+                descriptionTextBox = new TextBox { Dock = DockStyle.Fill, Multiline = true, ScrollBars = ScrollBars.Vertical };
+                categoryTextBox = new TextBox { Dock = DockStyle.Fill };
+                unitTextBox = new TextBox { Dock = DockStyle.Fill };
+                pidsTextBox = new TextBox { Dock = DockStyle.Fill, Text = "0x0C" };
+                pidHighTextBox = new TextBox { Dock = DockStyle.Fill, Text = "0x00" };
+                pidLowTextBox = new TextBox { Dock = DockStyle.Fill, Text = "0x00" };
+
+                pidsLabel = CreateFieldLabel("PIDs");
+                pidHighLabel = CreateFieldLabel("PID High");
+                pidLowLabel = CreateFieldLabel("PID Low");
+
+                AddRow(layout, 0, "Type", typeComboBox);
+                AddRow(layout, 1, "Name", nameTextBox);
+                AddRow(layout, 2, "Description", descriptionTextBox);
+                AddRow(layout, 3, "Category", categoryTextBox);
+                AddRow(layout, 4, "Unit", unitTextBox);
+                AddControl(layout, 5, pidsLabel, pidsTextBox);
+                AddControl(layout, 6, pidHighLabel, pidHighTextBox);
+                AddControl(layout, 7, pidLowLabel, pidLowTextBox);
+
+                var buttonPanel = new FlowLayoutPanel
+                {
+                    Dock = DockStyle.Fill,
+                    AutoSize = true,
+                    FlowDirection = FlowDirection.RightToLeft,
+                    WrapContents = false,
+                    Margin = new Padding(0, 12, 0, 0),
+                    Padding = new Padding(0)
+                };
+
+                var cancelButton = new Button
+                {
+                    AutoSize = true,
+                    DialogResult = DialogResult.Cancel,
+                    Margin = new Padding(8, 0, 0, 0),
+                    Text = "Cancel"
+                };
+
+                var addButton = new Button
+                {
+                    AutoSize = true,
+                    Text = "Add"
+                };
+                addButton.Click += AddButton_Click;
+
+                buttonPanel.Controls.Add(cancelButton);
+                buttonPanel.Controls.Add(addButton);
+                layout.Controls.Add(buttonPanel, 1, 8);
+
+                Controls.Add(layout);
+                AcceptButton = addButton;
+                CancelButton = cancelButton;
+
+                UpdateTypeSpecificFields();
+            }
+
+            public EditableRequestRow BuildRow()
+            {
+                return new EditableRequestRow
+                {
+                    Type = typeComboBox.SelectedItem?.ToString() ?? "Mode01",
+                    Name = nameTextBox.Text.Trim(),
+                    Description = descriptionTextBox.Text.Trim(),
+                    Category = categoryTextBox.Text.Trim(),
+                    Unit = unitTextBox.Text.Trim(),
+                    PidsText = pidsTextBox.Text.Trim(),
+                    PidHighText = pidHighTextBox.Text.Trim(),
+                    PidLowText = pidLowTextBox.Text.Trim()
+                };
+            }
+
+            private static Label CreateFieldLabel(string text)
+            {
+                return new Label
+                {
+                    Text = text,
+                    TextAlign = ContentAlignment.MiddleLeft,
+                    Dock = DockStyle.Fill
+                };
+            }
+
+            private static void AddRow(TableLayoutPanel layout, int rowIndex, string labelText, Control control)
+            {
+                AddControl(layout, rowIndex, CreateFieldLabel(labelText), control);
+            }
+
+            private static void AddControl(TableLayoutPanel layout, int rowIndex, Control label, Control control)
+            {
+                layout.Controls.Add(label, 0, rowIndex);
+                layout.Controls.Add(control, 1, rowIndex);
+            }
+
+            private void UpdateTypeSpecificFields()
+            {
+                var isMode01 = string.Equals(typeComboBox.SelectedItem?.ToString(), "Mode01", StringComparison.OrdinalIgnoreCase);
+                pidsTextBox.Enabled = isMode01;
+                pidsLabel.Enabled = isMode01;
+                pidHighTextBox.Enabled = !isMode01;
+                pidLowTextBox.Enabled = !isMode01;
+                pidHighLabel.Enabled = !isMode01;
+                pidLowLabel.Enabled = !isMode01;
+
+                if (string.IsNullOrWhiteSpace(nameTextBox.Text) || nameTextBox.Text.StartsWith("New Mode", StringComparison.Ordinal))
+                {
+                    nameTextBox.Text = isMode01 ? "New Mode01 Request" : "New Mode22 Request";
+                    nameTextBox.SelectionStart = nameTextBox.TextLength;
+                }
+            }
+
+            private void AddButton_Click(object? sender, EventArgs e)
+            {
+                if (string.IsNullOrWhiteSpace(nameTextBox.Text))
+                {
+                    MessageBox.Show(this, "Request name cannot be empty.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                if (string.Equals(typeComboBox.SelectedItem?.ToString(), "Mode01", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (string.IsNullOrWhiteSpace(pidsTextBox.Text))
+                    {
+                        MessageBox.Show(this, "Mode01 requests need one or more PIDs.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return;
+                    }
+                }
+                else if (string.IsNullOrWhiteSpace(pidHighTextBox.Text) || string.IsNullOrWhiteSpace(pidLowTextBox.Text))
+                {
+                    MessageBox.Show(this, "Mode22 requests need PID High and PID Low values.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                DialogResult = DialogResult.OK;
+                Close();
+            }
         }
 
         private sealed class EditableRequestRow
