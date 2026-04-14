@@ -56,23 +56,6 @@ namespace LotusECMLogger
                 // TODO don't ignore exceptions
             }
 
-            // Add OBD reset control
-            try
-            {
-                var resetService = new J2534ObdResetService();
-                var resetControl = new ObdResetControl(resetService)
-                {
-                    Dock = DockStyle.Fill,
-                    IsLoggerActive = false
-                };
-                obdResetTab.Controls.Clear();
-                obdResetTab.Controls.Add(resetControl);
-            }
-            catch
-            {
-                // TODO don't ignore exceptions
-            }
-
             // Add T6 RMA logging control
             try
             {
@@ -102,9 +85,7 @@ namespace LotusECMLogger
                 if (ecuControl != null)
                     ecuControl.IsLoggerActive = isLogging;
 
-                var resetControl = obdResetTab.Controls.OfType<ObdResetControl>().FirstOrDefault();
-                if (resetControl != null)
-                    resetControl.IsLoggerActive = isLogging;
+                vehicleInfoControl.IsLoggerActive = isLogging;
 
                 var rmaControl = t6RmaTab.Controls.OfType<T6RMAControl>().FirstOrDefault();
                 if (rmaControl != null)

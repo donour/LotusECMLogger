@@ -31,6 +31,7 @@ namespace LotusECMLogger.Controls
             topPanel = new Panel();
             readDataButton = new Button();
             statusLabel = new Label();
+            resetButton = new Button();
             vehicleInfoView = new ListView();
             topPanel.SuspendLayout();
             SuspendLayout();
@@ -39,6 +40,7 @@ namespace LotusECMLogger.Controls
             // 
             topPanel.Controls.Add(readDataButton);
             topPanel.Controls.Add(statusLabel);
+            topPanel.Controls.Add(resetButton);
             topPanel.Dock = DockStyle.Top;
             topPanel.Location = new Point(0, 0);
             topPanel.Name = "topPanel";
@@ -56,9 +58,21 @@ namespace LotusECMLogger.Controls
             readDataButton.Text = "Load Vehicle Data";
             readDataButton.UseVisualStyleBackColor = true;
             readDataButton.Click += readDataButton_Click;
-            // 
+            //
+            // resetButton
+            //
+            resetButton.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            resetButton.AutoSize = true;
+            resetButton.Location = new Point(476, 4);
+            resetButton.Name = "resetButton";
+            resetButton.Size = new Size(132, 32);
+            resetButton.TabIndex = 1;
+            resetButton.Text = "Perform Reset";
+            resetButton.UseVisualStyleBackColor = true;
+            resetButton.Click += resetButton_Click;
+            //
             // statusLabel
-            // 
+            //
             statusLabel.AutoSize = true;
             statusLabel.Location = new Point(122, 13);
             statusLabel.Name = "statusLabel";
@@ -97,6 +111,7 @@ namespace LotusECMLogger.Controls
 
         private Panel topPanel;
         private Button readDataButton;
+        private Button resetButton;
         private ListView vehicleInfoView;
         private Label statusLabel;
     }

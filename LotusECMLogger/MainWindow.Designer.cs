@@ -48,7 +48,6 @@ namespace LotusECMLogger
             codingDataTab = new TabPage();
             dtcTab = new TabPage();
             dtcControl = new LotusECMLogger.Controls.DTCControl();
-            obdResetTab = new TabPage();
             t6RmaTab = new TabPage();
             liveTuningTab = new TabPage();
             liveTuningControl = new LotusECMLogger.Controls.LiveTuningDiskMonitorControl();
@@ -132,7 +131,6 @@ namespace LotusECMLogger
             mainTabControl.Controls.Add(liveDataTab);
             mainTabControl.Controls.Add(codingDataTab);
             mainTabControl.Controls.Add(dtcTab);
-            mainTabControl.Controls.Add(obdResetTab);
             mainTabControl.Controls.Add(t6RmaTab);
             mainTabControl.Controls.Add(liveTuningTab);
             mainTabControl.Dock = DockStyle.Fill;
@@ -143,25 +141,24 @@ namespace LotusECMLogger
             mainTabControl.SelectedIndex = 0;
             mainTabControl.Size = new Size(1000, 681);
             mainTabControl.TabIndex = 0;
-            // 
+            //
             // vehicleInfoTab
-            // 
+            //
             vehicleInfoTab.Controls.Add(vehicleInfoControl);
             vehicleInfoTab.Location = new Point(4, 64);
             vehicleInfoTab.Margin = new Padding(4);
             vehicleInfoTab.Name = "vehicleInfoTab";
             vehicleInfoTab.Size = new Size(992, 613);
             vehicleInfoTab.TabIndex = 2;
-            vehicleInfoTab.Text = "Extended Vehicle Information";
+            vehicleInfoTab.Text = "Vehicle Information";
             vehicleInfoTab.UseVisualStyleBackColor = true;
-            // 
+            //
             // vehicleInfoControl
-            // 
-            vehicleInfoControl.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            //
+            vehicleInfoControl.Dock = DockStyle.Fill;
             vehicleInfoControl.Location = new Point(0, 0);
-            vehicleInfoControl.Margin = new Padding(5, 4, 5, 4);
             vehicleInfoControl.Name = "vehicleInfoControl";
-            vehicleInfoControl.Size = new Size(1621, 1108);
+            vehicleInfoControl.Size = new Size(992, 613);
             vehicleInfoControl.TabIndex = 0;
             //
             // liveDataTab
@@ -242,17 +239,7 @@ namespace LotusECMLogger
             dtcControl.Name = "dtcControl";
             dtcControl.Size = new Size(190, 0);
             dtcControl.TabIndex = 0;
-            // 
-            // obdResetTab
-            // 
-            obdResetTab.Location = new Point(4, 184);
-            obdResetTab.Margin = new Padding(4);
-            obdResetTab.Name = "obdResetTab";
-            obdResetTab.Size = new Size(192, 0);
-            obdResetTab.TabIndex = 4;
-            obdResetTab.Text = "Learned Data Reset";
-            obdResetTab.UseVisualStyleBackColor = true;
-            // 
+            //
             // t6RmaTab
             // 
             t6RmaTab.Location = new Point(4, 214);
@@ -332,7 +319,6 @@ namespace LotusECMLogger
         private LotusECMLogger.Controls.VehicleInfoControl vehicleInfoControl;
         private TabPage dtcTab;
         private LotusECMLogger.Controls.DTCControl dtcControl;
-        private TabPage obdResetTab;
         private TabPage t6RmaTab;
         private TabPage liveTuningTab;
         private LotusECMLogger.Controls.LiveTuningDiskMonitorControl liveTuningControl;

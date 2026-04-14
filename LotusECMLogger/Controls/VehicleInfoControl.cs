@@ -8,12 +8,25 @@ namespace LotusECMLogger.Controls
     public partial class VehicleInfoControl : UserControl
     {
         private readonly IVehicleInfoService _vehicleInfoService;
+        private readonly IObdResetService _resetService;
         private List<VehicleParameterReading> vehicleDataSnapshot = [];
+
+        private bool _isLoggerActive;
+        public bool IsLoggerActive
+        {
+            get => _isLoggerActive;
+            set
+            {
+                _isLoggerActive = value;
+                resetButton.Enabled = !value;
+            }
+        }
 
         public VehicleInfoControl()
         {
             InitializeComponent();
             _vehicleInfoService = new VehicleInfoService();
+            _resetService = new J2534ObdResetService();
             SetupListViewColumns();
         }
 
@@ -28,6 +41,47 @@ namespace LotusECMLogger.Controls
         private void readDataButton_Click(object sender, EventArgs e)
         {
             LoadVehicleData();
+        }
+
+        private void resetButton_Click(object? sender, EventArgs e)
+        {
+            if (_isLoggerActive)
+            {
+                MessageBox.Show("Cannot perform reset while logging is active. Please stop the logger first.", "Logger Active", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            var result = MessageBox.Show(
+                "Are you sure you need to perform an OBD-II learned data reset?\n\n" +
+                "This operation cannot be reversed and may affect drivability until the ECU relearns.\n\n" +
+                "Confirm to proceed.",
+                "Confirm OBD-II Reset",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Warning);
+
+            if (result != DialogResult.Yes)
+                return;
+
+            try
+            {
+                resetButton.Enabled = false;
+                resetButton.Text = "Resetting...";
+
+                var (success, error) = _resetService.PerformLearningReset();
+                if (success)
+                    MessageBox.Show("OBD-II learned data reset request sent successfully.", "Reset Sent", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                else
+                    MessageBox.Show($"Failed to send reset: {error}", "Reset Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Unexpected error: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                resetButton.Enabled = !_isLoggerActive;
+                resetButton.Text = "Perform Reset";
+            }
         }
 
         private void LoadVehicleData()
