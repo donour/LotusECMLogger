@@ -19,6 +19,9 @@ namespace LotusECMLogger
             // Handle form closing to ensure logger is stopped
             this.FormClosing += MainWindow_FormClosing;
 
+            // Wire up logging config editor event (references obdLoggerControl, must be done in code)
+            loggingConfigEditorControl.ConfigurationSaved += configName => obdLoggerControl?.RefreshAvailableConfigurations(configName);
+
             // Add OBD Logger control to Live Data tab
             try
             {
@@ -30,22 +33,6 @@ namespace LotusECMLogger
                 obdLoggerControl.RefreshRateUpdated += OnRefreshRateUpdated;
                 liveDataTab.Controls.Clear();
                 liveDataTab.Controls.Add(obdLoggerControl);
-            }
-            catch
-            {
-                // TODO don't ignore exceptions
-            }
-
-            // Add logging configuration editor
-            try
-            {
-                var loggingConfigEditor = new LoggingConfigEditorControl
-                {
-                    Dock = DockStyle.Fill
-                };
-                loggingConfigEditor.ConfigurationSaved += configName => obdLoggerControl?.RefreshAvailableConfigurations(configName);
-                loggingConfigTab.Controls.Clear();
-                loggingConfigTab.Controls.Add(loggingConfigEditor);
             }
             catch
             {

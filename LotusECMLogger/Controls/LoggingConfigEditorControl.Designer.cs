@@ -57,6 +57,14 @@ namespace LotusECMLogger.Controls
             moveRequestUpButton = new Button();
             moveRequestDownButton = new Button();
             requestsDataGridView = new DataGridView();
+            requestTypeColumn = new DataGridViewComboBoxColumn();
+            requestNameColumn = new DataGridViewTextBoxColumn();
+            requestDescriptionColumn = new DataGridViewTextBoxColumn();
+            requestCategoryColumn = new DataGridViewTextBoxColumn();
+            requestUnitColumn = new DataGridViewTextBoxColumn();
+            requestPidsTextColumn = new DataGridViewTextBoxColumn();
+            requestPidHighTextColumn = new DataGridViewTextBoxColumn();
+            requestPidLowTextColumn = new DataGridViewTextBoxColumn();
             requestHelpLabel = new Label();
             topButtonPanel.SuspendLayout();
             editorLayout.SuspendLayout();
@@ -568,7 +576,23 @@ namespace LotusECMLogger.Controls
             //
             requestsDataGridView.AllowUserToAddRows = false;
             requestsDataGridView.AllowUserToDeleteRows = false;
+            requestsDataGridView.AllowUserToOrderColumns = false;
+            requestsDataGridView.AllowUserToResizeRows = false;
+            requestsDataGridView.AutoGenerateColumns = false;
             requestsDataGridView.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None;
+            requestsDataGridView.AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.None;
+            requestsDataGridView.Columns.AddRange(new DataGridViewColumn[]
+            {
+                requestTypeColumn,
+                requestNameColumn,
+                requestDescriptionColumn,
+                requestCategoryColumn,
+                requestUnitColumn,
+                requestPidsTextColumn,
+                requestPidHighTextColumn,
+                requestPidLowTextColumn
+            });
+            requestsDataGridView.RowHeadersWidthSizeMode = DataGridViewRowHeadersWidthSizeMode.DisableResizing;
             requestsDataGridView.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing;
             requestsDataGridView.Dock = DockStyle.Fill;
             requestsDataGridView.Location = new Point(3, 45);
@@ -592,6 +616,72 @@ namespace LotusECMLogger.Controls
             requestHelpLabel.Size = new Size(558, 25);
             requestHelpLabel.TabIndex = 2;
             requestHelpLabel.Text = "Mode01 uses the PIDs column. Mode22 uses PID High and PID Low values.";
+            //
+            // requestTypeColumn
+            //
+            requestTypeColumn.DataPropertyName = "Type";
+            requestTypeColumn.DisplayStyle = DataGridViewComboBoxDisplayStyle.DropDownButton;
+            requestTypeColumn.HeaderText = "Type";
+            requestTypeColumn.Items.AddRange(new object[] { "Mode01", "Mode22" });
+            requestTypeColumn.MinimumWidth = 100;
+            requestTypeColumn.Name = "requestTypeColumn";
+            requestTypeColumn.Width = 110;
+            //
+            // requestNameColumn
+            //
+            requestNameColumn.DataPropertyName = "Name";
+            requestNameColumn.HeaderText = "Name";
+            requestNameColumn.MinimumWidth = 140;
+            requestNameColumn.Name = "requestNameColumn";
+            requestNameColumn.Width = 170;
+            //
+            // requestDescriptionColumn
+            //
+            requestDescriptionColumn.DataPropertyName = "Description";
+            requestDescriptionColumn.HeaderText = "Description";
+            requestDescriptionColumn.MinimumWidth = 220;
+            requestDescriptionColumn.Name = "requestDescriptionColumn";
+            requestDescriptionColumn.Width = 300;
+            //
+            // requestCategoryColumn
+            //
+            requestCategoryColumn.DataPropertyName = "Category";
+            requestCategoryColumn.HeaderText = "Category";
+            requestCategoryColumn.MinimumWidth = 130;
+            requestCategoryColumn.Name = "requestCategoryColumn";
+            requestCategoryColumn.Width = 170;
+            //
+            // requestUnitColumn
+            //
+            requestUnitColumn.DataPropertyName = "Unit";
+            requestUnitColumn.HeaderText = "Unit";
+            requestUnitColumn.MinimumWidth = 70;
+            requestUnitColumn.Name = "requestUnitColumn";
+            requestUnitColumn.Width = 80;
+            //
+            // requestPidsTextColumn
+            //
+            requestPidsTextColumn.DataPropertyName = "PidsText";
+            requestPidsTextColumn.HeaderText = "PIDs";
+            requestPidsTextColumn.MinimumWidth = 140;
+            requestPidsTextColumn.Name = "requestPidsTextColumn";
+            requestPidsTextColumn.Width = 180;
+            //
+            // requestPidHighTextColumn
+            //
+            requestPidHighTextColumn.DataPropertyName = "PidHighText";
+            requestPidHighTextColumn.HeaderText = "PID High";
+            requestPidHighTextColumn.MinimumWidth = 80;
+            requestPidHighTextColumn.Name = "requestPidHighTextColumn";
+            requestPidHighTextColumn.Width = 90;
+            //
+            // requestPidLowTextColumn
+            //
+            requestPidLowTextColumn.DataPropertyName = "PidLowText";
+            requestPidLowTextColumn.HeaderText = "PID Low";
+            requestPidLowTextColumn.MinimumWidth = 80;
+            requestPidLowTextColumn.Name = "requestPidLowTextColumn";
+            requestPidLowTextColumn.Width = 90;
             //
             // LoggingConfigEditorControl
             //
@@ -668,6 +758,14 @@ namespace LotusECMLogger.Controls
         private Button moveRequestUpButton;
         private Button moveRequestDownButton;
         private DataGridView requestsDataGridView;
+        private DataGridViewComboBoxColumn requestTypeColumn;
+        private DataGridViewTextBoxColumn requestNameColumn;
+        private DataGridViewTextBoxColumn requestDescriptionColumn;
+        private DataGridViewTextBoxColumn requestCategoryColumn;
+        private DataGridViewTextBoxColumn requestUnitColumn;
+        private DataGridViewTextBoxColumn requestPidsTextColumn;
+        private DataGridViewTextBoxColumn requestPidHighTextColumn;
+        private DataGridViewTextBoxColumn requestPidLowTextColumn;
         private Label requestHelpLabel;
     }
 }
