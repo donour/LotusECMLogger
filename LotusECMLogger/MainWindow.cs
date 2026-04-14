@@ -31,8 +31,8 @@ namespace LotusECMLogger
                 };
                 obdLoggerControl.LoggerStateChanged += OnLoggerStateChanged;
                 obdLoggerControl.RefreshRateUpdated += OnRefreshRateUpdated;
-                liveDataTab.Controls.Clear();
-                liveDataTab.Controls.Add(obdLoggerControl);
+                loggerTab.Controls.Clear();
+                loggerTab.Controls.Add(obdLoggerControl);
             }
             catch
             {

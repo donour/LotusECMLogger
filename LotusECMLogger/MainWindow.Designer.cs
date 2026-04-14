@@ -41,7 +41,9 @@ namespace LotusECMLogger
             vehicleInfoTab = new TabPage();
             vehicleInfoControl = new LotusECMLogger.Controls.VehicleInfoControl();
             liveDataTab = new TabPage();
-            loggingConfigTab = new TabPage();
+            loggingTabControl = new TabControl();
+            loggerTab = new TabPage();
+            configEditorTab = new TabPage();
             loggingConfigEditorControl = new LotusECMLogger.Controls.LoggingConfigEditorControl();
             codingDataTab = new TabPage();
             dtcTab = new TabPage();
@@ -54,7 +56,9 @@ namespace LotusECMLogger
             statusStrip1.SuspendLayout();
             mainTabControl.SuspendLayout();
             vehicleInfoTab.SuspendLayout();
-            loggingConfigTab.SuspendLayout();
+            liveDataTab.SuspendLayout();
+            loggingTabControl.SuspendLayout();
+            configEditorTab.SuspendLayout();
             dtcTab.SuspendLayout();
             liveTuningTab.SuspendLayout();
             SuspendLayout();
@@ -126,7 +130,6 @@ namespace LotusECMLogger
             // 
             mainTabControl.Controls.Add(vehicleInfoTab);
             mainTabControl.Controls.Add(liveDataTab);
-            mainTabControl.Controls.Add(loggingConfigTab);
             mainTabControl.Controls.Add(codingDataTab);
             mainTabControl.Controls.Add(dtcTab);
             mainTabControl.Controls.Add(obdResetTab);
@@ -160,34 +163,54 @@ namespace LotusECMLogger
             vehicleInfoControl.Name = "vehicleInfoControl";
             vehicleInfoControl.Size = new Size(1621, 1108);
             vehicleInfoControl.TabIndex = 0;
-            // 
+            //
             // liveDataTab
-            // 
+            //
+            liveDataTab.Controls.Add(loggingTabControl);
             liveDataTab.Location = new Point(4, 64);
             liveDataTab.Margin = new Padding(4);
             liveDataTab.Name = "liveDataTab";
-            liveDataTab.Size = new Size(192, 32);
+            liveDataTab.Size = new Size(992, 613);
             liveDataTab.TabIndex = 0;
             liveDataTab.Text = "Live Data";
             liveDataTab.UseVisualStyleBackColor = true;
-            // 
-            // loggingConfigTab
-            // 
-            loggingConfigTab.Controls.Add(loggingConfigEditorControl);
-            loggingConfigTab.Location = new Point(4, 64);
-            loggingConfigTab.Margin = new Padding(4);
-            loggingConfigTab.Name = "loggingConfigTab";
-            loggingConfigTab.Size = new Size(992, 613);
-            loggingConfigTab.TabIndex = 7;
-            loggingConfigTab.Text = "Logging Config Editor";
-            loggingConfigTab.UseVisualStyleBackColor = true;
-            // 
+            //
+            // loggingTabControl
+            //
+            loggingTabControl.Controls.Add(loggerTab);
+            loggingTabControl.Controls.Add(configEditorTab);
+            loggingTabControl.Dock = DockStyle.Fill;
+            loggingTabControl.Location = new Point(0, 0);
+            loggingTabControl.Name = "loggingTabControl";
+            loggingTabControl.SelectedIndex = 0;
+            loggingTabControl.Size = new Size(992, 613);
+            loggingTabControl.TabIndex = 0;
+            //
+            // loggerTab
+            //
+            loggerTab.Location = new Point(4, 34);
+            loggerTab.Name = "loggerTab";
+            loggerTab.Size = new Size(984, 575);
+            loggerTab.TabIndex = 0;
+            loggerTab.Text = "Logger";
+            loggerTab.UseVisualStyleBackColor = true;
+            //
+            // configEditorTab
+            //
+            configEditorTab.Controls.Add(loggingConfigEditorControl);
+            configEditorTab.Location = new Point(4, 34);
+            configEditorTab.Name = "configEditorTab";
+            configEditorTab.Size = new Size(984, 575);
+            configEditorTab.TabIndex = 1;
+            configEditorTab.Text = "Logging Config";
+            configEditorTab.UseVisualStyleBackColor = true;
+            //
             // loggingConfigEditorControl
-            // 
+            //
             loggingConfigEditorControl.Dock = DockStyle.Fill;
             loggingConfigEditorControl.Location = new Point(0, 0);
             loggingConfigEditorControl.Name = "loggingConfigEditorControl";
-            loggingConfigEditorControl.Size = new Size(992, 613);
+            loggingConfigEditorControl.Size = new Size(984, 575);
             loggingConfigEditorControl.TabIndex = 0;
             // 
             // codingDataTab
@@ -279,7 +302,9 @@ namespace LotusECMLogger
             statusStrip1.PerformLayout();
             mainTabControl.ResumeLayout(false);
             vehicleInfoTab.ResumeLayout(false);
-            loggingConfigTab.ResumeLayout(false);
+            liveDataTab.ResumeLayout(false);
+            loggingTabControl.ResumeLayout(false);
+            configEditorTab.ResumeLayout(false);
             dtcTab.ResumeLayout(false);
             liveTuningTab.ResumeLayout(false);
             ResumeLayout(false);
@@ -298,7 +323,9 @@ namespace LotusECMLogger
         private ToolStripStatusLabel refreshRateLabel;
         private TabControl mainTabControl;
         private TabPage liveDataTab;
-        private TabPage loggingConfigTab;
+        private TabControl loggingTabControl;
+        private TabPage loggerTab;
+        private TabPage configEditorTab;
         private LotusECMLogger.Controls.LoggingConfigEditorControl loggingConfigEditorControl;
         private TabPage codingDataTab;
         private TabPage vehicleInfoTab;
