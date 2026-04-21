@@ -14,6 +14,7 @@ namespace LotusECMLogger
         private readonly byte[] _codingDataHigh;
         private readonly byte[] _codingDataLow;
         private readonly ulong _bitField;
+        private readonly bool _validateCoding;
 
         // Constants for boolean options
         private static readonly string[] FALSE_TRUE = { "False", "True" };
@@ -80,12 +81,13 @@ namespace LotusECMLogger
             new CodingOption(0, 1, "Oil Sump System", ["Standard", "Upgrade"])
         ];
 
-        public T6eCodingDecoder(ulong bitfield)
+        public T6eCodingDecoder(ulong bitfield, bool validateCoding = true)
         {
             // TODO this is duplicated in the other constructor, refactor into a method
             //bitfield = bitfield & 0xfcffffff;
             //bitfield = bitfield | 0x00c00000;
 
+            _validateCoding = validateCoding;
             _bitField = bitfield;
             _codingDataLow = new byte[4];
             _codingDataHigh = new byte[4];
@@ -103,7 +105,7 @@ namespace LotusECMLogger
         /// <param name="codingDataLow">Lower 4 bytes of coding data</param>
         /// <param name="codingDataHigh">Higher 4 bytes of coding data</param>
         /// <exception cref="ArgumentException">Thrown if either array is not exactly 4 bytes</exception>
-        public T6eCodingDecoder(byte[] codingDataLow, byte[] codingDataHigh)
+        public T6eCodingDecoder(byte[] codingDataLow, byte[] codingDataHigh, bool validateCoding = true)
         {
             if (codingDataLow == null || codingDataLow.Length != 4)
             {
@@ -114,27 +116,29 @@ namespace LotusECMLogger
             {
                 throw new ArgumentException("Higher coding data must be exactly 4 bytes", nameof(codingDataHigh));
             }
+            _validateCoding = validateCoding;
             _codingDataLow = (byte[])codingDataLow.Clone();
             _codingDataHigh = (byte[])codingDataHigh.Clone();
 
             // Convert 8 bytes to 64-bit value for easier bit manipulation
             // High bytes (bits 32-63)
-            ulong highBits = ((ulong)codingDataHigh[3] << 24) | 
-                           ((ulong)codingDataHigh[2] << 16) | 
-                           ((ulong)codingDataHigh[1] << 8) | 
+            ulong highBits = ((ulong)codingDataHigh[3] << 24) |
+                           ((ulong)codingDataHigh[2] << 16) |
+                           ((ulong)codingDataHigh[1] << 8) |
                            codingDataHigh[0];
-            
+
             // Low bytes (bits 0-31)
-            ulong lowBits = ((ulong)codingDataLow[3] << 24) | 
-                          ((ulong)codingDataLow[2] << 16) | 
-                          ((ulong)codingDataLow[1] << 8) | 
+            ulong lowBits = ((ulong)codingDataLow[3] << 24) |
+                          ((ulong)codingDataLow[2] << 16) |
+                          ((ulong)codingDataLow[1] << 8) |
                           codingDataLow[0];
-            
+
             // Combine into 64-bit field
             _bitField = (highBits << 32) | lowBits;
 
             // TODO, add other validation rules from S2, Exige, and Emira
-            S1EvoraValidateCoding(_bitField);
+            if (_validateCoding)
+                S1EvoraValidateCoding(_bitField);
 
         }
 
@@ -176,6 +180,11 @@ namespace LotusECMLogger
         /// Get the raw bit field value
         /// </summary>
         public ulong BitField => _bitField;
+
+        /// <summary>
+        /// Whether coding validation is enabled for this decoder
+        /// </summary>
+        public bool ValidateCoding => _validateCoding;
 
         /// <summary>
         /// Extract a value from the bit field at the specified position with the given mask
@@ -398,7 +407,7 @@ namespace LotusECMLogger
             ulong setValue = ((ulong)numericValue & (ulong)option.BitMask) << option.BitPosition;
             newBitField |= setValue;
 
-            return new T6eCodingDecoder(newBitField);
+            return new T6eCodingDecoder(newBitField, _validateCoding);
         }
 
         /// <summary>

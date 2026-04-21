@@ -4,7 +4,7 @@ namespace LotusECMLogger.Services
 {
 	public sealed class J2534EcuCodingService : IEcuCodingService
 	{
-		public T6eCodingDecoder ReadCoding()
+		public T6eCodingDecoder ReadCoding(bool validateCoding = true)
 		{
 			string dllFileName = APIFactory.GetAPIinfo().First().Filename;
 			API api = APIFactory.GetAPI(dllFileName);
@@ -20,7 +20,7 @@ namespace LotusECMLogger.Services
 			};
 			channel.StartMsgFilter(flowControlFilter);
 
-			return ReadCodingInternal(channel);
+			return ReadCodingInternal(channel, validateCoding);
 		}
 
 		public (bool success, string errorMessage) WriteCoding(T6eCodingDecoder coding)
@@ -38,7 +38,7 @@ namespace LotusECMLogger.Services
 			}
 		}
 
-		private static T6eCodingDecoder ReadCodingInternal(Channel channel)
+		private static T6eCodingDecoder ReadCodingInternal(Channel channel, bool validateCoding = true)
 		{
 			byte[] result_cod0 = [0, 0, 0, 0];
 			byte[] result_cod1 = [0, 0, 0, 0];
@@ -75,7 +75,7 @@ namespace LotusECMLogger.Services
 				}
 			} while (done != 3);
 
-			return new T6eCodingDecoder(result_cod1, result_cod0);
+			return new T6eCodingDecoder(result_cod1, result_cod0, validateCoding);
 		}
 
 		private static (bool success, string errorMessage) WriteRawCanCoding(T6eCodingDecoder codingDecoder, Device device)

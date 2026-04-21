@@ -43,7 +43,7 @@ namespace LotusECMLogger.Controls
 				readCodesButton.Enabled = false;
 				readCodesButton.Text = "Reading...";
 
-				originalCodingDecoder = service.ReadCoding();
+				originalCodingDecoder = service.ReadCoding(validateCodingCheckBox.Checked);
 				modifiedCodingDecoder = originalCodingDecoder;
 
 				UpdateCodingView();
