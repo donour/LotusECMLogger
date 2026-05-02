@@ -140,6 +140,9 @@ namespace LotusECMLogger.Controls
                             System.Diagnostics.Debug.WriteLine($"Failed to read PID 0x{pid:X2}: {ex.Message}");
                         }
                     }
+
+                    statusLabel.Text = "Reading octane scalers...";
+                    vehicleDataSnapshot.AddRange(QueryOctaneScalers(channel));
                 }
 
                 // Update the UI
@@ -274,6 +277,56 @@ namespace LotusECMLogger.Controls
                 };
             }
             return null;
+        }
+
+        private List<VehicleParameterReading> QueryOctaneScalers(SAE.J2534.Channel channel)
+        {
+            var results = new List<VehicleParameterReading>();
+            var scalerPIDs = new (string Name, byte Pid)[]
+            {
+                ("Octane Scaler Cyl 1", 0x18),
+                ("Octane Scaler Cyl 2", 0x19),
+                ("Octane Scaler Cyl 3", 0x1A),
+                ("Octane Scaler Cyl 4", 0x1B),
+                ("Octane Scaler Cyl 5", 0x4D),
+                ("Octane Scaler Cyl 6", 0x4E),
+            };
+
+            foreach (var (name, pid) in scalerPIDs)
+            {
+                try
+                {
+                    byte[] request = [0x00, 0x00, 0x07, 0xE0, 0x22, 0x02, pid];
+                    channel.SendMessage(request);
+
+                    for (int i = 0; i < 10; i++)
+                    {
+                        var response = channel.GetMessages(1, 250);
+                        if (response.Messages.Length > 0)
+                        {
+                            var data = response.Messages[0].Data;
+                            if (data.Length >= 9 &&
+                                data[4] == 0x62 && data[5] == 0x02 && data[6] == pid)
+                            {
+                                int rawValue = (data[7] << 8) | data[8];
+                                double percent = rawValue / 65535.0 * 100.0;
+                                results.Add(new VehicleParameterReading
+                                {
+                                    Name = name,
+                                    Value = Math.Round(percent, 1).ToString(),
+                                    Unit = "%"
+                                });
+                                break;
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Failed to read {name}: {ex.Message}");
+                }
+            }
+            return results;
         }
     }
 }
