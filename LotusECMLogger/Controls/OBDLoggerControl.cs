@@ -18,6 +18,8 @@ namespace LotusECMLogger.Controls
         public event Action<float>? RefreshRateUpdated;
 
         private J2534LoggingService? logger;
+        // TODO: liveData is written by the background logger thread and read on the UI thread with no lock.
+        // Fix by using ConcurrentDictionary or capturing a snapshot under a lock before dispatching to the UI thread.
         private Dictionary<string, float> liveData = [];
         private DateTime lastUpdateTime = DateTime.Now;
         private double lastListViewUpdate = 0;

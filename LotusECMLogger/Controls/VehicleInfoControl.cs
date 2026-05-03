@@ -84,6 +84,13 @@ namespace LotusECMLogger.Controls
             }
         }
 
+        // TODO: LoadVehicleData runs all J2534 work (connection, filter, queries) on the UI thread, freezing the app.
+        // Move to Task.Run() and use Invoke/BeginInvoke for status label updates and the final ListView refresh.
+        //
+        // TODO: VehicleInfoService is instantiated but never called — all protocol work is duplicated inline here.
+        // Consolidate: move the full implementation (mode 0x09, mode 0x22, octane scalers) into VehicleInfoService
+        // and have this control delegate to it. VehicleInfoService currently has stubs (TPS Target/Actual) that
+        // do not match the real parsing and should be removed.
         private void LoadVehicleData()
         {
             try
