@@ -239,8 +239,8 @@ namespace LotusECMLogger.Controls
                 return new VehicleParameterReading
                 {
                     Name = "Calibration Verification Numbers",
-                    Value = cvn.ToString(),
-                    Unit = "CVN"
+                    Value = $"0x{cvn:X8}",
+                    Unit = ""
                 };
             }
             return null;
