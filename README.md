@@ -9,7 +9,7 @@ With LotusECMLogger, you can log not only generic OBD-II parameters, but also Lo
 - **Capture Lotus-specific data**: Log unique parameters such as variable cam control, knock control, and more.
 - **Free and open source**: No cost, no restrictions, and community-driven development.
 
-![GUI](screenshots/screenshot-20251225.png)
+![GUI](screenshots/Screenshot-20260504.png)
 
 ## Requirements
 
