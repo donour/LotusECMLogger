@@ -43,65 +43,68 @@ namespace LotusECMLogger.Controls
             topPanel.Controls.Add(resetButton);
             topPanel.Dock = DockStyle.Top;
             topPanel.Location = new Point(0, 0);
+            topPanel.Margin = new Padding(4, 5, 4, 5);
             topPanel.Name = "topPanel";
-            topPanel.Size = new Size(617, 40);
+            topPanel.Size = new Size(881, 67);
             topPanel.TabIndex = 3;
             // 
             // readDataButton
             // 
             readDataButton.AutoSize = true;
-            readDataButton.Location = new Point(9, 8);
-            readDataButton.Margin = new Padding(3, 2, 3, 2);
+            readDataButton.Location = new Point(6, 7);
+            readDataButton.Margin = new Padding(4, 3, 4, 3);
             readDataButton.Name = "readDataButton";
-            readDataButton.Size = new Size(110, 32);
+            readDataButton.Size = new Size(231, 58);
             readDataButton.TabIndex = 0;
             readDataButton.Text = "Load Vehicle Data";
             readDataButton.UseVisualStyleBackColor = true;
             readDataButton.Click += readDataButton_Click;
-            //
+            // 
+            // statusLabel
+            // 
+            statusLabel.AutoSize = true;
+            statusLabel.Location = new Point(174, 22);
+            statusLabel.Margin = new Padding(4, 0, 4, 0);
+            statusLabel.Name = "statusLabel";
+            statusLabel.Size = new Size(0, 25);
+            statusLabel.TabIndex = 2;
+            // 
             // resetButton
-            //
+            // 
             resetButton.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             resetButton.AutoSize = true;
-            resetButton.Location = new Point(476, 4);
+            resetButton.Location = new Point(684, 6);
+            resetButton.Margin = new Padding(4, 5, 4, 5);
             resetButton.Name = "resetButton";
-            resetButton.Size = new Size(132, 32);
+            resetButton.Size = new Size(189, 58);
             resetButton.TabIndex = 1;
-            resetButton.Text = "Perform Reset";
+            resetButton.Text = "Adaptations Reset";
             resetButton.UseVisualStyleBackColor = true;
             resetButton.Click += resetButton_Click;
-            //
-            // statusLabel
-            //
-            statusLabel.AutoSize = true;
-            statusLabel.Location = new Point(122, 13);
-            statusLabel.Name = "statusLabel";
-            statusLabel.Size = new Size(0, 15);
-            statusLabel.TabIndex = 2;
             // 
             // vehicleInfoView
             // 
             vehicleInfoView.Dock = DockStyle.Fill;
             vehicleInfoView.FullRowSelect = true;
             vehicleInfoView.GridLines = true;
-            vehicleInfoView.Location = new Point(0, 40);
-            vehicleInfoView.Margin = new Padding(3, 2, 3, 2);
+            vehicleInfoView.Location = new Point(0, 67);
+            vehicleInfoView.Margin = new Padding(4, 3, 4, 3);
             vehicleInfoView.MultiSelect = false;
             vehicleInfoView.Name = "vehicleInfoView";
-            vehicleInfoView.Size = new Size(617, 334);
+            vehicleInfoView.Size = new Size(881, 556);
             vehicleInfoView.TabIndex = 1;
             vehicleInfoView.UseCompatibleStateImageBehavior = false;
             vehicleInfoView.View = View.Details;
             // 
             // VehicleInfoControl
             // 
-            AutoScaleDimensions = new SizeF(7F, 15F);
+            AutoScaleDimensions = new SizeF(10F, 25F);
             AutoScaleMode = AutoScaleMode.Font;
             Controls.Add(vehicleInfoView);
             Controls.Add(topPanel);
-            Margin = new Padding(3, 2, 3, 2);
+            Margin = new Padding(4, 3, 4, 3);
             Name = "VehicleInfoControl";
-            Size = new Size(617, 374);
+            Size = new Size(881, 623);
             topPanel.ResumeLayout(false);
             topPanel.PerformLayout();
             ResumeLayout(false);

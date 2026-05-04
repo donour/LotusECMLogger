@@ -29,7 +29,7 @@ namespace LotusECMLogger.Controls
             _resetService = new J2534ObdResetService();
             SetupListViewColumns();
             GuiIcons.ApplyToButton(readDataButton, GuiIcons.Read);
-            GuiIcons.ApplyToButton(resetButton, GuiIcons.Refresh);
+            GuiIcons.ApplyToButton(resetButton, GuiIcons.UpdateRestore);
         }
 
         private void SetupListViewColumns()
