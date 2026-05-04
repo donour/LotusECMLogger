@@ -16,6 +16,8 @@ namespace LotusECMLogger
         {
             InitializeComponent();
 
+            ApplyTabIcons();
+
             // Handle form closing to ensure logger is stopped
             this.FormClosing += MainWindow_FormClosing;
 
@@ -130,6 +132,33 @@ namespace LotusECMLogger
         {
             var helpDialog = new HelpDialog();
             helpDialog.ShowDialog(this);
+        }
+
+        private void ApplyTabIcons()
+        {
+            var tabColor = SystemColors.ControlText;
+
+            var mainIcons = GuiIcons.BuildImageList(20, tabColor,
+                GuiIcons.VehicleInfo,
+                GuiIcons.LiveData,
+                GuiIcons.EcuCoding,
+                GuiIcons.Dtc,
+                GuiIcons.RmaLogging,
+                GuiIcons.LiveTuning);
+            mainTabControl.ImageList = mainIcons;
+            vehicleInfoTab.ImageIndex = 0;
+            liveDataTab.ImageIndex    = 1;
+            codingDataTab.ImageIndex  = 2;
+            dtcTab.ImageIndex         = 3;
+            t6RmaTab.ImageIndex       = 4;
+            liveTuningTab.ImageIndex  = 5;
+
+            var loggingIcons = GuiIcons.BuildImageList(20, tabColor,
+                GuiIcons.LoggerTab,
+                GuiIcons.ConfigTab);
+            loggingTabControl.ImageList = loggingIcons;
+            loggerTab.ImageIndex     = 0;
+            configEditorTab.ImageIndex = 1;
         }
     }
 }

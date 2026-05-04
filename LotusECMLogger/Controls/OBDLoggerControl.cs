@@ -52,6 +52,9 @@ namespace LotusECMLogger.Controls
             // Initialize ListView columns
             InitializeListView();
 
+            GuiIcons.ApplyToButton(startLoggerButton, GuiIcons.Play);
+            GuiIcons.ApplyToButton(stopLoggerButton, GuiIcons.Stop);
+
             // Populate OBD config menu
             RefreshAvailableConfigurations();
 
