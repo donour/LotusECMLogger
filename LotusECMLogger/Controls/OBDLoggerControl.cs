@@ -22,7 +22,7 @@ namespace LotusECMLogger.Controls
         // Fix by using ConcurrentDictionary or capturing a snapshot under a lock before dispatching to the UI thread.
         private Dictionary<string, float> liveData = [];
         private DateTime lastUpdateTime = DateTime.Now;
-        private double lastListViewUpdate = 0;
+        private DateTime lastListViewUpdate = DateTime.MinValue;
         private string selectedObdConfigName = "NO CONFIG";
 
         private bool _isLogging = false;
@@ -177,31 +177,25 @@ namespace LotusECMLogger.Controls
             if (IsDisposed || Disposing)
                 return;
 
+            DateTime now = DateTime.Now;
+            float refreshRate = LogFileToUIRatio * 1000 / (float)(now - lastUpdateTime).TotalMilliseconds;
+            lastUpdateTime = now;
+
             foreach (var r in data)
             {
                 liveData[r.name] = (float)r.value_f;
             }
 
             UpdateListView();
-
-            DateTime now = DateTime.Now;
-            float refreshRate = LogFileToUIRatio * 1000 / (float)(now - lastUpdateTime).TotalMilliseconds;
             RefreshRateUpdated?.Invoke(refreshRate);
-            lastUpdateTime = now;
         }
 
         private void UpdateListView()
         {
-            // rate limit list view updates
             DateTime now = DateTime.Now;
-            if (now.Millisecond - lastListViewUpdate > 66)
-            {
+            if ((now - lastListViewUpdate).TotalMilliseconds < 66)
                 return;
-            }
-            else
-            {
-                lastListViewUpdate = now.Millisecond;
-            }
+            lastListViewUpdate = now;
 
             // create collection of listView items from LiveData dictionary
             ListViewItem[] items = [.. liveData.Select(kvp => new ListViewItem([kvp.Key, kvp.Value.ToString("F2")]))];
