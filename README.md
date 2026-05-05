@@ -56,3 +56,26 @@ The T6 Live Tuning tab enables real-time calibration editing by monitoring .CPT 
 
 ### T6E Calibration Flasher
 Available from the **File** menu, the T6E Calibration Flasher provides a convenient interface for flashing ECU calibrations to Lotus T6e engine control units. The tool supports both .CRP and .CPT file formats, automatically converting .CPT files to XTEA-encrypted .CRP format (CRP08) before flashing to ensure compatibility with the ECU's flash programming protocol.
+
+## Developer TODOs
+
+### UI / UX
+- **Tab and button icons are not visible in the Visual Studio designer.** Icons are applied at runtime using Segoe MDL2 Assets glyph rendering (`GuiIcons.cs`), but the WinForms designer only executes `InitializeComponent()` and does not run post-constructor code. Fix: pre-render glyphs to PNG and store them as embedded resources in the project `.resx` file, then reference them via `Properties.Resources` in `InitializeComponent()` so the designer can read and re-serialize them.
+- **`MainWindow` silently swallows exceptions** in three constructor `try/catch` blocks when creating `OBDLoggerControl`, `EcuCodingControl`, and `T6RMAControl`. If a control fails to initialize the tab just appears empty with no feedback. Add proper error reporting.
+- **`MainWindow.OnLoggerStateChanged` also swallows exceptions silently.** Any failure propagating logger state to child controls is hidden.
+
+### Threading / Correctness
+- **`VehicleInfoControl.LoadVehicleData` blocks the UI thread.** All J2534 work (connection, filter setup, PID queries, octane scaler reads) runs on the UI thread, freezing the app for the duration. Move to `Task.Run()` and use `Invoke`/`BeginInvoke` for status label updates and the final ListView refresh. (`VehicleInfoControl.cs`)
+- **`liveData` dictionary has a data race.** It is written by the background logger thread and read on the UI thread with no synchronization. Fix by using `ConcurrentDictionary` or capturing a snapshot under a lock before dispatching to the UI thread. (`OBDLoggerControl.cs`)
+
+### Code Quality
+- **`VehicleInfoService` is instantiated but never used.** All protocol work (Mode 0x09, Mode 0x22, octane scalers) is duplicated inline in `VehicleInfoControl`. Consolidate into `VehicleInfoService` and have the control delegate to it. The service currently contains stubs that don't match the real parsing and should be removed.
+- **`T6LiveTuningService.ReadEcuImageToFileAsync` is a stub.** The method validates arguments and logs but does not read ECU memory. Needs implementation: validate RAM address range (0x40000000–0x4000FFFF), read in chunks via `T6RMAService`, handle multi-frame reads, write binary output to file.
+- **`T6eCodingDecoder` individual backing fields may be redundant.** `_codingDataHigh` and `_codingDataLow` are stored as raw byte arrays alongside the computed `BitField`. Evaluate whether the raw arrays are still needed or can be derived on demand.
+- **`T6eCodingDecoder` constructor logic is duplicated.** Initialization is repeated across two constructors; refactor into a shared private method.
+- **`T6eCodingDecoder` validation rules are incomplete.** Coding validation only covers a subset of models. Add validation rules for S2, Exige, and Emira variants.
+- **`Iso15765Service` response filtering is loose.** After sending a request, the first non-empty message is accepted without checking whether it is actually the expected response. Add response header validation. (`Iso15765Service.cs:110`)
+
+### Protocol / Data
+- **Throttle position scaling constant may not be portable.** `LiveDataReading.cs` uses a hard-coded divisor of 77 as the observed max raw throttle value. This may vary across ECU calibrations. Verify and replace with a documented or configurable value.
+- **Wideband PIDs (Mode 0x22, 0x0403/0x0404) need completing.** A stub comment in `LiveDataReading.cs` describes the `wb_bank1`/`wb_bank2` RAM struct layout and the two wideband PID decoders; the implementation is not yet wired up.
