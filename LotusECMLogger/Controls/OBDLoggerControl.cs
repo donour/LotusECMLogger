@@ -150,44 +150,41 @@ namespace LotusECMLogger.Controls
             currentLogfileName.Text = "No Log File";
         }
 
-        private void Logger_DataLogged(List<LiveDataReading> data)
+        // Marshals an action to the UI thread, silently dropping it if the control
+        // is disposed or the window handle is gone before or after the cross-thread hop.
+        private void SafeUIInvoke(Action action)
         {
-            // Check if control is disposed or being disposed
             if (IsDisposed || Disposing)
                 return;
 
             if (InvokeRequired)
             {
-                try
-                {
-                    Invoke(new Action(() => Logger_DataLogged(data)));
-                }
-                catch (ObjectDisposedException)
-                {
-                    return;
-                }
-                catch (InvalidOperationException)
-                {
-                    return;
-                }
+                try { Invoke(action); }
+                catch (ObjectDisposedException) { }
+                catch (InvalidOperationException) { }
                 return;
             }
 
-            // Double-check after invoke to handle race conditions
             if (IsDisposed || Disposing)
                 return;
 
-            DateTime now = DateTime.Now;
-            float refreshRate = LogFileToUIRatio * 1000 / (float)(now - lastUpdateTime).TotalMilliseconds;
-            lastUpdateTime = now;
+            action();
+        }
 
-            foreach (var r in data)
+        private void Logger_DataLogged(List<LiveDataReading> data)
+        {
+            SafeUIInvoke(() =>
             {
-                liveData[r.name] = (float)r.value_f;
-            }
+                DateTime now = DateTime.Now;
+                float refreshRate = LogFileToUIRatio * 1000 / (float)(now - lastUpdateTime).TotalMilliseconds;
+                lastUpdateTime = now;
 
-            UpdateListView();
-            RefreshRateUpdated?.Invoke(refreshRate);
+                foreach (var r in data)
+                    liveData[r.name] = (float)r.value_f;
+
+                UpdateListView();
+                RefreshRateUpdated?.Invoke(refreshRate);
+            });
         }
 
         private void UpdateListView()
@@ -197,7 +194,6 @@ namespace LotusECMLogger.Controls
                 return;
             lastListViewUpdate = now;
 
-            // create collection of listView items from LiveData dictionary
             ListViewItem[] items = [.. liveData.Select(kvp => new ListViewItem([kvp.Key, kvp.Value.ToString("F2")]))];
 
             liveDataView.BeginUpdate();
@@ -208,47 +204,23 @@ namespace LotusECMLogger.Controls
 
         private void Logger_ExceptionOccurred(Exception ex)
         {
-            // Check if control is disposed or being disposed
-            if (IsDisposed || Disposing)
-                return;
-
-            if (InvokeRequired)
+            SafeUIInvoke(() =>
             {
-                try
+                logger?.Stop();
+                IsLogging = false;
+                currentLogfileName.Text = "No Log File";
+
+                string errorMessage = ex switch
                 {
-                    Invoke(new Action(() => Logger_ExceptionOccurred(ex)));
-                }
-                catch (ObjectDisposedException)
-                {
-                    return;
-                }
-                catch (InvalidOperationException)
-                {
-                    return;
-                }
-                return;
-            }
+                    J2534Exception j2534Ex => $"J2534 Interface Error: {j2534Ex.Message}",
+                    TimeoutException => "Communication timeout with ECM. Please check connections.",
+                    UnauthorizedAccessException => "Unable to access log file. Check file permissions.",
+                    IOException ioEx => $"File I/O Error: {ioEx.Message}",
+                    _ => $"Unexpected error: {ex.Message}"
+                };
 
-            // Double-check after invoke to handle race conditions
-            if (IsDisposed || Disposing)
-                return;
-
-            // Stop the logger and reset UI state
-            logger?.Stop();
-            IsLogging = false;
-            currentLogfileName.Text = "No Log File";
-
-            // Show error message to user
-            string errorMessage = ex switch
-            {
-                J2534Exception j2534Ex => $"J2534 Interface Error: {j2534Ex.Message}",
-                TimeoutException => "Communication timeout with ECM. Please check connections.",
-                UnauthorizedAccessException => "Unable to access log file. Check file permissions.",
-                IOException ioEx => $"File I/O Error: {ioEx.Message}",
-                _ => $"Unexpected error: {ex.Message}"
-            };
-
-            MessageBox.Show(errorMessage, "Logger Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show(errorMessage, "Logger Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            });
         }
     }
 }
