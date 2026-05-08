@@ -309,6 +309,22 @@ namespace LotusECMLogger
 
             if (Path.GetExtension(fileToFlash).Equals(".cpt", StringComparison.OrdinalIgnoreCase))
             {
+                // Calibration CPT files are always under 32KB; larger files are not calibrations
+                const int MaxCalibrationSize = 32 * 1024;
+                long fileSize = new FileInfo(fileToFlash).Length;
+                if (fileSize >= MaxCalibrationSize)
+                {
+                    MessageBox.Show(
+                        $"The selected CPT file is {fileSize:N0} bytes, which exceeds the 32 KB limit for calibration files.\n\n" +
+                        "This tool only supports calibration CPT files. The selected file may be a full flash image or another non-calibration type and cannot be flashed here.",
+                        "Unsupported CPT File",
+                        MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
+            }
+
+            if (Path.GetExtension(fileToFlash).Equals(".cpt", StringComparison.OrdinalIgnoreCase))
+            {
                 try
                 {
                     statusLabel.Text = "Converting CPT to CRP...";
