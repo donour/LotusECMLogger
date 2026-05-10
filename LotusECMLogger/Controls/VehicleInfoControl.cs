@@ -129,6 +129,9 @@ namespace LotusECMLogger.Controls
 
                     statusLabel.Text = $"Loading data for {availablePIDs.Count} PIDs...";
 
+                    statusLabel.Text = "Reading extended ECU info...";
+                    vehicleDataSnapshot.AddRange(QueryMode22ExtendedInfo(channel));
+
                     // Load values for all available PIDs
                     foreach (var pid in availablePIDs)
                     {
@@ -152,6 +155,7 @@ namespace LotusECMLogger.Controls
 
                     statusLabel.Text = "Reading octane scalers...";
                     vehicleDataSnapshot.AddRange(QueryOctaneScalers(channel));
+
                 }
 
                 // Update the UI
@@ -284,6 +288,79 @@ namespace LotusECMLogger.Controls
                     Value = ipt.ToString(),
                     Unit = "IPT"
                 };
+            }
+            return null;
+        }
+
+        private List<VehicleParameterReading> QueryMode22ExtendedInfo(SAE.J2534.Channel channel)
+        {
+            var results = new List<VehicleParameterReading>();
+
+            // ECU_serial_number: PID 0x020E, 4 bytes
+            var serialBytes = ReadMode22Payload(channel, 0x0E, 4);
+            if (serialBytes != null)
+                results.Add(new VehicleParameterReading
+                {
+                    Name = "ECU Serial Number",
+                    Value = BitConverter.ToString(serialBytes).Replace("-", " "),
+                    Unit = ""
+                });
+
+            // ECU_type: PID 0x0211, 4 bytes
+            var typeBytes = ReadMode22Payload(channel, 0x11, 4);
+            if (typeBytes != null)
+                results.Add(new VehicleParameterReading
+                {
+                    Name = "ECU Type",
+                    Value = BitConverter.ToString(typeBytes).Replace("-", " "),
+                    Unit = ""
+                });
+
+            // CAL_prog_version: char[32], 4 bytes per PID across 8 PIDs.
+            // PID 0x20 is the supported-PID bitmap and is intentionally skipped.
+            byte[] calVersionPids = [0x1C, 0x1D, 0x1E, 0x1F, 0x21, 0x22, 0x23, 0x24];
+            var versionBytes = new List<byte>();
+            foreach (var pid in calVersionPids)
+            {
+                var chunk = ReadMode22Payload(channel, pid, 4);
+                if (chunk != null) versionBytes.AddRange(chunk);
+            }
+            if (versionBytes.Count > 0)
+                results.Add(new VehicleParameterReading
+                {
+                    Name = "CAL Program Version",
+                    Value = Encoding.ASCII.GetString([.. versionBytes]).TrimEnd('\0'),
+                    Unit = ""
+                });
+
+            return results;
+        }
+
+        // Sends a Mode 22 request with PID [0x02, pid] and returns payloadLength bytes
+        // starting at data[7], or null if the ECU does not respond with a matching positive response.
+        private byte[]? ReadMode22Payload(SAE.J2534.Channel channel, byte pid, int payloadLength)
+        {
+            try
+            {
+                byte[] request = [0x00, 0x00, 0x07, 0xE0, 0x22, 0x02, pid];
+                channel.SendMessage(request);
+
+                for (int i = 0; i < 10; i++)
+                {
+                    var response = channel.GetMessages(1, 250);
+                    if (response.Messages.Length > 0)
+                    {
+                        var data = response.Messages[0].Data;
+                        // 4 ISO-TP header + 0x62 + 2 PID bytes + payload
+                        if (data.Length >= 7 + payloadLength &&
+                            data[4] == 0x62 && data[5] == 0x02 && data[6] == pid)
+                            return data[7..(7 + payloadLength)];
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Failed to read Mode22 PID 0x02{pid:X2}: {ex.Message}");
             }
             return null;
         }
