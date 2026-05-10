@@ -1,11 +1,18 @@
 using SAE.J2534;
 using LotusECMLogger.Services;
 using System.Collections.Concurrent;
+using System.Runtime.InteropServices;
 
 namespace LotusECMLogger.Controls
 {
     public partial class OBDLoggerControl : UserControl
     {
+        // Used to prevent system sleep while logging is active
+        [DllImport("kernel32.dll")]
+        private static extern uint SetThreadExecutionState(uint esFlags);
+        private const uint ES_CONTINUOUS = 0x80000000u;
+        private const uint ES_SYSTEM_REQUIRED = 0x00000001u;
+
         public readonly int LogFileToUIRatio = 8; // UI update every 8th log entry
 
         /// <summary>
@@ -147,6 +154,7 @@ namespace LotusECMLogger.Controls
             logger?.Stop();
             IsLogging = false;
             currentLogfileName.Text = "No Log File";
+            SetThreadExecutionState(ES_CONTINUOUS);
         }
 
         // Marshals an action to the UI thread, silently dropping it if the control
@@ -172,6 +180,7 @@ namespace LotusECMLogger.Controls
 
         private void Logger_DataLogged(List<LiveDataReading> data)
         {
+            SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED);
             SafeUIInvoke(() =>
             {
                 DateTime now = DateTime.Now;
@@ -209,6 +218,7 @@ namespace LotusECMLogger.Controls
                 logger?.Stop();
                 IsLogging = false;
                 currentLogfileName.Text = "No Log File";
+                SetThreadExecutionState(ES_CONTINUOUS);
 
                 string errorMessage = ex switch
                 {
