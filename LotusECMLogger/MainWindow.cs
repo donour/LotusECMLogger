@@ -1,5 +1,6 @@
 using LotusECMLogger.Services;
 using LotusECMLogger.Controls;
+using System.Diagnostics;
 
 namespace LotusECMLogger
 {
@@ -36,9 +37,10 @@ namespace LotusECMLogger
                 loggerTab.Controls.Clear();
                 loggerTab.Controls.Add(obdLoggerControl);
             }
-            catch
+            catch (Exception ex)
             {
-                // TODO don't ignore exceptions
+                MessageBox.Show($"Failed to initialize Logger tab: {ex.Message}", "Startup Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
 
             // Replace ECU Coding tab content with modular control
@@ -53,9 +55,10 @@ namespace LotusECMLogger
                 codingDataTab.Controls.Clear();
                 codingDataTab.Controls.Add(ecuControl);
             }
-            catch
+            catch (Exception ex)
             {
-                // TODO don't ignore exceptions
+                MessageBox.Show($"Failed to initialize ECU Coding tab: {ex.Message}", "Startup Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
 
             // Add T6 RMA logging control
@@ -70,9 +73,10 @@ namespace LotusECMLogger
                 t6RmaTab.Controls.Clear();
                 t6RmaTab.Controls.Add(rmaControl);
             }
-            catch
+            catch (Exception ex)
             {
-                // TODO don't ignore exceptions
+                MessageBox.Show($"Failed to initialize T6 RMA tab: {ex.Message}", "Startup Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
 
@@ -93,9 +97,9 @@ namespace LotusECMLogger
                 if (rmaControl != null)
                     rmaControl.IsLoggerActive = isLogging;
             }
-            catch
+            catch (Exception ex)
             {
-                // TODO: don't ignore errors
+                Debug.WriteLine($"[OnLoggerStateChanged] {ex}");
             }
         }
 
