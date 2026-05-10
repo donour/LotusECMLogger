@@ -1,5 +1,6 @@
 using SAE.J2534;
 using LotusECMLogger.Services;
+using System.Collections.Concurrent;
 
 namespace LotusECMLogger.Controls
 {
@@ -18,9 +19,7 @@ namespace LotusECMLogger.Controls
         public event Action<float>? RefreshRateUpdated;
 
         private J2534LoggingService? logger;
-        // TODO: liveData is written by the background logger thread and read on the UI thread with no lock.
-        // Fix by using ConcurrentDictionary or capturing a snapshot under a lock before dispatching to the UI thread.
-        private Dictionary<string, float> liveData = [];
+        private ConcurrentDictionary<string, float> liveData = new();
         private DateTime lastUpdateTime = DateTime.Now;
         private DateTime lastListViewUpdate = DateTime.MinValue;
         private string selectedObdConfigName = "NO CONFIG";
@@ -194,7 +193,8 @@ namespace LotusECMLogger.Controls
                 return;
             lastListViewUpdate = now;
 
-            ListViewItem[] items = [.. liveData.Select(kvp => new ListViewItem([kvp.Key, kvp.Value.ToString("F2")]))];
+            var snapshot = liveData.ToList();
+            ListViewItem[] items = [.. snapshot.Select(kvp => new ListViewItem([kvp.Key, kvp.Value.ToString("F2")]))];
 
             liveDataView.BeginUpdate();
             liveDataView.Items.Clear();
