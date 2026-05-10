@@ -1,5 +1,6 @@
 using LotusECMLogger.Services;
 using LotusECMLogger.Controls;
+using System.Diagnostics;
 
 namespace LotusECMLogger
 {
@@ -15,6 +16,8 @@ namespace LotusECMLogger
         public MainWindow()
         {
             InitializeComponent();
+
+            ApplyTabIcons();
 
             // Handle form closing to ensure logger is stopped
             this.FormClosing += MainWindow_FormClosing;
@@ -34,9 +37,10 @@ namespace LotusECMLogger
                 loggerTab.Controls.Clear();
                 loggerTab.Controls.Add(obdLoggerControl);
             }
-            catch
+            catch (Exception ex)
             {
-                // TODO don't ignore exceptions
+                MessageBox.Show($"Failed to initialize Logger tab: {ex.Message}", "Startup Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
 
             // Replace ECU Coding tab content with modular control
@@ -51,9 +55,10 @@ namespace LotusECMLogger
                 codingDataTab.Controls.Clear();
                 codingDataTab.Controls.Add(ecuControl);
             }
-            catch
+            catch (Exception ex)
             {
-                // TODO don't ignore exceptions
+                MessageBox.Show($"Failed to initialize ECU Coding tab: {ex.Message}", "Startup Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
 
             // Add T6 RMA logging control
@@ -68,9 +73,10 @@ namespace LotusECMLogger
                 t6RmaTab.Controls.Clear();
                 t6RmaTab.Controls.Add(rmaControl);
             }
-            catch
+            catch (Exception ex)
             {
-                // TODO don't ignore exceptions
+                MessageBox.Show($"Failed to initialize T6 RMA tab: {ex.Message}", "Startup Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
 
@@ -91,9 +97,9 @@ namespace LotusECMLogger
                 if (rmaControl != null)
                     rmaControl.IsLoggerActive = isLogging;
             }
-            catch
+            catch (Exception ex)
             {
-                // TODO: don't ignore errors
+                Debug.WriteLine($"[OnLoggerStateChanged] {ex}");
             }
         }
 
@@ -130,6 +136,33 @@ namespace LotusECMLogger
         {
             var helpDialog = new HelpDialog();
             helpDialog.ShowDialog(this);
+        }
+
+        private void ApplyTabIcons()
+        {
+            var tabColor = SystemColors.ControlText;
+
+            var mainIcons = GuiIcons.BuildImageList(20, tabColor,
+                GuiIcons.VehicleInfo,
+                GuiIcons.LiveData,
+                GuiIcons.EcuCoding,
+                GuiIcons.Dtc,
+                GuiIcons.RmaLogging,
+                GuiIcons.LiveTuning);
+            mainTabControl.ImageList = mainIcons;
+            vehicleInfoTab.ImageIndex = 0;
+            liveDataTab.ImageIndex    = 1;
+            codingDataTab.ImageIndex  = 2;
+            dtcTab.ImageIndex         = 3;
+            t6RmaTab.ImageIndex       = 4;
+            liveTuningTab.ImageIndex  = 5;
+
+            var loggingIcons = GuiIcons.BuildImageList(20, tabColor,
+                GuiIcons.LoggerTab,
+                GuiIcons.ConfigTab);
+            loggingTabControl.ImageList = loggingIcons;
+            loggerTab.ImageIndex     = 0;
+            configEditorTab.ImageIndex = 1;
         }
     }
 }

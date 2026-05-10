@@ -28,6 +28,11 @@ namespace LotusECMLogger.Controls
 			InitializeComponent();
 
 			Dock = DockStyle.Fill;
+
+			GuiIcons.ApplyToButton(readCodesButton,   GuiIcons.Read);
+			GuiIcons.ApplyToButton(writeCodesButton,  GuiIcons.Write);
+			GuiIcons.ApplyToButton(saveCodingButton,  GuiIcons.Save);
+			GuiIcons.ApplyToButton(resetCodingButton, GuiIcons.Refresh);
 		}
 
 		private void readCodesButton_Click(object? sender, EventArgs e)

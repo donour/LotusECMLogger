@@ -1,10 +1,18 @@
 using SAE.J2534;
 using LotusECMLogger.Services;
+using System.Collections.Concurrent;
+using System.Runtime.InteropServices;
 
 namespace LotusECMLogger.Controls
 {
     public partial class OBDLoggerControl : UserControl
     {
+        // Used to prevent system sleep while logging is active
+        [DllImport("kernel32.dll")]
+        private static extern uint SetThreadExecutionState(uint esFlags);
+        private const uint ES_CONTINUOUS = 0x80000000u;
+        private const uint ES_SYSTEM_REQUIRED = 0x00000001u;
+
         public readonly int LogFileToUIRatio = 8; // UI update every 8th log entry
 
         /// <summary>
@@ -18,11 +26,9 @@ namespace LotusECMLogger.Controls
         public event Action<float>? RefreshRateUpdated;
 
         private J2534LoggingService? logger;
-        // TODO: liveData is written by the background logger thread and read on the UI thread with no lock.
-        // Fix by using ConcurrentDictionary or capturing a snapshot under a lock before dispatching to the UI thread.
-        private Dictionary<string, float> liveData = [];
+        private ConcurrentDictionary<string, float> liveData = new();
         private DateTime lastUpdateTime = DateTime.Now;
-        private double lastListViewUpdate = 0;
+        private DateTime lastListViewUpdate = DateTime.MinValue;
         private string selectedObdConfigName = "NO CONFIG";
 
         private bool _isLogging = false;
@@ -51,6 +57,9 @@ namespace LotusECMLogger.Controls
 
             // Initialize ListView columns
             InitializeListView();
+
+            GuiIcons.ApplyToButton(startLoggerButton, GuiIcons.Play);
+            GuiIcons.ApplyToButton(stopLoggerButton, GuiIcons.Stop);
 
             // Populate OBD config menu
             RefreshAvailableConfigurations();
@@ -145,63 +154,56 @@ namespace LotusECMLogger.Controls
             logger?.Stop();
             IsLogging = false;
             currentLogfileName.Text = "No Log File";
+            SetThreadExecutionState(ES_CONTINUOUS);
         }
 
-        private void Logger_DataLogged(List<LiveDataReading> data)
+        // Marshals an action to the UI thread, silently dropping it if the control
+        // is disposed or the window handle is gone before or after the cross-thread hop.
+        private void SafeUIInvoke(Action action)
         {
-            // Check if control is disposed or being disposed
             if (IsDisposed || Disposing)
                 return;
 
             if (InvokeRequired)
             {
-                try
-                {
-                    Invoke(new Action(() => Logger_DataLogged(data)));
-                }
-                catch (ObjectDisposedException)
-                {
-                    return;
-                }
-                catch (InvalidOperationException)
-                {
-                    return;
-                }
+                try { Invoke(action); }
+                catch (ObjectDisposedException) { }
+                catch (InvalidOperationException) { }
                 return;
             }
 
-            // Double-check after invoke to handle race conditions
             if (IsDisposed || Disposing)
                 return;
 
-            foreach (var r in data)
+            action();
+        }
+
+        private void Logger_DataLogged(List<LiveDataReading> data)
+        {
+            SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED);
+            SafeUIInvoke(() =>
             {
-                liveData[r.name] = (float)r.value_f;
-            }
+                DateTime now = DateTime.Now;
+                float refreshRate = LogFileToUIRatio * 1000 / (float)(now - lastUpdateTime).TotalMilliseconds;
+                lastUpdateTime = now;
 
-            UpdateListView();
+                foreach (var r in data)
+                    liveData[r.name] = (float)r.value_f;
 
-            DateTime now = DateTime.Now;
-            float refreshRate = LogFileToUIRatio * 1000 / (float)(now - lastUpdateTime).TotalMilliseconds;
-            RefreshRateUpdated?.Invoke(refreshRate);
-            lastUpdateTime = now;
+                UpdateListView();
+                RefreshRateUpdated?.Invoke(refreshRate);
+            });
         }
 
         private void UpdateListView()
         {
-            // rate limit list view updates
             DateTime now = DateTime.Now;
-            if (now.Millisecond - lastListViewUpdate > 66)
-            {
+            if ((now - lastListViewUpdate).TotalMilliseconds < 66)
                 return;
-            }
-            else
-            {
-                lastListViewUpdate = now.Millisecond;
-            }
+            lastListViewUpdate = now;
 
-            // create collection of listView items from LiveData dictionary
-            ListViewItem[] items = [.. liveData.Select(kvp => new ListViewItem([kvp.Key, kvp.Value.ToString("F2")]))];
+            var snapshot = liveData.ToList();
+            ListViewItem[] items = [.. snapshot.Select(kvp => new ListViewItem([kvp.Key, kvp.Value.ToString("F2")]))];
 
             liveDataView.BeginUpdate();
             liveDataView.Items.Clear();
@@ -211,47 +213,24 @@ namespace LotusECMLogger.Controls
 
         private void Logger_ExceptionOccurred(Exception ex)
         {
-            // Check if control is disposed or being disposed
-            if (IsDisposed || Disposing)
-                return;
-
-            if (InvokeRequired)
+            SafeUIInvoke(() =>
             {
-                try
+                logger?.Stop();
+                IsLogging = false;
+                currentLogfileName.Text = "No Log File";
+                SetThreadExecutionState(ES_CONTINUOUS);
+
+                string errorMessage = ex switch
                 {
-                    Invoke(new Action(() => Logger_ExceptionOccurred(ex)));
-                }
-                catch (ObjectDisposedException)
-                {
-                    return;
-                }
-                catch (InvalidOperationException)
-                {
-                    return;
-                }
-                return;
-            }
+                    J2534Exception j2534Ex => $"J2534 Interface Error: {j2534Ex.Message}",
+                    TimeoutException => "Communication timeout with ECM. Please check connections.",
+                    UnauthorizedAccessException => "Unable to access log file. Check file permissions.",
+                    IOException ioEx => $"File I/O Error: {ioEx.Message}",
+                    _ => $"Unexpected error: {ex.Message}"
+                };
 
-            // Double-check after invoke to handle race conditions
-            if (IsDisposed || Disposing)
-                return;
-
-            // Stop the logger and reset UI state
-            logger?.Stop();
-            IsLogging = false;
-            currentLogfileName.Text = "No Log File";
-
-            // Show error message to user
-            string errorMessage = ex switch
-            {
-                J2534Exception j2534Ex => $"J2534 Interface Error: {j2534Ex.Message}",
-                TimeoutException => "Communication timeout with ECM. Please check connections.",
-                UnauthorizedAccessException => "Unable to access log file. Check file permissions.",
-                IOException ioEx => $"File I/O Error: {ioEx.Message}",
-                _ => $"Unexpected error: {ex.Message}"
-            };
-
-            MessageBox.Show(errorMessage, "Logger Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show(errorMessage, "Logger Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            });
         }
     }
 }
