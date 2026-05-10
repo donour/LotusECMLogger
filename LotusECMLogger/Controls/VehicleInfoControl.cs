@@ -306,6 +306,26 @@ namespace LotusECMLogger.Controls
                     Unit = ""
                 });
 
+            // hardware_number: PID 0x020F, 4 bytes
+            var hwBytes = ReadMode22Payload(channel, 0x0F, 4);
+            if (hwBytes != null)
+                results.Add(new VehicleParameterReading
+                {
+                    Name = "Hardware Number",
+                    Value = BitConverter.ToString(hwBytes).Replace("-", " "),
+                    Unit = ""
+                });
+
+            // crypto_flags: PID 0x0210, 4 bytes
+            var cryptoBytes = ReadMode22Payload(channel, 0x10, 4);
+            if (cryptoBytes != null)
+                results.Add(new VehicleParameterReading
+                {
+                    Name = "Crypto Flags",
+                    Value = BitConverter.ToString(cryptoBytes).Replace("-", " "),
+                    Unit = ""
+                });
+
             // ECU_type: PID 0x0211, 4 bytes
             var typeBytes = ReadMode22Payload(channel, 0x11, 4);
             if (typeBytes != null)
