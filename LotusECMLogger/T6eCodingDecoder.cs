@@ -29,6 +29,8 @@ namespace LotusECMLogger
             public string[] Options { get; set; } = options;
         }
 
+        public sealed record CodingValidationIssue(string Message, string[] OptionNames);
+
         /// <summary>
         /// All coding options defined for the T6e ECU
         /// </summary>
@@ -102,8 +104,9 @@ namespace LotusECMLogger
         /// </summary>
         /// <param name="codingDataLow">Lower 4 bytes of coding data</param>
         /// <param name="codingDataHigh">Higher 4 bytes of coding data</param>
+        /// <param name="validate">When true, validates coding values against known ECU rules</param>
         /// <exception cref="ArgumentException">Thrown if either array is not exactly 4 bytes</exception>
-        public T6eCodingDecoder(byte[] codingDataLow, byte[] codingDataHigh)
+        public T6eCodingDecoder(byte[] codingDataLow, byte[] codingDataHigh, bool validate = true)
         {
             if (codingDataLow == null || codingDataLow.Length != 4)
             {
@@ -133,8 +136,8 @@ namespace LotusECMLogger
             // Combine into 64-bit field
             _bitField = (highBits << 32) | lowBits;
 
-            // TODO, add other validation rules from S2, Exige, and Emira
-            S1EvoraValidateCoding(_bitField);
+            if (validate)
+                ThrowIfInvalidCoding(_bitField);
 
         }
 
@@ -188,59 +191,90 @@ namespace LotusECMLogger
             return (int)((_bitField >> bitPosition) & (ulong)bitMask);
         }
 
-        /// <summary>
-        /// Validates that the coding data values are legal
-        /// </summary>
-        /// <param name="codingDataLow">Lower 4 bytes of coding data</param>
-        /// <param name="codingDataHigh">Higher 4 bytes of coding data</param>
-        /// <exception cref="ArgumentException">Thrown if coding data contains invalid values</exception>
-        private static void S1EvoraValidateCoding(ulong bitfield)
+        private static void ThrowIfInvalidCoding(ulong bitfield)
         {
-            if (bitfield == 0) {
-                return;
-            }
+            var firstIssue = GetValidationIssues(bitfield).FirstOrDefault();
+            if (firstIssue != null)
+                throw new ArgumentException(firstIssue.Message);
+        }
+
+        public IReadOnlyList<CodingValidationIssue> GetValidationIssues()
+        {
+            return GetValidationIssues(_bitField);
+        }
+
+        private static IReadOnlyList<CodingValidationIssue> GetValidationIssues(ulong bitfield)
+        {
+            var issues = new List<CodingValidationIssue>();
+            if (bitfield == 0)
+                return issues;
 
             // Convert byte arrays to 32-bit values for bit operations (little endian)
             uint codingHigh = (uint)(bitfield >> 32);
             uint codingLow = (uint)(bitfield & 0xFFFFFFFF);
 
+            foreach (var option in _codingOptions)
+            {
+                int value = (int)((bitfield >> option.BitPosition) & (ulong)option.BitMask);
+                if (option.Options != null && value >= option.Options.Length)
+                {
+                    issues.Add(new CodingValidationIssue(
+                        $"Invalid coding data: {option.Name} has raw value {value}, but valid values are 0-{option.Options.Length - 1}",
+                        [option.Name]));
+                }
+            }
+
             // Condition 1: (COD_base[0] >> 0x1c & 7) < 3
             if ((codingHigh >> 0x1c & 7) >= 3)
             {
-                throw new ArgumentException("Invalid coding data: bits 28-30 of codingDataHigh must be < 3");
+                issues.Add(new CodingValidationIssue(
+                    "Invalid coding data: bits 28-30 of codingDataHigh must be < 3",
+                    ["Heating Ventilation Air Conditioning"]));
             }
 
             // Condition 2: (COD_base[0] >> 0x19 & 7) < 2
             if ((codingHigh >> 0x19 & 7) >= 2)
             {
-                throw new ArgumentException("Invalid coding data: bits 25-27 of codingDataHigh must be < 2");
+                issues.Add(new CodingValidationIssue(
+                    "Invalid coding data: bits 25-27 of codingDataHigh must be < 2",
+                    ["Cruise System"]));
             }
 
             // Condition 3: ((COD_base[0] >> 0x16 & 7) == 3 || (COD_base[0] >> 0x16 & 7) == 1)
             uint bits22to24 = codingHigh >> 0x16 & 7;
             if (bits22to24 != 3 && bits22to24 != 1)
             {
-                throw new ArgumentException($"Invalid coding data: ({bits22to24}). Bits 22-24 of codingDataHigh must be 1 or 3");
+                issues.Add(new CodingValidationIssue(
+                    $"Invalid coding data: ({bits22to24}). Bits 22-24 of codingDataHigh must be 1 or 3",
+                    ["Traction Control Level"]));
             }
 
             // Condition 4: ((COD_base[0] >> 0xd & 7) != 1 || (COD_base[0] >> 0x16 & 7) == 3)
             uint bits13to15 = codingHigh >> 0xd & 7;
             if (bits13to15 == 1 && bits22to24 != 3)
             {
-                throw new ArgumentException($"Invalid coding data({bits13to15}): if bits 13-15 of codingDataHigh are 1, then bits 22-24 must be 3");
+                issues.Add(new CodingValidationIssue(
+                    $"Invalid coding data({bits13to15}): if bits 13-15 of codingDataHigh are 1, then bits 22-24 must be 3",
+                    ["Transmission Type", "Traction Control Level"]));
             }
 
             // Condition 5: ((COD_base[0] >> 0xd & 7) != 0 || (COD_base[1] >> 0x15 & 3) == 2)
             if (bits13to15 == 0 && (codingLow >> 0x15 & 3) != 2)
             {
-                throw new ArgumentException("Invalid coding data: if bits 13-15 of codingDataHigh are 0, then bits 21-22 of codingDataLow must be 2");
+                issues.Add(new CodingValidationIssue(
+                    "Invalid coding data: if bits 13-15 of codingDataHigh are 0, then bits 21-22 of codingDataLow must be 2",
+                    ["Transmission Type", "Clutch Input"]));
             }
 
             // Condition 6: ((COD_base[1] >> 10 & 1) != 0 && (COD_base[1] >> 9 & 1) != 0)
             if ((codingLow >> 10 & 1) == 0 || (codingLow >> 9 & 1) == 0)
             {
-                throw new ArgumentException("Invalid coding data: bits 9 and 10 of codingDataLow must both be set");
+                issues.Add(new CodingValidationIssue(
+                    "Invalid coding data: bits 9 and 10 of codingDataLow must both be set",
+                    ["Instrument Cluster", "Anti-Lock Braking System"]));
             }
+
+            return issues;
         }
 
         /// <summary>
@@ -487,4 +521,4 @@ namespace LotusECMLogger
             return BitConverter.ToString(CodingData).Replace("-", " ");
         }
     }
-} 
+}
