@@ -2,6 +2,11 @@ using SAE.J2534;
 
 namespace LotusECMLogger.Services
 {
+	// TODO: Program mismatch repair function.
+	// When the ECU is unlocked, read the state of the program mismatch flag and,
+	// if set, optionally issue the reset command via the coding handler to clear it.
+	// The coding-handler command register accepts values 1-7 (see service_coding_333ms
+	// in the firmware); the reset path is one of those commands.
 	public sealed class J2534EcuCodingService : IEcuCodingService
 	{
 		public T6eCodingDecoder ReadCoding()

@@ -9,6 +9,7 @@ namespace LotusECMLogger.Controls
     {
         private readonly IVehicleInfoService _vehicleInfoService;
         private readonly IObdResetService _resetService;
+        private readonly IVinSetService _vinSetService;
         private List<VehicleParameterReading> vehicleDataSnapshot = [];
 
         private bool _isLoggerActive;
@@ -19,6 +20,7 @@ namespace LotusECMLogger.Controls
             {
                 _isLoggerActive = value;
                 resetButton.Enabled = !value;
+                setVinButton.Enabled = !value;
             }
         }
 
@@ -27,9 +29,11 @@ namespace LotusECMLogger.Controls
             InitializeComponent();
             _vehicleInfoService = new VehicleInfoService();
             _resetService = new J2534ObdResetService();
+            _vinSetService = new J2534VinSetService();
             SetupListViewColumns();
             GuiIcons.ApplyToButton(readDataButton, GuiIcons.Read);
             GuiIcons.ApplyToButton(resetButton, GuiIcons.UpdateRestore);
+            GuiIcons.ApplyToButton(setVinButton, GuiIcons.Write);
         }
 
         private void SetupListViewColumns()
@@ -43,6 +47,25 @@ namespace LotusECMLogger.Controls
         private void readDataButton_Click(object sender, EventArgs e)
         {
             LoadVehicleData();
+        }
+
+        private void setVinButton_Click(object? sender, EventArgs e)
+        {
+            if (_isLoggerActive)
+            {
+                MessageBox.Show("Cannot set VIN while logging is active. Please stop the logger first.", "Logger Active", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            var currentVin = vehicleDataSnapshot
+                .FirstOrDefault(r => r.Name == "Vehicle Identification Number")?.Value?.Trim();
+
+            using var dialog = new SetVinDialog(_vinSetService, currentVin);
+            var result = dialog.ShowDialog(this);
+            if (result == DialogResult.OK)
+            {
+                LoadVehicleData();
+            }
         }
 
         private void resetButton_Click(object? sender, EventArgs e)
