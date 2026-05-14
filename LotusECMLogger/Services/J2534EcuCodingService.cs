@@ -75,7 +75,14 @@ namespace LotusECMLogger.Services
 				}
 			} while (done != 3);
 
-			return new T6eCodingDecoder(result_cod1, result_cod0);
+			try
+			{
+				return new T6eCodingDecoder(result_cod1, result_cod0);
+			}
+			catch (ArgumentException ex)
+			{
+				throw new InvalidEcuCodingDataException(result_cod1, result_cod0, ex);
+			}
 		}
 
 		private static (bool success, string errorMessage) WriteRawCanCoding(T6eCodingDecoder codingDecoder, Device device)
@@ -108,5 +115,4 @@ namespace LotusECMLogger.Services
 		}
 	}
 }
-
 

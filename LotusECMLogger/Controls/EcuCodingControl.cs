@@ -9,6 +9,9 @@ namespace LotusECMLogger.Controls
 		private T6eCodingDecoder? originalCodingDecoder;
 		private T6eCodingDecoder? modifiedCodingDecoder;
 		private readonly Dictionary<string, Control> codingControls = new Dictionary<string, Control>();
+		private readonly Dictionary<string, Label> codingLabels = new Dictionary<string, Label>();
+		private readonly Dictionary<string, Label> codingValidationLabels = new Dictionary<string, Label>();
+		private readonly ToolTip validationToolTip;
 
 		private bool isLoggerActive;
 		public bool IsLoggerActive
@@ -26,6 +29,8 @@ namespace LotusECMLogger.Controls
 		{
 			this.service = service;
 			InitializeComponent();
+			components ??= new System.ComponentModel.Container();
+			validationToolTip = new ToolTip(components);
 
 			Dock = DockStyle.Fill;
 
@@ -48,13 +53,15 @@ namespace LotusECMLogger.Controls
 				readCodesButton.Enabled = false;
 				readCodesButton.Text = "Reading...";
 
-				originalCodingDecoder = service.ReadCoding();
-				modifiedCodingDecoder = originalCodingDecoder;
-
-				UpdateCodingView();
-				writeCodesButton.Enabled = !IsLoggerActive;
-				UpdateBitFieldLabel();
+				LoadCodingDecoder(service.ReadCoding());
 				MessageBox.Show("Coding data successfully read from ECU!", "Read Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
+			}
+			catch (InvalidEcuCodingDataException ex)
+			{
+				if (ShowInvalidCodingDataDialog(ex) == InvalidCodingLoadChoice.LoadAnyway)
+				{
+					LoadCodingDecoder(new T6eCodingDecoder(ex.CodingDataLow, ex.CodingDataHigh, validate: false));
+				}
 			}
 			catch (System.Exception ex)
 			{
@@ -65,6 +72,72 @@ namespace LotusECMLogger.Controls
 				readCodesButton.Enabled = !IsLoggerActive;
 				readCodesButton.Text = "Read Codes";
 			}
+		}
+
+		private void LoadCodingDecoder(T6eCodingDecoder decoder)
+		{
+			originalCodingDecoder = decoder;
+			modifiedCodingDecoder = originalCodingDecoder;
+
+			UpdateCodingView();
+			writeCodesButton.Enabled = !IsLoggerActive;
+			UpdateBitFieldLabel();
+		}
+
+		private enum InvalidCodingLoadChoice
+		{
+			Cancel,
+			LoadAnyway
+		}
+
+		private InvalidCodingLoadChoice ShowInvalidCodingDataDialog(InvalidEcuCodingDataException exception)
+		{
+			using var dialog = new Form
+			{
+				Text = "Invalid ECU Coding Data",
+				FormBorderStyle = FormBorderStyle.FixedDialog,
+				StartPosition = FormStartPosition.CenterParent,
+				MinimizeBox = false,
+				MaximizeBox = false,
+				ShowInTaskbar = false,
+				ClientSize = new Size(520, 190)
+			};
+
+			var messageLabel = new Label
+			{
+				AutoSize = false,
+				Location = new Point(16, 16),
+				Size = new Size(488, 106),
+				Text =
+					"The ECU coding data is invalid and may not match a supported configuration.\r\n\r\n" +
+					$"{exception.InnerException?.Message ?? exception.Message}\r\n\r\n" +
+					"You can cancel, or load the raw coding data anyway to correct it before writing changes."
+			};
+
+			var cancelButton = new Button
+			{
+				Text = "Cancel",
+				DialogResult = DialogResult.Cancel,
+				Size = new Size(100, 28),
+				Location = new Point(298, 146)
+			};
+
+			var loadAnywayButton = new Button
+			{
+				Text = "Load anyway",
+				DialogResult = DialogResult.OK,
+				Size = new Size(106, 28),
+				Location = new Point(404, 146)
+			};
+
+			dialog.Controls.Add(messageLabel);
+			dialog.Controls.Add(cancelButton);
+			dialog.Controls.Add(loadAnywayButton);
+			dialog.CancelButton = cancelButton;
+
+			return dialog.ShowDialog(FindForm()) == DialogResult.OK
+				? InvalidCodingLoadChoice.LoadAnyway
+				: InvalidCodingLoadChoice.Cancel;
 		}
 
 		private void writeCodesButton_Click(object? sender, EventArgs e)
@@ -255,6 +328,7 @@ namespace LotusECMLogger.Controls
 				ResetSingleControl(optionName);
 
 			saveCodingButton.Text = "Save Changes";
+			ApplyValidationHighlights();
 			UpdateBitFieldLabel();
 		}
 
@@ -265,6 +339,8 @@ namespace LotusECMLogger.Controls
 
 			codingScrollPanel.Controls.Clear();
 			codingControls.Clear();
+			codingLabels.Clear();
+			codingValidationLabels.Clear();
 
 			var optionNames = originalCodingDecoder.GetAvailableOptions();
 			int yPosition = 10;
@@ -279,6 +355,7 @@ namespace LotusECMLogger.Controls
 					Anchor = AnchorStyles.Top | AnchorStyles.Left
 				};
 				codingScrollPanel.Controls.Add(label);
+				codingLabels[optionName] = label;
 
 				Control control;
 				if (originalCodingDecoder.IsOptionNumeric(optionName))
@@ -305,15 +382,24 @@ namespace LotusECMLogger.Controls
 					};
 					var possibleValues = originalCodingDecoder.GetOptionPossibleValues(optionName);
 					comboBox.Items.AddRange(possibleValues);
-					comboBox.SelectedItem = originalCodingDecoder.GetOptionValue(optionName);
-                    comboBox.SelectedIndexChanged += (s, e) =>
-                    {
-                        var selectedItem = comboBox.SelectedItem?.ToString();
-                        if (selectedItem != null)
-                        {
-                            OnCodingValueChanged(optionName, selectedItem);
-                        }
-                    };
+					var rawValue = originalCodingDecoder.GetOptionRawValue(optionName);
+					if (rawValue >= 0 && rawValue < possibleValues.Length)
+					{
+						comboBox.SelectedIndex = rawValue;
+					}
+					else
+					{
+						comboBox.Items.Add($"Invalid raw value: {rawValue}");
+						comboBox.SelectedIndex = comboBox.Items.Count - 1;
+					}
+					comboBox.SelectedIndexChanged += (s, e) =>
+					{
+						var selectedItem = comboBox.SelectedItem?.ToString();
+						if (selectedItem != null && !selectedItem.StartsWith("Invalid raw value:", StringComparison.Ordinal))
+						{
+							OnCodingValueChanged(optionName, selectedItem);
+						}
+					};
 					comboBox.Anchor = AnchorStyles.Top | AnchorStyles.Left;
 					control = comboBox;
 				}
@@ -321,11 +407,23 @@ namespace LotusECMLogger.Controls
 				codingScrollPanel.Controls.Add(control);
 				codingControls[optionName] = control;
 
+				var validationLabel = new Label
+				{
+					AutoEllipsis = true,
+					ForeColor = Color.Firebrick,
+					Location = new Point(490, yPosition + 3),
+					Size = new Size(280, 20),
+					Visible = false
+				};
+				codingScrollPanel.Controls.Add(validationLabel);
+				codingValidationLabels[optionName] = validationLabel;
+
 				yPosition += 35;
 			}
 
 			saveCodingButton.Enabled = true;
 			resetCodingButton.Enabled = true;
+			ApplyValidationHighlights();
 			UpdateBitFieldLabel();
 		}
 
@@ -336,6 +434,7 @@ namespace LotusECMLogger.Controls
 				modifiedCodingDecoder = modifiedCodingDecoder!.SetOptionValue(optionName, value);
 				bool hasChanges = !modifiedCodingDecoder.BitField.Equals(originalCodingDecoder!.BitField);
 				saveCodingButton.Text = hasChanges ? "Save Changes*" : "Save Changes";
+				ApplyValidationHighlights();
 				UpdateBitFieldLabel();
 			}
 			catch (System.Exception ex)
@@ -351,9 +450,76 @@ namespace LotusECMLogger.Controls
 				return;
 
 			if (control is ComboBox comboBox)
-				comboBox.SelectedItem = originalCodingDecoder!.GetOptionValue(optionName);
+			{
+				var rawValue = originalCodingDecoder!.GetOptionRawValue(optionName);
+				var possibleValues = originalCodingDecoder.GetOptionPossibleValues(optionName);
+				if (rawValue >= 0 && rawValue < possibleValues.Length)
+					comboBox.SelectedIndex = rawValue;
+				else
+					comboBox.SelectedItem = $"Invalid raw value: {rawValue}";
+			}
 			else if (control is NumericUpDown numericUpDown)
 				numericUpDown.Value = originalCodingDecoder!.GetOptionRawValue(optionName);
+		}
+
+		private void ApplyValidationHighlights()
+		{
+			if (modifiedCodingDecoder == null)
+				return;
+
+			foreach (var label in codingLabels.Values)
+				label.ForeColor = SystemColors.ControlText;
+
+			foreach (var control in codingControls.Values)
+			{
+				control.BackColor = SystemColors.Window;
+				validationToolTip.SetToolTip(control, string.Empty);
+			}
+
+			foreach (var validationLabel in codingValidationLabels.Values)
+			{
+				validationLabel.Text = string.Empty;
+				validationLabel.Visible = false;
+				validationToolTip.SetToolTip(validationLabel, string.Empty);
+			}
+
+			var messagesByOption = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+			foreach (var issue in modifiedCodingDecoder.GetValidationIssues())
+			{
+				foreach (var optionName in issue.OptionNames)
+				{
+					if (!messagesByOption.TryGetValue(optionName, out var messages))
+					{
+						messages = new List<string>();
+						messagesByOption[optionName] = messages;
+					}
+					messages.Add(issue.Message);
+				}
+			}
+
+			foreach (var (optionName, messages) in messagesByOption)
+			{
+				var message = string.Join(Environment.NewLine, messages.Distinct());
+
+				if (codingLabels.TryGetValue(optionName, out var label))
+				{
+					label.ForeColor = Color.Firebrick;
+					validationToolTip.SetToolTip(label, message);
+				}
+
+				if (codingControls.TryGetValue(optionName, out var control))
+				{
+					control.BackColor = Color.MistyRose;
+					validationToolTip.SetToolTip(control, message);
+				}
+
+				if (codingValidationLabels.TryGetValue(optionName, out var validationLabel))
+				{
+					validationLabel.Text = "Invalid";
+					validationLabel.Visible = true;
+					validationToolTip.SetToolTip(validationLabel, message);
+				}
+			}
 		}
 
 		private void UpdateBitFieldLabel()
@@ -365,5 +531,3 @@ namespace LotusECMLogger.Controls
 		}
 	}
 }
-
-
