@@ -18,8 +18,10 @@ namespace LotusECMLogger.Controls
         private void InitializeComponent()
         {
             layout = new TableLayoutPanel();
-            vinLabel = new Label();
-            vinTextBox = new TextBox();
+            wmiLabel = new Label();
+            wmiTextBox = new TextBox();
+            vinSuffixLabel = new Label();
+            vinSuffixTextBox = new TextBox();
             statusLabel = new Label();
             rulesLabel = new Label();
             warningLabel = new Label();
@@ -33,20 +35,23 @@ namespace LotusECMLogger.Controls
             // layout
             //
             layout.ColumnCount = 2;
-            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 80F));
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 200F));
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            layout.Controls.Add(vinLabel, 0, 0);
-            layout.Controls.Add(vinTextBox, 1, 0);
-            layout.Controls.Add(statusLabel, 1, 1);
-            layout.Controls.Add(rulesLabel, 0, 2);
+            layout.Controls.Add(wmiLabel, 0, 0);
+            layout.Controls.Add(wmiTextBox, 1, 0);
+            layout.Controls.Add(vinSuffixLabel, 0, 1);
+            layout.Controls.Add(vinSuffixTextBox, 1, 1);
+            layout.Controls.Add(statusLabel, 1, 2);
+            layout.Controls.Add(rulesLabel, 0, 3);
             layout.SetColumnSpan(rulesLabel, 2);
-            layout.Controls.Add(warningLabel, 0, 3);
+            layout.Controls.Add(warningLabel, 0, 4);
             layout.SetColumnSpan(warningLabel, 2);
-            layout.Controls.Add(buttonPanel, 1, 4);
+            layout.Controls.Add(buttonPanel, 1, 5);
             layout.Dock = DockStyle.Fill;
             layout.Name = "layout";
             layout.Padding = new Padding(12);
-            layout.RowCount = 5;
+            layout.RowCount = 6;
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 40F));
             layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 40F));
             layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 32F));
             layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 110F));
@@ -54,29 +59,48 @@ namespace LotusECMLogger.Controls
             layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 56F));
             layout.TabIndex = 0;
             //
-            // vinLabel
+            // wmiLabel
             //
-            vinLabel.Dock = DockStyle.Fill;
-            vinLabel.Name = "vinLabel";
-            vinLabel.TabIndex = 0;
-            vinLabel.Text = "VIN";
-            vinLabel.TextAlign = ContentAlignment.MiddleLeft;
+            wmiLabel.Dock = DockStyle.Fill;
+            wmiLabel.Name = "wmiLabel";
+            wmiLabel.TabIndex = 0;
+            wmiLabel.Text = "Manufacturer (WMI)";
+            wmiLabel.TextAlign = ContentAlignment.MiddleLeft;
             //
-            // vinTextBox
+            // wmiTextBox
             //
-            vinTextBox.CharacterCasing = CharacterCasing.Upper;
-            vinTextBox.Dock = DockStyle.Fill;
-            vinTextBox.Font = new Font("Consolas", 11F);
-            vinTextBox.MaxLength = 17;
-            vinTextBox.Name = "vinTextBox";
-            vinTextBox.TabIndex = 1;
+            wmiTextBox.BackColor = SystemColors.Control;
+            wmiTextBox.Font = new Font("Consolas", 11F);
+            wmiTextBox.MaxLength = 3;
+            wmiTextBox.Name = "wmiTextBox";
+            wmiTextBox.ReadOnly = true;
+            wmiTextBox.Size = new Size(60, 30);
+            wmiTextBox.TabIndex = 1;
+            wmiTextBox.TabStop = false;
+            //
+            // vinSuffixLabel
+            //
+            vinSuffixLabel.Dock = DockStyle.Fill;
+            vinSuffixLabel.Name = "vinSuffixLabel";
+            vinSuffixLabel.TabIndex = 2;
+            vinSuffixLabel.Text = "VIN remainder (14 chars)";
+            vinSuffixLabel.TextAlign = ContentAlignment.MiddleLeft;
+            //
+            // vinSuffixTextBox
+            //
+            vinSuffixTextBox.CharacterCasing = CharacterCasing.Upper;
+            vinSuffixTextBox.Dock = DockStyle.Fill;
+            vinSuffixTextBox.Font = new Font("Consolas", 11F);
+            vinSuffixTextBox.MaxLength = 14;
+            vinSuffixTextBox.Name = "vinSuffixTextBox";
+            vinSuffixTextBox.TabIndex = 3;
             //
             // statusLabel
             //
             statusLabel.AutoEllipsis = true;
             statusLabel.Dock = DockStyle.Fill;
             statusLabel.Name = "statusLabel";
-            statusLabel.TabIndex = 2;
+            statusLabel.TabIndex = 4;
             statusLabel.Text = "";
             statusLabel.TextAlign = ContentAlignment.MiddleLeft;
             //
@@ -85,7 +109,7 @@ namespace LotusECMLogger.Controls
             rulesLabel.Dock = DockStyle.Fill;
             rulesLabel.ForeColor = SystemColors.GrayText;
             rulesLabel.Name = "rulesLabel";
-            rulesLabel.TabIndex = 3;
+            rulesLabel.TabIndex = 5;
             rulesLabel.Text = "";
             rulesLabel.TextAlign = ContentAlignment.TopLeft;
             //
@@ -95,7 +119,7 @@ namespace LotusECMLogger.Controls
             warningLabel.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             warningLabel.ForeColor = Color.FromArgb(176, 0, 0);
             warningLabel.Name = "warningLabel";
-            warningLabel.TabIndex = 4;
+            warningLabel.TabIndex = 6;
             warningLabel.Text = "";
             warningLabel.TextAlign = ContentAlignment.MiddleLeft;
             //
@@ -109,7 +133,7 @@ namespace LotusECMLogger.Controls
             buttonPanel.Margin = new Padding(0, 12, 0, 0);
             buttonPanel.Name = "buttonPanel";
             buttonPanel.Padding = new Padding(0);
-            buttonPanel.TabIndex = 5;
+            buttonPanel.TabIndex = 7;
             buttonPanel.WrapContents = false;
             //
             // cancelButton
@@ -136,12 +160,12 @@ namespace LotusECMLogger.Controls
             CancelButton = cancelButton;
             AutoScaleDimensions = new SizeF(10F, 25F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(560, 350);
+            ClientSize = new Size(640, 390);
             Controls.Add(layout);
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
             MinimizeBox = false;
-            MinimumSize = new Size(560, 350);
+            MinimumSize = new Size(640, 390);
             Name = "SetVinDialog";
             ShowInTaskbar = false;
             StartPosition = FormStartPosition.CenterParent;
@@ -156,8 +180,10 @@ namespace LotusECMLogger.Controls
         #endregion
 
         private TableLayoutPanel layout;
-        private Label vinLabel;
-        private TextBox vinTextBox;
+        private Label wmiLabel;
+        private TextBox wmiTextBox;
+        private Label vinSuffixLabel;
+        private TextBox vinSuffixTextBox;
         private Label statusLabel;
         private Label rulesLabel;
         private Label warningLabel;

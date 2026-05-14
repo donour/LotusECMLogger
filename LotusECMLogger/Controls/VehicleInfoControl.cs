@@ -58,7 +58,7 @@ namespace LotusECMLogger.Controls
             }
 
             var currentVin = vehicleDataSnapshot
-                .FirstOrDefault(r => r.Name == "Vehicle Identification Number")?.Value;
+                .FirstOrDefault(r => r.Name == "Vehicle Identification Number")?.Value?.Trim();
 
             using var dialog = new SetVinDialog(_vinSetService, currentVin);
             var result = dialog.ShowDialog(this);

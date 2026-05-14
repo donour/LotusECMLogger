@@ -57,6 +57,26 @@ namespace LotusECMLogger.Services
                     return (false, err);
             }
 
+            // Mode 0x3B sends a positive 0x7B response unconditionally, even when the
+            // engine is running and the firmware silently discards every byte. Read the
+            // VIN back via Mode 09 PID 02 and compare the writable range (positions 3-16)
+            // to detect that case. Positions 0-2 (WMI) are firmware-locked and ignored
+            // by the comparison.
+            var readback = GetPID(OBDIIMode.RequestVehicleInformation, 0x02);
+            if (readback.Length != 17)
+                return (false, "VIN write succeeded on the wire, but read-back returned an unexpected length. Verify with Load Vehicle Data.");
+
+            for (int i = 3; i < 17; i++)
+            {
+                if (readback[i] != vinBytes[i])
+                {
+                    var actual = Encoding.ASCII.GetString(readback);
+                    return (false,
+                        $"ECU acknowledged the write but the VIN did not change. " +
+                        $"Read back: '{actual}'. The engine must be off — Mode 0x3B silently ignores writes while running.");
+                }
+            }
+
             return (true, "");
         }
 
