@@ -50,7 +50,7 @@ namespace LotusECMLogger.Controls
             layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 40F));
             layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 32F));
             layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 110F));
-            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 36F));
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 60F));
             layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 56F));
             layout.TabIndex = 0;
             //
@@ -136,12 +136,12 @@ namespace LotusECMLogger.Controls
             CancelButton = cancelButton;
             AutoScaleDimensions = new SizeF(10F, 25F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(560, 320);
+            ClientSize = new Size(560, 350);
             Controls.Add(layout);
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
             MinimizeBox = false;
-            MinimumSize = new Size(560, 320);
+            MinimumSize = new Size(560, 350);
             Name = "SetVinDialog";
             ShowInTaskbar = false;
             StartPosition = FormStartPosition.CenterParent;

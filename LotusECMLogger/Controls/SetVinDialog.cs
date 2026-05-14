@@ -1,3 +1,5 @@
+using LotusECMLogger.Services;
+
 namespace LotusECMLogger.Controls
 {
     internal partial class SetVinDialog : Form
@@ -8,10 +10,14 @@ namespace LotusECMLogger.Controls
         private static readonly Color OkColor = Color.FromArgb(0, 128, 0);
         private static readonly Color ErrorColor = Color.FromArgb(176, 0, 0);
 
+        private readonly IVinSetService _vinSetService;
+
         public string Vin => vinTextBox.Text.Trim().ToUpperInvariant();
 
-        public SetVinDialog(string? initialVin = null)
+        public SetVinDialog(IVinSetService vinSetService, string? initialVin = null)
         {
+            _vinSetService = vinSetService ?? throw new ArgumentNullException(nameof(vinSetService));
+
             InitializeComponent();
             rulesLabel.Text =
                 "VIN requirements:\r\n" +
@@ -19,7 +25,9 @@ namespace LotusECMLogger.Controls
                 "  • Letters A–Z (excluding I, O, Q) and digits 0–9\r\n" +
                 "  • No spaces or punctuation";
 
-            warningLabel.Text = "⚠ Warning: Lotus firmware checks for acceptable VINs.";
+            warningLabel.Text =
+                "⚠ Warning: Lotus firmware checks for acceptable VINs.\r\n" +
+                "Engine must be off. The first 3 characters (WMI) cannot be changed.";
 
             if (!string.IsNullOrWhiteSpace(initialVin))
             {
@@ -64,15 +72,59 @@ namespace LotusECMLogger.Controls
 
         private void ProgramButton_Click(object? sender, EventArgs e)
         {
-            var (valid, message) = Validate(Vin);
+            var vin = Vin;
+            var (valid, message) = Validate(vin);
             if (!valid)
             {
                 MessageBox.Show(this, message, "Invalid VIN", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
-            // TODO: implement VIN programming via UDS write.
-            MessageBox.Show(this, "VIN programming is not yet implemented.", "Not Implemented", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            var confirm = MessageBox.Show(
+                this,
+                $"Program VIN '{vin}' to the ECU?\r\n\r\n" +
+                "The engine must be off. This change is written to ECU EEPROM and persists across power cycles. " +
+                "The Lotus firmware does not allow the first 3 characters (WMI) to be changed — they will be ignored.",
+                "Confirm VIN Programming",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Warning);
+
+            if (confirm != DialogResult.Yes)
+                return;
+
+            try
+            {
+                programButton.Enabled = false;
+                cancelButton.Enabled = false;
+                vinTextBox.Enabled = false;
+                statusLabel.Text = "Programming VIN...";
+                statusLabel.ForeColor = SystemColors.ControlText;
+                Cursor = Cursors.WaitCursor;
+
+                var (success, error) = _vinSetService.SetVin(vin);
+
+                if (success)
+                {
+                    MessageBox.Show(this, "VIN programmed successfully.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    DialogResult = DialogResult.OK;
+                    Close();
+                }
+                else
+                {
+                    MessageBox.Show(this, $"Failed to program VIN: {error}", "Programming Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, $"Unexpected error: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                Cursor = Cursors.Default;
+                vinTextBox.Enabled = true;
+                cancelButton.Enabled = true;
+                UpdateValidationState();
+            }
         }
     }
 }

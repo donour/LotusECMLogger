@@ -1,4 +1,5 @@
 ﻿using SAE.J2534;
+using System.Text;
 
 namespace LotusECMLogger.Services
 {
@@ -27,6 +28,70 @@ namespace LotusECMLogger.Services
         public Iso15765Service(Channel channel)
         {
             _channel = channel ?? throw new ArgumentNullException(nameof(channel));
+        }
+
+        // Mode 0x3B (Lotus VIN write). Each sub-function writes a chunk of the VIN
+        // into a staging buffer; the firmware commits the new VIN to EEPROM only
+        // after all four chunks have been received. Positions 0-2 (the WMI) are
+        // not writable — only positions 3-16 are sent here.
+        // Layout per sub-function:  [sub_func, vin[start], vin[start+1], ...]
+        private static readonly (byte subFunc, int start, int count)[] VinChunks =
+        [
+            (0x01, 3, 4),
+            (0x02, 7, 4),
+            (0x03, 11, 4),
+            (0x04, 15, 2),
+        ];
+
+        public (bool success, string errorMessage) SetVin(string vin)
+        {
+            if (string.IsNullOrEmpty(vin) || vin.Length != 17)
+                return (false, "VIN must be exactly 17 characters.");
+
+            var vinBytes = Encoding.ASCII.GetBytes(vin);
+
+            foreach (var (subFunc, start, count) in VinChunks)
+            {
+                var (ok, err) = SendVinChunk(subFunc, vinBytes, start, count);
+                if (!ok)
+                    return (false, err);
+            }
+
+            return (true, "");
+        }
+
+        private (bool ok, string error) SendVinChunk(byte subFunc, byte[] vinBytes, int start, int count)
+        {
+            // Request: ECM_HEADER + 0x3B + sub_func + <count> VIN bytes
+            var request = new byte[ECM_HEADER.Length + 2 + count];
+            Array.Copy(ECM_HEADER, request, ECM_HEADER.Length);
+            request[ECM_HEADER.Length] = 0x3B;
+            request[ECM_HEADER.Length + 1] = subFunc;
+            Array.Copy(vinBytes, start, request, ECM_HEADER.Length + 2, count);
+
+            _channel.SendMessage(request);
+
+            for (int i = 0; i < 10; i++)
+            {
+                var response = _channel.GetMessages(1, 250);
+                if (response.Messages.Length == 0)
+                    continue;
+
+                var data = response.Messages[0].Data;
+                // Skip echoes of our own transmit and TX confirmation frames.
+                if (data.Length < 6 || data[2] != 0x07 || data[3] != 0xE8)
+                    continue;
+
+                // Positive response: 0x7B (= 0x3B | 0x40) followed by sub-function echo.
+                if (data[4] == 0x7B && data[5] == subFunc)
+                    return (true, "");
+
+                // Negative response: 0x7F 0x3B <NRC>
+                if (data.Length >= 7 && data[4] == 0x7F && data[5] == 0x3B)
+                    return (false, $"ECU rejected sub-function 0x{subFunc:X2} (NRC 0x{data[6]:X2}). Is the engine off?");
+            }
+
+            return (false, $"No response from ECU for VIN sub-function 0x{subFunc:X2}.");
         }
 
         public void SendLearningDataClear()
