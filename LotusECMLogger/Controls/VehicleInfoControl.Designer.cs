@@ -32,14 +32,16 @@ namespace LotusECMLogger.Controls
             readDataButton = new Button();
             statusLabel = new Label();
             resetButton = new Button();
+            setVinButton = new Button();
             vehicleInfoView = new ListView();
             topPanel.SuspendLayout();
             SuspendLayout();
-            // 
+            //
             // topPanel
-            // 
+            //
             topPanel.Controls.Add(readDataButton);
             topPanel.Controls.Add(statusLabel);
+            topPanel.Controls.Add(setVinButton);
             topPanel.Controls.Add(resetButton);
             topPanel.Dock = DockStyle.Top;
             topPanel.Location = new Point(0, 0);
@@ -81,6 +83,19 @@ namespace LotusECMLogger.Controls
             resetButton.Text = "Adaptations Reset";
             resetButton.UseVisualStyleBackColor = true;
             resetButton.Click += resetButton_Click;
+            //
+            // setVinButton
+            //
+            setVinButton.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            setVinButton.AutoSize = true;
+            setVinButton.Location = new Point(485, 6);
+            setVinButton.Margin = new Padding(4, 5, 4, 5);
+            setVinButton.Name = "setVinButton";
+            setVinButton.Size = new Size(189, 58);
+            setVinButton.TabIndex = 3;
+            setVinButton.Text = "Set VIN";
+            setVinButton.UseVisualStyleBackColor = true;
+            setVinButton.Click += setVinButton_Click;
             // 
             // vehicleInfoView
             // 
@@ -115,6 +130,7 @@ namespace LotusECMLogger.Controls
         private Panel topPanel;
         private Button readDataButton;
         private Button resetButton;
+        private Button setVinButton;
         private ListView vehicleInfoView;
         private Label statusLabel;
     }

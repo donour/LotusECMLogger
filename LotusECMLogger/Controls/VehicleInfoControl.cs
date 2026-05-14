@@ -30,6 +30,7 @@ namespace LotusECMLogger.Controls
             SetupListViewColumns();
             GuiIcons.ApplyToButton(readDataButton, GuiIcons.Read);
             GuiIcons.ApplyToButton(resetButton, GuiIcons.UpdateRestore);
+            GuiIcons.ApplyToButton(setVinButton, GuiIcons.Write);
         }
 
         private void SetupListViewColumns()
@@ -43,6 +44,15 @@ namespace LotusECMLogger.Controls
         private void readDataButton_Click(object sender, EventArgs e)
         {
             LoadVehicleData();
+        }
+
+        private void setVinButton_Click(object? sender, EventArgs e)
+        {
+            var currentVin = vehicleDataSnapshot
+                .FirstOrDefault(r => r.Name == "Vehicle Identification Number")?.Value;
+
+            using var dialog = new SetVinDialog(currentVin);
+            dialog.ShowDialog(this);
         }
 
         private void resetButton_Click(object? sender, EventArgs e)
