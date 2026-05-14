@@ -71,6 +71,7 @@ namespace LotusECMLogger
             features.Nodes.Add("livedata", "Live Data Logging");
             features.Nodes.Add("ecucoding", "ECU Coding");
             features.Nodes.Add("vehicleinfo", "Extended Vehicle Information");
+            features.Nodes.Add("setvin", "Set VIN");
             features.Nodes.Add("dtc", "Diagnostic Trouble Codes");
             features.Nodes.Add("learneddata", "Learned Data Reset");
             features.Nodes.Add("t6rma", "T6 RMA Logging");
@@ -104,6 +105,9 @@ namespace LotusECMLogger
                     break;
                 case "vehicleinfo":
                     ShowVehicleInfoHelp();
+                    break;
+                case "setvin":
+                    ShowSetVinHelp();
                     break;
                 case "dtc":
                     ShowDtcHelp();
@@ -174,6 +178,7 @@ namespace LotusECMLogger
             AddBulletPoint("Capture Lotus-specific data: Log unique parameters such as variable cam control, knock control, and more.");
             AddBulletPoint("ECU Coding: Read and modify ECU configuration settings for Lotus T6e ECUs.");
             AddBulletPoint("Extended Vehicle Information: Retrieve VIN, ECU details, and calibration data.");
+            AddBulletPoint("Set VIN: Program a new VIN to the ECU using OBD-II Mode 0x3B.");
             AddBulletPoint("Diagnostic Trouble Codes: Read and clear DTCs from the ECU.");
             AddBulletPoint("Learned Data Reset: Clear adaptive learning values from the ECU.");
             AddBulletPoint("T6 RMA Logging: Advanced memory address logging for development.");
@@ -202,7 +207,7 @@ namespace LotusECMLogger
 
             AddSubheading("Navigation:");
             AddParagraph("The application uses a tabbed interface to organize different diagnostic and logging functions. Click on each tab to access different features:");
-            AddBulletPoint("Extended Vehicle Information - Read VIN and ECU details");
+            AddBulletPoint("Extended Vehicle Information - Read VIN and ECU details, and program a new VIN via OBD-II Mode 0x3B");
             AddBulletPoint("Live Data - Real-time parameter logging");
             AddBulletPoint("ECU Coding - Modify ECU configuration");
             AddBulletPoint("Diagnostic Trouble Codes - Read and clear fault codes");
@@ -280,6 +285,51 @@ namespace LotusECMLogger
             AddBulletPoint("Identify which ECU calibration is currently installed.");
             AddBulletPoint("Compare calibration IDs before and after reflashing.");
             AddBulletPoint("Document your ECU configuration for records or troubleshooting.");
+
+            AddSubheading("Set VIN:");
+            AddParagraph("The 'Set VIN' button on this tab opens a dialog for programming a new VIN into the ECU. See the 'Set VIN' help topic for details.");
+        }
+
+        private void ShowSetVinHelp()
+        {
+            AddHeading("Set VIN");
+
+            AddParagraph("The Set VIN dialog programs a new Vehicle Identification Number into the ECU using OBD-II Mode 0x3B. Open it from the 'Set VIN' button on the Extended Vehicle Information tab.");
+
+            AddSubheading("What Can Be Changed:");
+            AddParagraph("The Lotus firmware only allows positions 4–17 of the VIN to be rewritten. The first 3 characters (the WMI, World Manufacturer Identifier) are fixed at 'SCC' for Lotus and cannot be changed by this protocol. The dialog shows the WMI as a read-only field for reference and accepts the remaining 14 characters as editable input.");
+
+            AddSubheading("VIN Format Requirements:");
+            AddBulletPoint("Exactly 14 characters in the editable portion (17 total including the fixed WMI)");
+            AddBulletPoint("Letters A–Z, excluding I, O, and Q (to avoid confusion with 1 and 0)");
+            AddBulletPoint("Digits 0–9");
+            AddBulletPoint("No spaces or punctuation");
+            AddParagraph("Validation runs as you type. The Program button is disabled until the entry passes all checks; the status line below the input pinpoints the first offending character when the entry is invalid.");
+
+            AddSubheading("How to Use:");
+            AddParagraph("1. Click 'Load Vehicle Data' on the Extended Vehicle Information tab if you want the current VIN pre-populated.");
+            AddParagraph("2. Click 'Set VIN' to open the programming dialog.");
+            AddParagraph("3. Edit the 14-character remainder field. The WMI ('SCC') is shown read-only.");
+            AddParagraph("4. Click 'Program' and confirm the warning dialog.");
+            AddParagraph("5. Wait for the success message. The Extended Vehicle Information tab will automatically reload to show the new VIN.");
+
+            AddSubheading("Engine Must Be Off:");
+            AddParagraph("The Lotus firmware silently discards Mode 0x3B writes while the engine is running — the ECU still acknowledges every chunk with a positive response, but no bytes reach EEPROM. Stop the engine (ignition on, engine off) before programming.");
+            AddParagraph("After programming completes, the application reads the VIN back via Mode 09 PID 02 and compares it to the request. If positions 4–17 do not match, the operation is reported as failed with the actual VIN read back from the ECU.");
+
+            AddSubheading("Protocol Details:");
+            AddParagraph("Mode 0x3B writes the VIN in four chunks, each carrying part of the 14 writable bytes:");
+            AddBulletPoint("Sub-function 0x01: positions 4–7");
+            AddBulletPoint("Sub-function 0x02: positions 8–11");
+            AddBulletPoint("Sub-function 0x03: positions 12–15");
+            AddBulletPoint("Sub-function 0x04: positions 16–17");
+            AddParagraph("The firmware stages each chunk in RAM and commits the new VIN to EEPROM only after all four chunks have been received. The change persists across power cycles.");
+
+            AddSubheading("Important Warnings:");
+            AddBulletPoint("Lotus firmware checks for acceptable VINs — values it does not recognize as valid for the vehicle generation may affect features that depend on VIN-derived configuration (gear ratios, model detection, etc.).");
+            AddBulletPoint("The change is written to ECU EEPROM and persists across power cycles. It is reversible only by programming the original VIN back.");
+            AddBulletPoint("VIN programming is disabled while data logging is active. Stop the logger before using this feature.");
+            AddBulletPoint("The WMI ('SCC') is enforced by the firmware. Any attempt to send a different WMI is ignored — the existing manufacturer code is preserved by the protocol.");
         }
 
         private void ShowDtcHelp()
