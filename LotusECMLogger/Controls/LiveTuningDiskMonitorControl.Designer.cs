@@ -35,15 +35,15 @@ namespace LotusECMLogger.Controls
             mainTableLayout.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)lengthNumericUpDown).BeginInit();
             SuspendLayout();
-            //
+            // 
             // mainTableLayout
-            //
+            // 
             mainTableLayout.ColumnCount = 5;
-            mainTableLayout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            mainTableLayout.ColumnStyles.Add(new ColumnStyle());
             mainTableLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
-            mainTableLayout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            mainTableLayout.ColumnStyles.Add(new ColumnStyle());
             mainTableLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
-            mainTableLayout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            mainTableLayout.ColumnStyles.Add(new ColumnStyle());
             mainTableLayout.Controls.Add(presetLabel, 0, 0);
             mainTableLayout.Controls.Add(presetComboBox, 1, 0);
             mainTableLayout.Controls.Add(baseAddressLabel, 0, 1);
@@ -65,175 +65,175 @@ namespace LotusECMLogger.Controls
             mainTableLayout.Name = "mainTableLayout";
             mainTableLayout.Padding = new Padding(10);
             mainTableLayout.RowCount = 6;
-            mainTableLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            mainTableLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            mainTableLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            mainTableLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            mainTableLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            mainTableLayout.RowStyles.Add(new RowStyle());
+            mainTableLayout.RowStyles.Add(new RowStyle());
+            mainTableLayout.RowStyles.Add(new RowStyle());
+            mainTableLayout.RowStyles.Add(new RowStyle());
+            mainTableLayout.RowStyles.Add(new RowStyle());
             mainTableLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
             mainTableLayout.Size = new Size(1143, 1000);
             mainTableLayout.TabIndex = 0;
-            //
+            // 
             // presetLabel
-            //
+            // 
             presetLabel.Anchor = AnchorStyles.Left;
             presetLabel.AutoSize = true;
             presetLabel.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            presetLabel.Location = new Point(13, 18);
+            presetLabel.Location = new Point(13, 17);
             presetLabel.Name = "presetLabel";
-            presetLabel.Size = new Size(96, 15);
+            presetLabel.Size = new Size(147, 25);
             presetLabel.TabIndex = 0;
             presetLabel.Text = "Memory Preset:";
-            //
+            // 
             // presetComboBox
-            //
+            // 
             mainTableLayout.SetColumnSpan(presetComboBox, 4);
             presetComboBox.Dock = DockStyle.Fill;
             presetComboBox.DropDownStyle = ComboBoxStyle.DropDownList;
-            presetComboBox.Location = new Point(115, 13);
+            presetComboBox.Location = new Point(186, 13);
             presetComboBox.Name = "presetComboBox";
-            presetComboBox.Size = new Size(1015, 23);
+            presetComboBox.Size = new Size(944, 33);
             presetComboBox.TabIndex = 1;
             presetComboBox.SelectedIndexChanged += presetComboBox_SelectedIndexChanged;
-            //
+            // 
             // baseAddressLabel
-            //
+            // 
             baseAddressLabel.Anchor = AnchorStyles.Left;
             baseAddressLabel.AutoSize = true;
-            baseAddressLabel.Location = new Point(13, 50);
+            baseAddressLabel.Location = new Point(13, 55);
             baseAddressLabel.Name = "baseAddressLabel";
-            baseAddressLabel.Size = new Size(110, 15);
+            baseAddressLabel.Size = new Size(167, 25);
             baseAddressLabel.TabIndex = 2;
             baseAddressLabel.Text = "Base Address (Hex):";
-            //
+            // 
             // baseAddressTextBox
-            //
+            // 
             baseAddressTextBox.Anchor = AnchorStyles.Left;
             baseAddressTextBox.CharacterCasing = CharacterCasing.Upper;
-            baseAddressTextBox.Location = new Point(129, 46);
+            baseAddressTextBox.Location = new Point(186, 52);
             baseAddressTextBox.MaxLength = 8;
             baseAddressTextBox.Name = "baseAddressTextBox";
-            baseAddressTextBox.Size = new Size(120, 23);
+            baseAddressTextBox.Size = new Size(120, 31);
             baseAddressTextBox.TabIndex = 3;
             baseAddressTextBox.Text = "40000000";
-            //
+            // 
             // lengthLabel
-            //
+            // 
             lengthLabel.Anchor = AnchorStyles.Left;
             lengthLabel.AutoSize = true;
-            lengthLabel.Location = new Point(558, 50);
+            lengthLabel.Location = new Point(512, 55);
             lengthLabel.Name = "lengthLabel";
-            lengthLabel.Size = new Size(112, 15);
+            lengthLabel.Size = new Size(166, 25);
             lengthLabel.TabIndex = 4;
             lengthLabel.Text = "Length (Bytes, Hex):";
-            //
+            // 
             // lengthNumericUpDown
-            //
+            // 
             lengthNumericUpDown.Anchor = AnchorStyles.Left;
             lengthNumericUpDown.Hexadecimal = true;
-            lengthNumericUpDown.Location = new Point(676, 46);
+            lengthNumericUpDown.Location = new Point(684, 52);
             lengthNumericUpDown.Maximum = new decimal(new int[] { 65536, 0, 0, 0 });
             lengthNumericUpDown.Minimum = new decimal(new int[] { 4, 0, 0, 0 });
             lengthNumericUpDown.Name = "lengthNumericUpDown";
-            lengthNumericUpDown.Size = new Size(120, 23);
+            lengthNumericUpDown.Size = new Size(120, 31);
             lengthNumericUpDown.TabIndex = 5;
             lengthNumericUpDown.Value = new decimal(new int[] { 4096, 0, 0, 0 });
-            //
+            // 
             // outputDirectoryLabel
-            //
+            // 
             outputDirectoryLabel.Anchor = AnchorStyles.Left;
             outputDirectoryLabel.AutoSize = true;
-            outputDirectoryLabel.Location = new Point(13, 88);
+            outputDirectoryLabel.Location = new Point(13, 92);
             outputDirectoryLabel.Name = "outputDirectoryLabel";
-            outputDirectoryLabel.Size = new Size(99, 15);
+            outputDirectoryLabel.Size = new Size(150, 25);
             outputDirectoryLabel.TabIndex = 6;
             outputDirectoryLabel.Text = "Output Directory:";
-            //
+            // 
             // outputDirectoryTextBox
-            //
-            mainTableLayout.SetColumnSpan(outputDirectoryTextBox, 2);
+            // 
             outputDirectoryTextBox.Anchor = AnchorStyles.Left | AnchorStyles.Right;
-            outputDirectoryTextBox.Location = new Point(129, 84);
+            mainTableLayout.SetColumnSpan(outputDirectoryTextBox, 2);
+            outputDirectoryTextBox.Location = new Point(186, 89);
             outputDirectoryTextBox.Name = "outputDirectoryTextBox";
-            outputDirectoryTextBox.Size = new Size(541, 23);
+            outputDirectoryTextBox.Size = new Size(492, 31);
             outputDirectoryTextBox.TabIndex = 7;
-            //
+            // 
             // browseOutputButton
-            //
+            // 
             browseOutputButton.Anchor = AnchorStyles.Left;
-            browseOutputButton.Location = new Point(676, 81);
+            browseOutputButton.Location = new Point(684, 89);
             browseOutputButton.Name = "browseOutputButton";
-            browseOutputButton.Size = new Size(90, 29);
+            browseOutputButton.Size = new Size(90, 32);
             browseOutputButton.TabIndex = 8;
             browseOutputButton.Text = "Browse...";
             browseOutputButton.UseVisualStyleBackColor = true;
             browseOutputButton.Click += BrowseOutputButton_Click;
-            //
+            // 
             // readFromEcuButton
-            //
+            // 
             readFromEcuButton.Anchor = AnchorStyles.Left;
-            readFromEcuButton.Location = new Point(1003, 81);
+            readFromEcuButton.Location = new Point(1010, 89);
             readFromEcuButton.Name = "readFromEcuButton";
-            readFromEcuButton.Size = new Size(120, 29);
+            readFromEcuButton.Size = new Size(120, 32);
             readFromEcuButton.TabIndex = 9;
             readFromEcuButton.Text = "Read && Start";
             readFromEcuButton.UseVisualStyleBackColor = true;
             readFromEcuButton.Click += ReadFromEcuButton_Click;
-            //
+            // 
             // existingFileLabel
-            //
+            // 
             existingFileLabel.Anchor = AnchorStyles.Left;
             existingFileLabel.AutoSize = true;
-            existingFileLabel.Location = new Point(13, 126);
+            existingFileLabel.Location = new Point(13, 130);
             existingFileLabel.Name = "existingFileLabel";
-            existingFileLabel.Size = new Size(89, 15);
+            existingFileLabel.Size = new Size(132, 25);
             existingFileLabel.TabIndex = 10;
             existingFileLabel.Text = "Calibration File:";
-            //
+            // 
             // existingFileTextBox
-            //
-            mainTableLayout.SetColumnSpan(existingFileTextBox, 2);
+            // 
             existingFileTextBox.Anchor = AnchorStyles.Left | AnchorStyles.Right;
-            existingFileTextBox.Location = new Point(129, 122);
+            mainTableLayout.SetColumnSpan(existingFileTextBox, 2);
+            existingFileTextBox.Location = new Point(186, 127);
             existingFileTextBox.Name = "existingFileTextBox";
-            existingFileTextBox.Size = new Size(541, 23);
+            existingFileTextBox.Size = new Size(492, 31);
             existingFileTextBox.TabIndex = 11;
-            //
+            // 
             // browseFileButton
-            //
+            // 
             browseFileButton.Anchor = AnchorStyles.Left;
-            browseFileButton.Location = new Point(676, 119);
+            browseFileButton.Location = new Point(684, 127);
             browseFileButton.Name = "browseFileButton";
-            browseFileButton.Size = new Size(90, 29);
+            browseFileButton.Size = new Size(90, 32);
             browseFileButton.TabIndex = 12;
             browseFileButton.Text = "Browse...";
             browseFileButton.UseVisualStyleBackColor = true;
             browseFileButton.Click += BrowseFileButton_Click;
-            //
+            // 
             // startMonitoringButton
-            //
+            // 
             startMonitoringButton.Anchor = AnchorStyles.Left;
-            startMonitoringButton.Location = new Point(1003, 119);
+            startMonitoringButton.Location = new Point(1010, 127);
             startMonitoringButton.Name = "startMonitoringButton";
-            startMonitoringButton.Size = new Size(120, 29);
+            startMonitoringButton.Size = new Size(120, 32);
             startMonitoringButton.TabIndex = 13;
             startMonitoringButton.Text = "Start Monitoring";
             startMonitoringButton.UseVisualStyleBackColor = true;
             startMonitoringButton.Click += StartMonitoringButton_Click;
-            //
+            // 
             // stopMonitoringButton
-            //
+            // 
             stopMonitoringButton.Enabled = false;
-            stopMonitoringButton.Location = new Point(13, 161);
+            stopMonitoringButton.Location = new Point(13, 165);
             stopMonitoringButton.Name = "stopMonitoringButton";
-            stopMonitoringButton.Size = new Size(120, 29);
+            stopMonitoringButton.Size = new Size(120, 32);
             stopMonitoringButton.TabIndex = 14;
             stopMonitoringButton.Text = "Stop Monitoring";
             stopMonitoringButton.UseVisualStyleBackColor = true;
             stopMonitoringButton.Click += StopMonitoringButton_Click;
-            //
+            // 
             // statusTextBox
-            //
+            // 
             mainTableLayout.SetColumnSpan(statusTextBox, 5);
             statusTextBox.Dock = DockStyle.Fill;
             statusTextBox.Font = new Font("Consolas", 9F);
@@ -245,9 +245,9 @@ namespace LotusECMLogger.Controls
             statusTextBox.Size = new Size(1117, 784);
             statusTextBox.TabIndex = 15;
             statusTextBox.WordWrap = false;
-            //
+            // 
             // LiveTuningDiskMonitorControl
-            //
+            // 
             AutoScaleMode = AutoScaleMode.None;
             Controls.Add(mainTableLayout);
             Margin = new Padding(4, 5, 4, 5);
