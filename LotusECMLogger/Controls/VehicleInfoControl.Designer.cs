@@ -33,12 +33,14 @@ namespace LotusECMLogger.Controls
             statusLabel = new Label();
             resetButton = new Button();
             setVinButton = new Button();
+            unlockIndicatorLabel = new Label();
             vehicleInfoView = new ListView();
             topPanel.SuspendLayout();
             SuspendLayout();
             //
             // topPanel
             //
+            topPanel.Controls.Add(unlockIndicatorLabel);
             topPanel.Controls.Add(readDataButton);
             topPanel.Controls.Add(statusLabel);
             topPanel.Controls.Add(setVinButton);
@@ -96,9 +98,24 @@ namespace LotusECMLogger.Controls
             setVinButton.Text = "Set VIN";
             setVinButton.UseVisualStyleBackColor = true;
             setVinButton.Click += setVinButton_Click;
-            // 
+            //
+            // unlockIndicatorLabel
+            //
+            unlockIndicatorLabel.AutoSize = true;
+            unlockIndicatorLabel.BorderStyle = BorderStyle.FixedSingle;
+            unlockIndicatorLabel.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            unlockIndicatorLabel.Location = new Point(250, 18);
+            unlockIndicatorLabel.Margin = new Padding(4, 0, 4, 0);
+            unlockIndicatorLabel.Name = "unlockIndicatorLabel";
+            unlockIndicatorLabel.Padding = new Padding(6, 4, 6, 4);
+            unlockIndicatorLabel.TabIndex = 4;
+            unlockIndicatorLabel.Text = "ECU: UNKNOWN";
+            unlockIndicatorLabel.TextAlign = ContentAlignment.MiddleCenter;
+            unlockIndicatorLabel.BackColor = Color.Gainsboro;
+            unlockIndicatorLabel.ForeColor = Color.DimGray;
+            //
             // vehicleInfoView
-            // 
+            //
             vehicleInfoView.Dock = DockStyle.Fill;
             vehicleInfoView.FullRowSelect = true;
             vehicleInfoView.GridLines = true;
@@ -133,5 +150,6 @@ namespace LotusECMLogger.Controls
         private Button setVinButton;
         private ListView vehicleInfoView;
         private Label statusLabel;
+        private Label unlockIndicatorLabel;
     }
 }

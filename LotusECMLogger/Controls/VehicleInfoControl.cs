@@ -10,7 +10,10 @@ namespace LotusECMLogger.Controls
         private readonly IVehicleInfoService _vehicleInfoService;
         private readonly IObdResetService _resetService;
         private readonly IVinSetService _vinSetService;
+        private readonly IT6RMAService _rmaService;
         private List<VehicleParameterReading> vehicleDataSnapshot = [];
+
+        private enum EcuUnlockState { Unknown, Locked, Unlocked }
 
         private bool _isLoggerActive;
         public bool IsLoggerActive
@@ -30,7 +33,9 @@ namespace LotusECMLogger.Controls
             _vehicleInfoService = new VehicleInfoService();
             _resetService = new J2534ObdResetService();
             _vinSetService = new J2534VinSetService();
+            _rmaService = new T6RMAService();
             SetupListViewColumns();
+            SetUnlockIndicator(EcuUnlockState.Unknown);
             GuiIcons.ApplyToButton(readDataButton, GuiIcons.Read);
             GuiIcons.ApplyToButton(resetButton, GuiIcons.UpdateRestore);
             GuiIcons.ApplyToButton(setVinButton, GuiIcons.Write);
@@ -126,6 +131,7 @@ namespace LotusECMLogger.Controls
 
                 // Clear previous data
                 vehicleDataSnapshot.Clear();
+                SetUnlockIndicator(EcuUnlockState.Unknown);
 
                 // Create J2534 connection and ISO15765 service
                 using (var api = APIFactory.GetAPI(APIFactory.GetAPIinfo().First().Filename))
@@ -184,6 +190,13 @@ namespace LotusECMLogger.Controls
                 // Update the UI
                 UpdateVehicleInfoView();
 
+                // Probe ECU unlock state via raw-CAN RMA (separate channel, so run only after
+                // the ISO15765 channel above has been disposed). The successful data load above
+                // doubles as the liveness check: data present + no RMA reply => genuinely locked;
+                // no data at all => ECU not reachable, so leave the state Unknown.
+                statusLabel.Text = "Checking ECU unlock state...";
+                ProbeAndShowUnlockState();
+
                 statusLabel.Text = $"Loaded {vehicleDataSnapshot.Count} vehicle data points";
                 MessageBox.Show($"Successfully loaded {vehicleDataSnapshot.Count} vehicle data points!",
                     "Load Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -191,6 +204,7 @@ namespace LotusECMLogger.Controls
             catch (Exception ex)
             {
                 statusLabel.Text = "Error loading data";
+                SetUnlockIndicator(EcuUnlockState.Unknown);
                 MessageBox.Show($"Error loading vehicle data: {ex.Message}", "Load Error",
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
@@ -216,6 +230,56 @@ namespace LotusECMLogger.Controls
             }
 
             vehicleInfoView.EndUpdate();
+        }
+
+        // Runs the raw-CAN RMA unlock probe and maps the result onto the indicator box.
+        // A reply => Unlocked; no reply but vehicle data did load (ECU is alive) => Locked;
+        // nothing loaded at all => Unknown (ECU not reachable, not necessarily locked).
+        private void ProbeAndShowUnlockState()
+        {
+            // Skip while logging holds the J2534 device; the probe opens its own CAN channel.
+            if (_isLoggerActive)
+            {
+                SetUnlockIndicator(EcuUnlockState.Unknown);
+                return;
+            }
+
+            bool ecuAlive = vehicleDataSnapshot.Count > 0;
+
+            try
+            {
+                bool unlocked = _rmaService.IsEcuUnlocked();
+                SetUnlockIndicator(unlocked
+                    ? EcuUnlockState.Unlocked
+                    : ecuAlive ? EcuUnlockState.Locked : EcuUnlockState.Unknown);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Unlock probe failed: {ex.Message}");
+                SetUnlockIndicator(EcuUnlockState.Unknown);
+            }
+        }
+
+        private void SetUnlockIndicator(EcuUnlockState state)
+        {
+            switch (state)
+            {
+                case EcuUnlockState.Unlocked:
+                    unlockIndicatorLabel.Text = "ECU: UNLOCKED";
+                    unlockIndicatorLabel.BackColor = Color.FromArgb(46, 160, 67);
+                    unlockIndicatorLabel.ForeColor = Color.White;
+                    break;
+                case EcuUnlockState.Locked:
+                    unlockIndicatorLabel.Text = "ECU: LOCKED";
+                    unlockIndicatorLabel.BackColor = Color.FromArgb(207, 34, 46);
+                    unlockIndicatorLabel.ForeColor = Color.White;
+                    break;
+                default:
+                    unlockIndicatorLabel.Text = "ECU: UNKNOWN";
+                    unlockIndicatorLabel.BackColor = Color.Gainsboro;
+                    unlockIndicatorLabel.ForeColor = Color.DimGray;
+                    break;
+            }
         }
 
         private VehicleParameterReading? ParseVehicleInfoPID(int pid, byte[] data)

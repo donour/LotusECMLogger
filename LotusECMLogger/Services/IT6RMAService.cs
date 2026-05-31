@@ -74,5 +74,18 @@ namespace LotusECMLogger.Services
 		/// The method validates the address is in the valid RAM range before sending.
 		/// </remarks>
 		Task WriteWordAsync(uint address, uint value);
+
+		/// <summary>
+		/// Probes whether the ECU is unlocked (ecu_unlocked == true) by attempting a single
+		/// RMA memory read at 0x40000000. The firmware processes RMA reads only when unlocked,
+		/// so a response on CAN ID 0x7A0 indicates an unlocked ECU and silence indicates a
+		/// locked ECU (or no ECU present).
+		/// </summary>
+		/// <returns>True if the ECU replied to the read (unlocked); false if it stayed silent.</returns>
+		/// <remarks>
+		/// Must not be called while a logging session is active, since it opens its own
+		/// temporary CAN channel on the J2534 device.
+		/// </remarks>
+		bool IsEcuUnlocked();
 	}
 }

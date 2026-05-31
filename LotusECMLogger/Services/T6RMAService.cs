@@ -608,7 +608,7 @@ namespace LotusECMLogger.Services
 			}
 		}
 
-		private byte[]? SendMemoryReadRequestWithChannel(Channel channel, uint address, byte length)
+		private byte[]? SendMemoryReadRequestWithChannel(Channel channel, uint address, byte length, int totalTimeoutMs = 2000)
 		{
 			// Build CAN message for memory read request (CAN ID 0x53)
 			byte[] canMessage = new byte[9];
@@ -635,7 +635,7 @@ namespace LotusECMLogger.Services
 				// We'll collect messages until we have the requested length or timeout
 				List<byte> assembledData = new List<byte>(length);
 				var stopwatch = Stopwatch.StartNew();
-				const int TOTAL_TIMEOUT_MS = 2000; // Total timeout for collecting all frames
+				int TOTAL_TIMEOUT_MS = totalTimeoutMs; // Total timeout for collecting all frames
 
 				while (assembledData.Count < length && stopwatch.ElapsedMilliseconds < TOTAL_TIMEOUT_MS)
 				{
@@ -780,6 +780,49 @@ namespace LotusECMLogger.Services
 					channelToUse?.Dispose();
 					tempDevice?.Dispose();
 				}
+			}
+		}
+
+		public bool IsEcuUnlocked()
+		{
+			// The firmware only services RMA reads when ecu_unlocked == true, replying on
+			// CAN ID 0x7A0. A single read at RAM_START therefore tells us the unlock state:
+			// a response => unlocked, silence => locked (or ECU not present).
+			const int PROBE_TIMEOUT_MS = 150;
+
+			Device? tempDevice = null;
+			Channel? tempChannel = null;
+
+			try
+			{
+				// Open a temporary CAN connection (same pattern as ReadMemoryToFileAsync).
+				string dllFileName = APIFactory.GetAPIinfo().First().Filename;
+				API api = APIFactory.GetAPI(dllFileName);
+				tempDevice = api.GetDevice();
+
+				tempChannel = tempDevice.GetChannel(Protocol.CAN, (Baud)500000, ConnectFlag.NONE);
+
+				// Set up CAN filter to receive responses on 0x7A0
+				var passFilter = new MessageFilter
+				{
+					FilterType = Filter.PASS_FILTER,
+					Mask = [0x00, 0x00, 0x07, 0xFF],
+					Pattern = [0x00, 0x00, 0x07, 0xA0]
+				};
+				tempChannel.StartMsgFilter(passFilter);
+
+				byte[]? responseData = SendMemoryReadRequestWithChannel(tempChannel, RAM_START, 4, PROBE_TIMEOUT_MS);
+				return responseData is { Length: > 0 };
+			}
+			catch (Exception ex)
+			{
+				Debug.WriteLine($"T6RMA: Unlock probe failed: {ex.Message}");
+				return false;
+			}
+			finally
+			{
+				tempChannel?.Dispose();
+				tempDevice?.Dispose();
 			}
 		}
 	}
