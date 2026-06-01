@@ -136,10 +136,10 @@ namespace LotusECMLogger.Controls
                 SetUnlockIndicator(EcuUnlockState.Unknown);
 
                 // Create J2534 connection and ISO15765 service
-                using (var api = J2534APIFactory.LoadAPI(J2534APIFactory.DiscoverAPIs().First().FileName).Unwrap())
-                using (var device = api.OpenDevice("").Unwrap())
-                using (var channel = device.OpenChannel(Protocol.ISO15765, Baud.ISO15765, ConnectFlag.NONE).Unwrap())
+                using (var session = J2534Session.Open())
                 {
+                    var channel = session.OpenIso15765();
+
                     // Setup message filter for Lotus ECM
                     var flowControlFilter = new SAE.J2534.MessageFilter
                     {

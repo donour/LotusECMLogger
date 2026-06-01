@@ -15,14 +15,14 @@ namespace LotusECMLogger.Services
         private bool terminate = false;
         private Thread? loggerThread;
         private Thread? csvWriterThread;
-        private J2534Device? device;
+        private J2534Session? session;
 
         /// <summary>
         /// Whether to prefix reading names with ECU name (useful when logging from multiple ECUs)
         /// </summary>
         public bool PrefixReadingsWithEcuName { get; set; } = true;
 
-        public bool IsConnected => device != null && !terminate;
+        public bool IsConnected => session != null && !terminate;
 
         // CSV writer thread coordination
         private readonly ConcurrentQueue<List<LiveDataReading>> csvWriteQueue = new();
@@ -84,9 +84,7 @@ namespace LotusECMLogger.Services
 
         public void Start()
         {
-            string DllFileName = J2534APIFactory.DiscoverAPIs().First().FileName;
-            J2534API API = J2534APIFactory.LoadAPI(DllFileName).Unwrap();
-            device = API.OpenDevice("").Unwrap();
+            session = J2534Session.Open();
             try
             {
                 // Start CSV writer thread first
@@ -99,7 +97,7 @@ namespace LotusECMLogger.Services
                 csvWriterThread.Start();
 
                 // Start main logger thread
-                loggerThread = new Thread(() => RunLoggerWithExceptionHandling(device))
+                loggerThread = new Thread(RunLoggerWithExceptionHandling)
                 {
                     IsBackground = true,
                     Name = "J2534 Logger"
@@ -112,11 +110,11 @@ namespace LotusECMLogger.Services
             }
         }
 
-        private void RunLoggerWithExceptionHandling(J2534Device device)
+        private void RunLoggerWithExceptionHandling()
         {
             try
             {
-                RunLogger(device);
+                RunLogger();
             }
             catch (Exception ex)
             {
@@ -202,11 +200,11 @@ namespace LotusECMLogger.Services
             }
         }
 
-        private void RunLogger(J2534Device Device)
+        private void RunLogger()
         {
             try
             {
-                using J2534Channel Channel = Device.OpenChannel(Protocol.ISO15765, Baud.ISO15765, ConnectFlag.NONE).Unwrap();
+                J2534Channel Channel = session!.OpenIso15765();
 
                 // Set up flow control filters for ALL ECUs in the configuration
                 var filters = multiEcuConfig.GetAllFlowControlFilters().ToList();
@@ -266,7 +264,8 @@ namespace LotusECMLogger.Services
             }
             finally
             {
-                device?.Dispose();
+                session?.Dispose();
+                session = null;
             }
         }
 

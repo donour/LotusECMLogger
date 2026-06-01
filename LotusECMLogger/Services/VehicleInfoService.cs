@@ -12,10 +12,8 @@ namespace LotusECMLogger.Services
             try
             {
                 // Create temporary device connection for vehicle data loading
-                string DllFileName = J2534APIFactory.DiscoverAPIs().First().FileName;
-                J2534API API = J2534APIFactory.LoadAPI(DllFileName).Unwrap();
-                using J2534Device device = API.OpenDevice("").Unwrap();
-                using J2534Channel channel = device.OpenChannel(Protocol.ISO15765, Baud.ISO15765, ConnectFlag.NONE).Unwrap();
+                using var session = J2534Session.Open();
+                J2534Channel channel = session.OpenIso15765();
 
                 // Start message filter
                 var flowControlFilter = new MessageFilter

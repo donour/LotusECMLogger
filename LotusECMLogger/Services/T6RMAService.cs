@@ -62,7 +62,7 @@ namespace LotusECMLogger.Services
 		private const uint RAM_START = 0x40000000;
 		private const uint RAM_END = 0x4000FFFF;         // 64KB RAM
 
-		private J2534Device? _device;
+		private J2534Session? _session;
 		private J2534Channel? _channel;
 		private Thread? _loggingThread;
 		private bool _isLogging;
@@ -181,12 +181,10 @@ namespace LotusECMLogger.Services
 
 		private void InitializeDevice()
 		{
-			string dllFileName = J2534APIFactory.DiscoverAPIs().First().FileName;
-			J2534API api = J2534APIFactory.LoadAPI(dllFileName).Unwrap();
-			_device = api.OpenDevice("").Unwrap();
+			_session = J2534Session.Open();
 
 			// Use raw CAN protocol at 500 kbaud (standard for automotive CAN)
-			_channel = _device.OpenChannel(Protocol.CAN, (Baud)500000, ConnectFlag.NONE).Unwrap();
+			_channel = _session.OpenCan();
 
 			// Set up CAN filter to receive responses on 0x7A0
 			var passFilter = new MessageFilter
@@ -467,11 +465,10 @@ namespace LotusECMLogger.Services
 				_csvWriter?.Dispose();
 				_csvWriter = null;
 
-				_channel?.Dispose();
+				// Disposing the session releases its channel, device, and API handle.
+				_session?.Dispose();
+				_session = null;
 				_channel = null;
-
-				_device?.Dispose();
-				_device = null;
 
 				_currentAddress = null;
 				_currentLength = 0;
@@ -530,17 +527,14 @@ namespace LotusECMLogger.Services
 					$"Memory range exceeds RAM bounds. Start: 0x{startAddress:X8}, Length: {length}, End: 0x{startAddress + length - 1:X8}, Max: 0x{RAM_END:X8}");
 			}
 
-			J2534Device? tempDevice = null;
+			J2534Session? tempSession = null;
 			J2534Channel? tempChannel = null;
 
 			try
 			{
 				// Initialize J2534 device and CAN channel
-				string dllFileName = J2534APIFactory.DiscoverAPIs().First().FileName;
-				J2534API api = J2534APIFactory.LoadAPI(dllFileName).Unwrap();
-				tempDevice = api.OpenDevice("").Unwrap();
-
-				tempChannel = tempDevice.OpenChannel(Protocol.CAN, (Baud)500000, ConnectFlag.NONE).Unwrap();
+				tempSession = J2534Session.Open();
+				tempChannel = tempSession.OpenCan();
 
 				// Set up CAN filter to receive responses on 0x7A0
 				var passFilter = new MessageFilter
@@ -602,9 +596,8 @@ namespace LotusECMLogger.Services
 			}
 			finally
 			{
-				// Cleanup temporary channel and device
-				tempChannel?.Dispose();
-				tempDevice?.Dispose();
+				// Cleanup temporary session (disposes its channel, device, and API)
+				tempSession?.Dispose();
 			}
 		}
 
@@ -714,8 +707,7 @@ namespace LotusECMLogger.Services
 			}
 
 			J2534Channel? channelToUse = null;
-			J2534Device? tempDevice = null;
-			bool usingTemporaryDevice = false;
+			J2534Session? tempSession = null;
 
 			try
 			{
@@ -731,11 +723,8 @@ namespace LotusECMLogger.Services
 				// If no active channel, create a temporary one
 				if (channelToUse == null)
 				{
-					usingTemporaryDevice = true;
-					string dllFileName = J2534APIFactory.DiscoverAPIs().First().FileName;
-					J2534API api = J2534APIFactory.LoadAPI(dllFileName).Unwrap();
-					tempDevice = api.OpenDevice("").Unwrap();
-					channelToUse = tempDevice.OpenChannel(Protocol.CAN, (Baud)500000, ConnectFlag.NONE).Unwrap();
+					tempSession = J2534Session.Open();
+					channelToUse = tempSession.OpenCan();
 				}
 
 				Debug.WriteLine($"T6RMA: Writing word to ECU - Address=0x{address:X8}, Value=0x{value:X8}");
@@ -774,12 +763,9 @@ namespace LotusECMLogger.Services
 			}
 			finally
 			{
-				// Only cleanup if we created a temporary device
-				if (usingTemporaryDevice)
-				{
-					channelToUse?.Dispose();
-					tempDevice?.Dispose();
-				}
+				// Only the temporary session is ours to dispose; the logging session
+				// (when reused above) is owned by the logging lifecycle.
+				tempSession?.Dispose();
 			}
 		}
 
@@ -790,17 +776,13 @@ namespace LotusECMLogger.Services
 			// a response => unlocked, silence => locked (or ECU not present).
 			const int PROBE_TIMEOUT_MS = 150;
 
-			J2534Device? tempDevice = null;
-			J2534Channel? tempChannel = null;
+			J2534Session? tempSession = null;
 
 			try
 			{
 				// Open a temporary CAN connection (same pattern as ReadMemoryToFileAsync).
-				string dllFileName = J2534APIFactory.DiscoverAPIs().First().FileName;
-				J2534API api = J2534APIFactory.LoadAPI(dllFileName).Unwrap();
-				tempDevice = api.OpenDevice("").Unwrap();
-
-				tempChannel = tempDevice.OpenChannel(Protocol.CAN, (Baud)500000, ConnectFlag.NONE).Unwrap();
+				tempSession = J2534Session.Open();
+				J2534Channel tempChannel = tempSession.OpenCan();
 
 				// Set up CAN filter to receive responses on 0x7A0
 				var passFilter = new MessageFilter
@@ -821,8 +803,7 @@ namespace LotusECMLogger.Services
 			}
 			finally
 			{
-				tempChannel?.Dispose();
-				tempDevice?.Dispose();
+				tempSession?.Dispose();
 			}
 		}
 	}

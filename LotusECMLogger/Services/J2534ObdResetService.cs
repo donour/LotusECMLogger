@@ -8,10 +8,8 @@ namespace LotusECMLogger.Services
 		{
 			try
 			{
-				string dllFileName = J2534APIFactory.DiscoverAPIs().First().FileName;
-				J2534API api = J2534APIFactory.LoadAPI(dllFileName).Unwrap();
-				using J2534Device device = api.OpenDevice("").Unwrap();
-				using J2534Channel channel = device.OpenChannel(Protocol.ISO15765, Baud.ISO15765, ConnectFlag.NONE).Unwrap();
+				using var session = J2534Session.Open();
+				J2534Channel channel = session.OpenIso15765();
 
 				var flowControlFilter = new MessageFilter
 				{

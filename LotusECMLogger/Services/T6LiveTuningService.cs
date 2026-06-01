@@ -24,7 +24,7 @@ namespace LotusECMLogger.Services
 		private readonly object _lock = new();
 
 		// J2534 device and channel for persistent connection during monitoring
-		private J2534Device? _device;
+		private J2534Session? _session;
 		private J2534Channel? _channel;
 
 		// Memory address validation constants
@@ -238,12 +238,10 @@ namespace LotusECMLogger.Services
 		{
 			try
 			{
-				string dllFileName = J2534APIFactory.DiscoverAPIs().First().FileName;
-				J2534API api = J2534APIFactory.LoadAPI(dllFileName).Unwrap();
-				_device = api.OpenDevice("").Unwrap();
+				_session = J2534Session.Open();
 
 				// Use raw CAN protocol at 500 kbaud (standard for automotive CAN)
-				_channel = _device.OpenChannel(Protocol.CAN, (Baud)500000, ConnectFlag.NONE).Unwrap();
+				_channel = _session.OpenCan();
 
 				Debug.WriteLine("T6LiveTuning: J2534 device initialized with CAN protocol at 500 kbaud");
 			}
@@ -272,18 +270,10 @@ namespace LotusECMLogger.Services
 					_fileMonitor = null;
 				}
 
-				// Cleanup J2534 device and channel
-				if (_channel != null)
-				{
-					_channel.Dispose();
-					_channel = null;
-				}
-
-				if (_device != null)
-				{
-					_device.Dispose();
-					_device = null;
-				}
+				// Cleanup J2534 session (disposes its channel, device, and API)
+				_session?.Dispose();
+				_session = null;
+				_channel = null;
 
 				// Clear state variables
 				_monitoredFilePath = null;
@@ -297,8 +287,8 @@ namespace LotusECMLogger.Services
 
 				// Force null even on error
 				_fileMonitor = null;
+				_session = null;
 				_channel = null;
-				_device = null;
 				_monitoredFilePath = null;
 				_baseMemoryAddress = 0;
 				_memoryLength = 0;
