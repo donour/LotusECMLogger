@@ -23,9 +23,9 @@ namespace LotusECMLogger.Services
     {
         private readonly static byte[] ECM_HEADER = [0x00, 0x00, 0x07, 0xE0];
 
-        private Channel _channel;
+        private J2534Channel _channel;
 
-        public Iso15765Service(Channel channel)
+        public Iso15765Service(J2534Channel channel)
         {
             _channel = channel ?? throw new ArgumentNullException(nameof(channel));
         }
@@ -93,7 +93,7 @@ namespace LotusECMLogger.Services
 
             for (int i = 0; i < 10; i++)
             {
-                var response = _channel.GetMessages(1, 250);
+                var response = _channel.ReadMessages(1, 250);
                 if (response.Messages.Length == 0)
                     continue;
 
@@ -184,12 +184,12 @@ namespace LotusECMLogger.Services
             {
                 // Send request for supported PIDs (PID 0x00)
                 byte[] request = BuildModeMessage(mode, 0x00);
-                _channel.SendMessages([request]);
+                _channel.SendMessage(request);
 
                 for(int i=0; i<100; i++) // only wait for 100 messages
                 {
                     // Get response with timeout
-                    var response = _channel.GetMessages(1, 1000);
+                    var response = _channel.ReadMessages(1, 1000);
 
                     var messages = response.Messages;
                     // TODO check for specific response message
@@ -281,12 +281,12 @@ namespace LotusECMLogger.Services
             return supportedPIDs;
         }
 
-        private static byte[] readMultiFrameResponse(Channel channel, OBDIIMode mode)
+        private static byte[] readMultiFrameResponse(J2534Channel channel, OBDIIMode mode)
         {
             int first_message_retries = 10;
             do
             {
-                var first_response = channel.GetMessages(1, 250);
+                var first_response = channel.ReadMessages(1, 250);
                 if (first_response.Messages.Length > 0)
                 {
                     var first_msg = first_response.Messages[0].Data; 
@@ -306,7 +306,7 @@ namespace LotusECMLogger.Services
             } while (first_message_retries-- > 0);
             return [];
         }
-        public static byte[] GetMultiMessageRequest(Channel channel, OBDIIMode mode, List<int> pids)
+        public static byte[] GetMultiMessageRequest(J2534Channel channel, OBDIIMode mode, List<int> pids)
         {
             int retry_count = 3;
             do { 

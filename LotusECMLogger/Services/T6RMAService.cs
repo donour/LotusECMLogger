@@ -62,8 +62,8 @@ namespace LotusECMLogger.Services
 		private const uint RAM_START = 0x40000000;
 		private const uint RAM_END = 0x4000FFFF;         // 64KB RAM
 
-		private Device? _device;
-		private Channel? _channel;
+		private J2534Device? _device;
+		private J2534Channel? _channel;
 		private Thread? _loggingThread;
 		private bool _isLogging;
 		private uint? _currentAddress;
@@ -181,12 +181,12 @@ namespace LotusECMLogger.Services
 
 		private void InitializeDevice()
 		{
-			string dllFileName = APIFactory.GetAPIinfo().First().Filename;
-			API api = APIFactory.GetAPI(dllFileName);
-			_device = api.GetDevice();
+			string dllFileName = J2534APIFactory.DiscoverAPIs().First().FileName;
+			J2534API api = J2534APIFactory.LoadAPI(dllFileName).Unwrap();
+			_device = api.OpenDevice("").Unwrap();
 
 			// Use raw CAN protocol at 500 kbaud (standard for automotive CAN)
-			_channel = _device.GetChannel(Protocol.CAN, (Baud)500000, ConnectFlag.NONE);
+			_channel = _device.OpenChannel(Protocol.CAN, (Baud)500000, ConnectFlag.NONE).Unwrap();
 
 			// Set up CAN filter to receive responses on 0x7A0
 			var passFilter = new MessageFilter
@@ -195,7 +195,7 @@ namespace LotusECMLogger.Services
 				Mask = [0x00, 0x00, 0x07, 0xFF],      // Match all 11 bits of CAN ID
 				Pattern = [0x00, 0x00, 0x07, 0xA0]     // CAN ID 0x7A0
 			};
-			_channel.StartMsgFilter(passFilter);
+			_channel.StartMessageFilter(passFilter).ThrowIfError();
 
 			Debug.WriteLine("T6RMA: J2534 device initialized with CAN protocol at 500 kbaud");
 		}
@@ -327,7 +327,7 @@ namespace LotusECMLogger.Services
 			try
 			{
 				// Send the request
-				_channel.SendMessages([canMessage]);
+				_channel.SendMessage(canMessage);
 
 				// For multi-frame responses, we need to collect multiple CAN messages
 				// Each CAN frame can carry ~8 bytes of data
@@ -344,7 +344,7 @@ namespace LotusECMLogger.Services
 					int messagesToRequest = Math.Max(1, (remainingBytes + 7) / 8);
 
 					// Wait for response messages
-					var response = _channel.GetMessages(messagesToRequest, 200);
+					var response = _channel.ReadMessages(messagesToRequest, 200);
 
 					if (response.Messages.Length > 0)
 					{
@@ -530,17 +530,17 @@ namespace LotusECMLogger.Services
 					$"Memory range exceeds RAM bounds. Start: 0x{startAddress:X8}, Length: {length}, End: 0x{startAddress + length - 1:X8}, Max: 0x{RAM_END:X8}");
 			}
 
-			Device? tempDevice = null;
-			Channel? tempChannel = null;
+			J2534Device? tempDevice = null;
+			J2534Channel? tempChannel = null;
 
 			try
 			{
 				// Initialize J2534 device and CAN channel
-				string dllFileName = APIFactory.GetAPIinfo().First().Filename;
-				API api = APIFactory.GetAPI(dllFileName);
-				tempDevice = api.GetDevice();
+				string dllFileName = J2534APIFactory.DiscoverAPIs().First().FileName;
+				J2534API api = J2534APIFactory.LoadAPI(dllFileName).Unwrap();
+				tempDevice = api.OpenDevice("").Unwrap();
 
-				tempChannel = tempDevice.GetChannel(Protocol.CAN, (Baud)500000, ConnectFlag.NONE);
+				tempChannel = tempDevice.OpenChannel(Protocol.CAN, (Baud)500000, ConnectFlag.NONE).Unwrap();
 
 				// Set up CAN filter to receive responses on 0x7A0
 				var passFilter = new MessageFilter
@@ -549,7 +549,7 @@ namespace LotusECMLogger.Services
 					Mask = [0x00, 0x00, 0x07, 0xFF],
 					Pattern = [0x00, 0x00, 0x07, 0xA0]
 				};
-				tempChannel.StartMsgFilter(passFilter);
+				tempChannel.StartMessageFilter(passFilter).ThrowIfError();
 
 				Debug.WriteLine($"T6RMA: Reading {length} bytes from 0x{startAddress:X8} to {filePath}");
 
@@ -608,7 +608,7 @@ namespace LotusECMLogger.Services
 			}
 		}
 
-		private byte[]? SendMemoryReadRequestWithChannel(Channel channel, uint address, byte length, int totalTimeoutMs = 2000)
+		private byte[]? SendMemoryReadRequestWithChannel(J2534Channel channel, uint address, byte length, int totalTimeoutMs = 2000)
 		{
 			// Build CAN message for memory read request (CAN ID 0x53)
 			byte[] canMessage = new byte[9];
@@ -628,7 +628,7 @@ namespace LotusECMLogger.Services
 			try
 			{
 				// Send the request
-				channel.SendMessages([canMessage]);
+				channel.SendMessage(canMessage);
 
 				// For multi-frame responses, we need to collect multiple CAN messages
 				// Each CAN frame can carry ~8 bytes of data, so for 255 bytes we need ~32 frames
@@ -647,7 +647,7 @@ namespace LotusECMLogger.Services
 					int messagesToRequest = Math.Max(1, (remainingBytes + 7) / 8);
 
 					// Wait for response messages (shorter timeout per batch)
-					var response = channel.GetMessages(messagesToRequest, 200);
+					var response = channel.ReadMessages(messagesToRequest, 200);
 
 					if (response.Messages.Length > 0)
 					{
@@ -713,8 +713,8 @@ namespace LotusECMLogger.Services
 					$"Invalid memory address 0x{address:X8}. Valid range: RAM (0x{RAM_START:X8}-0x{RAM_END - 3:X8})");
 			}
 
-			Channel? channelToUse = null;
-			Device? tempDevice = null;
+			J2534Channel? channelToUse = null;
+			J2534Device? tempDevice = null;
 			bool usingTemporaryDevice = false;
 
 			try
@@ -732,10 +732,10 @@ namespace LotusECMLogger.Services
 				if (channelToUse == null)
 				{
 					usingTemporaryDevice = true;
-					string dllFileName = APIFactory.GetAPIinfo().First().Filename;
-					API api = APIFactory.GetAPI(dllFileName);
-					tempDevice = api.GetDevice();
-					channelToUse = tempDevice.GetChannel(Protocol.CAN, (Baud)500000, ConnectFlag.NONE);
+					string dllFileName = J2534APIFactory.DiscoverAPIs().First().FileName;
+					J2534API api = J2534APIFactory.LoadAPI(dllFileName).Unwrap();
+					tempDevice = api.OpenDevice("").Unwrap();
+					channelToUse = tempDevice.OpenChannel(Protocol.CAN, (Baud)500000, ConnectFlag.NONE).Unwrap();
 				}
 
 				Debug.WriteLine($"T6RMA: Writing word to ECU - Address=0x{address:X8}, Value=0x{value:X8}");
@@ -763,7 +763,7 @@ namespace LotusECMLogger.Services
 				canMessage[11] = (byte)(value & 0xFF);
 
 				// Send the write command (fire-and-forget, no response expected)
-				await Task.Run(() => channelToUse.SendMessages([canMessage]));
+				await Task.Run(() => channelToUse.SendMessage(canMessage));
 
 				Debug.WriteLine($"T6RMA: Write command sent successfully");
 			}
@@ -790,17 +790,17 @@ namespace LotusECMLogger.Services
 			// a response => unlocked, silence => locked (or ECU not present).
 			const int PROBE_TIMEOUT_MS = 150;
 
-			Device? tempDevice = null;
-			Channel? tempChannel = null;
+			J2534Device? tempDevice = null;
+			J2534Channel? tempChannel = null;
 
 			try
 			{
 				// Open a temporary CAN connection (same pattern as ReadMemoryToFileAsync).
-				string dllFileName = APIFactory.GetAPIinfo().First().Filename;
-				API api = APIFactory.GetAPI(dllFileName);
-				tempDevice = api.GetDevice();
+				string dllFileName = J2534APIFactory.DiscoverAPIs().First().FileName;
+				J2534API api = J2534APIFactory.LoadAPI(dllFileName).Unwrap();
+				tempDevice = api.OpenDevice("").Unwrap();
 
-				tempChannel = tempDevice.GetChannel(Protocol.CAN, (Baud)500000, ConnectFlag.NONE);
+				tempChannel = tempDevice.OpenChannel(Protocol.CAN, (Baud)500000, ConnectFlag.NONE).Unwrap();
 
 				// Set up CAN filter to receive responses on 0x7A0
 				var passFilter = new MessageFilter
@@ -809,7 +809,7 @@ namespace LotusECMLogger.Services
 					Mask = [0x00, 0x00, 0x07, 0xFF],
 					Pattern = [0x00, 0x00, 0x07, 0xA0]
 				};
-				tempChannel.StartMsgFilter(passFilter);
+				tempChannel.StartMessageFilter(passFilter).ThrowIfError();
 
 				byte[]? responseData = SendMemoryReadRequestWithChannel(tempChannel, RAM_START, 4, PROBE_TIMEOUT_MS);
 				return responseData is { Length: > 0 };

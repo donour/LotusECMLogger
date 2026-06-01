@@ -11,10 +11,10 @@ namespace LotusECMLogger.Services
 	{
 		public T6eCodingDecoder ReadCoding()
 		{
-			string dllFileName = APIFactory.GetAPIinfo().First().Filename;
-			API api = APIFactory.GetAPI(dllFileName);
-			using Device device = api.GetDevice();
-			using Channel channel = device.GetChannel(Protocol.ISO15765, Baud.ISO15765, ConnectFlag.NONE);
+			string dllFileName = J2534APIFactory.DiscoverAPIs().First().FileName;
+			J2534API api = J2534APIFactory.LoadAPI(dllFileName).Unwrap();
+			using J2534Device device = api.OpenDevice("").Unwrap();
+			using J2534Channel channel = device.OpenChannel(Protocol.ISO15765, Baud.ISO15765, ConnectFlag.NONE).Unwrap();
 
 			var flowControlFilter = new MessageFilter
 			{
@@ -23,7 +23,7 @@ namespace LotusECMLogger.Services
 				Pattern = [0x00, 0x00, 0x07, 0xE8],
 				FlowControl = [0x00, 0x00, 0x07, 0xE0]
 			};
-			channel.StartMsgFilter(flowControlFilter);
+			channel.StartMessageFilter(flowControlFilter).ThrowIfError();
 
 			return ReadCodingInternal(channel);
 		}
@@ -32,9 +32,9 @@ namespace LotusECMLogger.Services
 		{
 			try
 			{
-				string dllFileName = APIFactory.GetAPIinfo().First().Filename;
-				API api = APIFactory.GetAPI(dllFileName);
-				using Device device = api.GetDevice();
+				string dllFileName = J2534APIFactory.DiscoverAPIs().First().FileName;
+				J2534API api = J2534APIFactory.LoadAPI(dllFileName).Unwrap();
+				using J2534Device device = api.OpenDevice("").Unwrap();
 				return WriteRawCanCoding(coding, device);
 			}
 			catch (Exception ex)
@@ -43,7 +43,7 @@ namespace LotusECMLogger.Services
 			}
 		}
 
-		private static T6eCodingDecoder ReadCodingInternal(Channel channel)
+		private static T6eCodingDecoder ReadCodingInternal(J2534Channel channel)
 		{
 			byte[] result_cod0 = [0, 0, 0, 0];
 			byte[] result_cod1 = [0, 0, 0, 0];
@@ -56,8 +56,8 @@ namespace LotusECMLogger.Services
 			int done = 0;
 			do
 			{
-				channel.SendMessages(codingRequest);
-				GetMessageResults resp = channel.GetMessages(1, 100);
+				channel.SendMessages(Array.ConvertAll(codingRequest, b => new SAE.J2534.Message(b, channel.DefaultTxFlags)));
+				GetMessagesResult resp = channel.ReadMessages(1, 100);
 				if (resp.Messages.Length > 0)
 				{
 					var data = resp.Messages[0].Data;
@@ -90,11 +90,11 @@ namespace LotusECMLogger.Services
 			}
 		}
 
-		private static (bool success, string errorMessage) WriteRawCanCoding(T6eCodingDecoder codingDecoder, Device device)
+		private static (bool success, string errorMessage) WriteRawCanCoding(T6eCodingDecoder codingDecoder, J2534Device device)
 		{
 			try
 			{
-				using Channel canChannel = device.GetChannel(Protocol.CAN, (Baud)500000, ConnectFlag.NONE);
+				using J2534Channel canChannel = device.OpenChannel(Protocol.CAN, (Baud)500000, ConnectFlag.NONE).Unwrap();
 
 				byte[] highBytes = codingDecoder.GetHighBytes();
 				byte[] lowBytes = codingDecoder.GetLowBytes();
@@ -108,7 +108,7 @@ namespace LotusECMLogger.Services
 				Array.Copy(highBytes, 0, canMessage, 4, 4);
 				Array.Copy(lowBytes, 0, canMessage, 8, 4);
 
-				canChannel.SendMessages([canMessage]);
+				canChannel.SendMessage(canMessage);
 				Thread.Sleep(100);
 
 				return (true, "");

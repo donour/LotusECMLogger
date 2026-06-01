@@ -16,11 +16,11 @@ namespace LotusECMLogger
         public const uint IdWrite32 = 0x54;
         public const uint IdWrite   = 0x57; // block write
 
-        private readonly Channel _channel;
+        private readonly J2534Channel _channel;
         private readonly uint _responseId;
         private readonly TimeSpan _defaultTimeout;
 
-        public T6eRMAClient(Channel channel, uint responseId = 0x1E8, TimeSpan? defaultTimeout = null)
+        public T6eRMAClient(J2534Channel channel, uint responseId = 0x1E8, TimeSpan? defaultTimeout = null)
         {
             _channel = channel ?? throw new ArgumentNullException(nameof(channel));
             _responseId = responseId;
@@ -115,7 +115,7 @@ namespace LotusECMLogger
         {
             var msg = await ReceiveAsync(m => HasId(m, _responseId) && GetPayload(m).Length > 0, timeout, ct);
             if (msg == null) throw new TimeoutException("No ECU response");
-            return msg;
+            return msg.Value;
         }
 
         private Task SendAsync(uint arbitrationId, ReadOnlyMemory<byte> data, CancellationToken ct)
@@ -124,7 +124,7 @@ namespace LotusECMLogger
             var buf = new byte[4 + data.Length];
             BinaryPrimitives.WriteUInt32BigEndian(buf.AsSpan(0, 4), arbitrationId);
             data.CopyTo(buf.AsMemory(4));
-            var msg = new SAE.J2534.Message(buf);
+            var msg = new SAE.J2534.Message(buf, TxFlag.NONE);
             _channel.SendMessage(msg);
             return Task.CompletedTask;
         }
@@ -134,8 +134,8 @@ namespace LotusECMLogger
             var deadline = DateTime.UtcNow + timeout;
             while (DateTime.UtcNow < deadline)
             {
-                var res = _channel.GetMessage();
-                if (res.Result == ResultCode.STATUS_NOERROR && res.Messages != null && res.Messages.Length > 0)
+                var res = _channel.ReadMessage();
+                if (res.Status == ResultCode.STATUS_NOERROR && res.Messages != null && res.Messages.Length > 0)
                 {
                     foreach (var m in res.Messages)
                     {

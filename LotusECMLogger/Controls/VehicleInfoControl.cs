@@ -1,6 +1,7 @@
 using LotusECMLogger.Services;
 using SAE.J2534;
 using System.Collections;
+using System.ComponentModel;
 using System.Text;
 
 namespace LotusECMLogger.Controls
@@ -16,6 +17,7 @@ namespace LotusECMLogger.Controls
         private enum EcuUnlockState { Unknown, Locked, Unlocked }
 
         private bool _isLoggerActive;
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public bool IsLoggerActive
         {
             get => _isLoggerActive;
@@ -134,9 +136,9 @@ namespace LotusECMLogger.Controls
                 SetUnlockIndicator(EcuUnlockState.Unknown);
 
                 // Create J2534 connection and ISO15765 service
-                using (var api = APIFactory.GetAPI(APIFactory.GetAPIinfo().First().Filename))
-                using (var device = api.GetDevice())
-                using (var channel = device.GetChannel(Protocol.ISO15765, Baud.ISO15765, ConnectFlag.NONE))
+                using (var api = J2534APIFactory.LoadAPI(J2534APIFactory.DiscoverAPIs().First().FileName).Unwrap())
+                using (var device = api.OpenDevice("").Unwrap())
+                using (var channel = device.OpenChannel(Protocol.ISO15765, Baud.ISO15765, ConnectFlag.NONE).Unwrap())
                 {
                     // Setup message filter for Lotus ECM
                     var flowControlFilter = new SAE.J2534.MessageFilter
@@ -146,7 +148,7 @@ namespace LotusECMLogger.Controls
                         Pattern = [0x00, 0x00, 0x07, 0xE8],
                         FlowControl = [0x00, 0x00, 0x07, 0xE0]
                     };
-                    channel.StartMsgFilter(flowControlFilter);
+                    channel.StartMessageFilter(flowControlFilter).ThrowIfError();
 
                     // Create ISO15765 service
                     var iso15765Service = new Iso15765Service(channel);
@@ -379,7 +381,7 @@ namespace LotusECMLogger.Controls
             return null;
         }
 
-        private List<VehicleParameterReading> QueryMode22ExtendedInfo(SAE.J2534.Channel channel)
+        private List<VehicleParameterReading> QueryMode22ExtendedInfo(SAE.J2534.J2534Channel channel)
         {
             var results = new List<VehicleParameterReading>();
 
@@ -445,7 +447,7 @@ namespace LotusECMLogger.Controls
 
         // Sends a Mode 22 request with PID [0x02, pid] and returns payloadLength bytes
         // starting at data[7], or null if the ECU does not respond with a matching positive response.
-        private byte[]? ReadMode22Payload(SAE.J2534.Channel channel, byte pid, int payloadLength)
+        private byte[]? ReadMode22Payload(SAE.J2534.J2534Channel channel, byte pid, int payloadLength)
         {
             try
             {
@@ -454,7 +456,7 @@ namespace LotusECMLogger.Controls
 
                 for (int i = 0; i < 10; i++)
                 {
-                    var response = channel.GetMessages(1, 250);
+                    var response = channel.ReadMessages(1, 250);
                     if (response.Messages.Length > 0)
                     {
                         var data = response.Messages[0].Data;
@@ -472,7 +474,7 @@ namespace LotusECMLogger.Controls
             return null;
         }
 
-        private List<VehicleParameterReading> QueryOctaneScalers(SAE.J2534.Channel channel)
+        private List<VehicleParameterReading> QueryOctaneScalers(SAE.J2534.J2534Channel channel)
         {
             var results = new List<VehicleParameterReading>();
             var scalerPIDs = new (string Name, byte Pid)[]
@@ -494,7 +496,7 @@ namespace LotusECMLogger.Controls
 
                     for (int i = 0; i < 10; i++)
                     {
-                        var response = channel.GetMessages(1, 250);
+                        var response = channel.ReadMessages(1, 250);
                         if (response.Messages.Length > 0)
                         {
                             var data = response.Messages[0].Data;

@@ -15,7 +15,7 @@ namespace LotusECMLogger.Services
         private bool terminate = false;
         private Thread? loggerThread;
         private Thread? csvWriterThread;
-        private Device? device;
+        private J2534Device? device;
 
         /// <summary>
         /// Whether to prefix reading names with ECU name (useful when logging from multiple ECUs)
@@ -84,9 +84,9 @@ namespace LotusECMLogger.Services
 
         public void Start()
         {
-            string DllFileName = APIFactory.GetAPIinfo().First().Filename;
-            API API = APIFactory.GetAPI(DllFileName);
-            device = API.GetDevice();
+            string DllFileName = J2534APIFactory.DiscoverAPIs().First().FileName;
+            J2534API API = J2534APIFactory.LoadAPI(DllFileName).Unwrap();
+            device = API.OpenDevice("").Unwrap();
             try
             {
                 // Start CSV writer thread first
@@ -112,7 +112,7 @@ namespace LotusECMLogger.Services
             }
         }
 
-        private void RunLoggerWithExceptionHandling(Device device)
+        private void RunLoggerWithExceptionHandling(J2534Device device)
         {
             try
             {
@@ -202,17 +202,17 @@ namespace LotusECMLogger.Services
             }
         }
 
-        private void RunLogger(Device Device)
+        private void RunLogger(J2534Device Device)
         {
             try
             {
-                using Channel Channel = Device.GetChannel(Protocol.ISO15765, Baud.ISO15765, ConnectFlag.NONE);
+                using J2534Channel Channel = Device.OpenChannel(Protocol.ISO15765, Baud.ISO15765, ConnectFlag.NONE).Unwrap();
 
                 // Set up flow control filters for ALL ECUs in the configuration
                 var filters = multiEcuConfig.GetAllFlowControlFilters().ToList();
                 foreach (var filter in filters)
                 {
-                    Channel.StartMsgFilter(filter);
+                    Channel.StartMessageFilter(filter).ThrowIfError();
                     Debug.WriteLine($"Added flow control filter: Pattern=0x{BitConverter.ToString(filter.Pattern).Replace("-", "")}, FlowControl=0x{BitConverter.ToString(filter.FlowControl).Replace("-", "")}");
                 }
 
@@ -240,7 +240,7 @@ namespace LotusECMLogger.Services
                     {
                         foreach (var chunk in messages.Chunk(5))
                         {
-                            Channel.SendMessages(chunk);
+                            Channel.SendMessages(Array.ConvertAll(chunk, b => new SAE.J2534.Message(b, Channel.DefaultTxFlags)));
                             readings.AddRange(ReadPendingMessages(Channel, ecu));
                         }
                     }
@@ -287,16 +287,16 @@ namespace LotusECMLogger.Services
         /// </summary>
         /// <param name="channel">J2534 channel</param>
         /// <param name="expectedEcu">ECU we expect responses from (for context-aware parsing)</param>
-        private List<LiveDataReading> ReadPendingMessages(Channel channel, ECUDefinition expectedEcu)
+        private List<LiveDataReading> ReadPendingMessages(J2534Channel channel, ECUDefinition expectedEcu)
         {
             List<LiveDataReading> readings = [];
 
             try
             {
-                GetMessageResults resp;
+                GetMessagesResult resp;
                 do
                 {
-                    resp = channel.GetMessages(1, 0);
+                    resp = channel.ReadMessages(1, 0);
                     if (resp.Messages.Length > 0)
                     {
                         var mesg = resp.Messages[0];
@@ -322,6 +322,11 @@ namespace LotusECMLogger.Services
             }
             catch (TimeoutException)
             {
+                // TODO: Dead since the J2534-Sharp.Core v2 migration. v1 GetMessages threw
+                // TimeoutException when no message arrived within the timeout; v2 ReadMessages
+                // returns an empty GetMessagesResult instead (resp.Messages.Length == 0 ends the
+                // loop). This catch can never fire now and should be removed, or replaced with a
+                // resp.IsTimeout / resp.Status check if timeout handling is actually needed.
                 // skip timeout, no messages received
             }
             return readings;
