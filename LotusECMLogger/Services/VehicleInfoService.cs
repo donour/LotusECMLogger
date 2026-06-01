@@ -16,14 +16,7 @@ namespace LotusECMLogger.Services
                 J2534Channel channel = session.OpenIso15765();
 
                 // Start message filter
-                var flowControlFilter = new MessageFilter
-                {
-                    FilterType = Filter.FLOW_CONTROL_FILTER,
-                    Mask = [0xFF, 0xFF, 0xFF, 0xFF],
-                    Pattern = [0x00, 0x00, 0x07, 0xE8],
-                    FlowControl = [0x00, 0x00, 0x07, 0xE0]
-                };
-                channel.StartMessageFilter(flowControlFilter).ThrowIfError();
+                channel.StartMessageFilter(ECUDefinition.ECM.CreateFlowControlFilter()).ThrowIfError();
 
                 // Create ECM header for Lotus vehicles
                 byte[] ecmHeader = [0x00, 0x00, 0x07, 0xE0];

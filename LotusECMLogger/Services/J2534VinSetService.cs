@@ -11,14 +11,7 @@ namespace LotusECMLogger.Services
                 using var session = J2534Session.Open();
                 J2534Channel channel = session.OpenIso15765();
 
-                var flowControlFilter = new MessageFilter
-                {
-                    FilterType = Filter.FLOW_CONTROL_FILTER,
-                    Mask = [0xFF, 0xFF, 0xFF, 0xFF],
-                    Pattern = [0x00, 0x00, 0x07, 0xE8],
-                    FlowControl = [0x00, 0x00, 0x07, 0xE0]
-                };
-                channel.StartMessageFilter(flowControlFilter).ThrowIfError();
+                channel.StartMessageFilter(ECUDefinition.ECM.CreateFlowControlFilter()).ThrowIfError();
 
                 var iso = new Iso15765Service(channel);
                 return iso.SetVin(vin);

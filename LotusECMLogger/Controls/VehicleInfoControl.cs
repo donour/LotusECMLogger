@@ -141,14 +141,7 @@ namespace LotusECMLogger.Controls
                     var channel = session.OpenIso15765();
 
                     // Setup message filter for Lotus ECM
-                    var flowControlFilter = new SAE.J2534.MessageFilter
-                    {
-                        FilterType = Filter.FLOW_CONTROL_FILTER,
-                        Mask = [0xFF, 0xFF, 0xFF, 0xFF],
-                        Pattern = [0x00, 0x00, 0x07, 0xE8],
-                        FlowControl = [0x00, 0x00, 0x07, 0xE0]
-                    };
-                    channel.StartMessageFilter(flowControlFilter).ThrowIfError();
+                    channel.StartMessageFilter(ECUDefinition.ECM.CreateFlowControlFilter()).ThrowIfError();
 
                     // Create ISO15765 service
                     var iso15765Service = new Iso15765Service(channel);
