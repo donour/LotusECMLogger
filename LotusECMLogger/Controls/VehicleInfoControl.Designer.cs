@@ -31,7 +31,6 @@ namespace LotusECMLogger.Controls
             topPanel = new Panel();
             unlockIndicatorLabel = new Label();
             readDataButton = new Button();
-            statusLabel = new Label();
             setVinButton = new Button();
             resetButton = new Button();
             vehicleInfoView = new ListView();
@@ -42,7 +41,6 @@ namespace LotusECMLogger.Controls
             // 
             topPanel.Controls.Add(unlockIndicatorLabel);
             topPanel.Controls.Add(readDataButton);
-            topPanel.Controls.Add(statusLabel);
             topPanel.Controls.Add(setVinButton);
             topPanel.Controls.Add(resetButton);
             topPanel.Dock = DockStyle.Top;
@@ -79,16 +77,7 @@ namespace LotusECMLogger.Controls
             readDataButton.Text = "Load Vehicle Data";
             readDataButton.UseVisualStyleBackColor = true;
             readDataButton.Click += readDataButton_Click;
-            // 
-            // statusLabel
-            // 
-            statusLabel.AutoSize = true;
-            statusLabel.Location = new Point(174, 22);
-            statusLabel.Margin = new Padding(4, 0, 4, 0);
-            statusLabel.Name = "statusLabel";
-            statusLabel.Size = new Size(0, 25);
-            statusLabel.TabIndex = 2;
-            // 
+            //
             // setVinButton
             // 
             setVinButton.Anchor = AnchorStyles.Top | AnchorStyles.Right;
@@ -150,7 +139,6 @@ namespace LotusECMLogger.Controls
         private Button resetButton;
         private Button setVinButton;
         private ListView vehicleInfoView;
-        private Label statusLabel;
         private Label unlockIndicatorLabel;
     }
 }

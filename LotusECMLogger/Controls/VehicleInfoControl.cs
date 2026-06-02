@@ -129,7 +129,6 @@ namespace LotusECMLogger.Controls
             {
                 readDataButton.Enabled = false;
                 readDataButton.Text = "Loading...";
-                statusLabel.Text = "Connecting to vehicle...";
 
                 // Clear previous data
                 vehicleDataSnapshot.Clear();
@@ -146,14 +145,9 @@ namespace LotusECMLogger.Controls
                     // Create ISO15765 service
                     var iso15765Service = new Iso15765Service(channel);
 
-                    statusLabel.Text = "Querying supported PIDs...";
-
                     // Query for available PIDs on service 0x09
                     var availablePIDs = iso15765Service.GetSupportedPIDs(OBDIIMode.RequestVehicleInformation);
 
-                    statusLabel.Text = $"Loading data for {availablePIDs.Count} PIDs...";
-
-                    statusLabel.Text = "Reading extended ECU info...";
                     vehicleDataSnapshot.AddRange(QueryMode22ExtendedInfo(channel));
 
                     // Load values for all available PIDs
@@ -177,7 +171,6 @@ namespace LotusECMLogger.Controls
                         }
                     }
 
-                    statusLabel.Text = "Reading octane scalers...";
                     vehicleDataSnapshot.AddRange(QueryOctaneScalers(channel));
 
                 }
@@ -189,16 +182,13 @@ namespace LotusECMLogger.Controls
                 // the ISO15765 channel above has been disposed). The successful data load above
                 // doubles as the liveness check: data present + no RMA reply => genuinely locked;
                 // no data at all => ECU not reachable, so leave the state Unknown.
-                statusLabel.Text = "Checking ECU unlock state...";
                 ProbeAndShowUnlockState();
 
-                statusLabel.Text = $"Loaded {vehicleDataSnapshot.Count} vehicle data points";
                 MessageBox.Show($"Successfully loaded {vehicleDataSnapshot.Count} vehicle data points!",
                     "Load Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
-                statusLabel.Text = "Error loading data";
                 SetUnlockIndicator(EcuUnlockState.Unknown);
                 MessageBox.Show($"Error loading vehicle data: {ex.Message}", "Load Error",
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
