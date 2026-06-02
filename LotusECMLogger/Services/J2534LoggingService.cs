@@ -15,14 +15,14 @@ namespace LotusECMLogger.Services
         private bool terminate = false;
         private Thread? loggerThread;
         private Thread? csvWriterThread;
-        private Device? device;
+        private J2534Session? session;
 
         /// <summary>
         /// Whether to prefix reading names with ECU name (useful when logging from multiple ECUs)
         /// </summary>
         public bool PrefixReadingsWithEcuName { get; set; } = true;
 
-        public bool IsConnected => device != null && !terminate;
+        public bool IsConnected => session != null && !terminate;
 
         // CSV writer thread coordination
         private readonly ConcurrentQueue<List<LiveDataReading>> csvWriteQueue = new();
@@ -84,9 +84,7 @@ namespace LotusECMLogger.Services
 
         public void Start()
         {
-            string DllFileName = APIFactory.GetAPIinfo().First().Filename;
-            API API = APIFactory.GetAPI(DllFileName);
-            device = API.GetDevice();
+            session = J2534Session.Open();
             try
             {
                 // Start CSV writer thread first
@@ -99,7 +97,7 @@ namespace LotusECMLogger.Services
                 csvWriterThread.Start();
 
                 // Start main logger thread
-                loggerThread = new Thread(() => RunLoggerWithExceptionHandling(device))
+                loggerThread = new Thread(RunLoggerWithExceptionHandling)
                 {
                     IsBackground = true,
                     Name = "J2534 Logger"
@@ -112,11 +110,11 @@ namespace LotusECMLogger.Services
             }
         }
 
-        private void RunLoggerWithExceptionHandling(Device device)
+        private void RunLoggerWithExceptionHandling()
         {
             try
             {
-                RunLogger(device);
+                RunLogger();
             }
             catch (Exception ex)
             {
@@ -202,17 +200,17 @@ namespace LotusECMLogger.Services
             }
         }
 
-        private void RunLogger(Device Device)
+        private void RunLogger()
         {
             try
             {
-                using Channel Channel = Device.GetChannel(Protocol.ISO15765, Baud.ISO15765, ConnectFlag.NONE);
+                J2534Channel Channel = session!.OpenIso15765();
 
                 // Set up flow control filters for ALL ECUs in the configuration
                 var filters = multiEcuConfig.GetAllFlowControlFilters().ToList();
                 foreach (var filter in filters)
                 {
-                    Channel.StartMsgFilter(filter);
+                    Channel.StartMessageFilter(filter).ThrowIfError();
                     Debug.WriteLine($"Added flow control filter: Pattern=0x{BitConverter.ToString(filter.Pattern).Replace("-", "")}, FlowControl=0x{BitConverter.ToString(filter.FlowControl).Replace("-", "")}");
                 }
 
@@ -240,7 +238,7 @@ namespace LotusECMLogger.Services
                     {
                         foreach (var chunk in messages.Chunk(5))
                         {
-                            Channel.SendMessages(chunk);
+                            Channel.SendMessages(Array.ConvertAll(chunk, b => new SAE.J2534.Message(b, Channel.DefaultTxFlags)));
                             readings.AddRange(ReadPendingMessages(Channel, ecu));
                         }
                     }
@@ -266,7 +264,8 @@ namespace LotusECMLogger.Services
             }
             finally
             {
-                device?.Dispose();
+                session?.Dispose();
+                session = null;
             }
         }
 
@@ -287,16 +286,16 @@ namespace LotusECMLogger.Services
         /// </summary>
         /// <param name="channel">J2534 channel</param>
         /// <param name="expectedEcu">ECU we expect responses from (for context-aware parsing)</param>
-        private List<LiveDataReading> ReadPendingMessages(Channel channel, ECUDefinition expectedEcu)
+        private List<LiveDataReading> ReadPendingMessages(J2534Channel channel, ECUDefinition expectedEcu)
         {
             List<LiveDataReading> readings = [];
 
             try
             {
-                GetMessageResults resp;
+                GetMessagesResult resp;
                 do
                 {
-                    resp = channel.GetMessages(1, 0);
+                    resp = channel.ReadMessages(1, 0);
                     if (resp.Messages.Length > 0)
                     {
                         var mesg = resp.Messages[0];
@@ -322,6 +321,11 @@ namespace LotusECMLogger.Services
             }
             catch (TimeoutException)
             {
+                // TODO: Dead since the J2534-Sharp.Core v2 migration. v1 GetMessages threw
+                // TimeoutException when no message arrived within the timeout; v2 ReadMessages
+                // returns an empty GetMessagesResult instead (resp.Messages.Length == 0 ends the
+                // loop). This catch can never fire now and should be removed, or replaced with a
+                // resp.IsTimeout / resp.Status check if timeout handling is actually needed.
                 // skip timeout, no messages received
             }
             return readings;

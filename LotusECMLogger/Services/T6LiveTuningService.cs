@@ -24,8 +24,8 @@ namespace LotusECMLogger.Services
 		private readonly object _lock = new();
 
 		// J2534 device and channel for persistent connection during monitoring
-		private Device? _device;
-		private Channel? _channel;
+		private J2534Session? _session;
+		private J2534Channel? _channel;
 
 		// Memory address validation constants
 		private const uint RAM_START = 0x40000000;
@@ -238,12 +238,10 @@ namespace LotusECMLogger.Services
 		{
 			try
 			{
-				string dllFileName = APIFactory.GetAPIinfo().First().Filename;
-				API api = APIFactory.GetAPI(dllFileName);
-				_device = api.GetDevice();
+				_session = J2534Session.Open();
 
 				// Use raw CAN protocol at 500 kbaud (standard for automotive CAN)
-				_channel = _device.GetChannel(Protocol.CAN, (Baud)500000, ConnectFlag.NONE);
+				_channel = _session.OpenCan();
 
 				Debug.WriteLine("T6LiveTuning: J2534 device initialized with CAN protocol at 500 kbaud");
 			}
@@ -272,18 +270,10 @@ namespace LotusECMLogger.Services
 					_fileMonitor = null;
 				}
 
-				// Cleanup J2534 device and channel
-				if (_channel != null)
-				{
-					_channel.Dispose();
-					_channel = null;
-				}
-
-				if (_device != null)
-				{
-					_device.Dispose();
-					_device = null;
-				}
+				// Cleanup J2534 session (disposes its channel, device, and API)
+				_session?.Dispose();
+				_session = null;
+				_channel = null;
 
 				// Clear state variables
 				_monitoredFilePath = null;
@@ -297,8 +287,8 @@ namespace LotusECMLogger.Services
 
 				// Force null even on error
 				_fileMonitor = null;
+				_session = null;
 				_channel = null;
-				_device = null;
 				_monitoredFilePath = null;
 				_baseMemoryAddress = 0;
 				_memoryLength = 0;
@@ -323,7 +313,7 @@ namespace LotusECMLogger.Services
 					$"Invalid memory address 0x{address:X8}. Valid range: RAM (0x{RAM_START:X8}-0x{RAM_END - 3:X8})");
 			}
 
-			Channel? channelToUse;
+			J2534Channel? channelToUse;
 			lock (_lock)
 			{
 				if (_channel == null || !_isMonitoring)
@@ -360,7 +350,7 @@ namespace LotusECMLogger.Services
 				canMessage[11] = (byte)(value & 0xFF);
 
 				// Send the write command (fire-and-forget, no response expected)
-				await Task.Run(() => channelToUse.SendMessages([canMessage]));
+				await Task.Run(() => channelToUse.SendMessage(canMessage));
 
 				Debug.WriteLine($"T6LiveTuning: Write successful");
 			}

@@ -8,19 +8,10 @@ namespace LotusECMLogger.Services
         {
             try
             {
-                string dllFileName = APIFactory.GetAPIinfo().First().Filename;
-                API api = APIFactory.GetAPI(dllFileName);
-                using Device device = api.GetDevice();
-                using Channel channel = device.GetChannel(Protocol.ISO15765, Baud.ISO15765, ConnectFlag.NONE);
+                using var session = J2534Session.Open();
+                J2534Channel channel = session.OpenIso15765();
 
-                var flowControlFilter = new MessageFilter
-                {
-                    FilterType = Filter.FLOW_CONTROL_FILTER,
-                    Mask = [0xFF, 0xFF, 0xFF, 0xFF],
-                    Pattern = [0x00, 0x00, 0x07, 0xE8],
-                    FlowControl = [0x00, 0x00, 0x07, 0xE0]
-                };
-                channel.StartMsgFilter(flowControlFilter);
+                channel.StartMessageFilter(ECUDefinition.ECM.CreateFlowControlFilter()).ThrowIfError();
 
                 var iso = new Iso15765Service(channel);
                 return iso.SetVin(vin);

@@ -1,6 +1,7 @@
 using LotusECMLogger.Services;
 using SAE.J2534;
 using System.Collections;
+using System.ComponentModel;
 using System.Text;
 
 namespace LotusECMLogger.Controls
@@ -10,9 +11,13 @@ namespace LotusECMLogger.Controls
         private readonly IVehicleInfoService _vehicleInfoService;
         private readonly IObdResetService _resetService;
         private readonly IVinSetService _vinSetService;
+        private readonly IT6RMAService _rmaService;
         private List<VehicleParameterReading> vehicleDataSnapshot = [];
 
+        private enum EcuUnlockState { Unknown, Locked, Unlocked }
+
         private bool _isLoggerActive;
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public bool IsLoggerActive
         {
             get => _isLoggerActive;
@@ -30,7 +35,9 @@ namespace LotusECMLogger.Controls
             _vehicleInfoService = new VehicleInfoService();
             _resetService = new J2534ObdResetService();
             _vinSetService = new J2534VinSetService();
+            _rmaService = new T6RMAService();
             SetupListViewColumns();
+            SetUnlockIndicator(EcuUnlockState.Unknown);
             GuiIcons.ApplyToButton(readDataButton, GuiIcons.Read);
             GuiIcons.ApplyToButton(resetButton, GuiIcons.UpdateRestore);
             GuiIcons.ApplyToButton(setVinButton, GuiIcons.Write);
@@ -122,37 +129,25 @@ namespace LotusECMLogger.Controls
             {
                 readDataButton.Enabled = false;
                 readDataButton.Text = "Loading...";
-                statusLabel.Text = "Connecting to vehicle...";
 
                 // Clear previous data
                 vehicleDataSnapshot.Clear();
+                SetUnlockIndicator(EcuUnlockState.Unknown);
 
                 // Create J2534 connection and ISO15765 service
-                using (var api = APIFactory.GetAPI(APIFactory.GetAPIinfo().First().Filename))
-                using (var device = api.GetDevice())
-                using (var channel = device.GetChannel(Protocol.ISO15765, Baud.ISO15765, ConnectFlag.NONE))
+                using (var session = J2534Session.Open())
                 {
+                    var channel = session.OpenIso15765();
+
                     // Setup message filter for Lotus ECM
-                    var flowControlFilter = new SAE.J2534.MessageFilter
-                    {
-                        FilterType = Filter.FLOW_CONTROL_FILTER,
-                        Mask = [0xFF, 0xFF, 0xFF, 0xFF],
-                        Pattern = [0x00, 0x00, 0x07, 0xE8],
-                        FlowControl = [0x00, 0x00, 0x07, 0xE0]
-                    };
-                    channel.StartMsgFilter(flowControlFilter);
+                    channel.StartMessageFilter(ECUDefinition.ECM.CreateFlowControlFilter()).ThrowIfError();
 
                     // Create ISO15765 service
                     var iso15765Service = new Iso15765Service(channel);
 
-                    statusLabel.Text = "Querying supported PIDs...";
-
                     // Query for available PIDs on service 0x09
                     var availablePIDs = iso15765Service.GetSupportedPIDs(OBDIIMode.RequestVehicleInformation);
 
-                    statusLabel.Text = $"Loading data for {availablePIDs.Count} PIDs...";
-
-                    statusLabel.Text = "Reading extended ECU info...";
                     vehicleDataSnapshot.AddRange(QueryMode22ExtendedInfo(channel));
 
                     // Load values for all available PIDs
@@ -176,7 +171,6 @@ namespace LotusECMLogger.Controls
                         }
                     }
 
-                    statusLabel.Text = "Reading octane scalers...";
                     vehicleDataSnapshot.AddRange(QueryOctaneScalers(channel));
 
                 }
@@ -184,13 +178,18 @@ namespace LotusECMLogger.Controls
                 // Update the UI
                 UpdateVehicleInfoView();
 
-                statusLabel.Text = $"Loaded {vehicleDataSnapshot.Count} vehicle data points";
+                // Probe ECU unlock state via raw-CAN RMA (separate channel, so run only after
+                // the ISO15765 channel above has been disposed). The successful data load above
+                // doubles as the liveness check: data present + no RMA reply => genuinely locked;
+                // no data at all => ECU not reachable, so leave the state Unknown.
+                ProbeAndShowUnlockState();
+
                 MessageBox.Show($"Successfully loaded {vehicleDataSnapshot.Count} vehicle data points!",
                     "Load Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
-                statusLabel.Text = "Error loading data";
+                SetUnlockIndicator(EcuUnlockState.Unknown);
                 MessageBox.Show($"Error loading vehicle data: {ex.Message}", "Load Error",
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
@@ -216,6 +215,56 @@ namespace LotusECMLogger.Controls
             }
 
             vehicleInfoView.EndUpdate();
+        }
+
+        // Runs the raw-CAN RMA unlock probe and maps the result onto the indicator box.
+        // A reply => Unlocked; no reply but vehicle data did load (ECU is alive) => Locked;
+        // nothing loaded at all => Unknown (ECU not reachable, not necessarily locked).
+        private void ProbeAndShowUnlockState()
+        {
+            // Skip while logging holds the J2534 device; the probe opens its own CAN channel.
+            if (_isLoggerActive)
+            {
+                SetUnlockIndicator(EcuUnlockState.Unknown);
+                return;
+            }
+
+            bool ecuAlive = vehicleDataSnapshot.Count > 0;
+
+            try
+            {
+                bool unlocked = _rmaService.IsEcuUnlocked();
+                SetUnlockIndicator(unlocked
+                    ? EcuUnlockState.Unlocked
+                    : ecuAlive ? EcuUnlockState.Locked : EcuUnlockState.Unknown);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Unlock probe failed: {ex.Message}");
+                SetUnlockIndicator(EcuUnlockState.Unknown);
+            }
+        }
+
+        private void SetUnlockIndicator(EcuUnlockState state)
+        {
+            switch (state)
+            {
+                case EcuUnlockState.Unlocked:
+                    unlockIndicatorLabel.Text = "ECU: UNLOCKED";
+                    unlockIndicatorLabel.BackColor = Color.FromArgb(46, 160, 67);
+                    unlockIndicatorLabel.ForeColor = Color.White;
+                    break;
+                case EcuUnlockState.Locked:
+                    unlockIndicatorLabel.Text = "ECU: LOCKED";
+                    unlockIndicatorLabel.BackColor = Color.FromArgb(207, 34, 46);
+                    unlockIndicatorLabel.ForeColor = Color.White;
+                    break;
+                default:
+                    unlockIndicatorLabel.Text = "ECU: UNKNOWN";
+                    unlockIndicatorLabel.BackColor = Color.Gainsboro;
+                    unlockIndicatorLabel.ForeColor = Color.DimGray;
+                    break;
+            }
         }
 
         private VehicleParameterReading? ParseVehicleInfoPID(int pid, byte[] data)
@@ -315,7 +364,7 @@ namespace LotusECMLogger.Controls
             return null;
         }
 
-        private List<VehicleParameterReading> QueryMode22ExtendedInfo(SAE.J2534.Channel channel)
+        private List<VehicleParameterReading> QueryMode22ExtendedInfo(SAE.J2534.J2534Channel channel)
         {
             var results = new List<VehicleParameterReading>();
 
@@ -381,7 +430,7 @@ namespace LotusECMLogger.Controls
 
         // Sends a Mode 22 request with PID [0x02, pid] and returns payloadLength bytes
         // starting at data[7], or null if the ECU does not respond with a matching positive response.
-        private byte[]? ReadMode22Payload(SAE.J2534.Channel channel, byte pid, int payloadLength)
+        private byte[]? ReadMode22Payload(SAE.J2534.J2534Channel channel, byte pid, int payloadLength)
         {
             try
             {
@@ -390,7 +439,7 @@ namespace LotusECMLogger.Controls
 
                 for (int i = 0; i < 10; i++)
                 {
-                    var response = channel.GetMessages(1, 250);
+                    var response = channel.ReadMessages(1, 250);
                     if (response.Messages.Length > 0)
                     {
                         var data = response.Messages[0].Data;
@@ -408,7 +457,7 @@ namespace LotusECMLogger.Controls
             return null;
         }
 
-        private List<VehicleParameterReading> QueryOctaneScalers(SAE.J2534.Channel channel)
+        private List<VehicleParameterReading> QueryOctaneScalers(SAE.J2534.J2534Channel channel)
         {
             var results = new List<VehicleParameterReading>();
             var scalerPIDs = new (string Name, byte Pid)[]
@@ -430,7 +479,7 @@ namespace LotusECMLogger.Controls
 
                     for (int i = 0; i < 10; i++)
                     {
-                        var response = channel.GetMessages(1, 250);
+                        var response = channel.ReadMessages(1, 250);
                         if (response.Messages.Length > 0)
                         {
                             var data = response.Messages[0].Data;

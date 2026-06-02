@@ -1,4 +1,5 @@
 using LotusECMLogger.Services;
+using System.ComponentModel;
 
 namespace LotusECMLogger.Controls
 {
@@ -14,6 +15,7 @@ namespace LotusECMLogger.Controls
 		private readonly ToolTip validationToolTip;
 
 		private bool isLoggerActive;
+		[DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
 		public bool IsLoggerActive
 		{
 			get => isLoggerActive;

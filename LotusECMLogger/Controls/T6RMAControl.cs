@@ -1,4 +1,5 @@
 using LotusECMLogger.Services;
+using System.ComponentModel;
 using System.Text;
 
 namespace LotusECMLogger.Controls
@@ -14,6 +15,7 @@ namespace LotusECMLogger.Controls
 		private bool isLoggerActive;
 		private int sampleCount;
 
+		[DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
 		public bool IsLoggerActive
 		{
 			get => isLoggerActive;

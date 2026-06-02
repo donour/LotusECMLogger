@@ -12,20 +12,11 @@ namespace LotusECMLogger.Services
             try
             {
                 // Create temporary device connection for vehicle data loading
-                string DllFileName = APIFactory.GetAPIinfo().First().Filename;
-                API API = APIFactory.GetAPI(DllFileName);
-                using Device device = API.GetDevice();
-                using Channel channel = device.GetChannel(Protocol.ISO15765, Baud.ISO15765, ConnectFlag.NONE);
+                using var session = J2534Session.Open();
+                J2534Channel channel = session.OpenIso15765();
 
                 // Start message filter
-                var flowControlFilter = new MessageFilter
-                {
-                    FilterType = Filter.FLOW_CONTROL_FILTER,
-                    Mask = [0xFF, 0xFF, 0xFF, 0xFF],
-                    Pattern = [0x00, 0x00, 0x07, 0xE8],
-                    FlowControl = [0x00, 0x00, 0x07, 0xE0]
-                };
-                channel.StartMsgFilter(flowControlFilter);
+                channel.StartMessageFilter(ECUDefinition.ECM.CreateFlowControlFilter()).ThrowIfError();
 
                 // Create ECM header for Lotus vehicles
                 byte[] ecmHeader = [0x00, 0x00, 0x07, 0xE0];
@@ -48,7 +39,7 @@ namespace LotusECMLogger.Services
         /// <summary>
         /// Execute Mode 0x01 (Service $01) OBD-II requests for standard vehicle data
         /// </summary>
-        private void ExecuteMode01Requests(Channel channel, byte[] ecmHeader, List<VehicleParameterReading> vehicleDataSnapshot)
+        private void ExecuteMode01Requests(J2534Channel channel, byte[] ecmHeader, List<VehicleParameterReading> vehicleDataSnapshot)
         {
             // Standard Mode 0x01 PIDs - these will be provided by user later
             // For now, create a basic set of common PIDs
@@ -63,10 +54,10 @@ namespace LotusECMLogger.Services
                 {
                     // Build and send the request
                     byte[] message = BuildMode01Message(ecmHeader, pid);
-                    channel.SendMessages([message]);
+                    channel.SendMessage(message);
 
                     // Read response with timeout
-                    var response = channel.GetMessages(1, 500); // 500ms timeout
+                    var response = channel.ReadMessages(1, 500); // 500ms timeout
                     if (response.Messages.Length > 0)
                     {
                         var readings = ParseMode01Response(response.Messages[0].Data, name, pid);
@@ -143,7 +134,7 @@ namespace LotusECMLogger.Services
         /// <summary>
         /// Execute Mode 0x22 (Service $22) manufacturer-specific OBD-II requests
         /// </summary>
-        private void ExecuteMode22Requests(Channel channel, byte[] ecmHeader, List<VehicleParameterReading> vehicleDataSnapshot)
+        private void ExecuteMode22Requests(J2534Channel channel, byte[] ecmHeader, List<VehicleParameterReading> vehicleDataSnapshot)
         {
             // Mode 0x22 requests - these will be provided by user later
             // For now, create a basic set of Lotus-specific requests
@@ -159,10 +150,10 @@ namespace LotusECMLogger.Services
                 {
                     // Build and send the request
                     byte[] message = BuildMode22Message(ecmHeader, subMode, pid);
-                    channel.SendMessages([message]);
+                    channel.SendMessage(message);
 
                     // Read response with timeout
-                    var response = channel.GetMessages(1, 500); // 500ms timeout
+                    var response = channel.ReadMessages(1, 500); // 500ms timeout
                     if (response.Messages.Length > 0)
                     {
                         var readings = ParseMode22Response(response.Messages[0].Data, name, subMode, pid);
