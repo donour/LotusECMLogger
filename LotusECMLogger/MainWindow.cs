@@ -96,6 +96,9 @@ namespace LotusECMLogger
                 var rmaControl = t6RmaTab.Controls.OfType<T6RMAControl>().FirstOrDefault();
                 if (rmaControl != null)
                     rmaControl.IsLoggerActive = isLogging;
+
+                // Erasing model info issues an RMA write, which conflicts with active logging.
+                eraseModelInfoToolStripMenuItem.Enabled = !isLogging;
             }
             catch (Exception ex)
             {
@@ -130,6 +133,12 @@ namespace LotusECMLogger
         {
             var t6eFlasher = new T6EFlasher();
             t6eFlasher.ShowDialog(this);
+        }
+
+        private void EraseModelInfoToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            using var dialog = new EraseModelInfoDialog();
+            dialog.ShowDialog(this);
         }
 
         private void UserGuideToolStripMenuItem_Click(object sender, EventArgs e)

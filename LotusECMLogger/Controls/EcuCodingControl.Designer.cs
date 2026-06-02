@@ -35,14 +35,7 @@ namespace LotusECMLogger.Controls
             writeCodesButton = new Button();
             readCodesButton = new Button();
             codingScrollPanel = new Panel();
-            eraseModelPanel = new Panel();
-            eraseDangerLabel = new Label();
-            firmwareVersionLabel = new Label();
-            firmwareVersionCombo = new ComboBox();
-            codingAddressLabel = new Label();
-            eraseModelButton = new Button();
             codingTopPanel.SuspendLayout();
-            eraseModelPanel.SuspendLayout();
             SuspendLayout();
             // 
             // codingTopPanel
@@ -117,72 +110,8 @@ namespace LotusECMLogger.Controls
             codingScrollPanel.Location = new Point(0, 40);
             codingScrollPanel.Name = "codingScrollPanel";
             codingScrollPanel.Padding = new Padding(10, 10, 10, 10);
-            codingScrollPanel.Size = new Size(800, 476);
+            codingScrollPanel.Size = new Size(800, 560);
             codingScrollPanel.TabIndex = 1;
-            //
-            // eraseModelPanel
-            //
-            eraseModelPanel.Controls.Add(eraseDangerLabel);
-            eraseModelPanel.Controls.Add(firmwareVersionLabel);
-            eraseModelPanel.Controls.Add(firmwareVersionCombo);
-            eraseModelPanel.Controls.Add(codingAddressLabel);
-            eraseModelPanel.Controls.Add(eraseModelButton);
-            eraseModelPanel.BackColor = Color.FromArgb(252, 240, 240);
-            eraseModelPanel.BorderStyle = BorderStyle.FixedSingle;
-            eraseModelPanel.Dock = DockStyle.Bottom;
-            eraseModelPanel.Location = new Point(0, 516);
-            eraseModelPanel.Name = "eraseModelPanel";
-            eraseModelPanel.Size = new Size(800, 84);
-            eraseModelPanel.TabIndex = 2;
-            //
-            // eraseDangerLabel
-            //
-            eraseDangerLabel.AutoSize = true;
-            eraseDangerLabel.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            eraseDangerLabel.ForeColor = Color.FromArgb(176, 0, 32);
-            eraseDangerLabel.Location = new Point(10, 8);
-            eraseDangerLabel.Name = "eraseDangerLabel";
-            eraseDangerLabel.Size = new Size(0, 15);
-            eraseDangerLabel.TabIndex = 0;
-            eraseDangerLabel.Text = "⚠ DANGER — Erase Model Info (writes 0xFF to model[], persisted to EEPROM)";
-            //
-            // firmwareVersionLabel
-            //
-            firmwareVersionLabel.AutoSize = true;
-            firmwareVersionLabel.Location = new Point(10, 41);
-            firmwareVersionLabel.Name = "firmwareVersionLabel";
-            firmwareVersionLabel.Size = new Size(0, 15);
-            firmwareVersionLabel.TabIndex = 1;
-            firmwareVersionLabel.Text = "Firmware:";
-            //
-            // firmwareVersionCombo
-            //
-            firmwareVersionCombo.DropDownStyle = ComboBoxStyle.DropDownList;
-            firmwareVersionCombo.Location = new Point(90, 38);
-            firmwareVersionCombo.Name = "firmwareVersionCombo";
-            firmwareVersionCombo.Size = new Size(240, 23);
-            firmwareVersionCombo.TabIndex = 2;
-            firmwareVersionCombo.SelectedIndexChanged += firmwareVersionCombo_SelectedIndexChanged;
-            //
-            // codingAddressLabel
-            //
-            codingAddressLabel.AutoSize = true;
-            codingAddressLabel.Location = new Point(345, 41);
-            codingAddressLabel.Name = "codingAddressLabel";
-            codingAddressLabel.Size = new Size(0, 15);
-            codingAddressLabel.TabIndex = 3;
-            codingAddressLabel.Text = "coding_cmd: —";
-            //
-            // eraseModelButton
-            //
-            eraseModelButton.Enabled = false;
-            eraseModelButton.Location = new Point(620, 34);
-            eraseModelButton.Name = "eraseModelButton";
-            eraseModelButton.Size = new Size(160, 32);
-            eraseModelButton.TabIndex = 4;
-            eraseModelButton.Text = "Erase Model Info";
-            eraseModelButton.UseVisualStyleBackColor = true;
-            eraseModelButton.Click += eraseModelButton_Click;
             //
             // EcuCodingControl
             //
@@ -190,13 +119,10 @@ namespace LotusECMLogger.Controls
             AutoScaleMode = AutoScaleMode.Font;
             Controls.Add(codingScrollPanel);
             Controls.Add(codingTopPanel);
-            Controls.Add(eraseModelPanel);
             Name = "EcuCodingControl";
             Size = new Size(800, 600);
             codingTopPanel.ResumeLayout(false);
             codingTopPanel.PerformLayout();
-            eraseModelPanel.ResumeLayout(false);
-            eraseModelPanel.PerformLayout();
             ResumeLayout(false);
         }
 
@@ -209,11 +135,5 @@ namespace LotusECMLogger.Controls
         private Button saveCodingButton;
         private Button resetCodingButton;
         private Label bitFieldLabel;
-        private Panel eraseModelPanel;
-        private Label eraseDangerLabel;
-        private Label firmwareVersionLabel;
-        private ComboBox firmwareVersionCombo;
-        private Label codingAddressLabel;
-        private Button eraseModelButton;
     }
 }

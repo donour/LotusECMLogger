@@ -30,8 +30,9 @@ namespace LotusECMLogger
         private void InitializeComponent()
         {
             menuStrip1 = new MenuStrip();
-            fileToolStripMenuItem = new ToolStripMenuItem();
+            toolsToolStripMenuItem = new ToolStripMenuItem();
             cliRunnerToolStripMenuItem = new ToolStripMenuItem();
+            eraseModelInfoToolStripMenuItem = new ToolStripMenuItem();
             helpToolStripMenuItem = new ToolStripMenuItem();
             userGuideToolStripMenuItem = new ToolStripMenuItem();
             aboutLotusECMLoggerToolStripMenuItem = new ToolStripMenuItem();
@@ -65,27 +66,34 @@ namespace LotusECMLogger
             // menuStrip1
             // 
             menuStrip1.ImageScalingSize = new Size(20, 20);
-            menuStrip1.Items.AddRange(new ToolStripItem[] { fileToolStripMenuItem, helpToolStripMenuItem });
+            menuStrip1.Items.AddRange(new ToolStripItem[] { toolsToolStripMenuItem, helpToolStripMenuItem });
             menuStrip1.Location = new Point(0, 0);
             menuStrip1.Name = "menuStrip1";
             menuStrip1.Padding = new Padding(9, 4, 0, 4);
             menuStrip1.Size = new Size(1000, 37);
             menuStrip1.TabIndex = 7;
             menuStrip1.Text = "menuStrip1";
-            // 
-            // fileToolStripMenuItem
-            // 
-            fileToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { cliRunnerToolStripMenuItem });
-            fileToolStripMenuItem.Name = "fileToolStripMenuItem";
-            fileToolStripMenuItem.Size = new Size(54, 29);
-            fileToolStripMenuItem.Text = "File";
-            // 
+            //
+            // toolsToolStripMenuItem
+            //
+            toolsToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { cliRunnerToolStripMenuItem, eraseModelInfoToolStripMenuItem });
+            toolsToolStripMenuItem.Name = "toolsToolStripMenuItem";
+            toolsToolStripMenuItem.Size = new Size(70, 29);
+            toolsToolStripMenuItem.Text = "Tools";
+            //
             // cliRunnerToolStripMenuItem
-            // 
+            //
             cliRunnerToolStripMenuItem.Name = "cliRunnerToolStripMenuItem";
             cliRunnerToolStripMenuItem.Size = new Size(292, 34);
             cliRunnerToolStripMenuItem.Text = "T6E Calibration Flasher";
             cliRunnerToolStripMenuItem.Click += CLIRunnerToolStripMenuItem_Click;
+            //
+            // eraseModelInfoToolStripMenuItem
+            //
+            eraseModelInfoToolStripMenuItem.Name = "eraseModelInfoToolStripMenuItem";
+            eraseModelInfoToolStripMenuItem.Size = new Size(292, 34);
+            eraseModelInfoToolStripMenuItem.Text = "Erase Model Info…";
+            eraseModelInfoToolStripMenuItem.Click += EraseModelInfoToolStripMenuItem_Click;
             // 
             // helpToolStripMenuItem
             // 
@@ -301,9 +309,10 @@ namespace LotusECMLogger
         #endregion
 
         private MenuStrip menuStrip1;
-        private ToolStripMenuItem fileToolStripMenuItem;
+        private ToolStripMenuItem toolsToolStripMenuItem;
         private ToolStripMenuItem helpToolStripMenuItem;
         private ToolStripMenuItem cliRunnerToolStripMenuItem;
+        private ToolStripMenuItem eraseModelInfoToolStripMenuItem;
         private ToolStripMenuItem userGuideToolStripMenuItem;
         private ToolStripMenuItem aboutLotusECMLoggerToolStripMenuItem;
         private StatusStrip statusStrip1;
