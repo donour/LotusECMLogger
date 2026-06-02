@@ -29,17 +29,17 @@ namespace LotusECMLogger.Controls
         private void InitializeComponent()
         {
             topPanel = new Panel();
+            unlockIndicatorLabel = new Label();
             readDataButton = new Button();
             statusLabel = new Label();
-            resetButton = new Button();
             setVinButton = new Button();
-            unlockIndicatorLabel = new Label();
+            resetButton = new Button();
             vehicleInfoView = new ListView();
             topPanel.SuspendLayout();
             SuspendLayout();
-            //
+            // 
             // topPanel
-            //
+            // 
             topPanel.Controls.Add(unlockIndicatorLabel);
             topPanel.Controls.Add(readDataButton);
             topPanel.Controls.Add(statusLabel);
@@ -52,13 +52,29 @@ namespace LotusECMLogger.Controls
             topPanel.Size = new Size(881, 67);
             topPanel.TabIndex = 3;
             // 
+            // unlockIndicatorLabel
+            // 
+            unlockIndicatorLabel.AutoSize = true;
+            unlockIndicatorLabel.BackColor = Color.Gainsboro;
+            unlockIndicatorLabel.BorderStyle = BorderStyle.FixedSingle;
+            unlockIndicatorLabel.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            unlockIndicatorLabel.ForeColor = Color.DimGray;
+            unlockIndicatorLabel.Location = new Point(399, 18);
+            unlockIndicatorLabel.Margin = new Padding(4, 0, 4, 0);
+            unlockIndicatorLabel.Name = "unlockIndicatorLabel";
+            unlockIndicatorLabel.Padding = new Padding(6, 4, 6, 4);
+            unlockIndicatorLabel.Size = new Size(169, 35);
+            unlockIndicatorLabel.TabIndex = 4;
+            unlockIndicatorLabel.Text = "ECU: UNKNOWN";
+            unlockIndicatorLabel.TextAlign = ContentAlignment.MiddleCenter;
+            // 
             // readDataButton
             // 
             readDataButton.AutoSize = true;
             readDataButton.Location = new Point(6, 7);
             readDataButton.Margin = new Padding(4, 3, 4, 3);
             readDataButton.Name = "readDataButton";
-            readDataButton.Size = new Size(231, 58);
+            readDataButton.Size = new Size(168, 58);
             readDataButton.TabIndex = 0;
             readDataButton.Text = "Load Vehicle Data";
             readDataButton.UseVisualStyleBackColor = true;
@@ -73,6 +89,19 @@ namespace LotusECMLogger.Controls
             statusLabel.Size = new Size(0, 25);
             statusLabel.TabIndex = 2;
             // 
+            // setVinButton
+            // 
+            setVinButton.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            setVinButton.AutoSize = true;
+            setVinButton.Location = new Point(575, 6);
+            setVinButton.Margin = new Padding(4, 5, 4, 5);
+            setVinButton.Name = "setVinButton";
+            setVinButton.Size = new Size(99, 58);
+            setVinButton.TabIndex = 3;
+            setVinButton.Text = "Set VIN";
+            setVinButton.UseVisualStyleBackColor = true;
+            setVinButton.Click += setVinButton_Click;
+            // 
             // resetButton
             // 
             resetButton.Anchor = AnchorStyles.Top | AnchorStyles.Right;
@@ -85,37 +114,9 @@ namespace LotusECMLogger.Controls
             resetButton.Text = "Adaptations Reset";
             resetButton.UseVisualStyleBackColor = true;
             resetButton.Click += resetButton_Click;
-            //
-            // setVinButton
-            //
-            setVinButton.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            setVinButton.AutoSize = true;
-            setVinButton.Location = new Point(485, 6);
-            setVinButton.Margin = new Padding(4, 5, 4, 5);
-            setVinButton.Name = "setVinButton";
-            setVinButton.Size = new Size(189, 58);
-            setVinButton.TabIndex = 3;
-            setVinButton.Text = "Set VIN";
-            setVinButton.UseVisualStyleBackColor = true;
-            setVinButton.Click += setVinButton_Click;
-            //
-            // unlockIndicatorLabel
-            //
-            unlockIndicatorLabel.AutoSize = true;
-            unlockIndicatorLabel.BorderStyle = BorderStyle.FixedSingle;
-            unlockIndicatorLabel.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            unlockIndicatorLabel.Location = new Point(250, 18);
-            unlockIndicatorLabel.Margin = new Padding(4, 0, 4, 0);
-            unlockIndicatorLabel.Name = "unlockIndicatorLabel";
-            unlockIndicatorLabel.Padding = new Padding(6, 4, 6, 4);
-            unlockIndicatorLabel.TabIndex = 4;
-            unlockIndicatorLabel.Text = "ECU: UNKNOWN";
-            unlockIndicatorLabel.TextAlign = ContentAlignment.MiddleCenter;
-            unlockIndicatorLabel.BackColor = Color.Gainsboro;
-            unlockIndicatorLabel.ForeColor = Color.DimGray;
-            //
+            // 
             // vehicleInfoView
-            //
+            // 
             vehicleInfoView.Dock = DockStyle.Fill;
             vehicleInfoView.FullRowSelect = true;
             vehicleInfoView.GridLines = true;
