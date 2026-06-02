@@ -133,6 +133,65 @@ namespace LotusECMLogger.Services
 			_channel.SendMessage(request);
 		}
 
+        /// <summary>
+        /// Reads diagnostic trouble codes for a DTC service: 0x03 (stored/confirmed),
+        /// 0x07 (pending), or 0x0A (permanent). Sends the single-byte service request and
+        /// parses the positive response into individual codes. Returns an empty list when the
+        /// ECU responds with no codes.
+        /// </summary>
+        /// <exception cref="IOException">Thrown when the ECU does not respond.</exception>
+        public List<DiagnosticTroubleCode> ReadDtcs(OBDIIMode mode)
+        {
+            byte[] request = new byte[ECM_HEADER.Length + 1];
+            Array.Copy(ECM_HEADER, request, ECM_HEADER.Length);
+            request[ECM_HEADER.Length] = (byte)mode;
+            _channel.SendMessage(request);
+
+            byte expectedResponse = (byte)(0x40 | (byte)mode);
+
+            for (int retry = 0; retry < 10; retry++)
+            {
+                var response = _channel.ReadMessages(1, 250);
+                if (response.Messages.Length == 0)
+                    continue;
+
+                // Response from ECM: [0x00, 0x00, 0x07, 0xE8] <SID|0x40> <payload...>
+                var data = response.Messages[0].Data;
+                if (data.Length < 5 || data[2] != 0x07 || data[3] != 0xE8 || data[4] != expectedResponse)
+                    continue;
+
+                return ParseDtcResponse(data);
+            }
+
+            throw new IOException("No response from ECU for DTC request.");
+        }
+
+        // Parses the DTC payload that follows the 4-byte header and the service response byte.
+        // ISO 15765-4 (CAN) prefixes the codes with a one-byte DTC count; the payload after the
+        // SID is therefore odd-length when that count is present. Each code is two bytes, and a
+        // 0x0000 pair is padding/"no code" and skipped.
+        private static List<DiagnosticTroubleCode> ParseDtcResponse(byte[] data)
+        {
+            var codes = new List<DiagnosticTroubleCode>();
+
+            int payloadStart = 5; // after the 4-byte header and the SID at data[4]
+            int payloadLength = data.Length - payloadStart;
+            if (payloadLength <= 0)
+                return codes;
+
+            // Odd payload => leading DTC-count byte present; skip it so we land on a code boundary.
+            int pairStart = (payloadLength % 2 == 1) ? payloadStart + 1 : payloadStart;
+
+            for (int i = pairStart; i + 1 < data.Length; i += 2)
+            {
+                if (data[i] == 0x00 && data[i + 1] == 0x00)
+                    continue;
+                codes.Add(DiagnosticTroubleCode.FromBytes(data[i], data[i + 1]));
+            }
+
+            return codes;
+        }
+
         public List<int> GetSupportedPIDs(OBDIIMode mode)
         {
             if (mode == OBDIIMode.RequestVehicleInformation)
