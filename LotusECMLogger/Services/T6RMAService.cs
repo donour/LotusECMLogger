@@ -769,6 +769,76 @@ namespace LotusECMLogger.Services
 			}
 		}
 
+		public async Task WriteByteAsync(uint address, byte value)
+		{
+			// Validate address is in RAM range
+			if (address < RAM_START || address > RAM_END)
+			{
+				throw new ArgumentOutOfRangeException(
+					nameof(address),
+					$"Invalid memory address 0x{address:X8}. Valid range: RAM (0x{RAM_START:X8}-0x{RAM_END:X8})");
+			}
+
+			J2534Channel? channelToUse = null;
+			J2534Session? tempSession = null;
+
+			try
+			{
+				// Check if we have an active channel from logging
+				lock (_lock)
+				{
+					if (_channel != null && _isLogging)
+					{
+						channelToUse = _channel;
+					}
+				}
+
+				// If no active channel, create a temporary one
+				if (channelToUse == null)
+				{
+					tempSession = J2534Session.Open();
+					channelToUse = tempSession.OpenCan();
+				}
+
+				Debug.WriteLine($"T6RMA: Writing byte to ECU - Address=0x{address:X8}, Value=0x{value:X2}");
+
+				// Build CAN message for single-byte memory write (CAN ID 0x56)
+				// Format: [CAN ID (4 bytes)][Address (4 bytes, big-endian)][Data (1 byte)]
+				// The 5-byte CAN payload sets DLC=5, which the firmware requires for 0x56.
+				byte[] canMessage = new byte[9];
+
+				// CAN ID 0x56
+				canMessage[0] = 0x00;
+				canMessage[1] = 0x00;
+				canMessage[2] = 0x00;
+				canMessage[3] = 0x56;
+
+				// Address in BIG-ENDIAN format
+				canMessage[4] = (byte)((address >> 24) & 0xFF);
+				canMessage[5] = (byte)((address >> 16) & 0xFF);
+				canMessage[6] = (byte)((address >> 8) & 0xFF);
+				canMessage[7] = (byte)(address & 0xFF);
+
+				canMessage[8] = value;
+
+				// Send the write command (fire-and-forget, no response expected)
+				await Task.Run(() => channelToUse.SendMessage(canMessage));
+
+				Debug.WriteLine($"T6RMA: Byte write command sent successfully");
+			}
+			catch (Exception ex)
+			{
+				Debug.WriteLine($"T6RMA: Error writing byte to ECU: {ex.Message}");
+				throw new InvalidOperationException($"Failed to write byte to ECU: {ex.Message}", ex);
+			}
+			finally
+			{
+				// Only the temporary session is ours to dispose; the logging session
+				// (when reused above) is owned by the logging lifecycle.
+				tempSession?.Dispose();
+			}
+		}
+
 		public bool IsEcuUnlocked()
 		{
 			// The firmware only services RMA reads when ecu_unlocked == true, replying on

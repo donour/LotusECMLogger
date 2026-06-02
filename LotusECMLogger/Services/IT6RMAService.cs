@@ -76,6 +76,18 @@ namespace LotusECMLogger.Services
 		Task WriteWordAsync(uint address, uint value);
 
 		/// <summary>
+		/// Write a single byte to ECU memory using T6 RMA protocol (CAN ID 0x56).
+		/// </summary>
+		/// <param name="address">ECU memory address (must be in RAM: 0x40000000-0x4000FFFF)</param>
+		/// <param name="value">Byte value to write</param>
+		/// <returns>Task representing the async write operation</returns>
+		/// <remarks>
+		/// Write operations are fire-and-forget in the T6 RMA protocol (no response expected).
+		/// The method validates the address is in the valid RAM range before sending.
+		/// </remarks>
+		Task WriteByteAsync(uint address, byte value);
+
+		/// <summary>
 		/// Probes whether the ECU is unlocked (ecu_unlocked == true) by attempting a single
 		/// RMA memory read at 0x40000000. The firmware processes RMA reads only when unlocked,
 		/// so a response on CAN ID 0x7A0 indicates an unlocked ECU and silence indicates a

@@ -1,0 +1,24 @@
+{
+  "targets": [
+    {
+      "version": "C132E0278",
+      "displayName": "C132E0278 (GT430)",
+      "codingCmdAddress": "40002770"
+    },
+    {
+      "version": "E132E0288/302",
+      "displayName": "E132E0288/302 (Federal Evora GT)",
+      "codingCmdAddress": "40002938"
+    },
+    {
+      "version": "B132E0091",
+      "displayName": "B132E0091 (Evora S1 NA)",
+      "codingCmdAddress": "400024b0"
+    },
+    {
+      "version": "C132E0271",
+      "displayName": "C132E0271 (MY18 Federal 400)",
+      "codingCmdAddress": "40002740"
+    }
+  ]
+}

@@ -1,3 +1,4 @@
+using LotusECMLogger.Models;
 using LotusECMLogger.Services;
 using System.ComponentModel;
 
@@ -5,7 +6,14 @@ namespace LotusECMLogger.Controls
 {
 	public partial class EcuCodingControl : UserControl
 	{
+		// CODING_CMD_ERASE_MODEL: fills COD_base.model[] with 0xFF and flags an EEPROM write
+		// (see service_coding_333ms in the firmware). Triggered by an RMA write of this value
+		// into the version-specific coding_cmd register while the ECU is unlocked.
+		private const byte CodingCmdEraseModel = 0x04;
+
 		private readonly IEcuCodingService service;
+		private readonly IT6RMAService rmaService = new T6RMAService();
+		private List<CodingCommandTarget> codingTargets = [];
 
 		private T6eCodingDecoder? originalCodingDecoder;
 		private T6eCodingDecoder? modifiedCodingDecoder;
@@ -24,6 +32,7 @@ namespace LotusECMLogger.Controls
 				isLoggerActive = value;
 				readCodesButton.Enabled = !isLoggerActive;
 				writeCodesButton.Enabled = !isLoggerActive && modifiedCodingDecoder != null;
+				UpdateEraseButtonState();
 			}
 		}
 
@@ -40,6 +49,112 @@ namespace LotusECMLogger.Controls
 			GuiIcons.ApplyToButton(writeCodesButton,  GuiIcons.Write);
 			GuiIcons.ApplyToButton(saveCodingButton,  GuiIcons.Save);
 			GuiIcons.ApplyToButton(resetCodingButton, GuiIcons.Refresh);
+
+			PopulateFirmwareVersions();
+		}
+
+		private void PopulateFirmwareVersions()
+		{
+			codingTargets = CodingCommandTargetsConfig.Load();
+			firmwareVersionCombo.Items.Clear();
+			foreach (var target in codingTargets)
+				firmwareVersionCombo.Items.Add(target);
+			firmwareVersionCombo.SelectedIndex = -1; // force a deliberate choice
+			UpdateAddressLabel();
+			UpdateEraseButtonState();
+		}
+
+		private void firmwareVersionCombo_SelectedIndexChanged(object? sender, EventArgs e)
+		{
+			UpdateAddressLabel();
+			UpdateEraseButtonState();
+		}
+
+		private void UpdateAddressLabel()
+		{
+			if (TryGetSelectedAddress(out uint address))
+				codingAddressLabel.Text = $"coding_cmd: 0x{address:X8}";
+			else
+				codingAddressLabel.Text = "coding_cmd: —";
+		}
+
+		private void UpdateEraseButtonState()
+		{
+			eraseModelButton.Enabled = !IsLoggerActive && TryGetSelectedAddress(out _);
+		}
+
+		// Resolves the coding_cmd address for the selected firmware. Returns false when nothing is
+		// selected or the configured address is not valid hex.
+		private bool TryGetSelectedAddress(out uint address)
+		{
+			address = 0;
+			if (firmwareVersionCombo.SelectedItem is not CodingCommandTarget target)
+				return false;
+			try
+			{
+				address = target.CodingCmdAddressValue;
+				return true;
+			}
+			catch (Exception ex)
+			{
+				System.Diagnostics.Debug.WriteLine($"Invalid coding_cmd address for '{target}': {ex.Message}");
+				return false;
+			}
+		}
+
+		private async void eraseModelButton_Click(object? sender, EventArgs e)
+		{
+			if (IsLoggerActive)
+			{
+				MessageBox.Show("Cannot erase model info while logging is active. Please stop the logger first.", "Logger Active", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+				return;
+			}
+
+			if (firmwareVersionCombo.SelectedItem is not CodingCommandTarget target || !TryGetSelectedAddress(out uint address))
+			{
+				MessageBox.Show("Select a firmware version first.", "No Firmware Selected", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+				return;
+			}
+
+			var confirm = MessageBox.Show(
+				$"This will ERASE the model info on the ECU for firmware '{target}'.\r\n\r\n" +
+				$"It writes CODING_CMD_ERASE_MODEL (0x{CodingCmdEraseModel:X2}) to coding_cmd at 0x{address:X8} " +
+				"via an RMA write, which fills model[] with 0xFF and persists the change to EEPROM.\r\n\r\n" +
+				"The ECU must be UNLOCKED, and selecting the wrong firmware writes to the wrong address. " +
+				"This cannot be undone. Continue?",
+				"Confirm Erase Model Info",
+				MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2);
+			if (confirm != DialogResult.Yes)
+				return;
+
+			try
+			{
+				eraseModelButton.Enabled = false;
+				eraseModelButton.Text = "Erasing...";
+
+				bool unlocked = await Task.Run(() => rmaService.IsEcuUnlocked());
+				if (!unlocked)
+				{
+					MessageBox.Show("The ECU is locked or not responding. Unlock the ECU before erasing model info.", "ECU Locked", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+					return;
+				}
+
+				await rmaService.WriteByteAsync(address, CodingCmdEraseModel);
+
+				MessageBox.Show(
+					"Erase command sent. The ECU coding handler fills model[] with 0xFF and writes EEPROM on its next cycle.\r\n\r\n" +
+					"Re-read coding or vehicle info to verify.",
+					"Erase Model Info", MessageBoxButtons.OK, MessageBoxIcon.Information);
+			}
+			catch (Exception ex)
+			{
+				MessageBox.Show($"Failed to erase model info: {ex.Message}", "Erase Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+			}
+			finally
+			{
+				eraseModelButton.Text = "Erase Model Info";
+				UpdateEraseButtonState();
+			}
 		}
 
 		private void readCodesButton_Click(object? sender, EventArgs e)
