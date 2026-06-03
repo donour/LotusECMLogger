@@ -68,14 +68,15 @@ namespace LotusECMLogger
             var features = navigationTree.Nodes.Add("features", "Features");
 
             // Add feature sub-nodes
+            features.Nodes.Add("vehicleinfo", "Extended Vehicle Information");
             features.Nodes.Add("livedata", "Live Data Logging");
             features.Nodes.Add("ecucoding", "ECU Coding");
-            features.Nodes.Add("vehicleinfo", "Extended Vehicle Information");
             features.Nodes.Add("setvin", "Set VIN");
             features.Nodes.Add("dtc", "Diagnostic Trouble Codes");
             features.Nodes.Add("learneddata", "Learned Data Reset");
             features.Nodes.Add("t6rma", "T6 RMA Logging");
             features.Nodes.Add("flasher", "T6E Calibration Flasher");
+            features.Nodes.Add("erasemodel", "Erase Model Info");
 
             var adapters = navigationTree.Nodes.Add("adapters", "Supported Adapters");
             var troubleshooting = navigationTree.Nodes.Add("troubleshooting", "Troubleshooting");
@@ -97,14 +98,14 @@ namespace LotusECMLogger
                 case "gettingstarted":
                     ShowGettingStarted();
                     break;
+                case "vehicleinfo":
+                    ShowVehicleInfoHelp();
+                    break;
                 case "livedata":
                     ShowLiveDataHelp();
                     break;
                 case "ecucoding":
                     ShowEcuCodingHelp();
-                    break;
-                case "vehicleinfo":
-                    ShowVehicleInfoHelp();
                     break;
                 case "setvin":
                     ShowSetVinHelp();
@@ -120,6 +121,9 @@ namespace LotusECMLogger
                     break;
                 case "flasher":
                     ShowFlasherHelp();
+                    break;
+                case "erasemodel":
+                    ShowEraseModelHelp();
                     break;
                 case "adapters":
                     ShowAdaptersHelp();
@@ -183,6 +187,7 @@ namespace LotusECMLogger
             AddBulletPoint("Learned Data Reset: Clear adaptive learning values from the ECU.");
             AddBulletPoint("T6 RMA Logging: Advanced memory address logging for development.");
             AddBulletPoint("T6E Calibration Flasher: Flash calibration files to the ECU.");
+            AddBulletPoint("Erase Model Info: Clear stored model info after a firmware migration so the new firmware activates (Tools menu).");
             AddBulletPoint("Free and open source: No cost, no restrictions, and community-driven development.");
         }
 
@@ -213,6 +218,11 @@ namespace LotusECMLogger
             AddBulletPoint("Diagnostic Trouble Codes - Read and clear fault codes");
             AddBulletPoint("Learned Data Reset - Reset ECU adaptive values");
             AddBulletPoint("T6 RMA Logging - Advanced memory logging");
+
+            AddParagraph("");
+            AddParagraph("Some advanced, rarely-used operations live in the Tools menu rather than a tab:");
+            AddBulletPoint("T6E Calibration Flasher - Flash a calibration file to the ECU");
+            AddBulletPoint("Erase Model Info - Activate a newly flashed firmware version by clearing the stored model info");
         }
 
         private void ShowLiveDataHelp()
@@ -267,7 +277,7 @@ namespace LotusECMLogger
         {
             AddHeading("Extended Vehicle Information");
 
-            AddParagraph("The Extended Vehicle Information tab retrieves static vehicle data such as VIN, ECU name, calibration ID, and calibration verification numbers. This information is queried using OBD-II Mode 09 and provides essential identification data about your vehicle's ECU and configuration.");
+            AddParagraph("The Extended Vehicle Information tab retrieves static vehicle data such as VIN, ECU name, calibration ID, and calibration verification numbers. This information is queried using OBD-II Mode 09 and provides essential identification data about your vehicle's ECU and configuration. It also probes and reports whether the ECU is unlocked, which determines whether advanced operations are available.");
 
             AddSubheading("How to Use:");
             AddParagraph("1. Load Data: Click 'Load Vehicle Data' to query all available information from your ECU.");
@@ -279,6 +289,13 @@ namespace LotusECMLogger
             AddBulletPoint("Calibration ID: Identifies the software calibration loaded in the ECU.");
             AddBulletPoint("Calibration Verification Numbers (CVN): A checksum value used to verify calibration integrity.");
             AddBulletPoint("In-Use Performance Tracking: Emissions-related tracking data (if available).");
+
+            AddSubheading("ECU Unlock Status:");
+            AddParagraph("After loading vehicle data, the tab probes whether the ECU is unlocked and shows the result in a colored indicator. An unlocked ECU is required for advanced operations such as Erase Model Info, T6 RMA Logging, and T6 Live Tuning.");
+            AddBulletPoint("ECU: UNLOCKED (green) - The ECU answered a raw-CAN memory-access (RMA) probe. Unlocked-only features are available.");
+            AddBulletPoint("ECU: LOCKED (red) - Vehicle data loaded, so the ECU is reachable, but it did not answer the RMA probe. The ECU is running a standard/locked calibration and unlocked-only features will not work.");
+            AddBulletPoint("ECU: UNKNOWN (gray) - The unlock state could not be determined. This happens when no vehicle data loaded at all (ECU not reachable), when the probe errored, or when a logging session is active (the probe needs its own CAN channel, so it is skipped while the logger holds the device).");
+            AddParagraph("The indicator refreshes each time you click 'Load Vehicle Data'. If it reads UNKNOWN while logging is active, stop the logger and load vehicle data again for a definite result.");
 
             AddSubheading("Use Cases:");
             AddBulletPoint("Verify your VIN matches vehicle documentation.");
@@ -362,11 +379,13 @@ namespace LotusECMLogger
             AddParagraph("The Learned Data Reset tab allows you to perform an OBD-II Mode 0x11 reset to clear learned parameters from the ECU. This operation resets adaptive learning values, which may be necessary after certain repairs or modifications, though the ECU will need time to relearn optimal settings afterward.");
 
             AddSubheading("What is Learned Data?");
-            AddParagraph("The ECU continuously adapts to your driving style and component wear by adjusting various parameters. These adaptations are stored as 'learned values' and include:");
-            AddBulletPoint("Fuel trim adjustments");
-            AddBulletPoint("Idle speed control adaptations");
-            AddBulletPoint("Throttle position learning");
-            AddBulletPoint("Sensor offset corrections");
+            AddParagraph("The ECU continuously adapts to your engine, fuel, and component wear by adjusting various parameters as you drive. On the Lotus T6e these adaptations are stored as 'learned values' in the ECU's EEPROM (protected by a checksum) so they persist across power cycles. They include:");
+            AddBulletPoint("Octane scalers (per cylinder): Knock-based octane learning - one value per cylinder tracking how much knock-based fuel/timing correction has been accumulated. These are also shown on the Extended Vehicle Information tab.");
+            AddBulletPoint("Knock retard learning: Learned ignition timing retard derived from knock sensor activity.");
+            AddBulletPoint("Throttle tip-in / alpha-N load trim: A learned correction to the throttle-angle-and-speed (alpha-N) airflow model across RPM and throttle position, used when estimating engine load from throttle position. A reset re-seeds this to the base calibration.");
+            AddBulletPoint("Torque-to-throttle (TPS) scaling: A learned mapping from requested torque to throttle position across RPM and load. A reset re-seeds this to the base calibration.");
+            AddBulletPoint("Fuel trim learning (per bank): Long-term fuel adaptation, including learned lean-time and fuel-trim zones for each cylinder bank.");
+            AddBulletPoint("Idle learning: Adaptive idle control for warm and cold conditions, including separate adaptation for when the A/C is on.");
 
             AddSubheading("When to Use:");
             AddParagraph("You may want to reset learned data after:");
@@ -421,7 +440,9 @@ namespace LotusECMLogger
         {
             AddHeading("T6E Calibration Flasher");
 
-            AddParagraph("The T6E Calibration Flasher provides a convenient interface for flashing ECU calibrations to Lotus T6e engine control units. Access this feature from the File menu: File > T6E Calibration Flasher.");
+            AddParagraph("The T6E Calibration Flasher provides a convenient interface for flashing ECU calibrations to Lotus T6e engine control units. Access this feature from the Tools menu: Tools > T6E Calibration Flasher.");
+
+            AddParagraph("Note: Flashing a new firmware version does not update the ECU's stored model info. After migrating to a different firmware version, run Tools > Erase Model Info to let the new firmware claim the model identity. See the 'Erase Model Info' help topic.");
 
             AddSubheading("Supported File Formats:");
             AddBulletPoint(".CRP files: Encrypted calibration files ready for flashing");
@@ -434,16 +455,56 @@ namespace LotusECMLogger
             AddParagraph("1. Program: Specify the path to the flash programming tool (typically EFI_PROT.EXE).");
             AddParagraph("2. Input File: Browse and select your .CRP or .CPT calibration file.");
             AddParagraph("3. Working Directory: Set the working directory where the flash tool is located (typically C:\\Program Files (x86)\\T6_ECU_FIX).");
-            AddParagraph("4. Launch: Click the launch button to start the flash process.");
+            AddParagraph("4. Launch: Click 'Launch Program' to start EFI_PROT. The flash tool opens in its own console window and carries out the actual programming from there.");
+
+            AddSubheading("How EFI_PROT Works:");
+            AddParagraph("LotusECMLogger does not flash the ECU itself. It prepares the calibration file (converting CPT to CRP if needed) and then launches EFI_PROT.EXE - the external T6 flash programming utility - with that file. All communication with the ECU happens inside EFI_PROT's own console window, which stays open after the application hands off to it.");
+            AddBulletPoint("Select a J2534 device: When EFI_PROT starts, it prompts you to choose the J2534 pass-thru device to use for the flash. Make sure your device is connected before launching.");
+            AddBulletPoint("Power off the vehicle: The flashing procedure requires the vehicle to be powered off. Follow EFI_PROT's prompts for the correct ignition state during the process.");
+            AddBulletPoint("Mind the timeout: EFI_PROT must establish communication with the ECU within a limited time window. If it does not, the ECU locks out flashing. An ignition cycle does NOT clear this lockout - you must remove power from the ECU or wait several minutes before it will accept flashing again. Have your device connected and be ready to proceed promptly once you launch.");
 
             AddSubheading("Important Safety Notes:");
             AddBulletPoint("Ensure you have a backup of your current calibration before flashing.");
             AddBulletPoint("Never disconnect power or the OBD connection during flashing - this can brick your ECU.");
+            AddBulletPoint("If the flash times out and the ECU locks out, an ignition cycle will not help - remove power from the ECU or wait several minutes before retrying.");
             AddBulletPoint("Only flash calibrations intended for your specific ECU and vehicle configuration.");
             AddBulletPoint("Flashing calibrations may void warranties or violate emissions regulations.");
 
             AddSubheading("Automatic Conversion:");
             AddParagraph("If you select a .CPT file, the tool will automatically convert it to .CRP format using the T6 XTEA encryption key before initiating the flash process. You don't need to manually convert files.");
+        }
+
+        private void ShowEraseModelHelp()
+        {
+            AddHeading("Erase Model Info");
+
+            AddParagraph("Erase Model Info clears the model identification stored in the ECU's variant coding so the currently installed firmware can re-initialize it. It is available from the Tools menu: Tools > Erase Model Info.");
+
+            AddSubheading("Why You Need This (Firmware Migration):");
+            AddParagraph("The model info is a copy of the calibration's program version string, held in the ECU's coding EEPROM. Flashing a new firmware or calibration does NOT update this stored value — the old model string is left in place, so the ECU reports a program-version mismatch and the newly flashed firmware is not fully activated.");
+            AddParagraph("Erasing the model info blanks the field (fills it with 0xFF). On its next coding-initialization cycle, the firmware detects the blank field and automatically re-seeds it from the freshly flashed calibration's program version, committing the update to EEPROM. This is the step that 'activates' a new firmware version.");
+            AddParagraph("In short: when migrating to a new firmware version, flash the calibration first, then run Erase Model Info so the new firmware claims the model identity. This is normally needed only once per firmware migration, not during everyday use.");
+
+            AddSubheading("Requirements:");
+            AddBulletPoint("Unlocked ECU: This operation requires an unlocked/developer calibration. On a standard locked ECU the command is silently ignored. The tool verifies the ECU is unlocked before sending the command.");
+            AddBulletPoint("Correct firmware version selected: The dialog needs to know which firmware is installed so it can target the right command register address. Selecting the wrong version writes to the wrong address.");
+            AddBulletPoint("Logging stopped: Erase Model Info is disabled while data logging is active. The menu item stays greyed out until you stop the logger.");
+
+            AddSubheading("How to Use:");
+            AddParagraph("1. Stop any active logging session.");
+            AddParagraph("2. Open Tools > Erase Model Info.");
+            AddParagraph("3. Select the firmware version currently installed on the ECU. The dialog displays the resolved coding_cmd address so you can verify the selection.");
+            AddParagraph("4. Click 'Erase Model Info' and confirm the warning dialog.");
+            AddParagraph("5. The tool confirms the ECU is unlocked and then issues the erase command. A confirmation message appears when complete.");
+            AddParagraph("6. Re-read the ECU coding, or reload Extended Vehicle Information, to verify the model info now reflects the new firmware.");
+
+            AddSubheading("How It Works:");
+            AddParagraph("The tool issues an RMA (Remote Memory Access) write of the erase-model command (0x04) to the firmware's coding command register at the address for the selected firmware version. The ECU's coding handler fills the model field with 0xFF and flags an EEPROM write, which is committed on its next cycle. The firmware then re-seeds the field from the installed calibration version on the following coding-initialization pass.");
+
+            AddSubheading("Important Warnings:");
+            AddBulletPoint("This operation cannot be undone. The previous model string is overwritten, and the firmware re-seeds it from the installed calibration.");
+            AddBulletPoint("Selecting the wrong firmware version targets the wrong memory address. Confirm the installed version before proceeding.");
+            AddBulletPoint("The change is written to ECU EEPROM and persists across power cycles.");
         }
 
         private void ShowAdaptersHelp()
@@ -454,12 +515,18 @@ namespace LotusECMLogger
 
             AddSubheading("Popular Adapters:");
 
-            AddSubheading("Tactrix OpenPort 2.0");
-            AddParagraph("A widely used J2534 device known for its reliability and performance. The OpenPort 2.0 is one of the most popular choices among enthusiasts and professional tuners.");
+            AddSubheading("Tactrix OpenPort 2.0 (discontinued)");
+            AddParagraph("A widely used J2534 device known for its reliability and performance. The OpenPort 2.0 was one of the most popular choices among enthusiasts and professional tuners, but it has been discontinued and is no longer manufactured.");
             AddBulletPoint("Fully J2534 compliant");
             AddBulletPoint("Supports multiple vehicle protocols");
-            AddBulletPoint("Regular driver updates");
             AddBulletPoint("Extensive community support");
+            AddBulletPoint("No longer in production - check the used market");
+
+            AddSubheading("TopDon RLink X3");
+            AddParagraph("A currently available J2534-compliant pass-thru device that works with LotusECMLogger. The required J2534 driver is not included with the device - download and install it from TopDon before connecting.");
+            AddBulletPoint("J2534 compliant");
+            AddBulletPoint("Requires the J2534 driver download from TopDon");
+            AddBulletPoint("A readily available alternative to the discontinued OpenPort 2.0");
 
             AddSubheading("Requirements:");
             AddBulletPoint("Device must be J2534 compliant");
