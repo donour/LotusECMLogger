@@ -25,8 +25,17 @@ namespace LotusECMLogger.Controls
         /// </summary>
         public event Action<float>? RefreshRateUpdated;
 
+        // Holds the latest value along with the running min/max for a parameter.
+        // These statistics are display-only and are never written to the log file.
+        private sealed class LiveDataStat
+        {
+            public float Current;
+            public float Min;
+            public float Max;
+        }
+
         private J2534LoggingService? logger;
-        private ConcurrentDictionary<string, float> liveData = new();
+        private ConcurrentDictionary<string, LiveDataStat> liveData = new();
         private DateTime lastUpdateTime = DateTime.Now;
         private DateTime lastListViewUpdate = DateTime.MinValue;
         private string selectedObdConfigName = "NO CONFIG";
@@ -74,6 +83,8 @@ namespace LotusECMLogger.Controls
         {
             liveDataView.Columns.Add("Parameter", 200);
             liveDataView.Columns.Add("Value", 100);
+            liveDataView.Columns.Add("Minimum", 100);
+            liveDataView.Columns.Add("Maximum", 100);
         }
 
         public void RefreshAvailableConfigurations(string? preferredConfigName = null)
@@ -188,7 +199,19 @@ namespace LotusECMLogger.Controls
                 lastUpdateTime = now;
 
                 foreach (var r in data)
-                    liveData[r.name] = (float)r.value_f;
+                {
+                    float value = (float)r.value_f;
+                    if (liveData.TryGetValue(r.name, out var stat))
+                    {
+                        stat.Current = value;
+                        if (value < stat.Min) stat.Min = value;
+                        if (value > stat.Max) stat.Max = value;
+                    }
+                    else
+                    {
+                        liveData[r.name] = new LiveDataStat { Current = value, Min = value, Max = value };
+                    }
+                }
 
                 UpdateListView();
                 RefreshRateUpdated?.Invoke(refreshRate);
@@ -203,7 +226,11 @@ namespace LotusECMLogger.Controls
             lastListViewUpdate = now;
 
             var snapshot = liveData.ToList();
-            ListViewItem[] items = [.. snapshot.Select(kvp => new ListViewItem([kvp.Key, kvp.Value.ToString("F2")]))];
+            ListViewItem[] items = [.. snapshot.Select(kvp => new ListViewItem([
+                kvp.Key,
+                kvp.Value.Current.ToString("F2"),
+                kvp.Value.Min.ToString("F2"),
+                kvp.Value.Max.ToString("F2")]))];
 
             liveDataView.BeginUpdate();
             liveDataView.Items.Clear();
