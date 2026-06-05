@@ -51,12 +51,12 @@ namespace LotusECMLogger.Controls
             vehicleInfoView.Columns.Add("Unit", 150);
         }
 
-        private void readDataButton_Click(object sender, EventArgs e)
+        private async void readDataButton_Click(object sender, EventArgs e)
         {
-            LoadVehicleData();
+            await LoadVehicleDataAsync();
         }
 
-        private void setVinButton_Click(object? sender, EventArgs e)
+        private async void setVinButton_Click(object? sender, EventArgs e)
         {
             if (_isLoggerActive)
             {
@@ -71,7 +71,7 @@ namespace LotusECMLogger.Controls
             var result = dialog.ShowDialog(this);
             if (result == DialogResult.OK)
             {
-                LoadVehicleData();
+                await LoadVehicleDataAsync();
             }
         }
 
@@ -116,75 +116,32 @@ namespace LotusECMLogger.Controls
             }
         }
 
-        // TODO: LoadVehicleData runs all J2534 work (connection, filter, queries) on the UI thread, freezing the app.
-        // Move to Task.Run() and use Invoke/BeginInvoke for status label updates and the final ListView refresh.
-        //
         // TODO: VehicleInfoService is instantiated but never called — all protocol work is duplicated inline here.
         // Consolidate: move the full implementation (mode 0x09, mode 0x22, octane scalers) into VehicleInfoService
         // and have this control delegate to it. VehicleInfoService currently has stubs (TPS Target/Actual) that
-        // do not match the real parsing and should be removed.
-        private void LoadVehicleData()
+        // do not match the real parsing and should be removed. GatherVehicleData below is now a self-contained,
+        // UI-free unit that is straightforward to lift into the service.
+        private async Task LoadVehicleDataAsync()
         {
+            readDataButton.Enabled = false;
+            readDataButton.Text = "Loading...";
+            SetUnlockIndicator(EcuUnlockState.Unknown);
+
+            // Snapshot UI/shared state on the UI thread; the worker must not read instance fields.
+            bool loggerActive = _isLoggerActive;
+
             try
             {
-                readDataButton.Enabled = false;
-                readDataButton.Text = "Loading...";
+                // All blocking J2534 work runs off the UI thread so the window stays responsive.
+                var (readings, unlockState) =
+                    await Task.Run(() => GatherVehicleData(loggerActive));
 
-                // Clear previous data
-                vehicleDataSnapshot.Clear();
-                SetUnlockIndicator(EcuUnlockState.Unknown);
-
-                // Create J2534 connection and ISO15765 service
-                using (var session = J2534Session.Open())
-                {
-                    var channel = session.OpenIso15765();
-
-                    // Setup message filter for Lotus ECM
-                    channel.StartMessageFilter(ECUDefinition.ECM.CreateFlowControlFilter()).ThrowIfError();
-
-                    // Create ISO15765 service
-                    var iso15765Service = new Iso15765Service(channel);
-
-                    // Query for available PIDs on service 0x09
-                    var availablePIDs = iso15765Service.GetSupportedPIDs(OBDIIMode.RequestVehicleInformation);
-
-                    vehicleDataSnapshot.AddRange(QueryMode22ExtendedInfo(channel));
-
-                    // Load values for all available PIDs
-                    foreach (var pid in availablePIDs)
-                    {
-                        try
-                        {
-                            var pidData = iso15765Service.GetPID(OBDIIMode.RequestVehicleInformation, pid);
-                            if (pidData != null && pidData.Length > 0)
-                            {
-                                var reading = ParseVehicleInfoPID(pid, pidData);
-                                if (reading != null)
-                                {
-                                    vehicleDataSnapshot.Add(reading);
-                                }
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            System.Diagnostics.Debug.WriteLine($"Failed to read PID 0x{pid:X2}: {ex.Message}");
-                        }
-                    }
-
-                    vehicleDataSnapshot.AddRange(QueryOctaneScalers(channel));
-
-                }
-
-                // Update the UI
+                // Resumes on the UI thread — safe to touch controls and the shared field.
+                vehicleDataSnapshot = readings;
                 UpdateVehicleInfoView();
+                SetUnlockIndicator(unlockState);
 
-                // Probe ECU unlock state via raw-CAN RMA (separate channel, so run only after
-                // the ISO15765 channel above has been disposed). The successful data load above
-                // doubles as the liveness check: data present + no RMA reply => genuinely locked;
-                // no data at all => ECU not reachable, so leave the state Unknown.
-                ProbeAndShowUnlockState();
-
-                MessageBox.Show($"Successfully loaded {vehicleDataSnapshot.Count} vehicle data points!",
+                MessageBox.Show($"Successfully loaded {readings.Count} vehicle data points!",
                     "Load Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
@@ -198,6 +155,61 @@ namespace LotusECMLogger.Controls
                 readDataButton.Enabled = true;
                 readDataButton.Text = "Load Vehicle Data";
             }
+        }
+
+        // Runs on a thread-pool thread. Performs all J2534 I/O and returns the data; touches no UI
+        // and no instance fields that the UI thread also uses, so it cannot race with the UI.
+        private (List<VehicleParameterReading> Readings, EcuUnlockState UnlockState)
+            GatherVehicleData(bool loggerActive)
+        {
+            var readings = new List<VehicleParameterReading>();
+
+            // Create J2534 connection and ISO15765 service
+            using (var session = J2534Session.Open())
+            {
+                var channel = session.OpenIso15765();
+
+                // Setup message filter for Lotus ECM
+                channel.StartMessageFilter(ECUDefinition.ECM.CreateFlowControlFilter()).ThrowIfError();
+
+                // Create ISO15765 service
+                var iso15765Service = new Iso15765Service(channel);
+
+                // Query for available PIDs on service 0x09
+                var availablePIDs = iso15765Service.GetSupportedPIDs(OBDIIMode.RequestVehicleInformation);
+
+                readings.AddRange(QueryMode22ExtendedInfo(channel));
+
+                // Load values for all available PIDs
+                foreach (var pid in availablePIDs)
+                {
+                    try
+                    {
+                        var pidData = iso15765Service.GetPID(OBDIIMode.RequestVehicleInformation, pid);
+                        if (pidData != null && pidData.Length > 0)
+                        {
+                            var reading = ParseVehicleInfoPID(pid, pidData);
+                            if (reading != null)
+                            {
+                                readings.Add(reading);
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"Failed to read PID 0x{pid:X2}: {ex.Message}");
+                    }
+                }
+
+                readings.AddRange(QueryOctaneScalers(channel));
+            }
+
+            // Probe ECU unlock state via raw-CAN RMA (separate channel, so run only after the
+            // ISO15765 channel above has been disposed). The successful data load above doubles
+            // as the liveness check: data present + no RMA reply => genuinely locked; no data at
+            // all => ECU not reachable, so leave the state Unknown.
+            var unlockState = ProbeUnlockState(loggerActive, ecuAlive: readings.Count > 0);
+            return (readings, unlockState);
         }
 
         private void UpdateVehicleInfoView()
@@ -217,31 +229,27 @@ namespace LotusECMLogger.Controls
             vehicleInfoView.EndUpdate();
         }
 
-        // Runs the raw-CAN RMA unlock probe and maps the result onto the indicator box.
+        // Runs the raw-CAN RMA unlock probe and maps the result to an unlock state. Pure I/O + logic,
+        // no UI — runs on the worker thread; the caller renders the result via SetUnlockIndicator.
         // A reply => Unlocked; no reply but vehicle data did load (ECU is alive) => Locked;
         // nothing loaded at all => Unknown (ECU not reachable, not necessarily locked).
-        private void ProbeAndShowUnlockState()
+        private EcuUnlockState ProbeUnlockState(bool loggerActive, bool ecuAlive)
         {
             // Skip while logging holds the J2534 device; the probe opens its own CAN channel.
-            if (_isLoggerActive)
-            {
-                SetUnlockIndicator(EcuUnlockState.Unknown);
-                return;
-            }
-
-            bool ecuAlive = vehicleDataSnapshot.Count > 0;
+            if (loggerActive)
+                return EcuUnlockState.Unknown;
 
             try
             {
                 bool unlocked = _rmaService.IsEcuUnlocked();
-                SetUnlockIndicator(unlocked
-                    ? EcuUnlockState.Unlocked
-                    : ecuAlive ? EcuUnlockState.Locked : EcuUnlockState.Unknown);
+                return unlocked ? EcuUnlockState.Unlocked
+                     : ecuAlive ? EcuUnlockState.Locked
+                     : EcuUnlockState.Unknown;
             }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"Unlock probe failed: {ex.Message}");
-                SetUnlockIndicator(EcuUnlockState.Unknown);
+                return EcuUnlockState.Unknown;
             }
         }
 
