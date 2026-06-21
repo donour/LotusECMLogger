@@ -184,6 +184,23 @@ namespace LotusECMLogger
 
 
         /// <summary>
+        /// Decode a Mode 0x22 fuel-learn zone trim (single offset-128 byte) into a percentage.
+        /// 0x80 = 0% (neutral), each count ≈ 0.391%.
+        /// </summary>
+        private static void AddFuelLearnZone(byte[] data, List<LiveDataReading> results, int idx, string name)
+        {
+            if (data.Length > idx + 2)
+            {
+                double correctionPct = (sbyte)(data[idx + 2] - 0x80) * 500.0 / 128 / 10;
+                results.Add(new LiveDataReading
+                {
+                    name = name,
+                    value_f = correctionPct,
+                });
+            }
+        }
+
+        /// <summary>
         /// Parse standard OBD-II response (Mode 01, 09, 22)
         /// </summary>
         private static List<LiveDataReading> ParseStandardObdResponse(byte[] data, ECUDefinition? ecu, bool prefixWithEcuName)
@@ -782,6 +799,52 @@ namespace LotusECMLogger
                                         value_f = dc,
                                     };
                                     results.Add(reading);
+                                }
+                                break;
+                            // Regional fuel-learn zone trims (offset-128 byte, ~0.391% per count)
+                            case 0x48: // zone 2 (mid airflow), bank 1
+                                AddFuelLearnZone(data, results, idx, "FuelLearnZone2Bank1");
+                                break;
+                            case 0x49: // zone 3 (high airflow), bank 1
+                                AddFuelLearnZone(data, results, idx, "FuelLearnZone3Bank1");
+                                break;
+                            case 0x5A: // zone 2 (mid airflow), bank 2
+                                AddFuelLearnZone(data, results, idx, "FuelLearnZone2Bank2");
+                                break;
+                            case 0x5B: // zone 3 (high airflow), bank 2
+                                AddFuelLearnZone(data, results, idx, "FuelLearnZone3Bank2");
+                                break;
+                            case 0x2E: // idle additive trim, bank 1 (i16, microseconds)
+                                if (data.Length > idx + 3)
+                                {
+                                    short leanTimeB1 = (short)((data[idx + 2] << 8) | data[idx + 3]);
+                                    results.Add(new LiveDataReading
+                                    {
+                                        name = "FuelLearnLeanTimeBank1(us)",
+                                        value_f = leanTimeB1,
+                                    });
+                                }
+                                break;
+                            case 0x55: // idle additive trim, bank 2 (i16, microseconds)
+                                if (data.Length > idx + 3)
+                                {
+                                    short leanTimeB2 = (short)((data[idx + 2] << 8) | data[idx + 3]);
+                                    results.Add(new LiveDataReading
+                                    {
+                                        name = "FuelLearnLeanTimeBank2(us)",
+                                        value_f = leanTimeB2,
+                                    });
+                                }
+                                break;
+                            case 0x3A: // learn dwell/update timer (u16)
+                                if (data.Length > idx + 3)
+                                {
+                                    int fuelLearnTimer = (data[idx + 2] << 8) | data[idx + 3];
+                                    results.Add(new LiveDataReading
+                                    {
+                                        name = "FuelLearnTimer",
+                                        value_f = fuelLearnTimer,
+                                    });
                                 }
                                 break;
                             default:

@@ -202,6 +202,8 @@ namespace LotusECMLogger.Controls
                 }
 
                 readings.AddRange(QueryOctaneScalers(channel));
+
+                readings.AddRange(QueryFuelLearnState(channel));
             }
 
             // Probe ECU unlock state via raw-CAN RMA (separate channel, so run only after the
@@ -512,6 +514,71 @@ namespace LotusECMLogger.Controls
                     System.Diagnostics.Debug.WriteLine($"Failed to read {name}: {ex.Message}");
                 }
             }
+            return results;
+        }
+
+        // Reads the regional fuel-learn state via Mode 0x22 DIDs and returns a one-shot snapshot.
+        private List<VehicleParameterReading> QueryFuelLearnState(SAE.J2534.J2534Channel channel)
+        {
+            var results = new List<VehicleParameterReading>();
+
+            // Zone trims: single offset-128 byte, 0x80 = 0%, ~0.391% per count.
+            var zonePIDs = new (string Name, byte Pid)[]
+            {
+                ("Fuel Learn Zone 2 Bank 1", 0x48),
+                ("Fuel Learn Zone 3 Bank 1", 0x49),
+                ("Fuel Learn Zone 2 Bank 2", 0x5A),
+                ("Fuel Learn Zone 3 Bank 2", 0x5B),
+            };
+            foreach (var (name, pid) in zonePIDs)
+            {
+                var bytes = ReadMode22Payload(channel, pid, 1);
+                if (bytes != null)
+                {
+                    double correctionPct = (sbyte)(bytes[0] - 0x80) * 500.0 / 128 / 10;
+                    results.Add(new VehicleParameterReading
+                    {
+                        Name = name,
+                        Value = Math.Round(correctionPct, 1).ToString(),
+                        Unit = "%"
+                    });
+                }
+            }
+
+            // Idle additive trims: signed 16-bit, microseconds added to injector pulse width.
+            var leanTimePIDs = new (string Name, byte Pid)[]
+            {
+                ("Fuel Learn Lean Time Bank 1", 0x2E),
+                ("Fuel Learn Lean Time Bank 2", 0x55),
+            };
+            foreach (var (name, pid) in leanTimePIDs)
+            {
+                var bytes = ReadMode22Payload(channel, pid, 2);
+                if (bytes != null)
+                {
+                    short leanTime = (short)((bytes[0] << 8) | bytes[1]);
+                    results.Add(new VehicleParameterReading
+                    {
+                        Name = name,
+                        Value = leanTime.ToString(),
+                        Unit = "us"
+                    });
+                }
+            }
+
+            // Learn dwell/update timer: unsigned 16-bit.
+            var timerBytes = ReadMode22Payload(channel, 0x3A, 2);
+            if (timerBytes != null)
+            {
+                int fuelLearnTimer = (timerBytes[0] << 8) | timerBytes[1];
+                results.Add(new VehicleParameterReading
+                {
+                    Name = "Fuel Learn Timer",
+                    Value = fuelLearnTimer.ToString(),
+                    Unit = ""
+                });
+            }
+
             return results;
         }
     }
