@@ -90,13 +90,18 @@ namespace LotusECMLogger.Services
 				canMessage[0] = 0x00;
 				canMessage[1] = 0x00;
 				canMessage[2] = 0x05;
-				canMessage[3] = 0x02;
 
 				Array.Copy(highBytes, 0, canMessage, 4, 4);
 				Array.Copy(lowBytes, 0, canMessage, 8, 4);
 
-				canChannel.SendMessage(canMessage);
-				Thread.Sleep(100);
+				// The coding must be persisted to all modules, each addressed by a
+				// distinct arbitration ID (0x500 through 0x505).
+				for (byte arbIdLow = 0x00; arbIdLow <= 0x05; arbIdLow++)
+				{
+					canMessage[3] = arbIdLow;
+					canChannel.SendMessage(canMessage);
+					Thread.Sleep(100);
+				}
 
 				return (true, "");
 			}
