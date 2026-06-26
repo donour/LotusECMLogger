@@ -57,6 +57,16 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Ship the ECU symbol catalogs to the config dir without duplicating them in source control -->
+    <None Include="..\references\C132E0278_symbols.csv" Link="config\highSpeedLogger\symbols\C132E0278.csv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\references\B13200091_symbols.csv" Link="config\highSpeedLogger\symbols\B13200091.csv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- Auto-copy all config JSON files to output directory -->
     <None Update="config\**\*.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

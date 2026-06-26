@@ -1,0 +1,25 @@
+{
+  // Sample preset for the C132E0278 (GT430) ECU. Channels reference symbols by name; the app resolves
+  // each one's address, size, scale, offset and unit from config/highSpeedLogger/symbols/C132E0278.csv
+  // (parsed from the Ghidra "Data Type"). Use "Add Channels…" in the High-Speed Log tab to browse the
+  // full catalog. "rate" is the sample rate in Hz and marks the channel selected; set
+  // "defaultSelected": false to list a channel without pre-checking it.
+  "name": "GT430 Sample (C132E0278)",
+  "description": "Symbol-referenced sample. Size/scale/unit are derived from the symbol catalog.",
+  "ecuVersion": "C132E0278",
+  "channels": [
+    { "symbol": "engine_speed_3",               "rate": 100 },
+    { "symbol": "tps_u16",                       "rate": 100 },
+    { "symbol": "accel_pedal_pos",              "rate": 100 },
+    { "symbol": "manifold_pressure_calculated", "rate": 50  },
+    { "symbol": "coolant_temp",                 "rate": 5   },
+
+    { "symbol": "knock_sensor1_voltage",        "rate": 100, "defaultSelected": false },
+    { "symbol": "knock_sensor2_voltage",        "rate": 100, "defaultSelected": false },
+    { "symbol": "tps_feedback_position",        "rate": 50,  "defaultSelected": false },
+    { "symbol": "engine_speed_reference_x256",  "rate": 50,  "defaultSelected": false },
+    { "symbol": "afr_commanded",                "rate": 20,  "defaultSelected": false },
+    { "symbol": "iat",                          "rate": 5,   "defaultSelected": false },
+    { "symbol": "fuel_level",                   "rate": 1,   "defaultSelected": false }
+  ]
+}

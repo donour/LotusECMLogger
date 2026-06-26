@@ -19,6 +19,8 @@ internal static class GuiIcons
     public const string RmaLogging   = ""; // Download (read from ECU)
     public const string LiveTuning   = ""; // Edit / pencil
 
+    public const string HighSpeedLog = ""; // Stopwatch (high-speed channel logging)
+
     // Sub-tab glyphs (inside Live Data)
     public const string LoggerTab    = ""; // Play
     public const string ConfigTab    = ""; // Setting2 / sliders
