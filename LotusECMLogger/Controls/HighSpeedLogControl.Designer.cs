@@ -38,6 +38,9 @@ namespace LotusECMLogger.Controls
             startButton = new Button();
             stopButton = new Button();
             gridGroupBox = new GroupBox();
+            gridButtonPanel = new FlowLayoutPanel();
+            removeChannelButton = new Button();
+            clearChannelsButton = new Button();
             channelsGrid = new DataGridView();
             selectColumn = new DataGridViewCheckBoxColumn();
             nameColumn = new DataGridViewTextBoxColumn();
@@ -60,6 +63,7 @@ namespace LotusECMLogger.Controls
             csvPanel.SuspendLayout();
             buttonPanel.SuspendLayout();
             gridGroupBox.SuspendLayout();
+            gridButtonPanel.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)channelsGrid).BeginInit();
             statusGroupBox.SuspendLayout();
             statusLayout.SuspendLayout();
@@ -222,6 +226,7 @@ namespace LotusECMLogger.Controls
             // gridGroupBox
             //
             gridGroupBox.Controls.Add(channelsGrid);
+            gridGroupBox.Controls.Add(gridButtonPanel);
             gridGroupBox.Dock = DockStyle.Fill;
             gridGroupBox.Name = "gridGroupBox";
             gridGroupBox.Padding = new Padding(4, 5, 4, 5);
@@ -229,17 +234,42 @@ namespace LotusECMLogger.Controls
             gridGroupBox.TabStop = false;
             gridGroupBox.Text = "Channels";
             //
+            // gridButtonPanel
+            //
+            gridButtonPanel.AutoSize = true;
+            gridButtonPanel.Controls.Add(removeChannelButton);
+            gridButtonPanel.Controls.Add(clearChannelsButton);
+            gridButtonPanel.Dock = DockStyle.Bottom;
+            gridButtonPanel.Name = "gridButtonPanel";
+            gridButtonPanel.WrapContents = false;
+            //
+            // removeChannelButton
+            //
+            removeChannelButton.AutoSize = true;
+            removeChannelButton.Name = "removeChannelButton";
+            removeChannelButton.Text = "Remove Selected";
+            removeChannelButton.UseVisualStyleBackColor = true;
+            removeChannelButton.Click += RemoveChannelButton_Click;
+            //
+            // clearChannelsButton
+            //
+            clearChannelsButton.AutoSize = true;
+            clearChannelsButton.Name = "clearChannelsButton";
+            clearChannelsButton.Text = "Clear All";
+            clearChannelsButton.UseVisualStyleBackColor = true;
+            clearChannelsButton.Click += ClearChannelsButton_Click;
+            //
             // channelsGrid
             //
             channelsGrid.AllowUserToAddRows = false;
-            channelsGrid.AllowUserToDeleteRows = false;
+            channelsGrid.AllowUserToDeleteRows = true;
             channelsGrid.AllowUserToResizeRows = false;
             channelsGrid.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
             channelsGrid.Columns.AddRange(new DataGridViewColumn[] { selectColumn, nameColumn, addressColumn, unitColumn, rateColumn, valueColumn });
             channelsGrid.Dock = DockStyle.Fill;
             channelsGrid.Name = "channelsGrid";
             channelsGrid.RowHeadersVisible = false;
-            channelsGrid.SelectionMode = DataGridViewSelectionMode.CellSelect;
+            channelsGrid.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
             channelsGrid.TabIndex = 0;
             channelsGrid.CurrentCellDirtyStateChanged += ChannelsGrid_CurrentCellDirtyStateChanged;
             channelsGrid.DataError += ChannelsGrid_DataError;
@@ -371,6 +401,9 @@ namespace LotusECMLogger.Controls
             buttonPanel.ResumeLayout(false);
             buttonPanel.PerformLayout();
             gridGroupBox.ResumeLayout(false);
+            gridGroupBox.PerformLayout();
+            gridButtonPanel.ResumeLayout(false);
+            gridButtonPanel.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)channelsGrid).EndInit();
             statusGroupBox.ResumeLayout(false);
             statusGroupBox.PerformLayout();
@@ -398,6 +431,9 @@ namespace LotusECMLogger.Controls
         private Button startButton;
         private Button stopButton;
         private GroupBox gridGroupBox;
+        private FlowLayoutPanel gridButtonPanel;
+        private Button removeChannelButton;
+        private Button clearChannelsButton;
         private DataGridView channelsGrid;
         private DataGridViewCheckBoxColumn selectColumn;
         private DataGridViewTextBoxColumn nameColumn;

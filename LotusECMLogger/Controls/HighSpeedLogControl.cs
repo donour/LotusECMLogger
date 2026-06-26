@@ -16,7 +16,6 @@ namespace LotusECMLogger.Controls
         private readonly IHighSpeedLogService service;
 
         private readonly ConcurrentDictionary<string, (double value, string unit)> latestValues = new();
-        private readonly Dictionary<string, int> rowByChannelName = new();
         private int frameCount;
         private DateTime lastSampleTime;
         private DateTime lastUiUpdate = DateTime.MinValue;
@@ -43,6 +42,10 @@ namespace LotusECMLogger.Controls
             this.service.ErrorOccurred += OnErrorOccurred;
 
             InitializeComponent();
+
+            channelsGrid.RowsAdded += (_, _) => RefreshRowActionState();
+            channelsGrid.RowsRemoved += (_, _) => RefreshRowActionState();
+            channelsGrid.UserDeletingRow += ChannelsGrid_UserDeletingRow;
 
             foreach (var rate in HighSpeedLogPlanner.SupportedRatesHz)
                 rateColumn.Items.Add(rate);
@@ -76,7 +79,6 @@ namespace LotusECMLogger.Controls
                 presetComboBox.SelectedIndex = 0;
                 presetComboBox.Enabled = false;
                 channelsGrid.Rows.Clear();
-                rowByChannelName.Clear();
                 return;
             }
 
@@ -98,7 +100,6 @@ namespace LotusECMLogger.Controls
         private void LoadPreset(string presetName)
         {
             channelsGrid.Rows.Clear();
-            rowByChannelName.Clear();
 
             HighSpeedLogPreset preset;
             try
@@ -137,7 +138,6 @@ namespace LotusECMLogger.Controls
             row.Cells[unitColumn.Index].Value = ch.Unit;
             row.Cells[rateColumn.Index].Value = SnapRate(ch.DefaultRate);
             row.Cells[valueColumn.Index].Value = string.Empty;
-            rowByChannelName[ch.Name] = idx;
             return true;
         }
 
@@ -157,9 +157,65 @@ namespace LotusECMLogger.Controls
                 else skipped++;
             }
 
-            startButton.Enabled = !service.IsLogging && !isLoggerActive && channelsGrid.Rows.Count > 0;
+            RefreshRowActionState();
             statusValueLabel.Text = $"Added {added} channel(s)" + (skipped > 0 ? $", {skipped} already present" : "");
             statusValueLabel.ForeColor = Color.Black;
+        }
+
+        private void RemoveChannelButton_Click(object? sender, EventArgs e) => RemoveSelectedChannels();
+
+        private void RemoveSelectedChannels()
+        {
+            if (service.IsLogging || isLoggerActive)
+                return;
+
+            var rows = channelsGrid.SelectedRows.Cast<DataGridViewRow>().Where(r => !r.IsNewRow).ToList();
+            if (rows.Count == 0)
+            {
+                MessageBox.Show("Select one or more channel rows to remove.",
+                    "No Selection", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            foreach (var row in rows)
+                channelsGrid.Rows.Remove(row);
+
+            RefreshRowActionState();
+            statusValueLabel.Text = $"Removed {rows.Count} channel(s)";
+            statusValueLabel.ForeColor = Color.Black;
+        }
+
+        private void ClearChannelsButton_Click(object? sender, EventArgs e)
+        {
+            if (service.IsLogging || isLoggerActive || channelsGrid.Rows.Count == 0)
+                return;
+
+            var confirm = MessageBox.Show($"Remove all {channelsGrid.Rows.Count} channel(s)?",
+                "Clear All Channels", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+            if (confirm != DialogResult.Yes)
+                return;
+
+            channelsGrid.Rows.Clear();
+            RefreshRowActionState();
+            statusValueLabel.Text = "Cleared all channels";
+            statusValueLabel.ForeColor = Color.Black;
+        }
+
+        private void ChannelsGrid_UserDeletingRow(object? sender, DataGridViewRowCancelEventArgs e)
+        {
+            // Block keyboard (Delete-key) removal while logging; config is otherwise locked.
+            if (service.IsLogging || isLoggerActive)
+                e.Cancel = true;
+        }
+
+        /// <summary>Enables Start / Remove / Clear based on logging state and whether rows exist.</summary>
+        private void RefreshRowActionState()
+        {
+            bool configurable = !service.IsLogging && !isLoggerActive;
+            bool hasRows = channelsGrid.Rows.Count > 0;
+            startButton.Enabled = configurable && hasRows;
+            removeChannelButton.Enabled = configurable && hasRows;
+            clearChannelsButton.Enabled = configurable && hasRows;
         }
 
         /// <summary>Commit checkbox/combobox edits immediately so a single click registers.</summary>
@@ -293,7 +349,7 @@ namespace LotusECMLogger.Controls
                 bool configurable = !service.IsLogging && !isLoggerActive;
                 testConnectionButton.Enabled = configurable;
                 addChannelsButton.Enabled = configurable;
-                startButton.Enabled = configurable && channelsGrid.Rows.Count > 0;
+                RefreshRowActionState();
             }
         }
 
@@ -357,10 +413,10 @@ namespace LotusECMLogger.Controls
 
         private void RefreshLiveUI()
         {
-            foreach (var kvp in latestValues)
+            foreach (DataGridViewRow row in channelsGrid.Rows)
             {
-                if (rowByChannelName.TryGetValue(kvp.Key, out int rowIdx) && rowIdx < channelsGrid.Rows.Count)
-                    channelsGrid.Rows[rowIdx].Cells[valueColumn.Index].Value = kvp.Value.value.ToString("F2");
+                if (row.Tag is HighSpeedChannel ch && latestValues.TryGetValue(ch.Name, out var v))
+                    row.Cells[valueColumn.Index].Value = v.value.ToString("F2");
             }
 
             framesValueLabel.Text = Volatile.Read(ref frameCount).ToString();
@@ -391,8 +447,8 @@ namespace LotusECMLogger.Controls
             channelsGrid.Enabled = configurable;
             addChannelsButton.Enabled = configurable;
             testConnectionButton.Enabled = configurable;
-            startButton.Enabled = configurable && channelsGrid.Rows.Count > 0;
             stopButton.Enabled = logging;
+            RefreshRowActionState();
 
             if (configurable && statusValueLabel.Text != "Stopped" && statusValueLabel.Text != "Error")
             {
