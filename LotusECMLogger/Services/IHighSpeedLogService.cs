@@ -65,6 +65,12 @@ namespace LotusECMLogger.Services
         bool IsLogging { get; }
 
         /// <summary>
+        /// Stream frames dropped because the writer/CSV thread fell behind and the bounded hand-off
+        /// queue filled (e.g. a sustained disk stall). 0 in normal operation.
+        /// </summary>
+        long DroppedFrames { get; }
+
+        /// <summary>
         /// Builds a channel program from the selected (channel, rateHz) pairs, configures and arms the
         /// ECU, and begins streaming to <paramref name="csvFilePath"/>. Throws if a session is already
         /// active or the selection cannot be packed into the ECU's capacity.

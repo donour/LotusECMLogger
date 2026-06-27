@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Globalization;
 using System.Text;
@@ -39,11 +40,18 @@ namespace LotusECMLogger.Services
         private const int StreamReadTimeoutMs = 100;
         private const int CsvFlushEveryRows = 100;
 
+        // Hand-off buffer between the CAN-drain thread and the CSV-writer thread. Bounded so a disk
+        // stall can't grow memory without limit: 1024 frames × (≤7-byte payload + small struct) is well
+        // under 128 kB. Beyond this the drain thread drops frames (counted) rather than blocking — a
+        // blocked drain would just push the overflow back onto the J2534 driver's RX buffer.
+        private const int MaxQueuedFrames = 1024;
+
         private readonly object _lock = new();
 
         private J2534Session? _session;
         private J2534Channel? _channel;
-        private Thread? _loggingThread;
+        private Thread? _loggingThread;   // CAN-drain (producer)
+        private Thread? _writerThread;    // decode + CSV + events (consumer)
         private bool _isLogging;
         private byte _seq;
 
@@ -54,12 +62,36 @@ namespace LotusECMLogger.Services
         private string? _csvFilePath;
         private int _csvRowsSinceFlush;
 
+        private BlockingCollection<StreamWorkItem>? _writeQueue;
+        private long _droppedFrames;
+
         public event EventHandler<HighSpeedSampleEventArgs>? DataReceived;
         public event EventHandler<string>? ErrorOccurred;
 
         public bool IsLogging
         {
             get { lock (_lock) { return _isLogging; } }
+        }
+
+        /// <summary>
+        /// Number of stream frames dropped because the writer thread could not keep up and the bounded
+        /// hand-off queue was full (e.g. a sustained disk stall). 0 in normal operation.
+        /// </summary>
+        public long DroppedFrames => Interlocked.Read(ref _droppedFrames);
+
+        /// <summary>
+        /// One CAN stream frame handed from the drain thread to the writer thread. The payload bytes are
+        /// copied out of the J2534 buffer so they stay valid across the thread boundary.
+        /// </summary>
+        private readonly struct StreamWorkItem(
+            byte[] payload, IReadOnlyList<HighSpeedChannel> layout, DateTime timestamp, ulong elapsedUs, byte label, bool overflow)
+        {
+            public byte[] Payload { get; } = payload;
+            public IReadOnlyList<HighSpeedChannel> Layout { get; } = layout;
+            public DateTime Timestamp { get; } = timestamp;
+            public ulong ElapsedUs { get; } = elapsedUs;
+            public byte Label { get; } = label;
+            public bool Overflow { get; } = overflow;
         }
 
         public void StartLogging(IReadOnlyList<(HighSpeedChannel channel, int rateHz)> channels, string csvFilePath)
@@ -85,7 +117,18 @@ namespace LotusECMLogger.Services
                     InitializeDevice();
                     InitializeCsvFile(channels);
 
+                    Interlocked.Exchange(ref _droppedFrames, 0);
+                    _writeQueue = new BlockingCollection<StreamWorkItem>(MaxQueuedFrames);
                     _isLogging = true;
+
+                    // Consumer first (it just blocks on the queue until the producer feeds it).
+                    _writerThread = new Thread(WriterThreadProc)
+                    {
+                        Name = "HighSpeedLog Writer",
+                        IsBackground = true,
+                    };
+                    _writerThread.Start();
+
                     _loggingThread = new Thread(LoggingThreadProc)
                     {
                         Name = "HighSpeedLog Thread",
@@ -97,6 +140,7 @@ namespace LotusECMLogger.Services
                 }
                 catch (Exception ex)
                 {
+                    _isLogging = false;
                     CleanupResources();
                     throw new InvalidOperationException($"Failed to start high-speed logging: {ex.Message}", ex);
                 }
@@ -105,19 +149,28 @@ namespace LotusECMLogger.Services
 
         public void StopLogging()
         {
-            Thread? thread;
+            Thread? producer, writer;
             lock (_lock)
             {
-                if (!_isLogging && _loggingThread == null)
+                if (!_isLogging && _loggingThread == null && _writerThread == null)
                     return;
                 _isLogging = false;
-                thread = _loggingThread;
+                producer = _loggingThread;
+                writer = _writerThread;
             }
 
-            // Let the streaming thread exit (and send its 0x07 stop) before disposing the channel.
-            // Guard against a self-join if Stop is ever invoked from the logging thread itself.
-            if (thread != null && thread != Thread.CurrentThread)
-                thread.Join(TimeSpan.FromSeconds(5));
+            // Drain thread exits its read loop (and sends its 0x07 stop), then completes the queue in its
+            // finally so the writer can flush the backlog and exit. Guard against a self-join if Stop is
+            // ever invoked from one of these threads.
+            if (producer != null && producer != Thread.CurrentThread)
+                producer.Join(TimeSpan.FromSeconds(5));
+
+            // Defensive: if the producer timed out or died before completing the queue, do it here so the
+            // writer can still drain and exit. Safe to call more than once.
+            try { _writeQueue?.CompleteAdding(); } catch (ObjectDisposedException) { }
+
+            if (writer != null && writer != Thread.CurrentThread)
+                writer.Join(TimeSpan.FromSeconds(5));
 
             lock (_lock)
             {
@@ -231,6 +284,25 @@ namespace LotusECMLogger.Services
             finally
             {
                 TrySendStop();
+                // No more frames are coming — let the writer drain the backlog and exit.
+                try { _writeQueue?.CompleteAdding(); } catch (ObjectDisposedException) { }
+            }
+        }
+
+        // Consumer: decodes queued frames, writes the CSV, and raises DataReceived — all off the CAN-drain
+        // thread, so disk latency here cannot stall the J2534 read loop.
+        private void WriterThreadProc()
+        {
+            try
+            {
+                foreach (var item in _writeQueue!.GetConsumingEnumerable())
+                    ProcessFrame(in item);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"HighSpeedLog: writer error: {ex}");
+                lock (_lock) { _isLogging = false; }
+                ErrorOccurred?.Invoke(this, ex.Message);
             }
         }
 
@@ -311,18 +383,35 @@ namespace LotusECMLogger.Services
                         continue;
 
                     DateTime timestamp = wallAnchor.AddTicks((long)elapsedUs * TimeSpan.TicksPerMicrosecond);
-                    DecodeFrame(msg.Data, label, overflow, layout, timestamp, elapsedUs);
+
+                    // Copy the payload (bytes after [header][label]) so it stays valid on the writer thread.
+                    ReadOnlySpan<byte> src = msg.Data.AsSpan(5);
+                    var payload = src.ToArray();
+
+                    var item = new StreamWorkItem(payload, layout, timestamp, elapsedUs, label, overflow);
+                    try
+                    {
+                        // Non-blocking: if the writer has fallen behind and the queue is full, drop this
+                        // frame (counted) rather than stalling the CAN drain.
+                        if (!_writeQueue!.TryAdd(item))
+                            Interlocked.Increment(ref _droppedFrames);
+                    }
+                    catch (InvalidOperationException)
+                    {
+                        break; // queue completed (stop in progress)
+                    }
                 }
             }
         }
 
-        private void DecodeFrame(byte[] data, byte label, bool overflow, IReadOnlyList<HighSpeedChannel> layout, DateTime timestamp, ulong elapsedUs)
+        // Decode one frame's channels, write its CSV row, and raise DataReceived. Runs on the writer thread.
+        private void ProcessFrame(in StreamWorkItem item)
         {
-            ReadOnlySpan<byte> payload = data.AsSpan(5); // bytes after [header][label]
+            ReadOnlySpan<byte> payload = item.Payload;
 
-            var readings = new List<HighSpeedReading>(layout.Count);
+            var readings = new List<HighSpeedReading>(item.Layout.Count);
             int offset = 0;
-            foreach (var ch in layout)
+            foreach (var ch in item.Layout)
             {
                 if (offset >= payload.Length)
                     break;
@@ -333,13 +422,13 @@ namespace LotusECMLogger.Services
                 offset += ch.Size;
             }
 
-            WriteCsvRow(timestamp, elapsedUs, label);
+            WriteCsvRow(item.Timestamp, item.ElapsedUs, item.Label);
 
             DataReceived?.Invoke(this, new HighSpeedSampleEventArgs
             {
-                Timestamp = timestamp,
-                Label = label,
-                Overflow = overflow,
+                Timestamp = item.Timestamp,
+                Label = item.Label,
+                Overflow = item.Overflow,
                 Readings = readings,
             });
         }
@@ -437,10 +526,14 @@ namespace LotusECMLogger.Services
                 _csvWriter?.Dispose();
                 _csvWriter = null;
 
+                _writeQueue?.Dispose();
+                _writeQueue = null;
+
                 _session?.Dispose(); // disposes channel + device too
                 _session = null;
                 _channel = null;
                 _loggingThread = null;
+                _writerThread = null;
                 _plan = null;
             }
             catch (Exception ex)
