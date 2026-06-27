@@ -1,25 +1,39 @@
 {
-  // Sample preset for the C132E0278 (GT430) ECU. Channels reference symbols by name; the app resolves
-  // each one's address, size, scale, offset and unit from config/highSpeedLogger/database/C132E0278.csv
-  // (parsed from the Ghidra "Data Type"). Use "Add Channels…" in the High-Speed Log tab to browse the
-  // full catalog. "rate" is the sample rate in Hz and marks the channel selected; set
-  // "defaultSelected": false to list a channel without pre-checking it.
+  // Sample preset for the C132E0278 (GT430) ECU. Scalar channels reference symbols by name; the app
+  // resolves each one's address, size, scale, offset and unit from
+  // config/highSpeedLogger/database/C132E0278.csv (parsed from the Ghidra "Data Type"). Per-cylinder
+  // values live in [6] arrays the catalog hides, so they are listed as explicit address channels
+  // (base + element offset, with defaultSelected so they start checked). Use "Add Channels…" in the
+  // High-Speed Log tab to browse the full catalog.
   "name": "GT430 Sample (C132E0278)",
-  "description": "Symbol-referenced sample. Size/scale/unit are derived from the symbol catalog.",
+  "description": "TPS, pedal, per-cylinder ignition advance & knock retard, AFR, MAF, load, IAT.",
   "ecuVersion": "C132E0278",
   "channels": [
-    { "symbol": "engine_speed_2",               "rate": 100 },
-    { "symbol": "tps_u16",                       "rate": 100 },
-    { "symbol": "accel_pedal_pos",              "rate": 100 },
-    { "symbol": "manifold_pressure_calculated", "rate": 50  },
-    { "symbol": "coolant_temp",                 "rate": 5   },
+    { "symbol": "tps2",                  "rate": 100 },
+    { "symbol": "accel_pedal_pos",       "rate": 100 },
 
-    { "symbol": "knock_sensor1_voltage",        "rate": 100, "defaultSelected": false },
-    { "symbol": "knock_sensor2_voltage",        "rate": 100, "defaultSelected": false },
-    { "symbol": "tps_feedback_position",        "rate": 50,  "defaultSelected": false },
-    { "symbol": "engine_speed_reference_x256",  "rate": 50,  "defaultSelected": false },
-    { "symbol": "afr_commanded",                "rate": 20,  "defaultSelected": false },
-    { "symbol": "iat",                          "rate": 5,   "defaultSelected": false },
-    { "symbol": "fuel_level",                   "rate": 1,   "defaultSelected": false }
+    // Ignition advance per cylinder — obd_ii_ign_adv_per_cylinder, i16_angle_1/4deg[6] @ 0x40001924
+    { "name": "Ign Advance Cyl 1", "address": "0x40001924", "size": 2, "signed": true, "scale": 0.25, "unit": "deg", "defaultSelected": true, "rate": 100 },
+    { "name": "Ign Advance Cyl 2", "address": "0x40001926", "size": 2, "signed": true, "scale": 0.25, "unit": "deg", "defaultSelected": true, "rate": 100 },
+    { "name": "Ign Advance Cyl 3", "address": "0x40001928", "size": 2, "signed": true, "scale": 0.25, "unit": "deg", "defaultSelected": true, "rate": 100 },
+    { "name": "Ign Advance Cyl 4", "address": "0x4000192a", "size": 2, "signed": true, "scale": 0.25, "unit": "deg", "defaultSelected": true, "rate": 100 },
+    { "name": "Ign Advance Cyl 5", "address": "0x4000192c", "size": 2, "signed": true, "scale": 0.25, "unit": "deg", "defaultSelected": true, "rate": 100 },
+    { "name": "Ign Advance Cyl 6", "address": "0x4000192e", "size": 2, "signed": true, "scale": 0.25, "unit": "deg", "defaultSelected": true, "rate": 100 },
+
+    // Knock retard per cylinder — ign_retard_knock, u8_angle_1/4deg[6] @ 0x40001e38
+    { "name": "Knock Retard Cyl 1", "address": "0x40001e38", "size": 1, "scale": 0.25, "unit": "deg", "defaultSelected": true, "rate": 100 },
+    { "name": "Knock Retard Cyl 2", "address": "0x40001e39", "size": 1, "scale": 0.25, "unit": "deg", "defaultSelected": true, "rate": 100 },
+    { "name": "Knock Retard Cyl 3", "address": "0x40001e3a", "size": 1, "scale": 0.25, "unit": "deg", "defaultSelected": true, "rate": 100 },
+    { "name": "Knock Retard Cyl 4", "address": "0x40001e3b", "size": 1, "scale": 0.25, "unit": "deg", "defaultSelected": true, "rate": 100 },
+    { "name": "Knock Retard Cyl 5", "address": "0x40001e3c", "size": 1, "scale": 0.25, "unit": "deg", "defaultSelected": true, "rate": 100 },
+    { "name": "Knock Retard Cyl 6", "address": "0x40001e3d", "size": 1, "scale": 0.25, "unit": "deg", "defaultSelected": true, "rate": 100 },
+
+    { "symbol": "afr_commanded",         "rate": 50 },
+    { "symbol": "map",                   "rate": 50 },
+    { "symbol": "maf_flow",              "rate": 50 },
+    { "symbol": "load_mass_per_stroke",  "rate": 50 },
+    { "symbol": "torque_limit",                 "rate": 50 },
+    { "symbol": "torque_net_engine_combustion", "rate": 50 },
+    { "symbol": "iat",                   "rate": 5  }
   ]
 }
