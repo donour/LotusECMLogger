@@ -12,9 +12,11 @@ namespace LotusECMLogger.Controls
         private readonly IObdResetService _resetService;
         private readonly IVinSetService _vinSetService;
         private readonly IT6RMAService _rmaService;
+        private readonly IHighSpeedLogService _highSpeedLogService;
         private List<VehicleParameterReading> vehicleDataSnapshot = [];
 
         private enum EcuUnlockState { Unknown, Locked, Unlocked }
+        private enum HighSpeedState { Unknown, Unavailable, Available }
 
         private bool _isLoggerActive;
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
@@ -36,8 +38,10 @@ namespace LotusECMLogger.Controls
             _resetService = new J2534ObdResetService();
             _vinSetService = new J2534VinSetService();
             _rmaService = new T6RMAService();
+            _highSpeedLogService = new HighSpeedLogService();
             SetupListViewColumns();
             SetUnlockIndicator(EcuUnlockState.Unknown);
+            SetHighSpeedIndicator(HighSpeedState.Unknown);
             GuiIcons.ApplyToButton(readDataButton, GuiIcons.Read);
             GuiIcons.ApplyToButton(resetButton, GuiIcons.UpdateRestore);
             GuiIcons.ApplyToButton(setVinButton, GuiIcons.Write);
@@ -126,6 +130,7 @@ namespace LotusECMLogger.Controls
             readDataButton.Enabled = false;
             readDataButton.Text = "Loading...";
             SetUnlockIndicator(EcuUnlockState.Unknown);
+            SetHighSpeedIndicator(HighSpeedState.Unknown);
 
             // Snapshot UI/shared state on the UI thread; the worker must not read instance fields.
             bool loggerActive = _isLoggerActive;
@@ -133,13 +138,14 @@ namespace LotusECMLogger.Controls
             try
             {
                 // All blocking J2534 work runs off the UI thread so the window stays responsive.
-                var (readings, unlockState) =
+                var (readings, unlockState, highSpeedState) =
                     await Task.Run(() => GatherVehicleData(loggerActive));
 
                 // Resumes on the UI thread — safe to touch controls and the shared field.
                 vehicleDataSnapshot = readings;
                 UpdateVehicleInfoView();
                 SetUnlockIndicator(unlockState);
+                SetHighSpeedIndicator(highSpeedState);
 
                 MessageBox.Show($"Successfully loaded {readings.Count} vehicle data points!",
                     "Load Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -147,6 +153,7 @@ namespace LotusECMLogger.Controls
             catch (Exception ex)
             {
                 SetUnlockIndicator(EcuUnlockState.Unknown);
+                SetHighSpeedIndicator(HighSpeedState.Unknown);
                 MessageBox.Show($"Error loading vehicle data: {ex.Message}", "Load Error",
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
@@ -159,7 +166,7 @@ namespace LotusECMLogger.Controls
 
         // Runs on a thread-pool thread. Performs all J2534 I/O and returns the data; touches no UI
         // and no instance fields that the UI thread also uses, so it cannot race with the UI.
-        private (List<VehicleParameterReading> Readings, EcuUnlockState UnlockState)
+        private (List<VehicleParameterReading> Readings, EcuUnlockState UnlockState, HighSpeedState HighSpeedState)
             GatherVehicleData(bool loggerActive)
         {
             var readings = new List<VehicleParameterReading>();
@@ -211,7 +218,13 @@ namespace LotusECMLogger.Controls
             // as the liveness check: data present + no RMA reply => genuinely locked; no data at
             // all => ECU not reachable, so leave the state Unknown.
             var unlockState = ProbeUnlockState(loggerActive, ecuAlive: readings.Count > 0);
-            return (readings, unlockState);
+
+            // Probe whether the high-speed channel logger is present, using the same open-session +
+            // identify handshake as the High-Speed Log tab's Test Connection button. Opens its own
+            // temporary CAN session, so it runs after the channels above are closed.
+            var highSpeedState = ProbeHighSpeedState(loggerActive);
+
+            return (readings, unlockState, highSpeedState);
         }
 
         private void UpdateVehicleInfoView()
@@ -252,6 +265,52 @@ namespace LotusECMLogger.Controls
             {
                 System.Diagnostics.Debug.WriteLine($"Unlock probe failed: {ex.Message}");
                 return EcuUnlockState.Unknown;
+            }
+        }
+
+        // Probes the ECU's high-speed channel logger with the open-session + identify handshake. Pure
+        // I/O + logic, no UI — runs on the worker thread. The logger answering identify with its
+        // capability magic => Available; the diagnostic bus is alive but the logger does not respond
+        // (or returns a different protocol) => Unavailable; the bus is unreachable => Unknown.
+        private HighSpeedState ProbeHighSpeedState(bool loggerActive)
+        {
+            // Skip while logging holds the J2534 device; the probe opens its own CAN session.
+            if (loggerActive)
+                return HighSpeedState.Unknown;
+
+            try
+            {
+                var result = _highSpeedLogService.Identify();
+                if (!result.SessionOpened)
+                    return HighSpeedState.Unknown;
+                return result.IsChannelLogger ? HighSpeedState.Available : HighSpeedState.Unavailable;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"High-speed probe failed: {ex.Message}");
+                return HighSpeedState.Unknown;
+            }
+        }
+
+        private void SetHighSpeedIndicator(HighSpeedState state)
+        {
+            switch (state)
+            {
+                case HighSpeedState.Available:
+                    highSpeedIndicatorLabel.Text = "HS LOGGER: AVAILABLE";
+                    highSpeedIndicatorLabel.BackColor = Color.FromArgb(46, 160, 67);
+                    highSpeedIndicatorLabel.ForeColor = Color.White;
+                    break;
+                case HighSpeedState.Unavailable:
+                    highSpeedIndicatorLabel.Text = "HS LOGGER: UNAVAILABLE";
+                    highSpeedIndicatorLabel.BackColor = Color.FromArgb(207, 34, 46);
+                    highSpeedIndicatorLabel.ForeColor = Color.White;
+                    break;
+                default:
+                    highSpeedIndicatorLabel.Text = "HS LOGGER: UNKNOWN";
+                    highSpeedIndicatorLabel.BackColor = Color.Gainsboro;
+                    highSpeedIndicatorLabel.ForeColor = Color.DimGray;
+                    break;
             }
         }
 
