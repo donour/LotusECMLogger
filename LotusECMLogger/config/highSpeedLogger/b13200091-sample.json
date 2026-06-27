@@ -1,6 +1,6 @@
 {
   // Sample preset for the B13200091 ECU. Channels reference symbols by name; the app resolves
-  // each one's address, size, scale, offset and unit from config/highSpeedLogger/symbols/B13200091.csv
+  // each one's address, size, scale, offset and unit from config/highSpeedLogger/database/B13200091.csv
   // (parsed from the Ghidra "Data Type"). Use "Add Channels…" in the High-Speed Log tab to browse the
   // full catalog. "rate" is the sample rate in Hz and marks the channel selected; set
   // "defaultSelected": false to list a channel without pre-checking it.

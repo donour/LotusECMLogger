@@ -32,7 +32,7 @@ namespace LotusECMLogger.Controls
 
             if (catalogs.Count == 0)
             {
-                countLabel.Text = "No symbol catalogs found in config/highSpeedLogger/symbols";
+                countLabel.Text = "No symbol catalogs found in config/highSpeedLogger/database";
                 addButton.Enabled = false;
                 searchTextBox.Enabled = false;
                 return;

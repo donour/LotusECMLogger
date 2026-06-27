@@ -5,7 +5,7 @@ namespace LotusECMLogger.Services
 {
     /// <summary>
     /// Discovers and loads per-ECU symbol catalogs from Ghidra CSV exports under
-    /// <c>config\highSpeedLogger\symbols\*.csv</c>. Keeps only loggable RAM "Data Label" rows
+    /// <c>config\highSpeedLogger\database\*.csv</c>. Keeps only loggable RAM "Data Label" rows
     /// (0x40000000–0x4000FFFF), parses each row's Data Type via <see cref="ChannelTypeParser"/>,
     /// and infers the size of unknown-typed entries from the gap to the next symbol address.
     /// Parsed catalogs are cached per ECU. Follows the dual-path lookup of
@@ -13,7 +13,7 @@ namespace LotusECMLogger.Services
     /// </summary>
     public static class SymbolCatalogLoader
     {
-        private const string SymbolsSubDir = "config\\highSpeedLogger\\symbols";
+        private const string SymbolsSubDir = "config\\highSpeedLogger\\database";
         private const uint RamStart = 0x4000_0000;
         private const uint RamEnd = 0x4000_FFFF;
 

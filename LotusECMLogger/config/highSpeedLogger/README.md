@@ -6,9 +6,9 @@ picked two ways:
 1. **Add Channels… dialog** — browse/search the ECU's full symbol catalog and multi-select labels.
 2. **Presets** (`*.json` in this folder) — a saved, named set of channels for an ECU.
 
-## Symbol catalog (`symbols/`)
+## Symbol catalog (`database/`)
 
-`symbols/<ECU>.csv` is a Ghidra symbol export for one ECU (e.g. `C132E0278.csv`, `B13200091.csv`).
+`database/<ECU>.csv` is a Ghidra symbol export for one ECU (e.g. `C132E0278.csv`, `B13200091.csv`).
 The app loads the matching catalog for a preset's `ecuVersion`, keeps the loggable **RAM Data Labels**
 (`0x40000000`–`0x4000FFFF`), and derives each channel's metadata from the CSV's **`Data Type`** column:
 
@@ -37,8 +37,8 @@ percent (`u8_dutycycle_100/255`, `u8_percent_100/128-100`) are taken as-is — n
 ~31 rpm-resolution. Prefer the precise `engine_speed_2` (`u16_rspeed_rpm`, 1 rpm/count) for engine
 speed; the sample presets use it.
 
-To add a new ECU, drop its `<ECU>.csv` in `symbols/` (the file name, minus any `_symbols` suffix, is
-the `ecuVersion`). The shipped catalogs are build-copied from `references/*.csv`.
+To add a new ECU, drop its `<ECU>.csv` in `database/` (the file name, minus any `_symbols` suffix, is
+the `ecuVersion`). These CSVs live in the project and are build-copied to the output `database/` dir.
 
 ## Preset schema
 
@@ -46,7 +46,7 @@ the `ecuVersion`). The shipped catalogs are build-copied from `references/*.csv`
 {
   "name": "GT430 Sample (C132E0278)",
   "description": "…",
-  "ecuVersion": "C132E0278",          // selects symbols/C132E0278.csv
+  "ecuVersion": "C132E0278",          // selects database/C132E0278.csv
   "channels": [
     // Symbol reference — address/size/scale/offset/unit resolved from the catalog:
     { "symbol": "engine_speed_3", "rate": 100 },
