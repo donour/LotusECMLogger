@@ -51,7 +51,7 @@ namespace LotusECMLogger.Controls
                 rateColumn.Items.Add(rate);
 
             csvPathTextBox.Text =
-                $"{Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)}\\HighSpeedLog_{DateTime.Now:yyyyMMddTHHmmss}.csv";
+                $"{Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)}\\LotusECMLog\\HighSpeed_{DateTime.Now:yyyyMMddTHHmmss}.csv";
 
             RefreshPresets();
             UpdateUIState();
