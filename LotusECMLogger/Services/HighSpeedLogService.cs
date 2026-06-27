@@ -217,11 +217,10 @@ namespace LotusECMLogger.Services
 
         private void LoggingThreadProc()
         {
-            var stopwatch = Stopwatch.StartNew();
             try
             {
                 ConfigureEcu();
-                StreamLoop(stopwatch);
+                StreamLoop();
             }
             catch (Exception ex)
             {
@@ -232,7 +231,6 @@ namespace LotusECMLogger.Services
             finally
             {
                 TrySendStop();
-                stopwatch.Stop();
             }
         }
 
@@ -270,8 +268,16 @@ namespace LotusECMLogger.Services
             SendAndExpectAck(CmdStartStopAll, 0x01);
         }
 
-        private void StreamLoop(Stopwatch stopwatch)
+        // The ECU stream is timestamped by the J2534 adapter (Message.Timestamp, microseconds). We anchor
+        // wall-clock to the first frame and derive each row's time from the hardware timestamp, so frames
+        // read together in one batch get distinct, accurate times instead of one shared processing time.
+        private void StreamLoop()
         {
+            DateTime wallAnchor = default;
+            bool haveAnchor = false;
+            uint rawT0 = 0, rawLast = 0;
+            ulong wrapAccum = 0; // accumulated 2^32-µs rollovers (the counter wraps ~every 71.6 min)
+
             while (IsLogging)
             {
                 var result = _channel!.ReadMessages(16, StreamReadTimeoutMs);
@@ -284,18 +290,34 @@ namespace LotusECMLogger.Services
                     if (b0 == ResponseMarker)
                         continue; // stray command response during streaming
 
+                    // Advance the hardware-timestamp clock for every stream frame (handles rollover).
+                    uint raw = msg.Timestamp;
+                    if (!haveAnchor)
+                    {
+                        wallAnchor = DateTime.Now;
+                        rawT0 = rawLast = raw;
+                        haveAnchor = true;
+                    }
+                    else if (raw < rawLast)
+                    {
+                        wrapAccum += 0x1_0000_0000UL;
+                    }
+                    rawLast = raw;
+                    ulong elapsedUs = wrapAccum + raw - rawT0;
+
                     byte label = (byte)(b0 & 0x7F);
                     bool overflow = (b0 & 0x80) != 0;
+                    if (!_plan!.LayoutByLabel.TryGetValue(label, out var layout))
+                        continue;
 
-                    if (_plan!.LayoutByLabel.TryGetValue(label, out var layout))
-                        DecodeFrame(msg.Data, label, overflow, layout, stopwatch.ElapsedMilliseconds);
+                    DateTime timestamp = wallAnchor.AddTicks((long)elapsedUs * TimeSpan.TicksPerMicrosecond);
+                    DecodeFrame(msg.Data, label, overflow, layout, timestamp, elapsedUs);
                 }
             }
         }
 
-        private void DecodeFrame(byte[] data, byte label, bool overflow, IReadOnlyList<HighSpeedChannel> layout, long relativeMs)
+        private void DecodeFrame(byte[] data, byte label, bool overflow, IReadOnlyList<HighSpeedChannel> layout, DateTime timestamp, ulong elapsedUs)
         {
-            var timestamp = DateTime.Now;
             ReadOnlySpan<byte> payload = data.AsSpan(5); // bytes after [header][label]
 
             var readings = new List<HighSpeedReading>(layout.Count);
@@ -311,7 +333,7 @@ namespace LotusECMLogger.Services
                 offset += ch.Size;
             }
 
-            WriteCsvRow(timestamp, relativeMs, label);
+            WriteCsvRow(timestamp, elapsedUs, label);
 
             DataReceived?.Invoke(this, new HighSpeedSampleEventArgs
             {
@@ -322,14 +344,14 @@ namespace LotusECMLogger.Services
             });
         }
 
-        private void WriteCsvRow(DateTime timestamp, long relativeMs, byte label)
+        private void WriteCsvRow(DateTime timestamp, ulong elapsedUs, byte label)
         {
             if (_csvWriter == null)
                 return;
 
             var sb = new StringBuilder();
-            sb.Append(timestamp.ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture));
-            sb.Append(',').Append(relativeMs);
+            sb.Append(timestamp.ToString("yyyy-MM-dd HH:mm:ss.ffffff", CultureInfo.InvariantCulture));
+            sb.Append(',').Append((elapsedUs / 1000.0).ToString("F3", CultureInfo.InvariantCulture));
             sb.Append(',').Append(label);
             foreach (var name in _columnNames)
             {
