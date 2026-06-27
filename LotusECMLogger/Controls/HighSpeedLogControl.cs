@@ -283,6 +283,8 @@ namespace LotusECMLogger.Controls
                 latestValues.Clear();
                 Interlocked.Exchange(ref frameCount, 0);
                 framesValueLabel.Text = "0";
+                droppedValueLabel.Text = "0";
+                droppedValueLabel.ForeColor = SystemColors.ControlText;
 
                 service.StartLogging(selected, csvPath);
 
@@ -421,6 +423,10 @@ namespace LotusECMLogger.Controls
 
             framesValueLabel.Text = Volatile.Read(ref frameCount).ToString();
             lastUpdateValueLabel.Text = lastSampleTime.ToString("HH:mm:ss.fff");
+
+            long dropped = service.DroppedFrames;
+            droppedValueLabel.Text = dropped.ToString();
+            droppedValueLabel.ForeColor = dropped > 0 ? Color.Red : SystemColors.ControlText;
         }
 
         private void OnErrorOccurred(object? sender, string message)

@@ -56,6 +56,8 @@ namespace LotusECMLogger.Controls
             framesValueLabel = new Label();
             lastUpdateLabel = new Label();
             lastUpdateValueLabel = new Label();
+            droppedLabel = new Label();
+            droppedValueLabel = new Label();
             layoutPanel.SuspendLayout();
             configGroupBox.SuspendLayout();
             configLayout.SuspendLayout();
@@ -337,9 +339,12 @@ namespace LotusECMLogger.Controls
             statusLayout.Controls.Add(framesValueLabel, 1, 1);
             statusLayout.Controls.Add(lastUpdateLabel, 0, 2);
             statusLayout.Controls.Add(lastUpdateValueLabel, 1, 2);
+            statusLayout.Controls.Add(droppedLabel, 0, 3);
+            statusLayout.Controls.Add(droppedValueLabel, 1, 3);
             statusLayout.Dock = DockStyle.Fill;
             statusLayout.Name = "statusLayout";
-            statusLayout.RowCount = 3;
+            statusLayout.RowCount = 4;
+            statusLayout.RowStyles.Add(new RowStyle());
             statusLayout.RowStyles.Add(new RowStyle());
             statusLayout.RowStyles.Add(new RowStyle());
             statusLayout.RowStyles.Add(new RowStyle());
@@ -380,6 +385,18 @@ namespace LotusECMLogger.Controls
             lastUpdateValueLabel.AutoSize = true;
             lastUpdateValueLabel.Name = "lastUpdateValueLabel";
             lastUpdateValueLabel.Text = "—";
+            //
+            // droppedLabel
+            //
+            droppedLabel.AutoSize = true;
+            droppedLabel.Name = "droppedLabel";
+            droppedLabel.Text = "Dropped:";
+            //
+            // droppedValueLabel
+            //
+            droppedValueLabel.AutoSize = true;
+            droppedValueLabel.Name = "droppedValueLabel";
+            droppedValueLabel.Text = "0";
             //
             // HighSpeedLogControl
             //
@@ -449,5 +466,7 @@ namespace LotusECMLogger.Controls
         private Label framesValueLabel;
         private Label lastUpdateLabel;
         private Label lastUpdateValueLabel;
+        private Label droppedLabel;
+        private Label droppedValueLabel;
     }
 }
