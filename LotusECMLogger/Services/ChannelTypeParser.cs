@@ -64,7 +64,7 @@ namespace LotusECMLogger.Services
         // Light prettifying of the raw unit token for display.
         private static readonly Dictionary<string, string> PrettyUnits = new(StringComparer.Ordinal)
         {
-            ["c"] = "°C", ["v"] = "V", ["nm"] = "Nm", ["kph"] = "km/h",
+            ["c"] = "°C", ["v"] = "V", ["nm"] = "Nm", ["kph"] = "km/h", ["pct"] = "%",
         };
 
         private static readonly Regex EncodedRe =
@@ -144,6 +144,16 @@ namespace LotusECMLogger.Services
             double den = m.Groups["den"].Success ? double.Parse(m.Groups["den"].Value, CultureInfo.InvariantCulture) : 1.0;
             double offset = m.Groups["off"].Success ? double.Parse(m.Groups["off"].Value, CultureInfo.InvariantCulture) : 0.0;
             string unit = m.Groups["unit"].Value.Trim();
+            double scale = den != 0 ? num / den : num;
+
+            // "factor" is a normalized 0..1 fraction whose denominator is the full-scale count
+            // (e.g. u16_factor_1/1023). Express it as a percentage so full scale reads 100%, unless the
+            // type names its own unit (e.g. i16_factor_1/10pct is already scaled to percent).
+            if (qty == "factor" && unit.Length == 0)
+            {
+                scale *= 100.0;
+                unit = "%";
+            }
 
             if (unit.Length == 0)
                 DefaultUnits.TryGetValue(qty, out unit!);
@@ -155,7 +165,7 @@ namespace LotusECMLogger.Services
             {
                 Size = size,
                 Signed = signed,
-                Scale = den != 0 ? num / den : num,
+                Scale = scale,
                 Offset = offset,
                 Unit = unit,
                 Category = qty,

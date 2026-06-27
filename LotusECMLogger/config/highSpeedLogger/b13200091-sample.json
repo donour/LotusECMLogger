@@ -8,7 +8,7 @@
   "description": "Symbol-referenced sample. Size/scale/unit are derived from the symbol catalog.",
   "ecuVersion": "B13200091",
   "channels": [
-    { "symbol": "engine_speed_3",        "rate": 100 },
+    { "symbol": "engine_speed_2",        "rate": 100 },
     { "symbol": "tps_u16",               "rate": 100 },
     { "symbol": "accel_pedal_pos",       "rate": 100 },
     { "symbol": "map",                   "rate": 50  },
@@ -17,7 +17,6 @@
     { "symbol": "knock_sensor_b1_dc_bias", "rate": 100, "defaultSelected": false },
     { "symbol": "knock_sensor_b2_dc_bias", "rate": 100, "defaultSelected": false },
     { "symbol": "tps_feedback_position",   "rate": 50,  "defaultSelected": false },
-    { "symbol": "engine_speed_2",          "rate": 50,  "defaultSelected": false },
     { "symbol": "afr_target",              "rate": 20,  "defaultSelected": false },
     { "symbol": "air_temp_intake",         "rate": 5,   "defaultSelected": false },
     { "symbol": "fuel_level",              "rate": 1,   "defaultSelected": false }

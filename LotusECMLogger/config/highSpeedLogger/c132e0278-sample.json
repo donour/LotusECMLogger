@@ -8,7 +8,7 @@
   "description": "Symbol-referenced sample. Size/scale/unit are derived from the symbol catalog.",
   "ecuVersion": "C132E0278",
   "channels": [
-    { "symbol": "engine_speed_3",               "rate": 100 },
+    { "symbol": "engine_speed_2",               "rate": 100 },
     { "symbol": "tps_u16",                       "rate": 100 },
     { "symbol": "accel_pedal_pos",              "rate": 100 },
     { "symbol": "manifold_pressure_calculated", "rate": 50  },

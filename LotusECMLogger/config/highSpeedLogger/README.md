@@ -18,6 +18,7 @@ The app loads the matching catalog for a preset's `ecuVersion`, keeps the loggab
 | | `u16_voltage_5/1023v` | 2 B, ×(5/1023), V |
 | | `i16_angle_1/4deg` | 2 B signed, ×0.25, deg |
 | | `u16_afr_1/100` | 2 B, ×0.01, AFR |
+| | `u16_factor_1/1023` | 2 B, ×(100/1023), **%** (see below) |
 | Base C | `uint16_t`, `int8_t`, `bool`, `pointer` | size + signedness; raw scale |
 | Array `…[N]` | `u8_temp_5/8-40c[16]` | a table/map — hidden from logging by default |
 | Unknown / `enum_*` | `enum_gear`, `cluster_data` | size from prefix or gap; raw |
@@ -25,6 +26,16 @@ The app loads the matching catalog for a preset's `ecuVersion`, keeps the loggab
 The `Data Type` value before a unit is read as a **multiplier** (units-per-count), e.g. `10rpm` = ×10.
 A few fixed-point types name the divisor instead (e.g. `u32_rspeed_1024rpm` likely means ÷1024); these
 parse with the multiplier rule and may need the scale corrected — every channel is editable.
+
+**`factor` types are normalized fractions shown as percent (0–100%).** The denominator is the full-scale
+count, so `u16_factor_1/1023` (a 10-bit ADC reading like `tps_u16`) is scaled ×100/1023 and labelled
+`%`, giving 0–100%. Types that already name a percent unit (`i16_factor_1/10pct`) or pre-scale to
+percent (`u8_dutycycle_100/255`, `u8_percent_100/128-100`) are taken as-is — not multiplied again.
+
+**Watch for symbols with a built-in offset.** Some coarse copies bake an offset into their type, e.g.
+`engine_speed_3` is `u8_rspeed_125/4+500rpm` → ×31.25 **+500 rpm**, so it reads 500 at zero and is only
+~31 rpm-resolution. Prefer the precise `engine_speed_2` (`u16_rspeed_rpm`, 1 rpm/count) for engine
+speed; the sample presets use it.
 
 To add a new ECU, drop its `<ECU>.csv` in `symbols/` (the file name, minus any `_symbols` suffix, is
 the `ecuVersion`). The shipped catalogs are build-copied from `references/*.csv`.
