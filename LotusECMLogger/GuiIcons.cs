@@ -33,6 +33,11 @@ internal static class GuiIcons
     public const string Save    = ""; // Save
     public const string Refresh = ""; // Refresh
     public const string UpdateRestore = Refresh; // UpdateRestore (E777)
+    public const string Add      = ""; // Add
+    public const string Delete   = ""; // Delete (trash)
+    public const string Clear    = ""; // Clear
+    public const string OpenFile = ""; // OpenFile (browse)
+    public const string Connect  = ""; // Ethernet (test connection)
 
     /// <summary>
     /// Renders a single MDL2 glyph into a square bitmap with a transparent background.

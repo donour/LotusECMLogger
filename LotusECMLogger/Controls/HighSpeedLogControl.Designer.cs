@@ -26,7 +26,6 @@ namespace LotusECMLogger.Controls
             configGroupBox = new GroupBox();
             configLayout = new TableLayoutPanel();
             presetLabel = new Label();
-            presetPanel = new FlowLayoutPanel();
             presetComboBox = new ComboBox();
             addChannelsButton = new Button();
             csvPathLabel = new Label();
@@ -38,7 +37,7 @@ namespace LotusECMLogger.Controls
             startButton = new Button();
             stopButton = new Button();
             gridGroupBox = new GroupBox();
-            gridButtonPanel = new FlowLayoutPanel();
+            channelToolbar = new FlowLayoutPanel();
             removeChannelButton = new Button();
             clearChannelsButton = new Button();
             channelsGrid = new DataGridView();
@@ -61,11 +60,10 @@ namespace LotusECMLogger.Controls
             layoutPanel.SuspendLayout();
             configGroupBox.SuspendLayout();
             configLayout.SuspendLayout();
-            presetPanel.SuspendLayout();
             csvPanel.SuspendLayout();
             buttonPanel.SuspendLayout();
             gridGroupBox.SuspendLayout();
-            gridButtonPanel.SuspendLayout();
+            channelToolbar.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)channelsGrid).BeginInit();
             statusGroupBox.SuspendLayout();
             statusLayout.SuspendLayout();
@@ -107,38 +105,26 @@ namespace LotusECMLogger.Controls
             configLayout.ColumnCount = 2;
             configLayout.ColumnStyles.Add(new ColumnStyle());
             configLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            configLayout.Controls.Add(presetLabel, 0, 0);
-            configLayout.Controls.Add(presetPanel, 1, 0);
-            configLayout.Controls.Add(csvPathLabel, 0, 1);
-            configLayout.Controls.Add(csvPanel, 1, 1);
-            configLayout.Controls.Add(buttonPanel, 1, 2);
+            configLayout.Controls.Add(csvPathLabel, 0, 0);
+            configLayout.Controls.Add(csvPanel, 1, 0);
+            configLayout.Controls.Add(buttonPanel, 1, 1);
             configLayout.Dock = DockStyle.Fill;
             configLayout.Name = "configLayout";
-            configLayout.RowCount = 3;
-            configLayout.RowStyles.Add(new RowStyle());
+            configLayout.RowCount = 2;
             configLayout.RowStyles.Add(new RowStyle());
             configLayout.RowStyles.Add(new RowStyle());
             configLayout.TabIndex = 0;
             //
             // presetLabel
             //
-            presetLabel.Anchor = AnchorStyles.Left;
+            presetLabel.Anchor = AnchorStyles.None;
             presetLabel.AutoSize = true;
             presetLabel.Name = "presetLabel";
             presetLabel.Text = "Preset:";
             //
-            // presetPanel
-            //
-            presetPanel.AutoSize = true;
-            presetPanel.Controls.Add(presetComboBox);
-            presetPanel.Controls.Add(addChannelsButton);
-            presetPanel.Margin = new Padding(0);
-            presetPanel.Name = "presetPanel";
-            presetPanel.WrapContents = false;
-            //
             // presetComboBox
             //
-            presetComboBox.Anchor = AnchorStyles.Left;
+            presetComboBox.Anchor = AnchorStyles.None;
             presetComboBox.DropDownStyle = ComboBoxStyle.DropDownList;
             presetComboBox.Name = "presetComboBox";
             presetComboBox.Size = new Size(300, 33);
@@ -234,7 +220,7 @@ namespace LotusECMLogger.Controls
             // gridGroupBox
             //
             gridGroupBox.Controls.Add(channelsGrid);
-            gridGroupBox.Controls.Add(gridButtonPanel);
+            gridGroupBox.Controls.Add(channelToolbar);
             gridGroupBox.Dock = DockStyle.Fill;
             gridGroupBox.Name = "gridGroupBox";
             gridGroupBox.Padding = new Padding(4, 5, 4, 5);
@@ -242,14 +228,17 @@ namespace LotusECMLogger.Controls
             gridGroupBox.TabStop = false;
             gridGroupBox.Text = "Channels";
             //
-            // gridButtonPanel
+            // channelToolbar
             //
-            gridButtonPanel.AutoSize = true;
-            gridButtonPanel.Controls.Add(removeChannelButton);
-            gridButtonPanel.Controls.Add(clearChannelsButton);
-            gridButtonPanel.Dock = DockStyle.Bottom;
-            gridButtonPanel.Name = "gridButtonPanel";
-            gridButtonPanel.WrapContents = false;
+            channelToolbar.AutoSize = true;
+            channelToolbar.Controls.Add(presetLabel);
+            channelToolbar.Controls.Add(presetComboBox);
+            channelToolbar.Controls.Add(addChannelsButton);
+            channelToolbar.Controls.Add(removeChannelButton);
+            channelToolbar.Controls.Add(clearChannelsButton);
+            channelToolbar.Dock = DockStyle.Top;
+            channelToolbar.Name = "channelToolbar";
+            channelToolbar.WrapContents = false;
             //
             // removeChannelButton
             //
@@ -418,15 +407,14 @@ namespace LotusECMLogger.Controls
             configGroupBox.PerformLayout();
             configLayout.ResumeLayout(false);
             configLayout.PerformLayout();
-            presetPanel.ResumeLayout(false);
             csvPanel.ResumeLayout(false);
             csvPanel.PerformLayout();
             buttonPanel.ResumeLayout(false);
             buttonPanel.PerformLayout();
             gridGroupBox.ResumeLayout(false);
             gridGroupBox.PerformLayout();
-            gridButtonPanel.ResumeLayout(false);
-            gridButtonPanel.PerformLayout();
+            channelToolbar.ResumeLayout(false);
+            channelToolbar.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)channelsGrid).EndInit();
             statusGroupBox.ResumeLayout(false);
             statusGroupBox.PerformLayout();
@@ -442,7 +430,6 @@ namespace LotusECMLogger.Controls
         private GroupBox configGroupBox;
         private TableLayoutPanel configLayout;
         private Label presetLabel;
-        private FlowLayoutPanel presetPanel;
         private ComboBox presetComboBox;
         private Button addChannelsButton;
         private Label csvPathLabel;
@@ -454,7 +441,7 @@ namespace LotusECMLogger.Controls
         private Button startButton;
         private Button stopButton;
         private GroupBox gridGroupBox;
-        private FlowLayoutPanel gridButtonPanel;
+        private FlowLayoutPanel channelToolbar;
         private Button removeChannelButton;
         private Button clearChannelsButton;
         private DataGridView channelsGrid;

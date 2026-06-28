@@ -43,6 +43,14 @@ namespace LotusECMLogger.Controls
 
             InitializeComponent();
 
+            GuiIcons.ApplyToButton(addChannelsButton, GuiIcons.Add);
+            GuiIcons.ApplyToButton(removeChannelButton, GuiIcons.Delete);
+            GuiIcons.ApplyToButton(clearChannelsButton, GuiIcons.Clear);
+            GuiIcons.ApplyToButton(browseCsvButton, GuiIcons.OpenFile);
+            GuiIcons.ApplyToButton(testConnectionButton, GuiIcons.Connect);
+            GuiIcons.ApplyToButton(startButton, GuiIcons.Play);
+            GuiIcons.ApplyToButton(stopButton, GuiIcons.Stop);
+
             channelsGrid.RowsAdded += (_, _) => RefreshRowActionState();
             channelsGrid.RowsRemoved += (_, _) => RefreshRowActionState();
             channelsGrid.UserDeletingRow += ChannelsGrid_UserDeletingRow;
