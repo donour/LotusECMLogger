@@ -30,7 +30,7 @@ namespace LotusECMLogger.Controls
             presetComboBox = new ComboBox();
             addChannelsButton = new Button();
             csvPathLabel = new Label();
-            csvPanel = new FlowLayoutPanel();
+            csvPanel = new TableLayoutPanel();
             csvPathTextBox = new TextBox();
             browseCsvButton = new Button();
             buttonPanel = new FlowLayoutPanel();
@@ -164,15 +164,21 @@ namespace LotusECMLogger.Controls
             // csvPanel
             //
             csvPanel.AutoSize = true;
-            csvPanel.Controls.Add(csvPathTextBox);
-            csvPanel.Controls.Add(browseCsvButton);
+            csvPanel.ColumnCount = 2;
+            csvPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            csvPanel.ColumnStyles.Add(new ColumnStyle());
+            csvPanel.Controls.Add(csvPathTextBox, 0, 0);
+            csvPanel.Controls.Add(browseCsvButton, 1, 0);
+            csvPanel.Dock = DockStyle.Fill;
             csvPanel.Margin = new Padding(0);
             csvPanel.Name = "csvPanel";
-            csvPanel.WrapContents = false;
+            csvPanel.RowCount = 1;
+            csvPanel.RowStyles.Add(new RowStyle());
             csvPanel.TabIndex = 1;
             //
             // csvPathTextBox
             //
+            csvPathTextBox.Anchor = AnchorStyles.Left | AnchorStyles.Right;
             csvPathTextBox.Name = "csvPathTextBox";
             csvPathTextBox.Size = new Size(520, 31);
             csvPathTextBox.TabIndex = 0;
@@ -440,7 +446,7 @@ namespace LotusECMLogger.Controls
         private ComboBox presetComboBox;
         private Button addChannelsButton;
         private Label csvPathLabel;
-        private FlowLayoutPanel csvPanel;
+        private TableLayoutPanel csvPanel;
         private TextBox csvPathTextBox;
         private Button browseCsvButton;
         private FlowLayoutPanel buttonPanel;
