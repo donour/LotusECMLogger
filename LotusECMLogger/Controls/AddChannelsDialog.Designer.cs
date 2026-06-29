@@ -25,6 +25,7 @@ namespace LotusECMLogger.Controls
             hideCalCheckBox = new CheckBox();
             countLabel = new Label();
             resultsListView = new ListView();
+            helpLabel = new Label();
             bottomPanel = new FlowLayoutPanel();
             rateLabel = new Label();
             rateComboBox = new ComboBox();
@@ -41,12 +42,14 @@ namespace LotusECMLogger.Controls
             rootLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
             rootLayout.Controls.Add(topPanel, 0, 0);
             rootLayout.Controls.Add(resultsListView, 0, 1);
-            rootLayout.Controls.Add(bottomPanel, 0, 2);
+            rootLayout.Controls.Add(helpLabel, 0, 2);
+            rootLayout.Controls.Add(bottomPanel, 0, 3);
             rootLayout.Dock = DockStyle.Fill;
             rootLayout.Name = "rootLayout";
-            rootLayout.RowCount = 3;
+            rootLayout.RowCount = 4;
             rootLayout.RowStyles.Add(new RowStyle());
             rootLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+            rootLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 52F));
             rootLayout.RowStyles.Add(new RowStyle());
             //
             // topPanel
@@ -124,13 +127,24 @@ namespace LotusECMLogger.Controls
             resultsListView.UseCompatibleStateImageBehavior = false;
             resultsListView.View = View.Details;
             resultsListView.VirtualMode = true;
+            resultsListView.ShowItemToolTips = true;
             resultsListView.RetrieveVirtualItem += ResultsListView_RetrieveVirtualItem;
+            resultsListView.ItemSelectionChanged += ResultsListView_ItemSelectionChanged;
             resultsListView.Columns.Add("Name", 240);
             resultsListView.Columns.Add("Address", 90);
             resultsListView.Columns.Add("Size", 50);
             resultsListView.Columns.Add("Unit", 70);
             resultsListView.Columns.Add("Transform", 120);
             resultsListView.Columns.Add("Category", 110);
+            //
+            // helpLabel
+            //
+            helpLabel.AutoEllipsis = true;
+            helpLabel.Dock = DockStyle.Fill;
+            helpLabel.ForeColor = SystemColors.GrayText;
+            helpLabel.Name = "helpLabel";
+            helpLabel.Padding = new Padding(3, 4, 3, 4);
+            helpLabel.Text = "Select a channel to see its description.";
             //
             // bottomPanel
             //
@@ -206,6 +220,7 @@ namespace LotusECMLogger.Controls
         private CheckBox hideCalCheckBox;
         private Label countLabel;
         private ListView resultsListView;
+        private Label helpLabel;
         private FlowLayoutPanel bottomPanel;
         private Label rateLabel;
         private ComboBox rateComboBox;

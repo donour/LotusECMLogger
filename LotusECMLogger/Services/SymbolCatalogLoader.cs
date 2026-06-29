@@ -78,6 +78,7 @@ namespace LotusECMLogger.Services
             int typeIdx = IndexOf(cols, "Type");
             int dataTypeIdx = IndexOf(cols, "Data Type");
             int nsIdx = IndexOf(cols, "Namespace");
+            int commentIdx = IndexOf(cols, "EOL Comment");
 
             if (nameIdx < 0 || locIdx < 0 || typeIdx < 0)
                 throw new InvalidDataException($"Symbol CSV '{filePath}' is missing required Name/Location/Type columns.");
@@ -106,6 +107,7 @@ namespace LotusECMLogger.Services
                     RawType = rawType,
                     Type = ChannelTypeParser.Parse(rawType),
                     Namespace = nsIdx >= 0 && f.Count > nsIdx ? f[nsIdx] : string.Empty,
+                    Comment = commentIdx >= 0 && f.Count > commentIdx ? f[commentIdx] : string.Empty,
                 });
             }
 
@@ -132,6 +134,7 @@ namespace LotusECMLogger.Services
                     Address = ordered[i].Address,
                     RawType = ordered[i].RawType,
                     Namespace = ordered[i].Namespace,
+                    Comment = ordered[i].Comment,
                     Type = ordered[i].Type with { Size = size, Confidence = TypeConfidence.Inferred },
                 };
             }

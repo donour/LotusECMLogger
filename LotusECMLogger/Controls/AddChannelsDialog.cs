@@ -56,6 +56,7 @@ namespace LotusECMLogger.Controls
         {
             // Clear selection first: shrinking VirtualListSize with stale selected indices can throw.
             resultsListView.SelectedIndices.Clear();
+            helpLabel.Text = "Select a channel to see its description.";
 
             if (_catalog == null)
             {
@@ -94,7 +95,20 @@ namespace LotusECMLogger.Controls
             item.SubItems.Add(t.Unit);
             item.SubItems.Add(FormatTransform(t));
             item.SubItems.Add(t.Category);
+            if (!string.IsNullOrWhiteSpace(entry.Comment))
+                item.ToolTipText = entry.Comment;
             e.Item = item;
+        }
+
+        private void ResultsListView_ItemSelectionChanged(object? sender, ListViewItemSelectionChangedEventArgs e)
+        {
+            if (!e.IsSelected || e.ItemIndex < 0 || e.ItemIndex >= _filtered.Count)
+                return;
+
+            var entry = _filtered[e.ItemIndex];
+            helpLabel.Text = string.IsNullOrWhiteSpace(entry.Comment)
+                ? $"{entry.Name} — no description available."
+                : entry.Comment;
         }
 
         private void AddButton_Click(object? sender, EventArgs e)

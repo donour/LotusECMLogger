@@ -8,6 +8,12 @@ namespace LotusECMLogger.Services
         public required string RawType { get; init; }
         public required ParsedChannelType Type { get; init; }
         public string Namespace { get; init; } = "";
+
+        /// <summary>
+        /// Human-readable description from the catalog's "EOL Comment" column, if present; otherwise empty.
+        /// Shown as channel help in the Add Channels dialog.
+        /// </summary>
+        public string Comment { get; init; } = "";
     }
 
     /// <summary>Filter criteria for <see cref="SymbolCatalog.Search"/>.</summary>
