@@ -9,7 +9,7 @@
   "description": "TPS, pedal, per-cylinder ignition advance & knock retard, AFR, MAF, load, IAT.",
   "ecuVersion": "B13200091",
   "channels": [
-    { "symbol": "tps_2",                 "rate": 100 },
+    { "symbol": "tps_8bit",              "rate": 100 },
     { "symbol": "accel_pedal_pos",       "rate": 100 },
 
     // Ignition advance per cylinder — obd_ii_ign_adv_per_cylinder, i16_angle_1/4[6] @ 0x40001796

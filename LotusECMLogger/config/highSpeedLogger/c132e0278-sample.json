@@ -9,8 +9,8 @@
   "description": "TPS, pedal, per-cylinder ignition advance & knock retard, AFR, MAF, load, IAT.",
   "ecuVersion": "C132E0278",
   "channels": [
-    { "symbol": "tps2",                  "rate": 100 },
-    { "symbol": "accel_pedal_pos",       "rate": 100 },
+    { "symbol": "tps_8bit",              "rate": 100 },
+    { "symbol": "accel_pedal_pos_16bit", "rate": 100 },
 
     // Ignition advance per cylinder — obd_ii_ign_adv_per_cylinder, i16_angle_1/4deg[6] @ 0x40001924
     { "name": "Ign Advance Cyl 1", "address": "0x40001924", "size": 2, "signed": true, "scale": 0.25, "unit": "deg", "defaultSelected": true, "rate": 100 },
