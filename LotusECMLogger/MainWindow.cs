@@ -78,6 +78,24 @@ namespace LotusECMLogger
                 MessageBox.Show($"Failed to initialize T6 RMA tab: {ex.Message}", "Startup Error",
                     MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
+
+            // Add high-speed CAN channel logging control
+            try
+            {
+                var hsService = new HighSpeedLogService();
+                var hsControl = new HighSpeedLogControl(hsService)
+                {
+                    Dock = DockStyle.Fill,
+                    IsLoggerActive = false
+                };
+                highSpeedLogTab.Controls.Clear();
+                highSpeedLogTab.Controls.Add(hsControl);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Failed to initialize High-Speed Log tab: {ex.Message}", "Startup Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
         }
 
         /// <summary>
@@ -96,6 +114,10 @@ namespace LotusECMLogger
                 var rmaControl = t6RmaTab.Controls.OfType<T6RMAControl>().FirstOrDefault();
                 if (rmaControl != null)
                     rmaControl.IsLoggerActive = isLogging;
+
+                var hsControl = highSpeedLogTab.Controls.OfType<HighSpeedLogControl>().FirstOrDefault();
+                if (hsControl != null)
+                    hsControl.IsLoggerActive = isLogging;
 
                 // Erasing model info issues an RMA write, which conflicts with active logging.
                 eraseModelInfoToolStripMenuItem.Enabled = !isLogging;
@@ -157,7 +179,8 @@ namespace LotusECMLogger
                 GuiIcons.EcuCoding,
                 GuiIcons.Dtc,
                 GuiIcons.RmaLogging,
-                GuiIcons.LiveTuning);
+                GuiIcons.LiveTuning,
+                GuiIcons.HighSpeedLog);
             mainTabControl.ImageList = mainIcons;
             vehicleInfoTab.ImageIndex = 0;
             liveDataTab.ImageIndex    = 1;
@@ -165,6 +188,7 @@ namespace LotusECMLogger
             dtcTab.ImageIndex         = 3;
             t6RmaTab.ImageIndex       = 4;
             liveTuningTab.ImageIndex  = 5;
+            highSpeedLogTab.ImageIndex = 6;
 
             var loggingIcons = GuiIcons.BuildImageList(20, tabColor,
                 GuiIcons.LoggerTab,

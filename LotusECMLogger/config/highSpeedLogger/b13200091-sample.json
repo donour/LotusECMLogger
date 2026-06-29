@@ -1,0 +1,39 @@
+{
+  // Sample preset for the B13200091 ECU. Scalar channels reference symbols by name; the app resolves
+  // each one's address, size, scale, offset and unit from
+  // config/highSpeedLogger/database/B13200091.csv (parsed from the Ghidra "Data Type"). Per-cylinder
+  // values live in [6] arrays the catalog hides, so they are listed as explicit address channels
+  // (base + element offset, with defaultSelected so they start checked). Use "Add Channels…" in the
+  // High-Speed Log tab to browse the full catalog.
+  "name": "Sample (B13200091)",
+  "description": "TPS, pedal, per-cylinder ignition advance & knock retard, AFR, MAF, load, IAT.",
+  "ecuVersion": "B13200091",
+  "channels": [
+    { "symbol": "tps_8bit",              "rate": 100 },
+    { "symbol": "accel_pedal_pos",       "rate": 100 },
+
+    // Ignition advance per cylinder — obd_ii_ign_adv_per_cylinder, i16_angle_1/4[6] @ 0x40001796
+    { "name": "Ign Advance Cyl 1", "address": "0x40001796", "size": 2, "signed": true, "scale": 0.25, "unit": "deg", "defaultSelected": true, "rate": 100 },
+    { "name": "Ign Advance Cyl 2", "address": "0x40001798", "size": 2, "signed": true, "scale": 0.25, "unit": "deg", "defaultSelected": true, "rate": 100 },
+    { "name": "Ign Advance Cyl 3", "address": "0x4000179a", "size": 2, "signed": true, "scale": 0.25, "unit": "deg", "defaultSelected": true, "rate": 100 },
+    { "name": "Ign Advance Cyl 4", "address": "0x4000179c", "size": 2, "signed": true, "scale": 0.25, "unit": "deg", "defaultSelected": true, "rate": 100 },
+    { "name": "Ign Advance Cyl 5", "address": "0x4000179e", "size": 2, "signed": true, "scale": 0.25, "unit": "deg", "defaultSelected": true, "rate": 100 },
+    { "name": "Ign Advance Cyl 6", "address": "0x400017a0", "size": 2, "signed": true, "scale": 0.25, "unit": "deg", "defaultSelected": true, "rate": 100 },
+
+    // Knock retard per cylinder — knock_ign_retard2, u8_angle_1/4deg[6] @ 0x40001c28
+    { "name": "Knock Retard Cyl 1", "address": "0x40001c28", "size": 1, "scale": 0.25, "unit": "deg", "defaultSelected": true, "rate": 100 },
+    { "name": "Knock Retard Cyl 2", "address": "0x40001c29", "size": 1, "scale": 0.25, "unit": "deg", "defaultSelected": true, "rate": 100 },
+    { "name": "Knock Retard Cyl 3", "address": "0x40001c2a", "size": 1, "scale": 0.25, "unit": "deg", "defaultSelected": true, "rate": 100 },
+    { "name": "Knock Retard Cyl 4", "address": "0x40001c2b", "size": 1, "scale": 0.25, "unit": "deg", "defaultSelected": true, "rate": 100 },
+    { "name": "Knock Retard Cyl 5", "address": "0x40001c2c", "size": 1, "scale": 0.25, "unit": "deg", "defaultSelected": true, "rate": 100 },
+    { "name": "Knock Retard Cyl 6", "address": "0x40001c2d", "size": 1, "scale": 0.25, "unit": "deg", "defaultSelected": true, "rate": 100 },
+
+    { "symbol": "afr_target",            "rate": 50 },
+    { "symbol": "map",                   "rate": 50 },
+    { "symbol": "maf_flow_1",            "rate": 50 },
+    { "symbol": "load_mass_per_stroke",  "rate": 50 },
+    { "symbol": "torque_limit_external_and_internal", "rate": 50 },
+    { "symbol": "torque_net_engine_combustion",       "rate": 50 },
+    { "symbol": "air_temp_intake",       "rate": 5  }
+  ]
+}

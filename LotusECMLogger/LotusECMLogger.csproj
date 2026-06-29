@@ -8,7 +8,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Platforms>x86</Platforms>
     <ApplicationIcon>assets\audio_video_media_control_resume_plain_icon_260667.ico</ApplicationIcon>
-    <Version>0.3.1.0</Version>
+    <Version>0.4.0.0</Version>
   </PropertyGroup>
 
   <ItemGroup>
@@ -57,8 +57,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Auto-copy all config JSON files to output directory -->
+    <!-- Auto-copy all config JSON files and ECU symbol databases to the output directory -->
     <None Update="config\**\*.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="config\**\*.csv">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="Properties\Settings.settings">

@@ -70,6 +70,7 @@ namespace LotusECMLogger
             // Add feature sub-nodes
             features.Nodes.Add("vehicleinfo", "Extended Vehicle Information");
             features.Nodes.Add("livedata", "Live Data Logging");
+            features.Nodes.Add("highspeed", "High-Speed Logging");
             features.Nodes.Add("ecucoding", "ECU Coding");
             features.Nodes.Add("setvin", "Set VIN");
             features.Nodes.Add("dtc", "Diagnostic Trouble Codes");
@@ -103,6 +104,9 @@ namespace LotusECMLogger
                     break;
                 case "livedata":
                     ShowLiveDataHelp();
+                    break;
+                case "highspeed":
+                    ShowHighSpeedHelp();
                     break;
                 case "ecucoding":
                     ShowEcuCodingHelp();
@@ -180,6 +184,7 @@ namespace LotusECMLogger
             AddBulletPoint("Supports OBD-II Mode 01: Standard parameters like RPM, speed, coolant temperature, etc.");
             AddBulletPoint("Supports OBD-II Mode 22: Manufacturer-specific channels, including advanced Lotus data.");
             AddBulletPoint("Capture Lotus-specific data: Log unique parameters such as variable cam control, knock control, and more.");
+            AddBulletPoint("High-Speed Channel Logging: Stream internal ECU channels over CAN at up to 100 Hz - far faster than OBD-II - for tuning and transient analysis (requires firmware with the channel-logger facility).");
             AddBulletPoint("ECU Coding: Read and modify ECU configuration settings for Lotus T6e ECUs.");
             AddBulletPoint("Extended Vehicle Information: Retrieve VIN, ECU details, and calibration data.");
             AddBulletPoint("Set VIN: Program a new VIN to the ECU using OBD-II Mode 0x3B.");
@@ -214,6 +219,7 @@ namespace LotusECMLogger
             AddParagraph("The application uses a tabbed interface to organize different diagnostic and logging functions. Click on each tab to access different features:");
             AddBulletPoint("Extended Vehicle Information - Read VIN and ECU details, and program a new VIN via OBD-II Mode 0x3B");
             AddBulletPoint("Live Data - Real-time parameter logging");
+            AddBulletPoint("High-Speed Log - High-rate CAN channel logging (requires firmware with the channel-logger facility)");
             AddBulletPoint("ECU Coding - Modify ECU configuration");
             AddBulletPoint("Diagnostic Trouble Codes - Read and clear fault codes");
             AddBulletPoint("Learned Data Reset - Reset ECU adaptive values");
@@ -248,6 +254,59 @@ namespace LotusECMLogger
             AddBulletPoint("Choose configurations appropriate for your needs - larger parameter sets require more processing time.");
             AddBulletPoint("The refresh rate shown in the status bar indicates how many times per second the display updates.");
             AddBulletPoint("Data is logged at a higher rate than displayed for accurate time-series capture.");
+        }
+
+        private void ShowHighSpeedHelp()
+        {
+            AddHeading("High-Speed Logging");
+
+            AddParagraph("The High-Speed Log tab streams internal ECU channels directly over CAN at up to 100 Hz per channel - far faster than the OBD-II Live Data tab. Instead of polling the ECU with request/response messages, it configures the ECU as a programmable sampler that autonomously broadcasts the channels you select. This makes it possible to capture fast transients such as per-cylinder ignition advance and knock retard, throttle and pedal movement, AFR, MAF, load, and torque.");
+
+            AddSubheading("Requirements (what is needed to enable it):");
+            AddBulletPoint("J2534 device and OBD-II connection: The same hardware used elsewhere in the app. High-speed logging communicates over raw CAN at 500 kbit/s.");
+            AddBulletPoint("Firmware with the channel-logger facility: Not every ECU/firmware includes the high-speed channel-logger. Standard locked production calibrations generally do not. Use the 'Test Connection' button (below) or the 'HS LOGGER' indicator on the Extended Vehicle Information tab to confirm the facility is present before relying on it.");
+            AddBulletPoint("Diagnostic CAN bus enabled: The calibration setting CAL_ecu_flexcan_diag_bus_select must be non-zero. If the diagnostic bus is disabled, the ECU will not respond to the logger commands even on capable firmware.");
+            AddBulletPoint("A symbol database for your firmware version: The app ships databases for the supported firmware versions (for example C132E0278 and B13200091) and uses them to resolve each channel's address, size, scaling, and unit. Presets and the 'Add Channels...' browser are populated from this database.");
+
+            AddSubheading("Test Connection:");
+            AddParagraph("Click 'Test Connection' before logging to verify the ECU supports high-speed logging. It opens a short session and sends an identify request, then reports one of:");
+            AddBulletPoint("Connected - channel logger present (green): The facility is available and you can log.");
+            AddBulletPoint("Diagnostic bus is alive, but the ECU did not answer / unexpected protocol (orange): The bus is reachable but this firmware does not provide the high-speed channel-logger.");
+            AddBulletPoint("No response (red): The diagnostic bus is not reachable. Check that the diagnostic bus is enabled, and verify the CAN wiring and 500 kbit/s connection.");
+            AddParagraph("The Extended Vehicle Information tab shows the same result as an 'HS LOGGER' indicator after you load vehicle data.");
+
+            AddSubheading("How to Use:");
+            AddParagraph("1. Open the High-Speed Log tab.");
+            AddParagraph("2. (Recommended) Click 'Test Connection' to confirm the ECU supports high-speed logging.");
+            AddParagraph("3. Select a preset for your firmware version from the dropdown, or click 'Add Channels...' to search the symbol database and pick channels yourself.");
+            AddParagraph("4. In the channel grid, tick the channels to log and set each one's sample rate (Hz).");
+            AddParagraph("5. Choose the CSV output file. A timestamped default in your Documents folder is provided; use 'Browse' to change it.");
+            AddParagraph("6. Click 'Start'. The app configures the ECU and begins streaming and logging.");
+            AddParagraph("7. Click 'Stop' when finished.");
+
+            AddSubheading("Channels and Presets:");
+            AddBulletPoint("Channels are internal ECU memory locations ('Data Labels'). Presets are saved, named channel sets for a specific firmware version (for example: per-cylinder ignition advance and knock retard, TPS, accelerator pedal, AFR, MAF, load, IAT, MAP, and torque).");
+            AddBulletPoint("Scaling and units are derived automatically from the firmware's symbol database. Because these come from reverse-engineered type information, sanity-check a channel against a known reading before relying on it.");
+            AddBulletPoint("Supported per-channel rates are 1, 2, 5, 10, 20, 50, and 100 Hz.");
+            AddBulletPoint("The ECU has a finite capacity (a limited number of channels, groups, and bytes per frame). If your selection exceeds it, 'Start' reports the problem so you can reduce channels or rates.");
+
+            AddSubheading("Configuration Is Not Saved on the ECU:");
+            AddParagraph("The channel program lives in the ECU's RAM and is wiped on every power cycle or reboot. The app automatically re-sends the full configuration each time you click 'Start', so nothing persists between sessions. This is normal and means you can safely power-cycle the car between runs.");
+
+            AddSubheading("Status Panel:");
+            AddBulletPoint("Frames: Total number of stream frames received in the current session.");
+            AddBulletPoint("Last Update: Time of the most recently received frame.");
+            AddBulletPoint("Dropped: Frames dropped because logging to disk fell behind. This should stay 0. If it turns red, the writer could not keep up - use a faster or local drive (avoid network/synced folders), or reduce the number of channels.");
+
+            AddSubheading("Output Files:");
+            AddParagraph("Data is saved to CSV with columns: Timestamp (microsecond wall-clock), RelativeTime_ms (derived from the adapter's hardware timestamp for accurate inter-frame timing), Label, then one column per logged channel. Files are written to your Documents folder by default.");
+
+            AddSubheading("How It Differs from Live Data:");
+            AddParagraph("Live Data uses OBD-II request/response (Mode 01/22) and works on any compatible ECU, but is limited by polling. High-Speed Logging streams internal channels at a fixed, hardware-timestamped rate and is far faster, but requires firmware that includes the channel-logger facility.");
+
+            AddSubheading("Notes and Caution:");
+            AddBulletPoint("While logging, the PC is an active node on the vehicle CAN bus and sends configuration commands to the ECU. Use 'Test Connection' first to confirm a healthy link.");
+            AddBulletPoint("High-speed logging holds the J2534 device for itself; other operations that need the device (for example the ECU unlock probe on the Vehicle Information tab) are skipped while a session is active.");
         }
 
         private void ShowEcuCodingHelp()
