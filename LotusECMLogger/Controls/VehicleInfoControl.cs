@@ -222,7 +222,7 @@ namespace LotusECMLogger.Controls
             // Probe whether the high-speed channel logger is present, using the same open-session +
             // identify handshake as the High-Speed Log tab's Test Connection button. Opens its own
             // temporary CAN session, so it runs after the channels above are closed.
-            var highSpeedState = ProbeHighSpeedState(loggerActive);
+            var highSpeedState = ProbeHighSpeedState(loggerActive, ecuAlive: readings.Count > 0);
 
             return (readings, unlockState, highSpeedState);
         }
@@ -271,8 +271,11 @@ namespace LotusECMLogger.Controls
         // Probes the ECU's high-speed channel logger with the open-session + identify handshake. Pure
         // I/O + logic, no UI — runs on the worker thread. The logger answering identify with its
         // capability magic => Available; the diagnostic bus is alive but the logger does not respond
-        // (or returns a different protocol) => Unavailable; the bus is unreachable => Unknown.
-        private HighSpeedState ProbeHighSpeedState(bool loggerActive)
+        // (or returns a different protocol) => Unavailable; the bus is unreachable => Unknown. The
+        // open-session reply doubles as the logger's own liveness check, but a disabled logger and an
+        // unreachable ECU both yield no reply — so when the vehicle-data load proved the ECU is alive
+        // (ecuAlive), no session reply means the logger is genuinely Unavailable, not Unknown.
+        private HighSpeedState ProbeHighSpeedState(bool loggerActive, bool ecuAlive)
         {
             // Skip while logging holds the J2534 device; the probe opens its own CAN session.
             if (loggerActive)
@@ -282,7 +285,7 @@ namespace LotusECMLogger.Controls
             {
                 var result = _highSpeedLogService.Identify();
                 if (!result.SessionOpened)
-                    return HighSpeedState.Unknown;
+                    return ecuAlive ? HighSpeedState.Unavailable : HighSpeedState.Unknown;
                 return result.IsChannelLogger ? HighSpeedState.Available : HighSpeedState.Unavailable;
             }
             catch (Exception ex)
