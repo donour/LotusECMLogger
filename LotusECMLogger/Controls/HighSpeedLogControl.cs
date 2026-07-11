@@ -55,6 +55,9 @@ namespace LotusECMLogger.Controls
             channelsGrid.RowsRemoved += (_, _) => RefreshRowActionState();
             channelsGrid.UserDeletingRow += ChannelsGrid_UserDeletingRow;
 
+            // Items are ints; without an explicit ValueType the editing control commits its text as a
+            // string, which matches no item and silently reverts the cell to the first rate.
+            rateColumn.ValueType = typeof(int);
             foreach (var rate in HighSpeedLogPlanner.SupportedRatesHz)
                 rateColumn.Items.Add(rate);
 
