@@ -31,6 +31,7 @@ namespace LotusECMLogger.Controls
         {
             topPanel = new Panel();
             readDataButton = new Button();
+            dynoModeButton = new Button();
             setVinButton = new Button();
             resetButton = new Button();
             bottomPanel = new Panel();
@@ -44,6 +45,7 @@ namespace LotusECMLogger.Controls
             // topPanel
             //
             topPanel.Controls.Add(readDataButton);
+            topPanel.Controls.Add(dynoModeButton);
             topPanel.Controls.Add(setVinButton);
             topPanel.Controls.Add(resetButton);
             topPanel.Dock = DockStyle.Top;
@@ -107,6 +109,19 @@ namespace LotusECMLogger.Controls
             readDataButton.UseVisualStyleBackColor = true;
             readDataButton.Click += readDataButton_Click;
             //
+            // dynoModeButton
+            //
+            dynoModeButton.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            dynoModeButton.AutoSize = true;
+            dynoModeButton.Location = new Point(432, 6);
+            dynoModeButton.Margin = new Padding(4, 5, 4, 5);
+            dynoModeButton.Name = "dynoModeButton";
+            dynoModeButton.Size = new Size(135, 58);
+            dynoModeButton.TabIndex = 4;
+            dynoModeButton.Text = "Dyno Mode";
+            dynoModeButton.UseVisualStyleBackColor = true;
+            dynoModeButton.Click += dynoModeButton_Click;
+            //
             // setVinButton
             // 
             setVinButton.Anchor = AnchorStyles.Top | AnchorStyles.Right;
@@ -169,6 +184,7 @@ namespace LotusECMLogger.Controls
         private Panel topPanel;
         private Panel bottomPanel;
         private Button readDataButton;
+        private Button dynoModeButton;
         private Button resetButton;
         private Button setVinButton;
         private ListView vehicleInfoView;

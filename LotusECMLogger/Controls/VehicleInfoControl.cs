@@ -13,6 +13,7 @@ namespace LotusECMLogger.Controls
         private readonly IVinSetService _vinSetService;
         private readonly IT6RMAService _rmaService;
         private readonly IHighSpeedLogService _highSpeedLogService;
+        private readonly IDynoModeService _dynoModeService;
         private List<VehicleParameterReading> vehicleDataSnapshot = [];
 
         private enum EcuUnlockState { Unknown, Locked, Unlocked }
@@ -28,6 +29,7 @@ namespace LotusECMLogger.Controls
                 _isLoggerActive = value;
                 resetButton.Enabled = !value;
                 setVinButton.Enabled = !value;
+                dynoModeButton.Enabled = !value;
             }
         }
 
@@ -39,12 +41,14 @@ namespace LotusECMLogger.Controls
             _vinSetService = new J2534VinSetService();
             _rmaService = new T6RMAService();
             _highSpeedLogService = new HighSpeedLogService();
+            _dynoModeService = new J2534DynoModeService();
             SetupListViewColumns();
             SetUnlockIndicator(EcuUnlockState.Unknown);
             SetHighSpeedIndicator(HighSpeedState.Unknown);
             GuiIcons.ApplyToButton(readDataButton, GuiIcons.Read);
             GuiIcons.ApplyToButton(resetButton, GuiIcons.UpdateRestore);
             GuiIcons.ApplyToButton(setVinButton, GuiIcons.Write);
+            GuiIcons.ApplyToButton(dynoModeButton, GuiIcons.DynoMode);
         }
 
         private void SetupListViewColumns()
@@ -117,6 +121,47 @@ namespace LotusECMLogger.Controls
             {
                 resetButton.Enabled = !_isLoggerActive;
                 resetButton.Text = "Perform Reset";
+            }
+        }
+
+        private async void dynoModeButton_Click(object? sender, EventArgs e)
+        {
+            if (_isLoggerActive)
+            {
+                MessageBox.Show("Cannot enable dyno mode while logging is active. Please stop the logger first.", "Logger Active", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            var result = MessageBox.Show(
+                "Enable dyno mode?\n\n" +
+                "Dyno mode will inhibit ECU faults from external systems such as ABS.\n\n" +
+                "Dyno mode can be disabled by powering off the vehicle.",
+                "Confirm Dyno Mode",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Warning);
+
+            if (result != DialogResult.Yes)
+                return;
+
+            try
+            {
+                dynoModeButton.Enabled = false;
+                dynoModeButton.Text = "Enabling...";
+
+                var (success, error) = await Task.Run(() => _dynoModeService.EnableDynoMode());
+                if (success)
+                    MessageBox.Show("Dyno mode enabled.", "Dyno Mode", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                else
+                    MessageBox.Show($"Failed to enable dyno mode: {error}", "Dyno Mode Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Unexpected error: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                dynoModeButton.Enabled = !_isLoggerActive;
+                dynoModeButton.Text = "Dyno Mode";
             }
         }
 
