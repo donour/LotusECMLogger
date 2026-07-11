@@ -2,7 +2,7 @@ namespace LotusECMLogger.Controls
 {
     partial class AddRequestDialog
     {
-        private System.ComponentModel.IContainer? components = null;
+        private System.ComponentModel.IContainer components = null;
 
         protected override void Dispose(bool disposing)
         {
