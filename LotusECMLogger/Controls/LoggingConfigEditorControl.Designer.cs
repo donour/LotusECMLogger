@@ -707,14 +707,6 @@ namespace LotusECMLogger.Controls
         private Button moveRequestUpButton;
         private Button moveRequestDownButton;
         private DataGridView requestsDataGridView;
-        private DataGridViewComboBoxColumn requestTypeColumn;
-        private DataGridViewTextBoxColumn requestNameColumn;
-        private DataGridViewTextBoxColumn requestDescriptionColumn;
-        private DataGridViewTextBoxColumn requestCategoryColumn;
-        private DataGridViewTextBoxColumn requestUnitColumn;
-        private DataGridViewTextBoxColumn requestPidsTextColumn;
-        private DataGridViewTextBoxColumn requestPidHighTextColumn;
-        private DataGridViewTextBoxColumn requestPidLowTextColumn;
         private Label requestHelpLabel;
     }
 }
