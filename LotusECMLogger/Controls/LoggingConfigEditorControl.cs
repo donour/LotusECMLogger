@@ -590,8 +590,9 @@ namespace LotusECMLogger.Controls
             errorMessage = string.Empty;
 
             var normalizedType = row.Type?.Trim();
-            if (!string.Equals(normalizedType, "Mode01", StringComparison.OrdinalIgnoreCase)
-                && !string.Equals(normalizedType, "Mode22", StringComparison.OrdinalIgnoreCase))
+            if (normalizedType is null
+                || (!string.Equals(normalizedType, "Mode01", StringComparison.OrdinalIgnoreCase)
+                    && !string.Equals(normalizedType, "Mode22", StringComparison.OrdinalIgnoreCase)))
             {
                 errorMessage = "Type must be Mode01 or Mode22.";
                 return false;
