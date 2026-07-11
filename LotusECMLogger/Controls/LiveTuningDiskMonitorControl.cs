@@ -31,10 +31,8 @@ namespace LotusECMLogger.Controls
 
             _isInitialized = true;
 
-            // Set default output directory to Documents folder
-            string documentsPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-            string defaultPath = Path.Combine(documentsPath, "LotusECMLogger", "LiveTuning");
-            outputDirectoryTextBox.Text = defaultPath;
+            // Set default output directory under the shared logger output root
+            outputDirectoryTextBox.Text = Path.Combine(LoggerPaths.OutputDirectory, "LiveTuning");
 
             // Load memory presets from JSON
             LoadMemoryPresets();
@@ -141,7 +139,7 @@ namespace LotusECMLogger.Controls
                 Title = "Select Calibration File",
                 Filter = "Calibration Files (*.cpt)|*.cpt|All Files (*.*)|*.*",
                 InitialDirectory = string.IsNullOrEmpty(existingFileTextBox.Text)
-                    ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "LotusECMLogger", "LiveTuning")
+                    ? Path.Combine(LoggerPaths.OutputDirectory, "LiveTuning")
                     : Path.GetDirectoryName(existingFileTextBox.Text)
             };
 

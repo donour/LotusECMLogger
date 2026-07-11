@@ -73,9 +73,11 @@ namespace LotusECMLogger
             features.Nodes.Add("highspeed", "High-Speed Logging");
             features.Nodes.Add("ecucoding", "ECU Coding");
             features.Nodes.Add("setvin", "Set VIN");
+            features.Nodes.Add("dynomode", "Dyno Mode");
             features.Nodes.Add("dtc", "Diagnostic Trouble Codes");
             features.Nodes.Add("learneddata", "Learned Data Reset");
             features.Nodes.Add("t6rma", "T6 RMA Logging");
+            features.Nodes.Add("livetuning", "T6 Live Tuning");
             features.Nodes.Add("flasher", "T6E Calibration Flasher");
             features.Nodes.Add("erasemodel", "Erase Model Info");
 
@@ -114,6 +116,9 @@ namespace LotusECMLogger
                 case "setvin":
                     ShowSetVinHelp();
                     break;
+                case "dynomode":
+                    ShowDynoModeHelp();
+                    break;
                 case "dtc":
                     ShowDtcHelp();
                     break;
@@ -122,6 +127,9 @@ namespace LotusECMLogger
                     break;
                 case "t6rma":
                     ShowT6RmaHelp();
+                    break;
+                case "livetuning":
+                    ShowLiveTuningHelp();
                     break;
                 case "flasher":
                     ShowFlasherHelp();
@@ -188,9 +196,11 @@ namespace LotusECMLogger
             AddBulletPoint("ECU Coding: Read and modify ECU configuration settings for Lotus T6e ECUs.");
             AddBulletPoint("Extended Vehicle Information: Retrieve VIN, ECU details, and calibration data.");
             AddBulletPoint("Set VIN: Program a new VIN to the ECU using OBD-II Mode 0x3B.");
+            AddBulletPoint("Dyno Mode: Enable the ECU's diagnostic override to inhibit faults from external systems (such as ABS) during dyno runs.");
             AddBulletPoint("Diagnostic Trouble Codes: Read and clear DTCs from the ECU.");
             AddBulletPoint("Learned Data Reset: Clear adaptive learning values from the ECU.");
             AddBulletPoint("T6 RMA Logging: Advanced memory address logging for development.");
+            AddBulletPoint("T6 Live Tuning: Edit calibration values in ECU RAM in real time by monitoring a calibration file on disk (requires an unlocked ECU).");
             AddBulletPoint("T6E Calibration Flasher: Flash calibration files to the ECU.");
             AddBulletPoint("Erase Model Info: Clear stored model info after a firmware migration so the new firmware activates (Tools menu).");
             AddBulletPoint("Free and open source: No cost, no restrictions, and community-driven development.");
@@ -212,18 +222,21 @@ namespace LotusECMLogger
             AddParagraph("1. Connect your J2534 device to your computer via USB and to your vehicle's OBD-II port.");
             AddParagraph("2. Launch LotusECMLogger.");
             AddParagraph("3. Select an OBD configuration from the 'Config' dropdown in the Live Data tab.");
-            AddParagraph("4. Click 'Start' to begin logging data. Data will be saved to a CSV file in your Documents folder.");
+            AddParagraph("4. Click 'Start' to begin logging data. Data will be saved to a CSV file in the Documents\\LotusECMLogger folder.");
             AddParagraph("5. Click 'Stop' when you're done logging.");
 
             AddSubheading("Navigation:");
             AddParagraph("The application uses a tabbed interface to organize different diagnostic and logging functions. Click on each tab to access different features:");
-            AddBulletPoint("Extended Vehicle Information - Read VIN and ECU details, and program a new VIN via OBD-II Mode 0x3B");
-            AddBulletPoint("Live Data - Real-time parameter logging");
+            AddBulletPoint("Vehicle Information - Read VIN and ECU details, program a new VIN, enable Dyno Mode, and reset learned adaptations");
+            AddBulletPoint("Live Data - Real-time parameter logging, with a Logging Config sub-tab for editing OBD configurations");
             AddBulletPoint("High-Speed Log - High-rate CAN channel logging (requires firmware with the channel-logger facility)");
             AddBulletPoint("ECU Coding - Modify ECU configuration");
             AddBulletPoint("Diagnostic Trouble Codes - Read and clear fault codes");
-            AddBulletPoint("Learned Data Reset - Reset ECU adaptive values");
             AddBulletPoint("T6 RMA Logging - Advanced memory logging");
+            AddBulletPoint("Live Tuning - Real-time calibration editing on unlocked ECUs");
+
+            AddSubheading("Output Files:");
+            AddParagraph("All loggers write their output beneath a single folder: Documents\\LotusECMLogger. Live Data logs are named LiveData_<timestamp>.csv, T6 RMA logs T6RMA_<timestamp>.csv, and high-speed logs HighSpeed_<timestamp>.csv. Live Tuning calibration files default to the LiveTuning subfolder. The folder is created automatically the first time a log is written.");
 
             AddParagraph("");
             AddParagraph("Some advanced, rarely-used operations live in the Tools menu rather than a tab:");
@@ -244,7 +257,7 @@ namespace LotusECMLogger
             AddParagraph("4. Stop Logging: Click 'Stop' when finished. The data will be saved to a CSV file.");
 
             AddSubheading("Output Files:");
-            AddParagraph("Log files are automatically saved to your Documents folder with timestamps in the filename (e.g., LotusECMLog20250210_143022.csv). These CSV files can be opened in Excel, Google Sheets, or specialized data analysis tools.");
+            AddParagraph("Log files are automatically saved to the Documents\\LotusECMLogger folder with timestamps in the filename (e.g., LiveData_20250210_143022.csv). These CSV files can be opened in Excel, Google Sheets, or specialized data analysis tools.");
 
             AddSubheading("Supported Parameters:");
             AddBulletPoint("Standard OBD-II Mode 01: Engine RPM, vehicle speed, coolant temperature, intake air temperature, throttle position, fuel trim values, oxygen sensor data, and more.");
@@ -280,7 +293,7 @@ namespace LotusECMLogger
             AddParagraph("2. (Recommended) Click 'Test Connection' to confirm the ECU supports high-speed logging.");
             AddParagraph("3. Select a preset for your firmware version from the dropdown, or click 'Add Channels...' to search the symbol database and pick channels yourself.");
             AddParagraph("4. In the channel grid, tick the channels to log and set each one's sample rate (Hz).");
-            AddParagraph("5. Choose the CSV output file. A timestamped default in your Documents folder is provided; use 'Browse' to change it.");
+            AddParagraph("5. Choose the CSV output file. A timestamped default in Documents\\LotusECMLogger is provided; use 'Browse' to change it.");
             AddParagraph("6. Click 'Start'. The app configures the ECU and begins streaming and logging.");
             AddParagraph("7. Click 'Stop' when finished.");
 
@@ -299,7 +312,7 @@ namespace LotusECMLogger
             AddBulletPoint("Dropped: Frames dropped because logging to disk fell behind. This should stay 0. If it turns red, the writer could not keep up - use a faster or local drive (avoid network/synced folders), or reduce the number of channels.");
 
             AddSubheading("Output Files:");
-            AddParagraph("Data is saved to CSV with columns: Timestamp (microsecond wall-clock), RelativeTime_ms (derived from the adapter's hardware timestamp for accurate inter-frame timing), Label, then one column per logged channel. Files are written to your Documents folder by default.");
+            AddParagraph("Data is saved to CSV with columns: Timestamp (microsecond wall-clock), RelativeTime_ms (derived from the adapter's hardware timestamp for accurate inter-frame timing), Label, then one column per logged channel. Files are written to Documents\\LotusECMLogger by default (e.g., HighSpeed_20250210_143022.csv).");
 
             AddSubheading("How It Differs from Live Data:");
             AddParagraph("Live Data uses OBD-II request/response (Mode 01/22) and works on any compatible ECU, but is limited by polling. High-Speed Logging streams internal channels at a fixed, hardware-timestamped rate and is far faster, but requires firmware that includes the channel-logger facility.");
@@ -364,6 +377,32 @@ namespace LotusECMLogger
 
             AddSubheading("Set VIN:");
             AddParagraph("The 'Set VIN' button on this tab opens a dialog for programming a new VIN into the ECU. See the 'Set VIN' help topic for details.");
+
+            AddSubheading("Dyno Mode:");
+            AddParagraph("The 'Dyno Mode' button enables the ECU's diagnostic override for dyno runs. See the 'Dyno Mode' help topic for details.");
+
+            AddSubheading("Adaptations Reset:");
+            AddParagraph("The 'Adaptations Reset' button performs an OBD-II Mode 0x11 learned data reset. See the 'Learned Data Reset' help topic for details.");
+        }
+
+        private void ShowDynoModeHelp()
+        {
+            AddHeading("Dyno Mode");
+
+            AddParagraph("The 'Dyno Mode' button on the Vehicle Information tab enables the ECU's diagnostic override, commonly known as dyno mode. While active, the ECU inhibits fault reactions triggered by external systems such as ABS - useful on a chassis dyno, where the driven and undriven wheels turning at different speeds would otherwise raise faults and trigger torque intervention.");
+
+            AddSubheading("How to Use:");
+            AddParagraph("1. Stop any active logging session (the button is disabled while the logger is running).");
+            AddParagraph("2. Click 'Dyno Mode' on the Vehicle Information tab.");
+            AddParagraph("3. Confirm the warning dialog. The application sends the enable request and reports success or failure.");
+
+            AddSubheading("How It Works:");
+            AddParagraph("The application sends an OBD-II Mode 0x2F (output control) request for PID 0x0170. The request is sent several times and success is confirmed by the ECU's positive response.");
+
+            AddSubheading("Important Notes:");
+            AddBulletPoint("Dyno mode is not persistent: it is cleared when the vehicle is powered off. There is no explicit disable command - cycle the ignition to return to normal operation.");
+            AddBulletPoint("Only enable dyno mode on a dyno or for controlled testing. Suppressing faults from systems such as ABS on the road removes safety interventions.");
+            AddBulletPoint("The button is unavailable while data logging is active; stop the logger first.");
         }
 
         private void ShowSetVinHelp()
@@ -435,7 +474,7 @@ namespace LotusECMLogger
         {
             AddHeading("Learned Data Reset");
 
-            AddParagraph("The Learned Data Reset tab allows you to perform an OBD-II Mode 0x11 reset to clear learned parameters from the ECU. This operation resets adaptive learning values, which may be necessary after certain repairs or modifications, though the ECU will need time to relearn optimal settings afterward.");
+            AddParagraph("The 'Adaptations Reset' button on the Vehicle Information tab performs an OBD-II Mode 0x11 reset to clear learned parameters from the ECU. This operation resets adaptive learning values, which may be necessary after certain repairs or modifications, though the ECU will need time to relearn optimal settings afterward.");
 
             AddSubheading("What is Learned Data?");
             AddParagraph("The ECU continuously adapts to your engine, fuel, and component wear by adjusting various parameters as you drive. On the Lotus T6e these adaptations are stored as 'learned values' in the ECU's EEPROM (protected by a checksum) so they persist across power cycles. They include:");
@@ -454,7 +493,7 @@ namespace LotusECMLogger
             AddBulletPoint("Experiencing persistent drivability issues");
 
             AddSubheading("How to Use:");
-            AddParagraph("1. Click 'Perform Reset' to initiate the learned data reset procedure.");
+            AddParagraph("1. On the Vehicle Information tab, click 'Adaptations Reset' to initiate the learned data reset procedure.");
             AddParagraph("2. Confirm the operation in the warning dialog.");
             AddParagraph("3. Wait for confirmation that the reset was successful.");
 
@@ -478,7 +517,7 @@ namespace LotusECMLogger
             AddParagraph("1. Memory Address: Enter the hexadecimal address you want to monitor (e.g., 0x40000000). Valid RAM addresses are typically in the range 0x40000000-0x4000FFFF.");
             AddParagraph("2. Length: Specify the number of bytes to read (1-255).");
             AddParagraph("3. Polling Interval: Set how often to read the address in milliseconds (10-10000ms).");
-            AddParagraph("4. CSV Output File: Choose where to save the logged data. A default path is provided.");
+            AddParagraph("4. CSV Output File: Choose where to save the logged data. A timestamped default in Documents\\LotusECMLogger is provided (e.g., T6RMA_20250210_143022.csv).");
             AddParagraph("5. Start Logging: Click 'Start Logging' to begin reading and recording the memory contents.");
             AddParagraph("6. Stop Logging: Click 'Stop Logging' when finished.");
 
@@ -493,6 +532,33 @@ namespace LotusECMLogger
 
             AddSubheading("Caution:");
             AddParagraph("This is an advanced feature. Reading from invalid memory addresses may cause unpredictable behavior or ECU communication errors. Only use this feature if you understand ECU memory architecture.");
+        }
+
+        private void ShowLiveTuningHelp()
+        {
+            AddHeading("T6 Live Tuning");
+
+            AddParagraph("The Live Tuning tab enables real-time calibration editing on unlocked T6e ECUs. It synchronizes a calibration file on disk with the ECU's RAM: the application reads a region of ECU memory to a .cpt file, watches that file for changes, and automatically writes any modified 32-bit words back to the ECU while the engine is running. Edit the file in your calibration editor of choice and the changes take effect on the ECU within a fraction of a second of saving.");
+
+            AddSubheading("Requirements:");
+            AddBulletPoint("Unlocked ECU: Live tuning uses the raw-CAN RMA protocol, which standard locked calibrations do not answer. The 'ECU' indicator on the Vehicle Information tab shows whether the ECU is unlocked.");
+            AddBulletPoint("Valid RAM region: Addresses must lie in the ECU's calibration RAM range (0x40000000-0x4000FFFF). The memory presets (from config\\liveTuning\\memoryConfig.json) provide known-good regions for supported firmware versions.");
+            AddBulletPoint("Logging stopped: Live tuning holds the J2534 device for itself and cannot run alongside a logging session.");
+
+            AddSubheading("How to Use (Read & Start):");
+            AddParagraph("1. Select a memory preset for your firmware, or enter a base address and length manually.");
+            AddParagraph("2. Choose an output directory. The default is Documents\\LotusECMLogger\\LiveTuning.");
+            AddParagraph("3. Click 'Read & Start'. The application reads the ECU memory region into a timestamped .cpt file and immediately begins monitoring it.");
+            AddParagraph("4. Open the .cpt file in your calibration editor and make changes. Each time you save, the changed words are written to the ECU automatically (the file is scanned every 100 ms).");
+            AddParagraph("5. Click 'Stop Monitoring' when finished.");
+
+            AddSubheading("Using an Existing File:");
+            AddParagraph("If you already have a .cpt file that matches the ECU's current calibration, select it under 'Calibration File' and click 'Start Monitoring' to begin synchronizing without re-reading the ECU. The file must correspond to the configured base address, otherwise writes will land at the wrong locations.");
+
+            AddSubheading("Important Notes:");
+            AddBulletPoint("Changes are written to ECU RAM only - they are lost on power-off and do not modify the flashed calibration. To make a change permanent, flash it with the T6E Calibration Flasher.");
+            AddBulletPoint("The status log shows every word written, so you can verify each edit as it is applied.");
+            AddBulletPoint("Live tuning modifies a running engine's calibration. Make small, deliberate changes and understand each parameter before editing it.");
         }
 
         private void ShowFlasherHelp()
@@ -653,7 +719,7 @@ namespace LotusECMLogger
             AddSubheading("Getting Help:");
             AddParagraph("If you continue experiencing issues:");
             AddBulletPoint("Check the project GitHub page for known issues and solutions");
-            AddBulletPoint("Review application log files in Documents folder for error details");
+            AddBulletPoint("Review log files in the Documents\\LotusECMLogger folder for error details");
             AddBulletPoint("Consult Lotus enthusiast forums for vehicle-specific guidance");
             AddBulletPoint("Ensure you're using the latest version of LotusECMLogger");
         }

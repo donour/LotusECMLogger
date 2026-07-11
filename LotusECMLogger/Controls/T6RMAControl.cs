@@ -35,8 +35,7 @@ namespace LotusECMLogger.Controls
 			InitializeComponent();
 
 			// Set default CSV path with timestamp
-			string defaultCsvPath = $"{Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)}\\T6RMA_{DateTime.Now:yyyyMMddTHHmmss}.csv";
-			csvPathTextBox.Text = defaultCsvPath;
+			csvPathTextBox.Text = LoggerPaths.TimestampedCsvPath("T6RMA");
 
 			Dock = DockStyle.Fill;
 		}

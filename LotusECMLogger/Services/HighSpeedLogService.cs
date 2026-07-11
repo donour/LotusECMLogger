@@ -253,6 +253,7 @@ namespace LotusECMLogger.Services
 
         private void InitializeCsvFile(IReadOnlyList<(HighSpeedChannel channel, int rateHz)> channels)
         {
+            LoggerPaths.EnsureParentDirectory(_csvFilePath!);
             _csvWriter = new StreamWriter(_csvFilePath!, false, Encoding.UTF8) { AutoFlush = false };
             _csvRowsSinceFlush = 0;
 

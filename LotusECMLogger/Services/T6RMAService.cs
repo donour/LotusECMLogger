@@ -202,6 +202,7 @@ namespace LotusECMLogger.Services
 		{
 			try
 			{
+				LoggerPaths.EnsureParentDirectory(_csvFilePath!);
 				_csvWriter = new StreamWriter(_csvFilePath!, false, Encoding.UTF8);
 
 				// Write CSV header

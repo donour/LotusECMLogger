@@ -126,7 +126,7 @@ namespace LotusECMLogger.Controls
             {
                 liveData.Clear();
                 IsLogging = true;
-                var outfn = $"{Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)}\\LotusECMLog{DateTime.Now:yyyyMMdd_HHmmss}.csv";
+                var outfn = LoggerPaths.TimestampedCsvPath("LiveData");
 
                 if (string.IsNullOrWhiteSpace(selectedObdConfigName))
                 {

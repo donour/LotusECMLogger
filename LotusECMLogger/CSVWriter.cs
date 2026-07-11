@@ -22,6 +22,7 @@ namespace LotusECMLogger
 
         public CSVWriter(string filename)
         {
+            LoggerPaths.EnsureParentDirectory(filename);
             this.writer = new StreamWriter(filename);
         }
 
