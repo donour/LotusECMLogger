@@ -158,17 +158,6 @@ namespace LotusECMLogger.Services
             return (false, "No response from ECU for the clear request.");
         }
 
-        public void SendPermanentDtcClear()
-		{
-			// Service 0x0A: Permanent Diagnostic Trouble Codes (request message has only the service byte)
-			// For Lotus ECM, prepend the 4-byte CAN header targeting ECM (0x07E0)
-			byte[] request = new byte[ECM_HEADER.Length + 1];
-			Array.Copy(ECM_HEADER, request, ECM_HEADER.Length);
-			request[ECM_HEADER.Length] = (byte)OBDIIMode.PermanentDiagnosticTroubleCodes; // 0x0A
-
-			_channel.SendMessage(request);
-		}
-
         /// <summary>
         /// Reads diagnostic trouble codes for a DTC service: 0x03 (stored/confirmed),
         /// 0x07 (pending), or 0x0A (permanent). Sends the single-byte service request and

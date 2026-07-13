@@ -19,18 +19,19 @@ namespace LotusECMLogger.Controls
             dtcListView.Columns.Clear();
             dtcListView.Columns.Add("Code", 120);
             dtcListView.Columns.Add("Category", 160);
+            dtcListView.Columns.Add("Type", 100);
         }
 
-        private void readCodesButton_Click(object sender, EventArgs e)
+        private async void readCodesButton_Click(object sender, EventArgs e)
         {
             readCodesButton.Enabled = false;
             readCodesButton.Text = "Reading...";
-            statusLabel.Text = "Reading stored trouble codes...";
+            statusLabel.Text = "Reading trouble codes...";
             dtcListView.Items.Clear();
 
             try
             {
-                var (success, errorMessage, codes) = dtcService.ReadStoredCodes();
+                var (success, errorMessage, result) = await Task.Run(() => dtcService.ReadCodes());
 
                 if (!success)
                 {
@@ -40,16 +41,12 @@ namespace LotusECMLogger.Controls
                     return;
                 }
 
-                foreach (var dtc in codes)
-                {
-                    var item = new ListViewItem(dtc.Code);
-                    item.SubItems.Add(dtc.Category.ToString());
-                    dtcListView.Items.Add(item);
-                }
+                foreach (var dtc in result.Stored)
+                    AddCodeRow(dtc, "Stored");
+                foreach (var dtc in result.Permanent)
+                    AddCodeRow(dtc, "Permanent");
 
-                statusLabel.Text = codes.Count == 0
-                    ? "No stored trouble codes"
-                    : $"{codes.Count} stored trouble code(s)";
+                statusLabel.Text = BuildReadStatus(result);
             }
             finally
             {
@@ -58,7 +55,25 @@ namespace LotusECMLogger.Controls
             }
         }
 
-        private void clearCodesButton_Click(object sender, EventArgs e)
+        private void AddCodeRow(DiagnosticTroubleCode dtc, string type)
+        {
+            var item = new ListViewItem(dtc.Code);
+            item.SubItems.Add(dtc.Category.ToString());
+            item.SubItems.Add(type);
+            dtcListView.Items.Add(item);
+        }
+
+        private static string BuildReadStatus(DtcReadResult result)
+        {
+            string text = result.Stored.Count == 0 && result.Permanent.Count == 0
+                ? "No trouble codes"
+                : $"{result.Stored.Count} stored, {result.Permanent.Count} permanent trouble code(s)";
+            if (result.PermanentError != null)
+                text += " — permanent codes unavailable";
+            return text;
+        }
+
+        private async void clearCodesButton_Click(object sender, EventArgs e)
         {
             var result = MessageBox.Show(
                 "Clear all diagnostic trouble codes?\n\n" +
@@ -79,7 +94,7 @@ namespace LotusECMLogger.Controls
 
             try
             {
-                var (success, errorMessage) = dtcService.ClearCodes();
+                var (success, errorMessage) = await Task.Run(() => dtcService.ClearCodes());
 
                 if (!success)
                 {
@@ -90,7 +105,7 @@ namespace LotusECMLogger.Controls
                 }
 
                 dtcListView.Items.Clear();
-                statusLabel.Text = "Trouble codes and freeze frames cleared";
+                statusLabel.Text = "Codes cleared — read again to check for permanent codes";
             }
             finally
             {

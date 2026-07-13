@@ -454,8 +454,8 @@ namespace LotusECMLogger
             AddParagraph("The Diagnostic Trouble Codes (DTC) tab provides functionality for reading and clearing diagnostic trouble codes from the ECU. This feature helps you diagnose issues and monitor fault codes stored in your vehicle's engine management system.");
 
             AddSubheading("How to Use:");
-            AddParagraph("1. Read Codes: Click 'Read Codes' to retrieve all stored trouble codes from the ECU.");
-            AddParagraph("2. View Details: Each code is displayed with its description and status.");
+            AddParagraph("1. Read Codes: Click 'Read Codes' to retrieve stored (Mode 03) and permanent (Mode 0A) trouble codes from the ECU.");
+            AddParagraph("2. View Details: Each code is displayed with its category and type (stored or permanent).");
             AddParagraph("3. Clear Codes: After addressing the underlying issues, click 'Clear Codes' to erase stored fault codes from the ECU memory.");
 
             AddSubheading("Understanding DTCs:");
@@ -468,6 +468,7 @@ namespace LotusECMLogger
             AddSubheading("Important Notes:");
             AddParagraph("Clearing codes does not fix the underlying problem - it only erases the stored fault memory. If the problem persists, codes will return after driving the vehicle.");
             AddParagraph("Clearing codes (OBD-II Mode 04) also erases freeze frame data and resets readiness monitors to 'not ready'. Record any freeze frame information you need before clearing.");
+            AddParagraph("Permanent codes cannot be cleared with 'Clear Codes'. The ECU erases them on its own once the fault stays absent for the required drive cycles.");
             AddParagraph("Some codes may require multiple drive cycles to reset monitoring readiness flags.");
         }
 

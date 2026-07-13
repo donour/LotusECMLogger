@@ -48,16 +48,34 @@ namespace LotusECMLogger.Services
         }
     }
 
+    /// <summary>
+    /// The codes returned by one <see cref="IDtcService.ReadCodes"/> pass: stored (confirmed)
+    /// codes from service 0x03 and permanent codes from service 0x0A.
+    /// </summary>
+    public sealed record DtcReadResult
+    {
+        public IReadOnlyList<DiagnosticTroubleCode> Stored { get; init; } = [];
+
+        /// <summary>Permanent codes survive a Mode 04 clear and cannot be erased on request.</summary>
+        public IReadOnlyList<DiagnosticTroubleCode> Permanent { get; init; } = [];
+
+        /// <summary>
+        /// Non-null when the permanent-code read failed (e.g. the firmware does not answer
+        /// service 0x0A); <see cref="Permanent"/> is empty in that case.
+        /// </summary>
+        public string? PermanentError { get; init; }
+    }
+
     public interface IDtcService
     {
         /// <summary>
-        /// Reads stored (confirmed) diagnostic trouble codes via OBD-II service 0x03.
+        /// Reads stored (service 0x03) and permanent (service 0x0A) diagnostic trouble codes.
         /// </summary>
         /// <returns>
-        /// Success flag, an error message when unsuccessful, and the codes read (empty when
-        /// the ECU reports no stored codes).
+        /// Success flag, an error message when unsuccessful, and the codes read (empty lists
+        /// when the ECU reports no codes).
         /// </returns>
-        (bool success, string errorMessage, IReadOnlyList<DiagnosticTroubleCode> codes) ReadStoredCodes();
+        (bool success, string errorMessage, DtcReadResult result) ReadCodes();
 
         /// <summary>
         /// Clears diagnostic information via OBD-II service 0x04: stored and pending DTCs,
