@@ -96,6 +96,24 @@ namespace LotusECMLogger
                 MessageBox.Show($"Failed to initialize High-Speed Log tab: {ex.Message}", "Startup Error",
                     MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
+
+            // Add engineering-access probe control (read-only)
+            try
+            {
+                var engService = new EngineeringAccessService();
+                var engControl = new EngineeringAccessControl(engService)
+                {
+                    Dock = DockStyle.Fill,
+                    IsLoggerActive = false
+                };
+                engineeringAccessTab.Controls.Clear();
+                engineeringAccessTab.Controls.Add(engControl);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Failed to initialize Engineering Access tab: {ex.Message}", "Startup Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
         }
 
         /// <summary>
@@ -118,6 +136,10 @@ namespace LotusECMLogger
                 var hsControl = highSpeedLogTab.Controls.OfType<HighSpeedLogControl>().FirstOrDefault();
                 if (hsControl != null)
                     hsControl.IsLoggerActive = isLogging;
+
+                var engControl = engineeringAccessTab.Controls.OfType<EngineeringAccessControl>().FirstOrDefault();
+                if (engControl != null)
+                    engControl.IsLoggerActive = isLogging;
 
                 // Erasing model info issues an RMA write, which conflicts with active logging.
                 eraseModelInfoToolStripMenuItem.Enabled = !isLogging;
@@ -180,7 +202,8 @@ namespace LotusECMLogger
                 GuiIcons.Dtc,
                 GuiIcons.RmaLogging,
                 GuiIcons.LiveTuning,
-                GuiIcons.HighSpeedLog);
+                GuiIcons.HighSpeedLog,
+                GuiIcons.Connect);
             mainTabControl.ImageList = mainIcons;
             vehicleInfoTab.ImageIndex = 0;
             liveDataTab.ImageIndex    = 1;
@@ -189,6 +212,7 @@ namespace LotusECMLogger
             t6RmaTab.ImageIndex       = 4;
             liveTuningTab.ImageIndex  = 5;
             highSpeedLogTab.ImageIndex = 6;
+            engineeringAccessTab.ImageIndex = 7;
 
             var loggingIcons = GuiIcons.BuildImageList(20, tabColor,
                 GuiIcons.LoggerTab,
