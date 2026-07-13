@@ -27,6 +27,18 @@ namespace LotusECMLogger.Controls
             statusPanel = new FlowLayoutPanel();
             statusLabel = new Label();
             statusValueLabel = new Label();
+            writeGroupBox = new GroupBox();
+            writeLayout = new TableLayoutPanel();
+            enableWritesCheck = new CheckBox();
+            transportLabel = new Label();
+            transportCombo = new ComboBox();
+            writeAddressLabel = new Label();
+            writeAddressTextBox = new TextBox();
+            writeBytesLabel = new Label();
+            writeBytesTextBox = new TextBox();
+            writeButtonPanel = new FlowLayoutPanel();
+            writeButton = new Button();
+            applyMagicButton = new Button();
             resultGroupBox = new GroupBox();
             resultTextBox = new TextBox();
             layoutPanel.SuspendLayout();
@@ -34,6 +46,9 @@ namespace LotusECMLogger.Controls
             configLayout.SuspendLayout();
             buttonPanel.SuspendLayout();
             statusPanel.SuspendLayout();
+            writeGroupBox.SuspendLayout();
+            writeLayout.SuspendLayout();
+            writeButtonPanel.SuspendLayout();
             resultGroupBox.SuspendLayout();
             SuspendLayout();
             //
@@ -42,12 +57,14 @@ namespace LotusECMLogger.Controls
             layoutPanel.ColumnCount = 1;
             layoutPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
             layoutPanel.Controls.Add(configGroupBox, 0, 0);
-            layoutPanel.Controls.Add(resultGroupBox, 0, 1);
+            layoutPanel.Controls.Add(writeGroupBox, 0, 1);
+            layoutPanel.Controls.Add(resultGroupBox, 0, 2);
             layoutPanel.Dock = DockStyle.Fill;
             layoutPanel.Location = new Point(14, 17);
             layoutPanel.Margin = new Padding(4, 5, 4, 5);
             layoutPanel.Name = "layoutPanel";
-            layoutPanel.RowCount = 2;
+            layoutPanel.RowCount = 3;
+            layoutPanel.RowStyles.Add(new RowStyle());
             layoutPanel.RowStyles.Add(new RowStyle());
             layoutPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
             layoutPanel.Size = new Size(1115, 966);
@@ -62,7 +79,7 @@ namespace LotusECMLogger.Controls
             configGroupBox.Margin = new Padding(4, 5, 4, 5);
             configGroupBox.Name = "configGroupBox";
             configGroupBox.Padding = new Padding(14, 17, 14, 17);
-            configGroupBox.Size = new Size(1107, 200);
+            configGroupBox.Size = new Size(1107, 170);
             configGroupBox.TabIndex = 0;
             configGroupBox.TabStop = false;
             configGroupBox.Text = "Engineering Access Probe (read-only)";
@@ -85,7 +102,7 @@ namespace LotusECMLogger.Controls
             configLayout.RowStyles.Add(new RowStyle());
             configLayout.RowStyles.Add(new RowStyle());
             configLayout.RowStyles.Add(new RowStyle());
-            configLayout.Size = new Size(1079, 142);
+            configLayout.Size = new Size(1079, 112);
             configLayout.TabIndex = 0;
             //
             // profileLabel
@@ -166,18 +183,175 @@ namespace LotusECMLogger.Controls
             statusValueLabel.TabIndex = 1;
             statusValueLabel.Text = "Idle";
             //
+            // writeGroupBox
+            //
+            writeGroupBox.AutoSize = true;
+            writeGroupBox.Controls.Add(writeLayout);
+            writeGroupBox.Dock = DockStyle.Fill;
+            writeGroupBox.ForeColor = Color.Firebrick;
+            writeGroupBox.Location = new Point(4, 185);
+            writeGroupBox.Margin = new Padding(4, 5, 4, 5);
+            writeGroupBox.Name = "writeGroupBox";
+            writeGroupBox.Padding = new Padding(14, 17, 14, 17);
+            writeGroupBox.Size = new Size(1107, 230);
+            writeGroupBox.TabIndex = 1;
+            writeGroupBox.TabStop = false;
+            writeGroupBox.Text = "Live Memory Write (advanced — modifies the ECU)";
+            //
+            // writeLayout
+            //
+            writeLayout.AutoSize = true;
+            writeLayout.ColumnCount = 2;
+            writeLayout.ColumnStyles.Add(new ColumnStyle());
+            writeLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            writeLayout.Controls.Add(enableWritesCheck, 0, 0);
+            writeLayout.Controls.Add(transportLabel, 0, 1);
+            writeLayout.Controls.Add(transportCombo, 1, 1);
+            writeLayout.Controls.Add(writeAddressLabel, 0, 2);
+            writeLayout.Controls.Add(writeAddressTextBox, 1, 2);
+            writeLayout.Controls.Add(writeBytesLabel, 0, 3);
+            writeLayout.Controls.Add(writeBytesTextBox, 1, 3);
+            writeLayout.Controls.Add(writeButtonPanel, 1, 4);
+            writeLayout.Dock = DockStyle.Fill;
+            writeLayout.Location = new Point(14, 41);
+            writeLayout.Margin = new Padding(4, 5, 4, 5);
+            writeLayout.Name = "writeLayout";
+            writeLayout.RowCount = 5;
+            writeLayout.RowStyles.Add(new RowStyle());
+            writeLayout.RowStyles.Add(new RowStyle());
+            writeLayout.RowStyles.Add(new RowStyle());
+            writeLayout.RowStyles.Add(new RowStyle());
+            writeLayout.RowStyles.Add(new RowStyle());
+            writeLayout.Size = new Size(1079, 172);
+            writeLayout.TabIndex = 0;
+            //
+            // enableWritesCheck
+            //
+            enableWritesCheck.AutoSize = true;
+            writeLayout.SetColumnSpan(enableWritesCheck, 2);
+            enableWritesCheck.ForeColor = SystemColors.ControlText;
+            enableWritesCheck.Location = new Point(4, 5);
+            enableWritesCheck.Margin = new Padding(4, 5, 4, 5);
+            enableWritesCheck.Name = "enableWritesCheck";
+            enableWritesCheck.Size = new Size(400, 29);
+            enableWritesCheck.TabIndex = 0;
+            enableWritesCheck.Text = "Enable writes (I understand this modifies the ECU)";
+            enableWritesCheck.UseVisualStyleBackColor = true;
+            //
+            // transportLabel
+            //
+            transportLabel.Anchor = AnchorStyles.Left;
+            transportLabel.AutoSize = true;
+            transportLabel.ForeColor = SystemColors.ControlText;
+            transportLabel.Location = new Point(4, 47);
+            transportLabel.Margin = new Padding(4, 0, 4, 0);
+            transportLabel.Name = "transportLabel";
+            transportLabel.Size = new Size(90, 25);
+            transportLabel.TabIndex = 1;
+            transportLabel.Text = "Transport:";
+            //
+            // transportCombo
+            //
+            transportCombo.DropDownStyle = ComboBoxStyle.DropDownList;
+            transportCombo.Location = new Point(207, 44);
+            transportCombo.Margin = new Padding(4, 5, 4, 5);
+            transportCombo.Name = "transportCombo";
+            transportCombo.Size = new Size(400, 33);
+            transportCombo.TabIndex = 2;
+            //
+            // writeAddressLabel
+            //
+            writeAddressLabel.Anchor = AnchorStyles.Left;
+            writeAddressLabel.AutoSize = true;
+            writeAddressLabel.ForeColor = SystemColors.ControlText;
+            writeAddressLabel.Location = new Point(4, 88);
+            writeAddressLabel.Margin = new Padding(4, 0, 4, 0);
+            writeAddressLabel.Name = "writeAddressLabel";
+            writeAddressLabel.Size = new Size(150, 25);
+            writeAddressLabel.TabIndex = 3;
+            writeAddressLabel.Text = "Address (hex):";
+            //
+            // writeAddressTextBox
+            //
+            writeAddressTextBox.Location = new Point(207, 85);
+            writeAddressTextBox.Margin = new Padding(4, 5, 4, 5);
+            writeAddressTextBox.Name = "writeAddressTextBox";
+            writeAddressTextBox.Size = new Size(284, 31);
+            writeAddressTextBox.TabIndex = 4;
+            writeAddressTextBox.Text = "0x40000000";
+            //
+            // writeBytesLabel
+            //
+            writeBytesLabel.Anchor = AnchorStyles.Left;
+            writeBytesLabel.AutoSize = true;
+            writeBytesLabel.ForeColor = SystemColors.ControlText;
+            writeBytesLabel.Location = new Point(4, 129);
+            writeBytesLabel.Margin = new Padding(4, 0, 4, 0);
+            writeBytesLabel.Name = "writeBytesLabel";
+            writeBytesLabel.Size = new Size(150, 25);
+            writeBytesLabel.TabIndex = 5;
+            writeBytesLabel.Text = "Bytes (hex):";
+            //
+            // writeBytesTextBox
+            //
+            writeBytesTextBox.Location = new Point(207, 126);
+            writeBytesTextBox.Margin = new Padding(4, 5, 4, 5);
+            writeBytesTextBox.Name = "writeBytesTextBox";
+            writeBytesTextBox.PlaceholderText = "e.g. 0D B8 45 D4";
+            writeBytesTextBox.Size = new Size(400, 31);
+            writeBytesTextBox.TabIndex = 6;
+            //
+            // writeButtonPanel
+            //
+            writeButtonPanel.AutoSize = true;
+            writeButtonPanel.Controls.Add(writeButton);
+            writeButtonPanel.Controls.Add(applyMagicButton);
+            writeButtonPanel.Dock = DockStyle.Fill;
+            writeButtonPanel.Location = new Point(203, 167);
+            writeButtonPanel.Margin = new Padding(0, 5, 0, 0);
+            writeButtonPanel.Name = "writeButtonPanel";
+            writeButtonPanel.Size = new Size(876, 45);
+            writeButtonPanel.TabIndex = 7;
+            writeButtonPanel.WrapContents = false;
+            //
+            // writeButton
+            //
+            writeButton.AutoSize = true;
+            writeButton.ForeColor = SystemColors.ControlText;
+            writeButton.Location = new Point(4, 5);
+            writeButton.Margin = new Padding(4, 5, 4, 5);
+            writeButton.Name = "writeButton";
+            writeButton.Size = new Size(184, 35);
+            writeButton.TabIndex = 0;
+            writeButton.Text = "Write Bytes";
+            writeButton.UseVisualStyleBackColor = true;
+            writeButton.Click += WriteButton_Click;
+            //
+            // applyMagicButton
+            //
+            applyMagicButton.AutoSize = true;
+            applyMagicButton.ForeColor = SystemColors.ControlText;
+            applyMagicButton.Location = new Point(196, 5);
+            applyMagicButton.Margin = new Padding(4, 5, 4, 5);
+            applyMagicButton.Name = "applyMagicButton";
+            applyMagicButton.Size = new Size(260, 35);
+            applyMagicButton.TabIndex = 1;
+            applyMagicButton.Text = "Apply Calibration Magic";
+            applyMagicButton.UseVisualStyleBackColor = true;
+            applyMagicButton.Click += ApplyMagicButton_Click;
+            //
             // resultGroupBox
             //
             resultGroupBox.Controls.Add(resultTextBox);
             resultGroupBox.Dock = DockStyle.Fill;
-            resultGroupBox.Location = new Point(4, 215);
+            resultGroupBox.Location = new Point(4, 425);
             resultGroupBox.Margin = new Padding(4, 10, 4, 5);
             resultGroupBox.Name = "resultGroupBox";
             resultGroupBox.Padding = new Padding(14, 17, 14, 17);
-            resultGroupBox.Size = new Size(1107, 746);
-            resultGroupBox.TabIndex = 1;
+            resultGroupBox.Size = new Size(1107, 536);
+            resultGroupBox.TabIndex = 2;
             resultGroupBox.TabStop = false;
-            resultGroupBox.Text = "Probe Result";
+            resultGroupBox.Text = "Result";
             //
             // resultTextBox
             //
@@ -189,7 +363,7 @@ namespace LotusECMLogger.Controls
             resultTextBox.Name = "resultTextBox";
             resultTextBox.ReadOnly = true;
             resultTextBox.ScrollBars = ScrollBars.Both;
-            resultTextBox.Size = new Size(1079, 688);
+            resultTextBox.Size = new Size(1079, 478);
             resultTextBox.TabIndex = 0;
             resultTextBox.Text = "No probe run yet.";
             resultTextBox.WordWrap = false;
@@ -213,6 +387,12 @@ namespace LotusECMLogger.Controls
             buttonPanel.PerformLayout();
             statusPanel.ResumeLayout(false);
             statusPanel.PerformLayout();
+            writeGroupBox.ResumeLayout(false);
+            writeGroupBox.PerformLayout();
+            writeLayout.ResumeLayout(false);
+            writeLayout.PerformLayout();
+            writeButtonPanel.ResumeLayout(false);
+            writeButtonPanel.PerformLayout();
             resultGroupBox.ResumeLayout(false);
             resultGroupBox.PerformLayout();
             ResumeLayout(false);
@@ -231,6 +411,18 @@ namespace LotusECMLogger.Controls
         private FlowLayoutPanel statusPanel;
         private Label statusLabel;
         private Label statusValueLabel;
+        private GroupBox writeGroupBox;
+        private TableLayoutPanel writeLayout;
+        private CheckBox enableWritesCheck;
+        private Label transportLabel;
+        private ComboBox transportCombo;
+        private Label writeAddressLabel;
+        private TextBox writeAddressTextBox;
+        private Label writeBytesLabel;
+        private TextBox writeBytesTextBox;
+        private FlowLayoutPanel writeButtonPanel;
+        private Button writeButton;
+        private Button applyMagicButton;
         private GroupBox resultGroupBox;
         private TextBox resultTextBox;
     }
