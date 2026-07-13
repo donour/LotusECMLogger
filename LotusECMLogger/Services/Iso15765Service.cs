@@ -122,6 +122,42 @@ namespace LotusECMLogger.Services
             _channel.SendMessage(request);
         }
 
+        /// <summary>
+        /// Service 0x04: clears emissions-related diagnostic information — stored and pending
+        /// DTCs, freeze frame data, readiness monitor results and related stored values.
+        /// Waits for the ECU's positive response (0x44) so callers know the clear was accepted.
+        /// </summary>
+        public (bool success, string errorMessage) ClearDiagnosticInformation()
+        {
+            byte[] request = new byte[ECM_HEADER.Length + 1];
+            Array.Copy(ECM_HEADER, request, ECM_HEADER.Length);
+            request[ECM_HEADER.Length] = (byte)OBDIIMode.ClearDiagnosticTroubleCodesAndStoredValues;
+            _channel.SendMessage(request);
+
+            for (int i = 0; i < 10; i++)
+            {
+                var response = _channel.ReadMessages(1, 250);
+                if (response.Messages.Length == 0)
+                    continue;
+
+                var data = response.Messages[0].Data;
+                // Skip echoes of our own transmit and TX confirmation frames.
+                if (data.Length < 5 || data[2] != 0x07 || data[3] != 0xE8)
+                    continue;
+
+                // Positive response: 0x44 (= 0x04 | 0x40).
+                if (data[4] == 0x44)
+                    return (true, "");
+
+                // Negative response: 0x7F 0x04 <NRC>
+                if (data.Length >= 7 && data[4] == 0x7F &&
+                    data[5] == (byte)OBDIIMode.ClearDiagnosticTroubleCodesAndStoredValues)
+                    return (false, $"ECU rejected the clear request (NRC 0x{data[6]:X2}). Try with the ignition on and the engine off.");
+            }
+
+            return (false, "No response from ECU for the clear request.");
+        }
+
         public void SendPermanentDtcClear()
 		{
 			// Service 0x0A: Permanent Diagnostic Trouble Codes (request message has only the service byte)

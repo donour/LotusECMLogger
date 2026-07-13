@@ -59,7 +59,6 @@ namespace LotusECMLogger.Controls
             // 
             // clearCodesButton
             // 
-            clearCodesButton.Enabled = false;
             clearCodesButton.Location = new Point(138, 12);
             clearCodesButton.Name = "clearCodesButton";
             clearCodesButton.Size = new Size(120, 32);

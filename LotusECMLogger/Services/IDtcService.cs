@@ -58,5 +58,12 @@ namespace LotusECMLogger.Services
         /// the ECU reports no stored codes).
         /// </returns>
         (bool success, string errorMessage, IReadOnlyList<DiagnosticTroubleCode> codes) ReadStoredCodes();
+
+        /// <summary>
+        /// Clears diagnostic information via OBD-II service 0x04: stored and pending DTCs,
+        /// freeze frame data, readiness monitor results, and related stored values.
+        /// </summary>
+        /// <returns>Success flag and an error message when unsuccessful.</returns>
+        (bool success, string errorMessage) ClearCodes();
     }
 }

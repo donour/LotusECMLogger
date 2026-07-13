@@ -11,6 +11,7 @@ namespace LotusECMLogger.Controls
             InitializeComponent();
             SetupListViewColumns();
             GuiIcons.ApplyToButton(readCodesButton, GuiIcons.Read);
+            GuiIcons.ApplyToButton(clearCodesButton, GuiIcons.Clear);
         }
 
         private void SetupListViewColumns()
@@ -59,9 +60,43 @@ namespace LotusECMLogger.Controls
 
         private void clearCodesButton_Click(object sender, EventArgs e)
         {
-            // TODO: Implement DTC clearing functionality
-            MessageBox.Show("Clear Codes functionality not yet implemented", "Not Implemented",
-                MessageBoxButtons.OK, MessageBoxIcon.Information);
+            var result = MessageBox.Show(
+                "Clear all diagnostic trouble codes?\n\n" +
+                "This also erases freeze frame data, readiness monitor results, and other stored " +
+                "diagnostic values. Readiness monitors reset to \"not ready\" until their drive " +
+                "cycles complete, which may affect emissions testing.\n\n" +
+                "Confirm to proceed.",
+                "Confirm Clear Codes",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Warning);
+
+            if (result != DialogResult.Yes)
+                return;
+
+            clearCodesButton.Enabled = false;
+            clearCodesButton.Text = "Clearing...";
+            statusLabel.Text = "Clearing trouble codes...";
+
+            try
+            {
+                var (success, errorMessage) = dtcService.ClearCodes();
+
+                if (!success)
+                {
+                    statusLabel.Text = "Error clearing codes";
+                    MessageBox.Show($"Failed to clear trouble codes: {errorMessage}", "Clear Error",
+                        MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
+
+                dtcListView.Items.Clear();
+                statusLabel.Text = "Trouble codes and freeze frames cleared";
+            }
+            finally
+            {
+                clearCodesButton.Enabled = true;
+                clearCodesButton.Text = "Clear Codes";
+            }
         }
     }
 }

@@ -21,5 +21,22 @@ namespace LotusECMLogger.Services
                 return (false, ex.Message, []);
             }
         }
+
+        public (bool success, string errorMessage) ClearCodes()
+        {
+            try
+            {
+                using var session = J2534Session.Open();
+                J2534Channel channel = session.OpenIso15765();
+                channel.StartMessageFilter(ECUDefinition.ECM.CreateFlowControlFilter()).ThrowIfError();
+
+                var iso = new Iso15765Service(channel);
+                return iso.ClearDiagnosticInformation();
+            }
+            catch (Exception ex)
+            {
+                return (false, ex.Message);
+            }
+        }
     }
 }

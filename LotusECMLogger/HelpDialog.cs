@@ -467,6 +467,7 @@ namespace LotusECMLogger
 
             AddSubheading("Important Notes:");
             AddParagraph("Clearing codes does not fix the underlying problem - it only erases the stored fault memory. If the problem persists, codes will return after driving the vehicle.");
+            AddParagraph("Clearing codes (OBD-II Mode 04) also erases freeze frame data and resets readiness monitors to 'not ready'. Record any freeze frame information you need before clearing.");
             AddParagraph("Some codes may require multiple drive cycles to reset monitoring readiness flags.");
         }
 
