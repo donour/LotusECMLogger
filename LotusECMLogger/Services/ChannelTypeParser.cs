@@ -49,8 +49,8 @@ namespace LotusECMLogger.Services
         {
             "rspeed", "temp", "voltage", "torque", "pressure", "angle", "speed", "time",
             "flow", "load", "factor", "count", "gear", "current", "mass", "power", "ratio",
-            "level", "distance", "accel", "frequency",
-            "afr", "volume", "slip", "dutycycle", "percent", "gain", "dt",
+            "level", "distance", "accel", "frequency", "economy",
+            "afr", "volume", "slip", "dutycycle", "percent", "gain", "dt", "dt_factor",
         };
 
         // Default unit when an encoded type omits one (the scale/offset still come from the spec).
@@ -64,24 +64,43 @@ namespace LotusECMLogger.Services
         // Light prettifying of the raw unit token for display.
         private static readonly Dictionary<string, string> PrettyUnits = new(StringComparer.Ordinal)
         {
-            ["c"] = "°C", ["v"] = "V", ["nm"] = "Nm", ["kph"] = "km/h", ["pct"] = "%",
+            ["c"] = "°C", ["C"] = "°C", ["v"] = "V", ["nm"] = "Nm", ["kph"] = "km/h",
+            ["pct"] = "%", ["kw"] = "kW", ["ml_per_km"] = "ml/km",
         };
 
         private static readonly Regex EncodedRe =
             new(@"^(?<sz>[ui])(?<bits>8|16|32)_(?<qty>[a-z0-9]+)(?:_(?<spec>.+))?$", RegexOptions.Compiled);
 
+        // Quantity-less offset form, e.g. "u8_-127" (axis values stored biased by a constant).
+        private static readonly Regex OffsetOnlyRe =
+            new(@"^(?<sz>[ui])(?<bits>8|16|32)_(?<off>[+-]\d+)$", RegexOptions.Compiled);
+
         private static readonly Regex SpecRe =
             new(@"^(?<num>\d+)?(?:/(?<den>\d+))?(?<off>[+-]\d+)?(?<unit>.*)$", RegexOptions.Compiled);
+
+        // "1173mg/255stroke": numerator and denominator each carry a unit token → scale num/den, unit "mg/stroke".
+        private static readonly Regex RatioUnitsRe =
+            new(@"^(?<num>\d+)(?<nu>[a-zA-Z]+)/(?<den>\d+)(?<du>[a-zA-Z]+)$", RegexOptions.Compiled);
+
+        // "(x-104)/26": affine form → value = (raw + off) / den.
+        private static readonly Regex AffineRe =
+            new(@"^\(x(?<off>[+-]\d+)\)/(?<den>\d+)(?<unit>.*)$", RegexOptions.Compiled);
+
+        // "mm_div2": plain unit divided by a constant.
+        private static readonly Regex UnitDivRe =
+            new(@"^(?<unit>[a-zA-Z]+)_div(?<den>\d+)$", RegexOptions.Compiled);
 
         public static ParsedChannelType Parse(string? rawType)
         {
             string t = (rawType ?? string.Empty).Trim();
 
+            // Strip (possibly multi-dimensional) array suffixes, e.g. "uint32_t[6][64]" → 384 elements.
             int arrayLen = 0;
-            var arr = Regex.Match(t, @"\[(\d+)\]$");
-            if (arr.Success)
+            Match arr;
+            while ((arr = Regex.Match(t, @"\[(\d+)\]$")).Success)
             {
-                arrayLen = int.Parse(arr.Groups[1].Value, CultureInfo.InvariantCulture);
+                int len = int.Parse(arr.Groups[1].Value, CultureInfo.InvariantCulture);
+                arrayLen = arrayLen == 0 ? len : arrayLen * len;
                 t = t[..arr.Index].Trim();
             }
 
@@ -98,15 +117,15 @@ namespace LotusECMLogger.Services
             {
                 case "uint8_t": case "undefined1": case "bool": case "byte": case "char":
                     return new ParsedChannelType { Size = 1, Unit = "raw", Confidence = TypeConfidence.BaseType };
-                case "uint16_t": case "undefined2":
+                case "uint16_t": case "undefined2": case "ushort": case "word":
                     return new ParsedChannelType { Size = 2, Unit = "raw", Confidence = TypeConfidence.BaseType };
-                case "uint32_t": case "undefined4": case "undefined":
+                case "uint32_t": case "undefined4": case "undefined": case "uint": case "ulong": case "dword":
                     return new ParsedChannelType { Size = 4, Unit = "raw", Confidence = TypeConfidence.BaseType };
-                case "int8_t":
+                case "int8_t": case "sbyte":
                     return new ParsedChannelType { Size = 1, Signed = true, Unit = "raw", Confidence = TypeConfidence.BaseType };
-                case "int16_t":
+                case "int16_t": case "short": case "sword":
                     return new ParsedChannelType { Size = 2, Signed = true, Unit = "raw", Confidence = TypeConfidence.BaseType };
-                case "int32_t":
+                case "int32_t": case "int": case "long": case "sdword":
                     return new ParsedChannelType { Size = 4, Signed = true, Unit = "raw", Confidence = TypeConfidence.BaseType };
             }
 
@@ -116,6 +135,16 @@ namespace LotusECMLogger.Services
             var enc = EncodedRe.Match(t);
             if (enc.Success)
                 return ParseEncoded(enc);
+
+            var offOnly = OffsetOnlyRe.Match(t);
+            if (offOnly.Success)
+                return new ParsedChannelType
+                {
+                    Size = int.Parse(offOnly.Groups["bits"].Value, CultureInfo.InvariantCulture) / 8,
+                    Signed = offOnly.Groups["sz"].Value == "i",
+                    Offset = double.Parse(offOnly.Groups["off"].Value, CultureInfo.InvariantCulture),
+                    Confidence = TypeConfidence.Derived,
+                };
 
             // Unknown named type — size to be inferred from the address gap by the catalog.
             return new ParsedChannelType { Size = 0, Unit = "raw", Category = "unknown", Confidence = TypeConfidence.Raw };
@@ -128,6 +157,18 @@ namespace LotusECMLogger.Services
             string qty = enc.Groups["qty"].Value;
             string spec = enc.Groups["spec"].Success ? enc.Groups["spec"].Value : string.Empty;
 
+            // Multi-token quantities (e.g. "dt_factor" in u8_dt_factor_1/100/5ms): extend the
+            // quantity with leading spec tokens while the combined name is itself a known quantity.
+            while (spec.Length > 0)
+            {
+                int us = spec.IndexOf('_');
+                string tok = us >= 0 ? spec[..us] : spec;
+                if (!KnownQuantities.Contains(qty + "_" + tok))
+                    break;
+                qty += "_" + tok;
+                spec = us >= 0 ? spec[(us + 1)..] : string.Empty;
+            }
+
             // Only claim a calibrated scale/unit for quantities we recognize; others stay raw.
             if (!KnownQuantities.Contains(qty))
                 return new ParsedChannelType
@@ -139,11 +180,40 @@ namespace LotusECMLogger.Services
                     Confidence = TypeConfidence.Raw,
                 };
 
-            var m = SpecRe.Match(spec);
-            double num = m.Groups["num"].Success ? double.Parse(m.Groups["num"].Value, CultureInfo.InvariantCulture) : 1.0;
-            double den = m.Groups["den"].Success ? double.Parse(m.Groups["den"].Value, CultureInfo.InvariantCulture) : 1.0;
-            double offset = m.Groups["off"].Success ? double.Parse(m.Groups["off"].Value, CultureInfo.InvariantCulture) : 0.0;
-            string unit = m.Groups["unit"].Value.Trim();
+            double num = 1.0, den = 1.0, offset = 0.0;
+            string unit;
+
+            Match m;
+            if ((m = RatioUnitsRe.Match(spec)).Success)
+            {
+                // "1173mg/255stroke" → scale 1173/255, unit "mg/stroke".
+                num = double.Parse(m.Groups["num"].Value, CultureInfo.InvariantCulture);
+                den = double.Parse(m.Groups["den"].Value, CultureInfo.InvariantCulture);
+                unit = m.Groups["nu"].Value + "/" + m.Groups["du"].Value;
+            }
+            else if ((m = AffineRe.Match(spec)).Success)
+            {
+                // "(x-104)/26" → value = (raw + off)/den, i.e. scale 1/den, offset off/den.
+                den = double.Parse(m.Groups["den"].Value, CultureInfo.InvariantCulture);
+                double rawOff = double.Parse(m.Groups["off"].Value, CultureInfo.InvariantCulture);
+                offset = den != 0 ? rawOff / den : rawOff;
+                unit = m.Groups["unit"].Value.Trim();
+            }
+            else if ((m = UnitDivRe.Match(spec)).Success)
+            {
+                // "mm_div2" → scale 1/2, unit "mm".
+                den = double.Parse(m.Groups["den"].Value, CultureInfo.InvariantCulture);
+                unit = m.Groups["unit"].Value;
+            }
+            else
+            {
+                m = SpecRe.Match(spec);
+                num = m.Groups["num"].Success ? double.Parse(m.Groups["num"].Value, CultureInfo.InvariantCulture) : 1.0;
+                den = m.Groups["den"].Success ? double.Parse(m.Groups["den"].Value, CultureInfo.InvariantCulture) : 1.0;
+                offset = m.Groups["off"].Success ? double.Parse(m.Groups["off"].Value, CultureInfo.InvariantCulture) : 0.0;
+                unit = m.Groups["unit"].Value.Trim();
+            }
+
             double scale = den != 0 ? num / den : num;
 
             // "factor" is a normalized 0..1 fraction whose denominator is the full-scale count
