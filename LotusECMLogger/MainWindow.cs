@@ -96,6 +96,24 @@ namespace LotusECMLogger
                 MessageBox.Show($"Failed to initialize High-Speed Log tab: {ex.Message}", "Startup Error",
                     MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
+
+            // Add ABS/ESP diagnostics control
+            try
+            {
+                var absService = new J2534AbsService();
+                var absControl = new AbsControl(absService)
+                {
+                    Dock = DockStyle.Fill,
+                    IsLoggerActive = false
+                };
+                absTab.Controls.Clear();
+                absTab.Controls.Add(absControl);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Failed to initialize ABS tab: {ex.Message}", "Startup Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
         }
 
         /// <summary>
@@ -118,6 +136,10 @@ namespace LotusECMLogger
                 var hsControl = highSpeedLogTab.Controls.OfType<HighSpeedLogControl>().FirstOrDefault();
                 if (hsControl != null)
                     hsControl.IsLoggerActive = isLogging;
+
+                var absControl = absTab.Controls.OfType<AbsControl>().FirstOrDefault();
+                if (absControl != null)
+                    absControl.IsLoggerActive = isLogging;
 
                 // Erasing model info issues an RMA write, which conflicts with active logging.
                 eraseModelInfoToolStripMenuItem.Enabled = !isLogging;

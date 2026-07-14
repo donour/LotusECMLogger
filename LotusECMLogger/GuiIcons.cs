@@ -37,7 +37,7 @@ internal static class GuiIcons
     public const string Delete   = ""; // Delete (trash)
     public const string Clear    = ""; // Clear
     public const string OpenFile = ""; // OpenFile (browse)
-    public const string Connect  = ""; // Ethernet (test connection)
+    public const string Connect  = ""; // Ethernet (test connection)
     public const string DynoMode = ""; // SpeedHigh (dyno mode)
 
     /// <summary>
