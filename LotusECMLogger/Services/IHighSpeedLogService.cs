@@ -55,6 +55,10 @@ namespace LotusECMLogger.Services
     /// </summary>
     public interface IHighSpeedLogService : IDisposable
     {
+        /// <summary>Column/reading names used when AEM wideband polling is enabled.</summary>
+        const string AemLambdaChannelName = "AEM Lambda";
+        const string AemAfrChannelName = "AEM AFR";
+
         /// <summary>Fired (off the UI thread) for each decoded log frame.</summary>
         event EventHandler<HighSpeedSampleEventArgs>? DataReceived;
 
@@ -74,8 +78,13 @@ namespace LotusECMLogger.Services
         /// Builds a channel program from the selected (channel, rateHz) pairs, configures and arms the
         /// ECU, and begins streaming to <paramref name="csvFilePath"/>. Throws if a session is already
         /// active or the selection cannot be packed into the ECU's capacity.
+        /// When <paramref name="pollAemWideband"/> is true, an AEM X-Series wideband (OBDII variant,
+        /// e.g. 30-0334) is also polled on the same bus — Mode 01 PID 0x24 to 0x7E1 — and its
+        /// lambda/AFR are merged into the CSV as extra last-value-hold columns. A missing/silent AEM
+        /// does not fail the session; the columns simply stay empty.
         /// </summary>
-        void StartLogging(IReadOnlyList<(HighSpeedChannel channel, int rateHz)> channels, string csvFilePath);
+        void StartLogging(IReadOnlyList<(HighSpeedChannel channel, int rateHz)> channels, string csvFilePath,
+            bool pollAemWideband = false);
 
         /// <summary>Stops the ECU stream, ends the session, and closes the CSV file.</summary>
         void StopLogging();

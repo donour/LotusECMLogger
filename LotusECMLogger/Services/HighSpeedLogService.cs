@@ -25,6 +25,16 @@ namespace LotusECMLogger.Services
         private static readonly byte[] CommandIdHeader = [0x00, 0x00, 0x03, 0x50]; // 0x350
         private const uint StreamCanId = 0x351;
 
+        // AEM X-Series wideband (OBDII variant, e.g. 30-0334) polling. The gauge answers OBD Mode 01
+        // PID 0x24 at 0x7E1/0x7E9 (same exchange the Live Data logger uses); the 30-0334 has no AEMnet
+        // broadcast, so request/response polling is the only way to read it. Single CAN frame each way,
+        // so it rides on this raw-CAN channel without ISO-TP. Frames are padded to 8 bytes per
+        // ISO 15765-4; the reply is [PCI, 0x41, 0x24, A, B, C, D, …] with lambda = (2/65536)·(A·256+B).
+        private static readonly byte[] AemPollFrame =
+            [0x00, 0x00, 0x07, 0xE1, 0x02, 0x01, 0x24, 0x00, 0x00, 0x00, 0x00, 0x00];
+        private const uint AemResponseCanId = 0x7E9;
+        private const int AemPollIntervalMs = 50; // 20 Hz nominal
+
         // Command opcodes.
         private const byte CmdOpenSession = 0x01;
         private const byte CmdInitGroup = 0x14;
@@ -64,6 +74,7 @@ namespace LotusECMLogger.Services
 
         private BlockingCollection<StreamWorkItem>? _writeQueue;
         private long _droppedFrames;
+        private bool _pollAem;
 
         public event EventHandler<HighSpeedSampleEventArgs>? DataReceived;
         public event EventHandler<string>? ErrorOccurred;
@@ -84,7 +95,8 @@ namespace LotusECMLogger.Services
         /// copied out of the J2534 buffer so they stay valid across the thread boundary.
         /// </summary>
         private readonly struct StreamWorkItem(
-            byte[] payload, IReadOnlyList<HighSpeedChannel> layout, DateTime timestamp, ulong elapsedUs, byte label, bool overflow)
+            byte[] payload, IReadOnlyList<HighSpeedChannel> layout, DateTime timestamp, ulong elapsedUs, byte label, bool overflow,
+            bool isAemSample = false)
         {
             public byte[] Payload { get; } = payload;
             public IReadOnlyList<HighSpeedChannel> Layout { get; } = layout;
@@ -92,9 +104,13 @@ namespace LotusECMLogger.Services
             public ulong ElapsedUs { get; } = elapsedUs;
             public byte Label { get; } = label;
             public bool Overflow { get; } = overflow;
+
+            /// <summary>True for a polled AEM wideband reply (0x7E9) rather than a 0x351 stream frame.</summary>
+            public bool IsAemSample { get; } = isAemSample;
         }
 
-        public void StartLogging(IReadOnlyList<(HighSpeedChannel channel, int rateHz)> channels, string csvFilePath)
+        public void StartLogging(IReadOnlyList<(HighSpeedChannel channel, int rateHz)> channels, string csvFilePath,
+            bool pollAemWideband = false)
         {
             lock (_lock)
             {
@@ -109,6 +125,12 @@ namespace LotusECMLogger.Services
 
                 // CSV columns = selected channels in selection order (de-duplicated by name).
                 _columnNames = channels.Select(c => c.channel.Name).Distinct().ToList();
+                _pollAem = pollAemWideband;
+                if (_pollAem)
+                {
+                    _columnNames.Add(IHighSpeedLogService.AemLambdaChannelName);
+                    _columnNames.Add(IHighSpeedLogService.AemAfrChannelName);
+                }
                 _latest.Clear();
                 _csvFilePath = csvFilePath;
 
@@ -241,6 +263,8 @@ namespace LotusECMLogger.Services
             _session = J2534Session.Open();
             _channel = _session.OpenCan(); // raw CAN @ 500 kbaud
             _channel.StartMessageFilter(StreamPassFilter()).ThrowIfError();
+            if (_pollAem)
+                _channel.StartMessageFilter(AemPassFilter()).ThrowIfError();
         }
 
         /// <summary>PASS filter that admits only 0x351 (the stream + command responses).</summary>
@@ -249,6 +273,14 @@ namespace LotusECMLogger.Services
             FilterType = Filter.PASS_FILTER,
             Mask = [0x00, 0x00, 0x07, 0xFF],
             Pattern = [0x00, 0x00, 0x03, 0x51],
+        };
+
+        /// <summary>PASS filter that admits 0x7E9 (AEM wideband OBD replies); filters OR together.</summary>
+        private static MessageFilter AemPassFilter() => new()
+        {
+            FilterType = Filter.PASS_FILTER,
+            Mask = [0x00, 0x00, 0x07, 0xFF],
+            Pattern = [0x00, 0x00, 0x07, 0xE9],
         };
 
         private void InitializeCsvFile(IReadOnlyList<(HighSpeedChannel channel, int rateHz)> channels)
@@ -261,6 +293,8 @@ namespace LotusECMLogger.Services
             _csvWriter.WriteLine($"# Started: {DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}");
             foreach (var (channel, rateHz) in channels)
                 _csvWriter.WriteLine($"# {channel.Name}: 0x{channel.Address:X8} size={channel.Size} {rateHz}Hz unit={channel.Unit}");
+            if (_pollAem)
+                _csvWriter.WriteLine($"# AEM UEGO: OBD Mode 01 PID 0x24 @ 0x7E1, polled every {AemPollIntervalMs}ms (last-value-hold columns)");
 
             var header = new StringBuilder("Timestamp,RelativeTime_ms,Label");
             foreach (var name in _columnNames)
@@ -297,7 +331,12 @@ namespace LotusECMLogger.Services
             try
             {
                 foreach (var item in _writeQueue!.GetConsumingEnumerable())
-                    ProcessFrame(in item);
+                {
+                    if (item.IsAemSample)
+                        ProcessAemSample(in item);
+                    else
+                        ProcessFrame(in item);
+                }
             }
             catch (Exception ex)
             {
@@ -350,20 +389,29 @@ namespace LotusECMLogger.Services
             bool haveAnchor = false;
             uint rawT0 = 0, rawLast = 0;
             ulong wrapAccum = 0; // accumulated 2^32-µs rollovers (the counter wraps ~every 71.6 min)
+            long nextAemPollAt = 0; // Environment.TickCount64 deadline; 0 = poll immediately
 
             while (IsLogging)
             {
+                if (_pollAem && Environment.TickCount64 >= nextAemPollAt)
+                {
+                    nextAemPollAt = Environment.TickCount64 + AemPollIntervalMs;
+                    SendAemPoll();
+                }
+
                 var result = _channel!.ReadMessages(16, StreamReadTimeoutMs);
                 foreach (var msg in result.Messages)
                 {
                     if (msg.Data == null || msg.Data.Length < 5)
                         continue;
 
+                    uint canId = (uint)((msg.Data[0] << 24) | (msg.Data[1] << 16) | (msg.Data[2] << 8) | msg.Data[3]);
                     byte b0 = msg.Data[4];
-                    if (b0 == ResponseMarker)
+                    if (canId == StreamCanId && b0 == ResponseMarker)
                         continue; // stray command response during streaming
 
-                    // Advance the hardware-timestamp clock for every stream frame (handles rollover).
+                    // Advance the hardware-timestamp clock for every admitted frame (handles rollover).
+                    // Stream and AEM frames share the adapter's counter, so one clock serves both.
                     uint raw = msg.Timestamp;
                     if (!haveAnchor)
                     {
@@ -377,19 +425,26 @@ namespace LotusECMLogger.Services
                     }
                     rawLast = raw;
                     ulong elapsedUs = wrapAccum + raw - rawT0;
-
-                    byte label = (byte)(b0 & 0x7F);
-                    bool overflow = (b0 & 0x80) != 0;
-                    if (!_plan!.LayoutByLabel.TryGetValue(label, out var layout))
-                        continue;
-
                     DateTime timestamp = wallAnchor.AddTicks((long)elapsedUs * TimeSpan.TicksPerMicrosecond);
 
-                    // Copy the payload (bytes after [header][label]) so it stays valid on the writer thread.
-                    ReadOnlySpan<byte> src = msg.Data.AsSpan(5);
-                    var payload = src.ToArray();
+                    StreamWorkItem item;
+                    if (canId == AemResponseCanId)
+                    {
+                        // AEM OBD reply: hand the raw payload (PCI onward) to the writer for decode.
+                        item = new StreamWorkItem(msg.Data.AsSpan(4).ToArray(), [],
+                            timestamp, elapsedUs, 0, false, isAemSample: true);
+                    }
+                    else
+                    {
+                        byte label = (byte)(b0 & 0x7F);
+                        bool overflow = (b0 & 0x80) != 0;
+                        if (!_plan!.LayoutByLabel.TryGetValue(label, out var layout))
+                            continue;
 
-                    var item = new StreamWorkItem(payload, layout, timestamp, elapsedUs, label, overflow);
+                        // Copy the payload (bytes after [header][label]) so it stays valid on the writer thread.
+                        item = new StreamWorkItem(msg.Data.AsSpan(5).ToArray(), layout, timestamp, elapsedUs, label, overflow);
+                    }
+
                     try
                     {
                         // Non-blocking: if the writer has fallen behind and the queue is full, drop this
@@ -402,6 +457,22 @@ namespace LotusECMLogger.Services
                         break; // queue completed (stop in progress)
                     }
                 }
+            }
+        }
+
+        /// <summary>
+        /// Sends one Mode 01 PID 0x24 request to the AEM (0x7E1). Best-effort: a send failure must not
+        /// kill the ECU stream, so it is logged and polling simply retries next interval.
+        /// </summary>
+        private void SendAemPoll()
+        {
+            try
+            {
+                _channel!.SendMessage(AemPollFrame);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"HighSpeedLog: AEM poll send failed: {ex.Message}");
             }
         }
 
@@ -431,6 +502,35 @@ namespace LotusECMLogger.Services
                 Label = item.Label,
                 Overflow = item.Overflow,
                 Readings = readings,
+            });
+        }
+
+        // Decode one polled AEM wideband reply and fold lambda/AFR into the last-value-hold map; the
+        // next stream row then carries them. No CSV row of its own — at ~20 Hz against a stream running
+        // hundreds of Hz, per-poll rows would only fragment the log. Runs on the writer thread.
+        private void ProcessAemSample(in StreamWorkItem item)
+        {
+            // Payload = [PCI, 0x41, 0x24, A, B, C, D, …]; single-frame ISO-TP, mode 01 + 0x40 echo.
+            ReadOnlySpan<byte> p = item.Payload;
+            if (p.Length < 7 || (p[0] & 0xF0) != 0x00 || p[1] != 0x41 || p[2] != 0x24)
+                return;
+
+            // Same decode as LiveDataReading.ParseAemUegoResponse (offsets shifted: raw CAN keeps the PCI byte).
+            double lambda = (2.0 / 65536.0) * ((p[3] << 8) | p[4]);
+            double afr = lambda * 14.7;
+            _latest[IHighSpeedLogService.AemLambdaChannelName] = lambda;
+            _latest[IHighSpeedLogService.AemAfrChannelName] = afr;
+
+            DataReceived?.Invoke(this, new HighSpeedSampleEventArgs
+            {
+                Timestamp = item.Timestamp,
+                Label = item.Label,
+                Overflow = false,
+                Readings =
+                [
+                    new HighSpeedReading { Name = IHighSpeedLogService.AemLambdaChannelName, Value = lambda, Unit = "λ" },
+                    new HighSpeedReading { Name = IHighSpeedLogService.AemAfrChannelName, Value = afr, Unit = "AFR" },
+                ],
             });
         }
 
