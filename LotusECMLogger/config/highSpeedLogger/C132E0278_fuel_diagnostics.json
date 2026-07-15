@@ -1,0 +1,65 @@
+{
+  // Fuel/injection diagnostics preset for the C132E0278 (GT430) ECU: traces the full AFR pipeline
+  // from table axes through target/enrichment, knock PE contribution, flow conversion and pulse
+  // width to the closed-loop trims. All channels resolve from database/C132E0278.csv; entries with
+  // an `undefined*` catalog type carry inline scale/unit overrides (source: firmware analysis).
+  //
+  // Rates are grouped by how fast each quantity moves (edit per-channel in the grid before Start):
+  //   100 Hz — axes + final pulse widths;  50 Hz — AFR chain, knock, flow, O2, verify;
+  //    20 Hz — trims + limits;  5 Hz — temperatures & slow comp factors.
+  // Packs to 4 ECU groups / 14 frames (~845 frames/s ≈ 20% of the 500 kbit/s bus). Drop the pulse
+  // widths or AFR chain to 50/20 Hz if the stream shows overflow flags.
+  "name": "GT430 Fuel Diagnostics (C132E0278)",
+  "description": "Injection pipeline: load/temp axes, AFR target chain, knock PE, flow conversion, pulse widths, bank trims, O2 feedback.",
+  "ecuVersion": "C132E0278",
+  "channels": [
+    // ── Axes ─────────────────────────────────────────────────────────────────────────────────────
+    { "symbol": "engine_speed_16bit",    "rate": 100 },                       // X of CAL_inj_afr_base
+    { "symbol": "load_mass_per_stroke",  "rate": 100 },                       // Y of enrichment/air-temp tables (mg/stk = val*4)
+    { "symbol": "coolant_temp",          "rate": 5 },                         // Y of load/coolant enrichment table
+    { "symbol": "iat",                   "rate": 5 },                         // Air-temp comp input (pre-throttle)
+    { "symbol": "obd_ii_manifold_temp",  "rate": 5 },                         // Alternate air-temp comp input per CAL_tmap_use_for_inj
+
+    // ── AFR target chain ─────────────────────────────────────────────────────────────────────────
+    { "symbol": "afr_target",            "rate": 50, "scale": 0.01, "unit": "AFR" },  // Raw CAL_inj_afr_base lookup + trim (pre-delay)
+    { "symbol": "afr_target2",           "rate": 50 },                        // After closed-loop retention / entry delay
+    { "symbol": "afr_enrichment_from_ign_retard", "rate": 50, "scale": 0.01, "unit": "AFR" }, // Knock/retard PE contribution (AFR -= val/100)
+    { "symbol": "afr_commanded",         "rate": 50 },                        // Final commanded AFR (floor 8.00)
+
+    // ── Knock inputs ─────────────────────────────────────────────────────────────────────────────
+    { "symbol": "knock_ign_retard_cyl0", "rate": 50 },                        // Accumulated knock retard driving PE (deg = val/4; div 6 in PE calc)
+    { "symbol": "ign_rpm_and_coolant_comp", "rate": 50, "signed": true, "scale": 0.25, "unit": "deg" }, // Subtracted from retard before PE
+    { "symbol": "ign_comp_iat",          "rate": 50 },                        // Subtracted from retard before PE
+
+    // ── Temp factors ─────────────────────────────────────────────────────────────────────────────
+    { "symbol": "inj_enrichment_factor_load_n_coolant", "rate": 5 },          // x val/64, floor 1.0 — CAL_inj_enrichment_factor_load_n_coolant_{manual|ips}
+    { "symbol": "inj_comp_air_temp",     "rate": 5 },                         // Air-temp compensation factor (val/100)
+
+    // ── Flow conversion ──────────────────────────────────────────────────────────────────────────
+    { "symbol": "inj_efficiency",        "rate": 50 },                        // CAL_inj_efficiency lookup + test trim (val/100, clamped 100..255)
+    { "symbol": "inj_flow_rate_scaled",  "rate": 50 },                        // flow_rate[dP] x efficiency (mg/s)
+    { "symbol": "inj_bank_balance_ratio", "rate": 50, "scale": 0.005, "unit": "ratio" }, // CAL_inj_bank_balance lookup (val 170..230 / 200)
+    { "symbol": "inj_flow_rate_b1",      "rate": 50 },                        // Effective flow bank 1 (mg/s)
+    { "symbol": "inj_flow_rate_b2",      "rate": 50 },                        // Effective flow bank 2 (mg/s)
+
+    // ── Pulse width ──────────────────────────────────────────────────────────────────────────────
+    { "symbol": "inj_pw_b1_pretrims",    "rate": 100 },                       // Bank 1 pulse before STFT/LTFT (us)
+    { "symbol": "inj_pw_b2_pretrims",    "rate": 100 },                       // Bank 2 pulse before STFT/LTFT (us)
+    { "symbol": "inj_pw_b1_with_trims",  "rate": 100 },                       // Bank 1 pulse after STFT/LTFT (us)
+    { "symbol": "inj_pw_b2_with_trims",  "rate": 100, "unit": "us" },         // Bank 2 pulse after STFT/LTFT (us)
+
+    // ── Bank trims ───────────────────────────────────────────────────────────────────────────────
+    // Catalog type i16_factor_1/20 would display x5%; actual is % = val/20 (applied x(1+val/2000)).
+    { "symbol": "stft_bank1",            "rate": 20, "scale": 0.05, "unit": "%" }, // Short-term trim B1
+    { "symbol": "stft_bank2",            "rate": 20, "scale": 0.05, "unit": "%" }, // Short-term trim B2
+    { "symbol": "ltft_bank1",            "rate": 5 },                        // Long-term trim B1 (% = val/10; applied x(1+val/1000))
+    { "symbol": "ltft_bank2",            "rate": 5 },                        // Long-term trim B2 (% = val/10; applied x(1+val/1000))
+
+    // ── O2 feedback ──────────────────────────────────────────────────────────────────────────────
+    { "symbol": "obd_ii_o2_sensor1_voltage", "rate": 50 },                    // Front O2 bank 1 - drives stft_bank1
+    { "symbol": "obd_ii_o2_sensor5_voltage", "rate": 50 },                    // Front O2 bank 2 - drives stft_bank2
+
+    // ── Limits ───────────────────────────────────────────────────────────────────────────────────
+    { "symbol": "load_limit_from_inj",   "rate": 5 },                        // Injector-capacity load ceiling fed to torque model (mg/stroke)
+  ]
+}
