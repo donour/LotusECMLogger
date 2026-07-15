@@ -1,0 +1,68 @@
+{
+  // Dynamic Performance Management (DPM) / traction-control diagnostics preset for the C132E0278
+  // (GT430) ECU: wheel-speed inputs, slip measurement, slip target chain, the P+I torque-cut
+  // controller, torque outputs, mode/state, driver switch UI and ABS CAN health. Channels resolve
+  // from database/C132E0278.csv; `undefined*` types carry inline overrides (firmware analysis).
+  //
+  // Catalog-name notes (Ghidra names differ from the DPM analysis in a few places):
+  //   dpm_slip_target_source_state  = tc_slip_target_mode_state  @ 0x400028cc
+  //   dpm_wheel_speed_invalid_flags = tc_inhibit_flags           @ 0x400028da
+  //   abs_can_rx_health_counter     = tc_enable_condition_1      @ 0x4000281c
+  //   abs_can_plausibility_health_counter = tc_enable_condition_2 @ 0x4000281d
+  // torque_limit_dpm_spark/throttle exist twice in the catalog (0x4000163c/3e control-side,
+  // 0x400015f2/f4 arbitration-side copies), so all four are explicit-address entries.
+  //
+  // Rates: 50 Hz — slip loop, axle/diff speeds, spark limit, torque; 20 Hz — target/state;
+  // 10 Hz — engine/vehicle speed; 5 Hz — wheel speeds, pedal, throttle limit; 1 Hz — mode index.
+  // Packs to 5 ECU groups / 11 frames (~296 frames/s ≈ 7.5% of the 500 kbit/s bus).
+  "name": "GT430 DPM Diagnostics (C132E0278)",
+  "description": "DPM/traction control: wheel speeds, slip measure & target, P+I torque-cut controller, torque limits, mode/state, switch UI, ABS CAN health.",
+  "ecuVersion": "C132E0278",
+  "channels": [
+    // ── Inputs ───────────────────────────────────────────────────────────────────────────────────
+    // wheel_speeds @ 0x40001a94 is an 8-byte struct (wheelspeeds_short): four u16 LF/RF/LR/RR from
+    // ABS CAN 0xA2/0xA4. Scaling assumed 1/100 km/h like the derived axle speeds — verify the LF/RF
+    // channels track dpm_front_axle_speed_max on the first log.
+    { "name": "wheel_speed_lf", "address": "0x40001a94", "size": 2, "scale": 0.01, "unit": "km/h", "defaultSelected": true, "rate": 5 },
+    { "name": "wheel_speed_rf", "address": "0x40001a96", "size": 2, "scale": 0.01, "unit": "km/h", "defaultSelected": true, "rate": 5 },
+    { "name": "wheel_speed_lr", "address": "0x40001a98", "size": 2, "scale": 0.01, "unit": "km/h", "defaultSelected": true, "rate": 5 },
+    { "name": "wheel_speed_rr", "address": "0x40001a9a", "size": 2, "scale": 0.01, "unit": "km/h", "defaultSelected": true, "rate": 5 },
+    { "symbol": "engine_speed_16bit",     "rate": 10 },                      // Engine speed (1 rpm/count)
+    { "symbol": "dpm_vehicle_speed_kph",  "rate": 10 },                       // Vehicle speed used by DPM
+    { "symbol": "accel_pedal_pos_16bit",  "rate": 5 },                       // Y axis of CAL_dpm_slip_target_from_pedal (val/1023)
+
+    // ── Slip measure ─────────────────────────────────────────────────────────────────────────────
+    { "symbol": "dpm_front_axle_speed_max", "rate": 50 },                     // Max front wheel (reference axle)
+    { "symbol": "dpm_rear_axle_speed_max",  "rate": 50 },                     // Max rear wheel (driven axle)
+    { "symbol": "dpm_front_lr_speed_diff",  "rate": 50 },                     // Front L/R diff - cornering detect
+    { "symbol": "dpm_rear_lr_speed_diff",   "rate": 50 },                     // Rear L/R diff - one-wheel spin
+    { "symbol": "dpm_max_lr_speed_diff",    "rate": 50 },                     // vs CAL_dpm_lr_diff_cornering_threshold -> direct mode
+    { "symbol": "dpm_slip",                 "rate": 50 },                    // Measured slip (% = val/8)
+
+    // ── Slip target ──────────────────────────────────────────────────────────────────────────────
+    { "symbol": "dpm_slip_target_base",     "rate": 1 },                     // CAL_dpm_slip_target_base[dpm_level] lookup
+    { "symbol": "dpm_slip_target_from_pedal", "rate": 5 },                   // CAL_dpm_slip_target_from_pedal[speed][pedal] lookup
+    { "symbol": "tc_slip_target_mode_state", "name": "dpm_slip_target_source_state", "rate": 20, "unit": "enum" }, // Base mode / adjustable level / invalid
+    { "symbol": "dpm_slip_target",          "rate": 20 },                    // Final slip target (+ CAL_dpm_slip_target_offset)
+
+    // ── Controller (P + I torque cut) ────────────────────────────────────────────────────────────
+    { "symbol": "dpm_slip_error_raw",       "rate": 50 },                    // slip - target; vs CAL_dpm_intervention_threshold
+    { "symbol": "dpm_slip_error_filtered",  "rate": 50 },                    // After CAL_dpm_slip_filter_coeff[speed] filter
+    { "symbol": "dpm_slip_filter_accumulator", "rate": 50, "unit": "raw" },   // Filter internal state (undefined4)
+    { "symbol": "dpm_torque_cut_factor",    "rate": 10, "scale": 0.39215686, "unit": "%" }, // Proportional cut: CAL_dpm_torque_cut_factor[speed][slip] (val/255)
+    { "symbol": "dpm_slip_integral_accumulator", "rate": 50, "signed": true, "unit": "raw" }, // Integral (tire/surface adaptation); high byte -> cut
+    { "symbol": "dpm_integral_update_timer", "rate": 20 },                    // CAL_dpm_integral_update_period pacing (ms = val*5)
+    { "symbol": "dpm_torque_cut_accumulated", "rate": 50 },                  // Integral contribution to cut (val/255)
+    { "symbol": "dpm_torque_cut_total",     "rate": 20 },                    // Total commanded torque cut, P + I (val/255)
+
+    // ── Torque out ───────────────────────────────────────────────────────────────────────────────
+    { "symbol": "dpm_torque_when_tc_activated", "rate": 50 },                 // Torque snapshot at intervention start (Nm)
+    { "name": "torque_limit_dpm_spark",         "address": "0x4000163c", "size": 2, "scale": 1.0, "unit": "Nm", "defaultSelected": true, "rate": 50 }, // Fast (spark-path) torque target
+    { "name": "torque_limit_dpm_throttle",      "address": "0x4000163e", "size": 2, "scale": 1.0, "unit": "Nm", "defaultSelected": true, "rate": 50 }, // Slow (throttle-path) ceiling; CAL_dpm_torque_margin_factor
+    { "symbol": "dpm_torque_split_active",  "rate": 20 },                     // Spark/throttle split intervention active (0/1)
+    { "symbol": "torque_net_engine_combustion", "rate": 50 },                // Actual delivered (net combustion) torque (Nm) — compare vs DPM limits
+
+    // ── Mode / state ─────────────────────────────────────────────────────────────────────────────
+    { "symbol": "dpm_mode_index",           "rate": 1 }                     // Index into CAL_dpm_slip_target_base
+  ]
+}
