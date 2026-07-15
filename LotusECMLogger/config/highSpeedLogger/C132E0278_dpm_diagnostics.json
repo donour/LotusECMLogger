@@ -12,9 +12,9 @@
   // torque_limit_dpm_spark/throttle exist twice in the catalog (0x4000163c/3e control-side,
   // 0x400015f2/f4 arbitration-side copies), so all four are explicit-address entries.
   //
-  // Rates: 50 Hz — slip loop, axle/diff speeds, spark limit, torque; 20 Hz — target/state;
-  // 10 Hz — engine/vehicle speed; 5 Hz — wheel speeds, pedal, throttle limit; 1 Hz — mode index.
-  // Packs to 5 ECU groups / 11 frames (~296 frames/s ≈ 7.5% of the 500 kbit/s bus).
+  // Rates: 50 Hz — slip loop, axle/diff speeds, spark/throttle limits, torque; 20 Hz — target/
+  // state, steering; 10 Hz — engine/vehicle speed; 5 Hz — wheel speeds, pedal; 1 Hz — mode index.
+  // Packs to 5 ECU groups / 12 frames (~361 frames/s ≈ 9% of the 500 kbit/s bus).
   "name": "GT430 DPM Diagnostics (C132E0278)",
   "description": "DPM/traction control: wheel speeds, slip measure & target, P+I torque-cut controller, torque limits, mode/state, switch UI, ABS CAN health.",
   "ecuVersion": "C132E0278",
@@ -30,6 +30,7 @@
     { "symbol": "engine_speed_16bit",     "rate": 10 },                      // Engine speed (1 rpm/count)
     { "symbol": "dpm_vehicle_speed_kph",  "rate": 10 },                       // Vehicle speed used by DPM
     { "symbol": "accel_pedal_pos_16bit",  "rate": 5 },                       // Y axis of CAL_dpm_slip_target_from_pedal (val/1023)
+    { "symbol": "steering_angle",         "rate": 20 },                      // Steering angle (deg = val/10) — cornering context for L/R diffs
 
     // ── Slip measure ─────────────────────────────────────────────────────────────────────────────
     { "symbol": "dpm_front_axle_speed_max", "rate": 50 },                     // Max front wheel (reference axle)
