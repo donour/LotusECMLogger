@@ -29,7 +29,10 @@ namespace LotusECMLogger.Controls
         private void InitializeComponent()
         {
             topPanel = new Panel();
+            testConnectionButton = new Button();
             readInfoButton = new Button();
+            moduleInfoButton = new Button();
+            sniffBusButton = new Button();
             statusLabel = new Label();
             infoListView = new ListView();
             topPanel.SuspendLayout();
@@ -37,7 +40,10 @@ namespace LotusECMLogger.Controls
             //
             // topPanel
             //
+            topPanel.Controls.Add(testConnectionButton);
             topPanel.Controls.Add(readInfoButton);
+            topPanel.Controls.Add(moduleInfoButton);
+            topPanel.Controls.Add(sniffBusButton);
             topPanel.Controls.Add(statusLabel);
             topPanel.Dock = DockStyle.Top;
             topPanel.Location = new Point(0, 0);
@@ -45,23 +51,53 @@ namespace LotusECMLogger.Controls
             topPanel.Size = new Size(600, 60);
             topPanel.TabIndex = 0;
             //
+            // testConnectionButton
+            //
+            testConnectionButton.Location = new Point(12, 12);
+            testConnectionButton.Name = "testConnectionButton";
+            testConnectionButton.Size = new Size(130, 32);
+            testConnectionButton.TabIndex = 0;
+            testConnectionButton.Text = "Test Connection";
+            testConnectionButton.UseVisualStyleBackColor = true;
+            testConnectionButton.Click += testConnectionButton_Click;
+            //
             // readInfoButton
             //
-            readInfoButton.Location = new Point(12, 12);
+            readInfoButton.Location = new Point(148, 12);
             readInfoButton.Name = "readInfoButton";
-            readInfoButton.Size = new Size(120, 32);
-            readInfoButton.TabIndex = 0;
-            readInfoButton.Text = "Read Info";
+            readInfoButton.Size = new Size(100, 32);
+            readInfoButton.TabIndex = 1;
+            readInfoButton.Text = "Read DTCs";
             readInfoButton.UseVisualStyleBackColor = true;
             readInfoButton.Click += readInfoButton_Click;
+            //
+            // moduleInfoButton
+            //
+            moduleInfoButton.Location = new Point(254, 12);
+            moduleInfoButton.Name = "moduleInfoButton";
+            moduleInfoButton.Size = new Size(100, 32);
+            moduleInfoButton.TabIndex = 2;
+            moduleInfoButton.Text = "Read Info";
+            moduleInfoButton.UseVisualStyleBackColor = true;
+            moduleInfoButton.Click += moduleInfoButton_Click;
+            //
+            // sniffBusButton
+            //
+            sniffBusButton.Location = new Point(360, 12);
+            sniffBusButton.Name = "sniffBusButton";
+            sniffBusButton.Size = new Size(100, 32);
+            sniffBusButton.TabIndex = 3;
+            sniffBusButton.Text = "Sniff Bus";
+            sniffBusButton.UseVisualStyleBackColor = true;
+            sniffBusButton.Click += sniffBusButton_Click;
             //
             // statusLabel
             //
             statusLabel.AutoSize = true;
-            statusLabel.Location = new Point(144, 21);
+            statusLabel.Location = new Point(470, 21);
             statusLabel.Name = "statusLabel";
             statusLabel.Size = new Size(0, 15);
-            statusLabel.TabIndex = 1;
+            statusLabel.TabIndex = 4;
             //
             // infoListView
             //
@@ -92,7 +128,10 @@ namespace LotusECMLogger.Controls
         #endregion
 
         private Panel topPanel;
+        private Button testConnectionButton;
         private Button readInfoButton;
+        private Button moduleInfoButton;
+        private Button sniffBusButton;
         private ListView infoListView;
         private Label statusLabel;
     }
