@@ -295,8 +295,10 @@ namespace LotusECMLogger.Controls
                 framesValueLabel.Text = "0";
                 droppedValueLabel.Text = "0";
                 droppedValueLabel.ForeColor = SystemColors.ControlText;
+                aemValueLabel.Text = aemToggleButton.Checked ? "polling…" : "—";
+                aemValueLabel.ForeColor = SystemColors.ControlText;
 
-                service.StartLogging(selected, csvPath);
+                service.StartLogging(selected, csvPath, aemToggleButton.Checked);
 
                 statusValueLabel.Text = "Logging…";
                 statusValueLabel.ForeColor = Color.Green;
@@ -434,6 +436,14 @@ namespace LotusECMLogger.Controls
             framesValueLabel.Text = Volatile.Read(ref frameCount).ToString();
             lastUpdateValueLabel.Text = lastSampleTime.ToString("HH:mm:ss.fff");
 
+            if (latestValues.TryGetValue(IHighSpeedLogService.AemLambdaChannelName, out var lambda))
+            {
+                string afrText = latestValues.TryGetValue(IHighSpeedLogService.AemAfrChannelName, out var afr)
+                    ? $"  ({afr.value:F1} AFR)" : "";
+                aemValueLabel.Text = $"λ {lambda.value:F3}{afrText}";
+                aemValueLabel.ForeColor = Color.Green;
+            }
+
             long dropped = service.DroppedFrames;
             droppedValueLabel.Text = dropped.ToString();
             droppedValueLabel.ForeColor = dropped > 0 ? Color.Red : SystemColors.ControlText;
@@ -460,6 +470,7 @@ namespace LotusECMLogger.Controls
             presetComboBox.Enabled = configurable && hasPresets;
             csvPathTextBox.Enabled = configurable;
             browseCsvButton.Enabled = configurable;
+            aemToggleButton.Enabled = configurable;
             channelsGrid.Enabled = configurable;
             addChannelsButton.Enabled = configurable;
             testConnectionButton.Enabled = configurable;

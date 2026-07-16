@@ -36,6 +36,7 @@ namespace LotusECMLogger.Controls
             testConnectionButton = new Button();
             startButton = new Button();
             stopButton = new Button();
+            aemToggleButton = new CheckBox();
             gridGroupBox = new GroupBox();
             channelToolbar = new FlowLayoutPanel();
             removeChannelButton = new Button();
@@ -57,6 +58,8 @@ namespace LotusECMLogger.Controls
             lastUpdateValueLabel = new Label();
             droppedLabel = new Label();
             droppedValueLabel = new Label();
+            aemLabel = new Label();
+            aemValueLabel = new Label();
             layoutPanel.SuspendLayout();
             configGroupBox.SuspendLayout();
             configLayout.SuspendLayout();
@@ -184,6 +187,7 @@ namespace LotusECMLogger.Controls
             buttonPanel.Controls.Add(testConnectionButton);
             buttonPanel.Controls.Add(startButton);
             buttonPanel.Controls.Add(stopButton);
+            buttonPanel.Controls.Add(aemToggleButton);
             buttonPanel.Margin = new Padding(0);
             buttonPanel.Name = "buttonPanel";
             buttonPanel.WrapContents = false;
@@ -216,6 +220,15 @@ namespace LotusECMLogger.Controls
             stopButton.TabIndex = 2;
             stopButton.UseVisualStyleBackColor = true;
             stopButton.Click += StopButton_Click;
+            //
+            // aemToggleButton
+            //
+            aemToggleButton.Anchor = AnchorStyles.None;
+            aemToggleButton.AutoSize = true;
+            aemToggleButton.Name = "aemToggleButton";
+            aemToggleButton.Text = "AEM Wideband";
+            aemToggleButton.TabIndex = 3;
+            aemToggleButton.UseVisualStyleBackColor = true;
             //
             // gridGroupBox
             //
@@ -336,9 +349,12 @@ namespace LotusECMLogger.Controls
             statusLayout.Controls.Add(lastUpdateValueLabel, 1, 2);
             statusLayout.Controls.Add(droppedLabel, 0, 3);
             statusLayout.Controls.Add(droppedValueLabel, 1, 3);
+            statusLayout.Controls.Add(aemLabel, 0, 4);
+            statusLayout.Controls.Add(aemValueLabel, 1, 4);
             statusLayout.Dock = DockStyle.Fill;
             statusLayout.Name = "statusLayout";
-            statusLayout.RowCount = 4;
+            statusLayout.RowCount = 5;
+            statusLayout.RowStyles.Add(new RowStyle());
             statusLayout.RowStyles.Add(new RowStyle());
             statusLayout.RowStyles.Add(new RowStyle());
             statusLayout.RowStyles.Add(new RowStyle());
@@ -393,6 +409,18 @@ namespace LotusECMLogger.Controls
             droppedValueLabel.Name = "droppedValueLabel";
             droppedValueLabel.Text = "0";
             //
+            // aemLabel
+            //
+            aemLabel.AutoSize = true;
+            aemLabel.Name = "aemLabel";
+            aemLabel.Text = "AEM Wideband:";
+            //
+            // aemValueLabel
+            //
+            aemValueLabel.AutoSize = true;
+            aemValueLabel.Name = "aemValueLabel";
+            aemValueLabel.Text = "—";
+            //
             // HighSpeedLogControl
             //
             AutoScaleDimensions = new SizeF(10F, 25F);
@@ -440,6 +468,7 @@ namespace LotusECMLogger.Controls
         private Button testConnectionButton;
         private Button startButton;
         private Button stopButton;
+        private CheckBox aemToggleButton;
         private GroupBox gridGroupBox;
         private FlowLayoutPanel channelToolbar;
         private Button removeChannelButton;
@@ -461,5 +490,7 @@ namespace LotusECMLogger.Controls
         private Label lastUpdateValueLabel;
         private Label droppedLabel;
         private Label droppedValueLabel;
+        private Label aemLabel;
+        private Label aemValueLabel;
     }
 }
