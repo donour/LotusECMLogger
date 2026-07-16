@@ -15,7 +15,7 @@
   "channels": [
     // ── Axes ─────────────────────────────────────────────────────────────────────────────────────
     { "symbol": "engine_speed_16bit",    "rate": 20 },                       // X of CAL_inj_afr_base
-    { "symbol": "load_mass_per_stroke",  "rate": 20 },                       // Y of enrichment/air-temp tables (mg/stk = val*4)
+    { "symbol": "load_mass_per_stroke_raw", "rate": 20 },                     // Y of enrichment/air-temp tables (mg/stk = val*4)
     { "symbol": "coolant_temp",          "rate": 5 },                         // Y of load/coolant enrichment table
     { "symbol": "iat",                   "rate": 5 },                         // Air-temp comp input (pre-throttle)
     { "symbol": "obd_ii_manifold_temp",  "rate": 5 },                         // Alternate air-temp comp input per CAL_tmap_use_for_inj
