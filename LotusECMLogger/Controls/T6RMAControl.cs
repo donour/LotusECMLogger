@@ -98,6 +98,10 @@ namespace LotusECMLogger.Controls
 					return;
 				}
 
+				// Never overwrite an earlier log: bump to a _1/_2… suffix if the file already exists.
+				csvPath = LoggerPaths.UniquePath(csvPath);
+				csvPathTextBox.Text = csvPath;
+
 				// Reset sample counter
 				sampleCount = 0;
 				samplesValueLabel.Text = "0";
@@ -122,6 +126,9 @@ namespace LotusECMLogger.Controls
 			try
 			{
 				rmaService.StopLogging();
+
+				// Mint a fresh path so the next session gets its own file instead of overwriting this one.
+				csvPathTextBox.Text = LoggerPaths.TimestampedCsvPath("T6RMA");
 
 				statusValueLabel.Text = "Stopped";
 				statusValueLabel.ForeColor = Color.Black;

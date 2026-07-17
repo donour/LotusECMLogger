@@ -290,6 +290,10 @@ namespace LotusECMLogger.Controls
 
             try
             {
+                // Never overwrite an earlier log: bump to a _1/_2… suffix if the file already exists.
+                csvPath = LoggerPaths.UniquePath(csvPath);
+                csvPathTextBox.Text = csvPath;
+
                 latestValues.Clear();
                 Interlocked.Exchange(ref frameCount, 0);
                 framesValueLabel.Text = "0";
@@ -319,6 +323,8 @@ namespace LotusECMLogger.Controls
             try
             {
                 service.StopLogging();
+                // Mint a fresh path so the next session gets its own file instead of overwriting this one.
+                csvPathTextBox.Text = LoggerPaths.TimestampedCsvPath("HighSpeed");
                 statusValueLabel.Text = "Stopped";
                 statusValueLabel.ForeColor = Color.Black;
                 UpdateUIState();
@@ -454,6 +460,7 @@ namespace LotusECMLogger.Controls
             SafeUIInvoke(() =>
             {
                 service.StopLogging();
+                csvPathTextBox.Text = LoggerPaths.TimestampedCsvPath("HighSpeed");
                 statusValueLabel.Text = "Error";
                 statusValueLabel.ForeColor = Color.Red;
                 UpdateUIState();
