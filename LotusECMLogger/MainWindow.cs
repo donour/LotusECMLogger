@@ -178,22 +178,27 @@ namespace LotusECMLogger
                 GuiIcons.LiveData,
                 GuiIcons.EcuCoding,
                 GuiIcons.Dtc,
-                GuiIcons.RmaLogging,
-                GuiIcons.LiveTuning,
-                GuiIcons.HighSpeedLog);
+                GuiIcons.LiveTuning);
             mainTabControl.ImageList = mainIcons;
             vehicleInfoTab.ImageIndex = 0;
-            liveDataTab.ImageIndex    = 1;
+            loggingTab.ImageIndex     = 1;
             codingDataTab.ImageIndex  = 2;
             dtcTab.ImageIndex         = 3;
-            t6RmaTab.ImageIndex       = 4;
-            liveTuningTab.ImageIndex  = 5;
-            highSpeedLogTab.ImageIndex = 6;
+            liveTuningTab.ImageIndex  = 4;
 
-            var loggingIcons = GuiIcons.BuildImageList(20, tabColor,
+            var loggingModeIcons = GuiIcons.BuildImageList(20, tabColor,
+                GuiIcons.HighSpeedLog,
+                GuiIcons.LiveData,
+                GuiIcons.RmaLogging);
+            loggingModesTabControl.ImageList = loggingModeIcons;
+            highSpeedLogTab.ImageIndex = 0;
+            obdLoggingTab.ImageIndex   = 1;
+            t6RmaTab.ImageIndex        = 2;
+
+            var obdSubTabIcons = GuiIcons.BuildImageList(20, tabColor,
                 GuiIcons.LoggerTab,
                 GuiIcons.ConfigTab);
-            loggingTabControl.ImageList = loggingIcons;
+            obdLoggingTabControl.ImageList = obdSubTabIcons;
             loggerTab.ImageIndex     = 0;
             configEditorTab.ImageIndex = 1;
         }

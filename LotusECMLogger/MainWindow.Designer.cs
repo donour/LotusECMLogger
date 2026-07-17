@@ -41,24 +41,28 @@ namespace LotusECMLogger
             mainTabControl = new TabControl();
             vehicleInfoTab = new TabPage();
             vehicleInfoControl = new LotusECMLogger.Controls.VehicleInfoControl();
-            liveDataTab = new TabPage();
-            loggingTabControl = new TabControl();
+            loggingTab = new TabPage();
+            loggingModesTabControl = new TabControl();
+            highSpeedLogTab = new TabPage();
+            obdLoggingTab = new TabPage();
+            obdLoggingTabControl = new TabControl();
             loggerTab = new TabPage();
             configEditorTab = new TabPage();
             loggingConfigEditorControl = new LotusECMLogger.Controls.LoggingConfigEditorControl();
+            t6RmaTab = new TabPage();
             codingDataTab = new TabPage();
             dtcTab = new TabPage();
             dtcControl = new LotusECMLogger.Controls.DTCControl();
-            t6RmaTab = new TabPage();
             liveTuningTab = new TabPage();
             liveTuningControl = new LotusECMLogger.Controls.LiveTuningDiskMonitorControl();
-            highSpeedLogTab = new TabPage();
             menuStrip1.SuspendLayout();
             statusStrip1.SuspendLayout();
             mainTabControl.SuspendLayout();
             vehicleInfoTab.SuspendLayout();
-            liveDataTab.SuspendLayout();
-            loggingTabControl.SuspendLayout();
+            loggingTab.SuspendLayout();
+            loggingModesTabControl.SuspendLayout();
+            obdLoggingTab.SuspendLayout();
+            obdLoggingTabControl.SuspendLayout();
             configEditorTab.SuspendLayout();
             dtcTab.SuspendLayout();
             liveTuningTab.SuspendLayout();
@@ -137,12 +141,10 @@ namespace LotusECMLogger
             // mainTabControl
             // 
             mainTabControl.Controls.Add(vehicleInfoTab);
-            mainTabControl.Controls.Add(liveDataTab);
+            mainTabControl.Controls.Add(loggingTab);
             mainTabControl.Controls.Add(codingDataTab);
             mainTabControl.Controls.Add(dtcTab);
-            mainTabControl.Controls.Add(t6RmaTab);
             mainTabControl.Controls.Add(liveTuningTab);
-            mainTabControl.Controls.Add(highSpeedLogTab);
             mainTabControl.Dock = DockStyle.Fill;
             mainTabControl.Location = new Point(0, 37);
             mainTabControl.Margin = new Padding(4);
@@ -171,27 +173,50 @@ namespace LotusECMLogger
             vehicleInfoControl.Size = new Size(992, 613);
             vehicleInfoControl.TabIndex = 0;
             //
-            // liveDataTab
+            // loggingTab
             //
-            liveDataTab.Controls.Add(loggingTabControl);
-            liveDataTab.Location = new Point(4, 64);
-            liveDataTab.Margin = new Padding(4);
-            liveDataTab.Name = "liveDataTab";
-            liveDataTab.Size = new Size(992, 613);
-            liveDataTab.TabIndex = 0;
-            liveDataTab.Text = "Live Data";
-            liveDataTab.UseVisualStyleBackColor = true;
+            loggingTab.Controls.Add(loggingModesTabControl);
+            loggingTab.Location = new Point(4, 64);
+            loggingTab.Margin = new Padding(4);
+            loggingTab.Name = "loggingTab";
+            loggingTab.Size = new Size(992, 613);
+            loggingTab.TabIndex = 0;
+            loggingTab.Text = "Logging";
+            loggingTab.UseVisualStyleBackColor = true;
             //
-            // loggingTabControl
+            // loggingModesTabControl
             //
-            loggingTabControl.Controls.Add(loggerTab);
-            loggingTabControl.Controls.Add(configEditorTab);
-            loggingTabControl.Dock = DockStyle.Fill;
-            loggingTabControl.Location = new Point(0, 0);
-            loggingTabControl.Name = "loggingTabControl";
-            loggingTabControl.SelectedIndex = 0;
-            loggingTabControl.Size = new Size(992, 613);
-            loggingTabControl.TabIndex = 0;
+            loggingModesTabControl.Controls.Add(highSpeedLogTab);
+            loggingModesTabControl.Controls.Add(obdLoggingTab);
+            loggingModesTabControl.Controls.Add(t6RmaTab);
+            loggingModesTabControl.Dock = DockStyle.Fill;
+            loggingModesTabControl.Location = new Point(0, 0);
+            loggingModesTabControl.Name = "loggingModesTabControl";
+            loggingModesTabControl.SelectedIndex = 0;
+            loggingModesTabControl.Size = new Size(992, 613);
+            loggingModesTabControl.TabIndex = 0;
+            //
+            // obdLoggingTab
+            //
+            obdLoggingTab.Controls.Add(obdLoggingTabControl);
+            obdLoggingTab.Location = new Point(4, 34);
+            obdLoggingTab.Margin = new Padding(4);
+            obdLoggingTab.Name = "obdLoggingTab";
+            obdLoggingTab.Size = new Size(984, 575);
+            obdLoggingTab.TabIndex = 1;
+            obdLoggingTab.Text = "OBD-II Logging";
+            obdLoggingTab.UseVisualStyleBackColor = true;
+            //
+            // obdLoggingTabControl
+            //
+            obdLoggingTabControl.Controls.Add(loggerTab);
+            obdLoggingTabControl.Controls.Add(configEditorTab);
+            obdLoggingTabControl.Dock = DockStyle.Fill;
+            obdLoggingTabControl.Location = new Point(0, 0);
+            obdLoggingTabControl.Name = "obdLoggingTabControl";
+            obdLoggingTabControl.SelectedIndex = 0;
+            obdLoggingTabControl.Size = new Size(984, 575);
+            obdLoggingTabControl.TabIndex = 0;
             //
             // loggerTab
             //
@@ -252,11 +277,11 @@ namespace LotusECMLogger
             //
             // t6RmaTab
             // 
-            t6RmaTab.Location = new Point(4, 214);
+            t6RmaTab.Location = new Point(4, 34);
             t6RmaTab.Margin = new Padding(4);
             t6RmaTab.Name = "t6RmaTab";
-            t6RmaTab.Size = new Size(192, 0);
-            t6RmaTab.TabIndex = 5;
+            t6RmaTab.Size = new Size(984, 575);
+            t6RmaTab.TabIndex = 2;
             t6RmaTab.Text = "T6 RMA Logging";
             t6RmaTab.UseVisualStyleBackColor = true;
             // 
@@ -282,11 +307,11 @@ namespace LotusECMLogger
             //
             // highSpeedLogTab
             //
-            highSpeedLogTab.Location = new Point(4, 64);
+            highSpeedLogTab.Location = new Point(4, 34);
             highSpeedLogTab.Margin = new Padding(4);
             highSpeedLogTab.Name = "highSpeedLogTab";
-            highSpeedLogTab.Size = new Size(992, 613);
-            highSpeedLogTab.TabIndex = 7;
+            highSpeedLogTab.Size = new Size(984, 575);
+            highSpeedLogTab.TabIndex = 0;
             highSpeedLogTab.Text = "High-Speed Log";
             highSpeedLogTab.UseVisualStyleBackColor = true;
             //
@@ -309,8 +334,10 @@ namespace LotusECMLogger
             statusStrip1.PerformLayout();
             mainTabControl.ResumeLayout(false);
             vehicleInfoTab.ResumeLayout(false);
-            liveDataTab.ResumeLayout(false);
-            loggingTabControl.ResumeLayout(false);
+            loggingTab.ResumeLayout(false);
+            loggingModesTabControl.ResumeLayout(false);
+            obdLoggingTab.ResumeLayout(false);
+            obdLoggingTabControl.ResumeLayout(false);
             configEditorTab.ResumeLayout(false);
             dtcTab.ResumeLayout(false);
             liveTuningTab.ResumeLayout(false);
@@ -330,8 +357,10 @@ namespace LotusECMLogger
         private StatusStrip statusStrip1;
         private ToolStripStatusLabel refreshRateLabel;
         private TabControl mainTabControl;
-        private TabPage liveDataTab;
-        private TabControl loggingTabControl;
+        private TabPage loggingTab;
+        private TabControl loggingModesTabControl;
+        private TabPage obdLoggingTab;
+        private TabControl obdLoggingTabControl;
         private TabPage loggerTab;
         private TabPage configEditorTab;
         private LotusECMLogger.Controls.LoggingConfigEditorControl loggingConfigEditorControl;
