@@ -20,6 +20,12 @@ namespace CrpCli
                 return RunConvert(args.Skip(1).ToArray());
             }
 
+            if (args.Length >= 1 &&
+                args[0].Equals("create", StringComparison.OrdinalIgnoreCase))
+            {
+                return RunCreate(args.Skip(1).ToArray());
+            }
+
             if (args.Length >= 1 && !IsCommand(args[0]))
             {
                 // Legacy form: CrpCli <input.cpt> [output.crp]
@@ -34,6 +40,7 @@ namespace CrpCli
         {
             return arg.Equals("unpack", StringComparison.OrdinalIgnoreCase) ||
                    arg.Equals("convert", StringComparison.OrdinalIgnoreCase) ||
+                   arg.Equals("create", StringComparison.OrdinalIgnoreCase) ||
                    arg is "-h" or "--help" or "/?";
         }
 
@@ -44,17 +51,24 @@ namespace CrpCli
             Console.WriteLine("Usage:");
             Console.WriteLine("  CrpCli convert <input.cpt> [output.crp]");
             Console.WriteLine("  CrpCli unpack  <input.crp> [output_dir]");
+            Console.WriteLine("  CrpCli create  <output.crp> [--ecu <type>] [--cal <file>] [--prog <file>]");
             Console.WriteLine();
             Console.WriteLine("Commands:");
             Console.WriteLine("  convert   Pack a .CPT calibration into a T6 .CRP file");
             Console.WriteLine("  unpack    Decrypt a T6 .CRP file and show/extract its contents");
+            Console.WriteLine("  create    Build a .CRP from a calibration and/or firmware file");
             Console.WriteLine();
             Console.WriteLine("Notes:");
             Console.WriteLine("  For convert, if output.crp is omitted the input name with a");
             Console.WriteLine("  .crp extension is used.");
             Console.WriteLine("  For unpack, if output_dir is omitted contents are only printed;");
             Console.WriteLine("  provide a directory to also extract each chunk as a .bin file.");
+            Console.WriteLine("  For create, at least one of --cal or --prog is required.");
+            Console.WriteLine($"  ECU types: {string.Join(", ", EcuTypeNames())}  (default: T6)");
         }
+
+        private static IEnumerable<string> EcuTypeNames() =>
+            CrpCreator.AllVariants.Select(v => v.Type.ToString());
 
         private static int RunConvert(string[] args)
         {
@@ -182,6 +196,87 @@ namespace CrpCli
                 }
 
                 index++;
+            }
+        }
+
+        private static int RunCreate(string[] args)
+        {
+            Console.WriteLine("CRP Creator");
+            Console.WriteLine("===========\n");
+
+            if (args.Length < 1)
+            {
+                Console.WriteLine("Usage: CrpCli create <output.crp> [--ecu <type>] [--cal <file>] [--prog <file>]");
+                Console.WriteLine($"ECU types: {string.Join(", ", EcuTypeNames())}  (default: T6)");
+                return 1;
+            }
+
+            string crpFilePath = args[0];
+            var ecuType = CrpCreator.EcuType.T6;
+            string? calFilePath = null;
+            string? progFilePath = null;
+
+            for (int i = 1; i < args.Length; i++)
+            {
+                switch (args[i].ToLowerInvariant())
+                {
+                    case "--ecu" when i + 1 < args.Length:
+                        string ecuName = args[++i];
+                        if (!Enum.TryParse(ecuName, ignoreCase: true, out ecuType))
+                        {
+                            Console.WriteLine($"Error: Unknown ECU type '{ecuName}'.");
+                            Console.WriteLine($"Valid types: {string.Join(", ", EcuTypeNames())}");
+                            return 1;
+                        }
+                        break;
+                    case "--cal" when i + 1 < args.Length:
+                        calFilePath = args[++i];
+                        break;
+                    case "--prog" when i + 1 < args.Length:
+                        progFilePath = args[++i];
+                        break;
+                    default:
+                        Console.WriteLine($"Error: Unexpected argument '{args[i]}'.");
+                        return 1;
+                }
+            }
+
+            if (calFilePath == null && progFilePath == null)
+            {
+                Console.WriteLine("Error: At least one of --cal or --prog is required.");
+                return 1;
+            }
+
+            CrpCreator.CrpVariant variant = CrpCreator.GetVariant(ecuType);
+            Console.WriteLine($"ECU type : {variant.DisplayName} ({variant.Description})");
+            if (calFilePath != null)
+            {
+                Console.WriteLine($"Cal      : {calFilePath} -> address 0x{variant.CalAddress:X}");
+            }
+            if (progFilePath != null)
+            {
+                Console.WriteLine($"Prog     : {progFilePath} -> address 0x{variant.ProgAddress:X}");
+            }
+            Console.WriteLine($"Output   : {crpFilePath}");
+            Console.WriteLine();
+
+            try
+            {
+                bool success = CrpCreator.Create(crpFilePath, ecuType, calFilePath, progFilePath);
+                if (success)
+                {
+                    Console.WriteLine("CRP created successfully!");
+                    Console.WriteLine($"Output file: {Path.GetFullPath(crpFilePath)}");
+                    return 0;
+                }
+
+                Console.WriteLine("CRP creation failed.");
+                return 1;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error: {ex.Message}");
+                return 1;
             }
         }
     }
