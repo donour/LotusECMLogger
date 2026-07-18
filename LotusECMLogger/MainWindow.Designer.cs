@@ -33,6 +33,7 @@ namespace LotusECMLogger
             toolsToolStripMenuItem = new ToolStripMenuItem();
             cliRunnerToolStripMenuItem = new ToolStripMenuItem();
             eraseModelInfoToolStripMenuItem = new ToolStripMenuItem();
+            unpackCrpToolStripMenuItem = new ToolStripMenuItem();
             helpToolStripMenuItem = new ToolStripMenuItem();
             userGuideToolStripMenuItem = new ToolStripMenuItem();
             aboutLotusECMLoggerToolStripMenuItem = new ToolStripMenuItem();
@@ -81,7 +82,7 @@ namespace LotusECMLogger
             //
             // toolsToolStripMenuItem
             //
-            toolsToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { cliRunnerToolStripMenuItem, eraseModelInfoToolStripMenuItem });
+            toolsToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { cliRunnerToolStripMenuItem, eraseModelInfoToolStripMenuItem, unpackCrpToolStripMenuItem });
             toolsToolStripMenuItem.Name = "toolsToolStripMenuItem";
             toolsToolStripMenuItem.Size = new Size(70, 29);
             toolsToolStripMenuItem.Text = "Tools";
@@ -99,7 +100,14 @@ namespace LotusECMLogger
             eraseModelInfoToolStripMenuItem.Size = new Size(292, 34);
             eraseModelInfoToolStripMenuItem.Text = "Erase Model Info…";
             eraseModelInfoToolStripMenuItem.Click += EraseModelInfoToolStripMenuItem_Click;
-            // 
+            //
+            // unpackCrpToolStripMenuItem
+            //
+            unpackCrpToolStripMenuItem.Name = "unpackCrpToolStripMenuItem";
+            unpackCrpToolStripMenuItem.Size = new Size(292, 34);
+            unpackCrpToolStripMenuItem.Text = "Unpack CRP File…";
+            unpackCrpToolStripMenuItem.Click += UnpackCrpToolStripMenuItem_Click;
+            //
             // helpToolStripMenuItem
             // 
             helpToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { userGuideToolStripMenuItem, aboutLotusECMLoggerToolStripMenuItem });
@@ -352,6 +360,7 @@ namespace LotusECMLogger
         private ToolStripMenuItem helpToolStripMenuItem;
         private ToolStripMenuItem cliRunnerToolStripMenuItem;
         private ToolStripMenuItem eraseModelInfoToolStripMenuItem;
+        private ToolStripMenuItem unpackCrpToolStripMenuItem;
         private ToolStripMenuItem userGuideToolStripMenuItem;
         private ToolStripMenuItem aboutLotusECMLoggerToolStripMenuItem;
         private StatusStrip statusStrip1;
