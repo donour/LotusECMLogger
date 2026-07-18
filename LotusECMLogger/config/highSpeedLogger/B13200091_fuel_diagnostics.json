@@ -1,0 +1,80 @@
+{
+  // Fuel/injection diagnostics preset for the B13200091 ECU: traces the AFR pipeline from the
+  // load/temp axes through target/enrichment, knock PE contribution, flow conversion and pulse
+  // width to the closed-loop trims. Port of C132E0278_fuel_diagnostics.json with these deltas:
+  //   - No TMAP sensor: airflow comes from the MAF (maf_flow_1) and IAT from air_temp_intake;
+  //     the obd_ii_manifold_temp channel has no equivalent here.4
+  //   - No fuel pressure sensor: inj_flow_rate is a fixed-rail calibration value, so battery
+  //     voltage + inj_deadtime_base stand in as the delivery-side health channels.
+  //   - This firmware exposes injector duty cycle (inj_duty_bank1/2_pct) and the max available
+  //     pulse window (inj_pw_max_available_us) directly — these replace load_limit_from_inj as
+  //     the injector-capacity view.
+  //   - Single afr_target node: no afr_target2/afr_commanded split on this ECU.
+  //   - Per-cylinder knock retard lives in a hidden [6] array; knock_ign_retard2_sum (total,
+  //     1/4-deg counts) is logged instead.
+  // All channels resolve from database/B13200091.csv; entries with an `undefined*` catalog type
+  // carry inline scale/unit overrides — those marked "assumed" are unverified on this firmware,
+  // sanity-check against a known reading before trusting them.
+  //
+  // 4 rate groups (20/10/5/1 Hz), ~140 frames/s ≈ 3-4% of the 500 kbit/s bus — headroom to raise
+  // the pulse-width/duty channels to 50-100 Hz for transient work (edit per-channel before Start).
+  "name": "Fuel Diagnostics (B13200091)",
+  "description": "Injection pipeline: load/temp axes, AFR target, knock enrichment, flow conversion, pulse widths, duty cycle, bank trims, O2 feedback.",
+  "ecuVersion": "B13200091",
+  "channels": [
+    // ── Axes ─────────────────────────────────────────────────────────────────────────────────────
+    { "symbol": "engine_speed_16bit",    "rate": 20 },                        // X of the fueling tables (RPM)
+    { "symbol": "load_mass_per_stroke",  "rate": 20 },                        // Y of enrichment tables (mg/stk = val*4)
+    { "symbol": "maf_flow_1",            "rate": 20 },                        // Primary MAF — airflow basis of the fuel calc (mg/s = val*10)
+    { "symbol": "coolant_temp",          "rate": 1 },                         // Y of warmup/enrichment table
+    { "symbol": "air_temp_intake",       "rate": 1 },                         // IAT comp input (no TMAP on this ECU)
+
+    // ── AFR target chain ─────────────────────────────────────────────────────────────────────────
+    { "symbol": "afr_target",            "rate": 20 },                        // Commanded AFR (u16 val/100; only AFR node on this firmware)
+    { "symbol": "afr_enrichment_from_ign_retard", "rate": 20 },               // Knock/retard PE contribution (AFR = val/100, subtracted)
+
+    // ── Knock inputs ─────────────────────────────────────────────────────────────────────────────
+    { "symbol": "knock_ign_retard2_sum", "rate": 10, "scale": 0.25, "unit": "deg" }, // Total knock retard, all cylinders (sum of 1/4-deg counts)
+    { "symbol": "ign_comp_coolant",      "rate": 10 },                        // Coolant ignition comp (deg = val/4)
+    { "symbol": "ign_comp_rpm",          "rate": 10, "signed": true, "scale": 0.25, "unit": "deg" }, // RPM ignition comp (assumed i16 1/4-deg)
+    { "symbol": "ign_comp_iat",          "rate": 5,  "signed": true, "scale": 0.25, "unit": "deg" }, // IAT ignition comp (assumed i16 1/4-deg)
+
+    // ── Temp factors ─────────────────────────────────────────────────────────────────────────────
+    { "symbol": "inj_warmup_factor",     "rate": 5 },                         // Load/coolant enrichment factor (x val/64, floor 1.0) — CAL_inj_warmup_factor_{manual|ips}
+    { "symbol": "inj_comp_iat",          "rate": 5 },                         // Air-temp compensation factor (val/128) — CAL_inj_comp_iat
+
+    // ── Flow conversion ──────────────────────────────────────────────────────────────────────────
+    { "symbol": "inj_efficiency",        "rate": 5, "scale": 0.01, "unit": "ratio" }, // Efficiency lookup + test trim (assumed val/100 as on C0278)
+    { "symbol": "inj_flow_rate",         "rate": 5 },                         // Commanded injector flow (mg/s) — fixed-rail, no dP correction
+    { "symbol": "inj_bank_balance_ratio", "rate": 5 },                        // Bank balance (val/200; 100% = balanced)
+    { "symbol": "inj_fuel_mass_required", "rate": 10 },                       // Fuel mass demand per stroke (10 ug units)
+    { "symbol": "inj_fuel_mass_bank1",   "rate": 10 },                        // Fuel mass bank 1 (10 ug units)
+    { "symbol": "inj_fuel_mass_bank2",   "rate": 10 },                        // Fuel mass bank 2 (10 ug units)
+
+    // ── Deadtime / supply (no fuel pressure sensor — delivery-side health) ───────────────────────
+    { "symbol": "inj_deadtime_base",     "rate": 10 },                        // Injector deadtime (us)
+    { "symbol": "sensor_adc_ecu_voltage", "rate": 10 },                       // Battery/ECU supply — drives deadtime (V = val*18/1023)
+
+    // ── Pulse width ──────────────────────────────────────────────────────────────────────────────
+    { "symbol": "inj_pw_bank1_pre_trim_us",  "rate": 20, "unit": "us" },      // Bank 1 pulse before STFT/LTFT
+    { "symbol": "inj_pw_bank2_pre_trim_us",  "rate": 20, "unit": "us" },      // Bank 2 pulse before STFT/LTFT
+    { "symbol": "inj_pw_bank1_post_trim_us", "rate": 20, "unit": "us" },      // Bank 1 pulse after STFT/LTFT
+    { "symbol": "inj_pw_bank2_post_trim_us", "rate": 20, "unit": "us" },      // Bank 2 pulse after STFT/LTFT
+
+    // ── Duty cycle & headroom (replaces load_limit_from_inj) ─────────────────────────────────────
+    { "symbol": "inj_duty_bank1_pct",    "rate": 20 },                        // Injector duty bank 1 (%)
+    { "symbol": "inj_duty_bank2_pct",    "rate": 20 },                        // Injector duty bank 2 (%)
+    { "symbol": "inj_pw_max_available_us", "rate": 5 },                       // Max pulse window at current RPM (us) — capacity ceiling
+
+    // ── Bank trims ───────────────────────────────────────────────────────────────────────────────
+    // 16-bit internal trims; assumed % = val/20 as on C0278. Enable if the O2 traces aren't enough.
+    //{ "symbol": "stft_bank1",           "rate": 20, "signed": true, "scale": 0.05, "unit": "%" }, // Short-term trim B1
+    //{ "symbol": "stft_bank2",           "rate": 20, "signed": true, "scale": 0.05, "unit": "%" }, // Short-term trim B2
+    { "symbol": "obd_ltft_bank_1",       "rate": 1, "scale": 0.78125, "offset": -100, "unit": "%" }, // Long-term trim B1 (assumed OBD A/1.28-100 encoding)
+    { "symbol": "obd_ltft_bank_2",       "rate": 1, "scale": 0.78125, "offset": -100, "unit": "%" }, // Long-term trim B2 (assumed OBD A/1.28-100 encoding)
+
+    // ── O2 feedback ──────────────────────────────────────────────────────────────────────────────
+    { "symbol": "obd_ii_o2_sensor1_voltage", "rate": 20 },                    // Front O2 bank 1 - drives bank 1 STFT
+    { "symbol": "obd_ii_o2_sensor5_voltage", "rate": 20 },                    // Front O2 bank 2 - drives bank 2 STFT
+  ]
+}
