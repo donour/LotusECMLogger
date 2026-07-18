@@ -163,6 +163,18 @@ namespace LotusECMLogger
             dialog.ShowDialog(this);
         }
 
+        private void UnpackCrpToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            using var dialog = new CrpUnpackerDialog();
+            dialog.ShowDialog(this);
+        }
+
+        private void CreateCrpToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            using var dialog = new CrpCreatorDialog();
+            dialog.ShowDialog(this);
+        }
+
         private void UserGuideToolStripMenuItem_Click(object sender, EventArgs e)
         {
             var helpDialog = new HelpDialog();
