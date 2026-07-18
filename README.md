@@ -7,7 +7,9 @@ With LotusECMLogger, you can log not only generic OBD-II parameters, but also Lo
 - **Supports OBD-II Mode 01**: Standard parameters like RPM, speed, coolant temperature, etc.
 - **Supports OBD-II Mode 22**: Manufacturer-specific channels, including advanced Lotus data.
 - **Capture Lotus-specific data**: Log unique parameters such as variable cam control, knock control, and more.
-- **ECU configuration & diagnostics**: Read and modify ECU coding, read trouble codes, program the VIN, and reset learned/adaptive data.
+- **High-speed channel logging**: Stream internal ECU channels over CAN at up to 100 Hz per channel — far faster than OBD-II polling — with optional AEM X-Series wideband integration.
+- **ECU configuration & diagnostics**: Read and modify ECU coding, read and clear trouble codes (including permanent codes), program the VIN, and reset learned/adaptive data.
+- **Dyno mode**: Enable the ECU's diagnostic override to suppress faults from external systems (such as ABS) during dyno runs.
 - **Advanced T6e tools**: RAM (RMA) logging, live calibration tuning, calibration flashing, and model-info erase for firmware migration.
 - **Free and open source**: No cost, no restrictions, and community-driven development.
 
@@ -35,31 +37,34 @@ LotusECMLogger should work with an J2534-compliant pass-thru device connected vi
 LotusECMLogger provides a tabbed interface with specialized tools for different diagnostic and logging tasks:
 
 ### Vehicle Information
-The Vehicle Information tab retrieves static and learned data from the ECU. It queries OBD-II Mode 09 for identification data — VIN, ECU name, calibration ID, and calibration verification number (displayed as hex) — and Mode 22 for per-cylinder octane scaler values, which indicate how much knock-based fuel correction has been accumulated for each cylinder. After a load, the tab probes the ECU over raw CAN and shows an **unlock indicator** — UNLOCKED, LOCKED, or UNKNOWN — since an unlocked ECU is required for advanced operations such as Erase Model Info, T6 RMA Logging, and T6 Live Tuning.
+The Vehicle Information tab retrieves static and learned data from the ECU. It queries OBD-II Mode 09 for identification data — VIN, ECU name, calibration ID, and calibration verification number (displayed as hex) — and Mode 22 for per-cylinder octane scaler values, which indicate how much knock-based fuel correction has been accumulated for each cylinder. After a load, the tab probes the ECU over raw CAN and shows two indicators: an **unlock indicator** — UNLOCKED, LOCKED, or UNKNOWN — since an unlocked ECU is required for advanced operations such as Erase Model Info, T6 RMA Logging, and Live Tuning, and an **HS LOGGER indicator** showing whether the installed firmware provides the high-speed channel-logger facility used by the High-Speed Log tab.
 
-The tab also hosts two write operations:
+The tab also hosts three operations:
 
 - **Set VIN** — Opens a dialog that programs a new VIN using OBD-II Mode 0x3B. The Lotus firmware only allows positions 4–17 to be rewritten (the `SCC` WMI is fixed), validates the entry as you type, and requires the engine to be off; the result is verified by reading the VIN back after programming.
-- **Learned Data Reset** — Performs an OBD-II Mode 0x11 reset to clear adaptive learning values (octane scalers, knock retard, alpha-N load trim, torque-to-throttle scaling, per-bank fuel trim, and idle learning), which may be necessary after certain repairs or modifications.
+- **Dyno Mode** — Enables the ECU's diagnostic override (OBD-II Mode 0x2F), which inhibits fault reactions triggered by external systems such as ABS. This is useful on a chassis dyno, where driven and undriven wheels turning at different speeds would otherwise raise faults and trigger torque intervention. Dyno mode is not persistent — it clears when the vehicle is powered off, and there is no explicit disable command, so cycle the ignition to return to normal operation. Only enable it on a dyno or during controlled testing: suppressing ABS-related faults on the road removes safety interventions.
+- **Adaptations Reset** — Performs an OBD-II Mode 0x11 reset to clear adaptive learning values (octane scalers, knock retard, alpha-N load trim, torque-to-throttle scaling, per-bank fuel trim, and idle learning), which may be necessary after certain repairs or modifications.
 
-### Live Data
-The Live Data tab contains two sub-tabs:
+### Logging
+All logging tools live under a single Logging tab, with sub-tabs for each logging mode. Every logger writes its CSV output beneath one folder — `Documents\LotusECMLogger` — with per-mode file names (`HighSpeed_<timestamp>.csv`, `LiveData_<timestamp>.csv`, `T6RMA_<timestamp>.csv`).
 
-**Logger** — Displays real-time OBD-II parameters from your Lotus vehicle in an easy-to-read list. You can start and stop logging sessions, which automatically saves data to CSV files in your Documents folder for later analysis. The active logging configuration is selected from a dropdown; configurations determine which ECUs and PIDs are polled each session. Wideband sensors are fully supported: live lambda and air-fuel ratio (Mode 01 PIDs 0x24/0x25) plus the per-bank calibration parameters (slope and offset, Mode 22 PIDs 0x0403/0x0404).
+**High-Speed Log** — Streams internal ECU channels directly over CAN at up to 100 Hz per channel, far faster than OBD-II polling. Instead of request/response messages, it programs the ECU as an autonomous sampler that broadcasts the channels you select, making it possible to capture fast transients such as per-cylinder ignition advance and knock retard, throttle and pedal movement, AFR, MAF, load, and torque. Channels are loaded from JSON presets (per ECU calibration version) into a spreadsheet-style grid where you check the channels to log and pick a per-channel sample rate. A **Test Connection** button verifies that the ECU firmware includes the channel-logger facility before you start — standard locked production calibrations generally do not have it. An **AEM Wideband** toggle polls an AEM X-Series wideband (OBDII variant) over OBD-II in parallel and merges lambda/AFR into the CSV as extra columns. Live status shows frame counts, drop counts, and last-update time while logging.
 
-**Logging Config** — A full configuration editor for creating and managing logging configuration files. You can add and remove ECUs, set each ECU's CAN request and response IDs, and build a list of OBD requests (Mode 01 or Mode 22) with names, descriptions, categories, units, and PID values. Configurations are saved as JSON files and are immediately available in the Logger sub-tab without restarting the application.
+**OBD-II Logging** — Contains two sub-tabs:
+
+- *Logger* — Displays real-time OBD-II parameters from your Lotus vehicle in an easy-to-read list. You can start and stop logging sessions, which automatically saves data to CSV files for later analysis. The active logging configuration is selected from a dropdown; configurations determine which ECUs and PIDs are polled each session. Wideband sensors are fully supported: live lambda and air-fuel ratio (Mode 01 PIDs 0x24/0x25) plus the per-bank calibration parameters (slope and offset, Mode 22 PIDs 0x0403/0x0404).
+- *Logging Config* — A full configuration editor for creating and managing logging configuration files. You can add and remove ECUs, set each ECU's CAN request and response IDs, and build a list of OBD requests (Mode 01 or Mode 22) with names, descriptions, categories, units, and PID values. Configurations are saved as JSON files and are immediately available in the Logger sub-tab without restarting the application.
+
+**T6 RMA Logging** — The T6 RMA (Remote Memory Access) sub-tab enables direct reading of ECU memory addresses for advanced diagnostics and development. You can specify any valid RAM address (0x40000000-0x4000FFFF), configure the number of bytes to read and polling interval, then log the data as a time series to CSV. This feature requires a debug-enabled ECU with developer calibration and provides real-time hex dump, ASCII, and numeric interpretations of the memory contents.
 
 ### ECU Coding
 The ECU Coding tab allows you to read and modify ECU configuration settings for Lotus T6e ECUs. You can view current coding values, make changes to vehicle configuration options, and write the updated settings back to the ECU with automatic backup creation for safety.
 
 ### Diagnostic Trouble Codes
-The Diagnostic Trouble Codes (DTC) tab reads stored trouble codes from the ECU using OBD-II Mode 03 and lists each code alongside its category, helping you diagnose issues and monitor faults stored in your vehicle's engine management system. Clearing trouble codes from this tab is not yet implemented.
+The Diagnostic Trouble Codes (DTC) tab reads both stored trouble codes (OBD-II Mode 03) and permanent trouble codes (Mode 0A) from the ECU, listing each code alongside its category to help you diagnose issues and monitor faults stored in your vehicle's engine management system. The **Clear Codes** button clears stored codes and freeze-frame data (Mode 04) after confirmation; permanent codes cannot be cleared directly and only extinguish after the ECU verifies the underlying fault is gone over subsequent drive cycles.
 
-### T6 RMA Logging
-The T6 RMA (Remote Memory Access) Logging tab enables direct reading of ECU memory addresses for advanced diagnostics and development. You can specify any valid RAM address (0x40000000-0x4000FFFF), configure the number of bytes to read and polling interval, then log the data as a time series to CSV. This feature requires a debug-enabled ECU with developer calibration and provides real-time hex dump, ASCII, and numeric interpretations of the memory contents.
-
-### T6 Live Tuning
-The T6 Live Tuning tab enables real-time calibration editing by monitoring .CPT calibration files and automatically writing changes to ECU memory. This feature supports two workflows: reading memory directly from the ECU to create a new calibration file, or loading an existing .CPT file for monitoring. Memory presets are available for common calibration regions. When monitoring is active, any edits made to the .CPT file are detected within 100ms and immediately written to the corresponding ECU memory address, with detailed logging showing the memory address, file offset, and old/new values for each change. This requires a debug-enabled ECU with developer calibration.
+### Live Tuning
+The Live Tuning tab enables real-time calibration editing by monitoring .CPT calibration files and automatically writing changes to ECU memory. This feature supports two workflows: reading memory directly from the ECU to create a new calibration file, or loading an existing .CPT file for monitoring. Memory presets are available for common calibration regions. When monitoring is active, any edits made to the .CPT file are detected within 100ms and immediately written to the corresponding ECU memory address, with detailed logging showing the memory address, file offset, and old/new values for each change. This requires a debug-enabled ECU with developer calibration.
 
 ### T6E Calibration Flasher
 Available from the **Tools** menu, the T6E Calibration Flasher provides a convenient interface for flashing ECU calibrations to Lotus T6e engine control units. The tool supports both .CRP and .CPT file formats, automatically converting .CPT files to XTEA-encrypted .CRP format (CRP08) before flashing to ensure compatibility with the ECU's flash programming protocol.
@@ -77,7 +82,6 @@ Available from the **Tools** menu, Erase Model Info clears the model identificat
 - **`MainWindow.OnLoggerStateChanged` also swallows exceptions silently.** Any failure propagating logger state to child controls is hidden.
 
 ### Threading / Correctness
-- **`VehicleInfoControl.LoadVehicleData` blocks the UI thread.** All J2534 work (connection, filter setup, PID queries, octane scaler reads) runs on the UI thread, freezing the app for the duration. Move to `Task.Run()` and use `Invoke`/`BeginInvoke` for status label updates and the final ListView refresh. (`VehicleInfoControl.cs`)
 - **`liveData` dictionary has a data race.** It is written by the background logger thread and read on the UI thread with no synchronization. Fix by using `ConcurrentDictionary` or capturing a snapshot under a lock before dispatching to the UI thread. (`OBDLoggerControl.cs`)
 
 ### Code Quality
@@ -90,4 +94,3 @@ Available from the **Tools** menu, Erase Model Info clears the model identificat
 
 ### Protocol / Data
 - **Throttle position scaling constant may not be portable.** `LiveDataReading.cs` uses a hard-coded divisor of 77 as the observed max raw throttle value. This may vary across ECU calibrations. Verify and replace with a documented or configurable value.
-- **DTC clearing is not implemented.** `DTCControl.clearCodesButton_Click` only shows a "not yet implemented" message. Add OBD-II Mode 0x04 clear; the firmware already zeroes both stored and permanent DTCs when it receives a clear request. (`DTCControl.cs`)
