@@ -409,6 +409,22 @@ namespace LotusECMLogger
 
                                 idx += 5;
                                 break;
+                            case 0x26:
+                                if (data.Length > idx + 4)
+                                {
+                                    proccessO2Sensor(data, results, idx, 3);
+                                }
+
+                                idx += 5;
+                                break;
+                            case 0x27:
+                                if (data.Length > idx + 4)
+                                {
+                                    proccessO2Sensor(data, results, idx, 4);
+                                }
+
+                                idx += 5;
+                                break;
                             case 0x28:
                                 if (data.Length > idx + 4)
                                 {
