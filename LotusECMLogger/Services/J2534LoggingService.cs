@@ -290,44 +290,35 @@ namespace LotusECMLogger.Services
         {
             List<LiveDataReading> readings = [];
 
-            try
+            // v2 ReadMessages returns an empty GetMessagesResult on timeout (Messages.Length == 0
+            // ends the loop) rather than throwing, so no timeout handling is needed here.
+            GetMessagesResult resp;
+            do
             {
-                GetMessagesResult resp;
-                do
+                resp = channel.ReadMessages(1, 0);
+                if (resp.Messages.Length > 0)
                 {
-                    resp = channel.ReadMessages(1, 0);
-                    if (resp.Messages.Length > 0)
+                    var mesg = resp.Messages[0];
+
+                    // Try to find which ECU this response is from
+                    var matchingEcu = multiEcuConfig.FindECUForResponse(mesg.Data);
+
+                    if (matchingEcu != null)
                     {
-                        var mesg = resp.Messages[0];
-
-                        // Try to find which ECU this response is from
-                        var matchingEcu = multiEcuConfig.FindECUForResponse(mesg.Data);
-
-                        if (matchingEcu != null)
-                        {
-                            // Parse with the matching ECU context
-                            readings.AddRange(LiveDataReading.ParseCanResponse(
-                                mesg.Data,
-                                matchingEcu,
-                                PrefixReadingsWithEcuName));
-                        }
-                        else
-                        {
-                            // Unknown ECU response - try legacy parsing
-                            readings.AddRange(LiveDataReading.ParseCanResponse(mesg.Data));
-                        }
+                        // Parse with the matching ECU context
+                        readings.AddRange(LiveDataReading.ParseCanResponse(
+                            mesg.Data,
+                            matchingEcu,
+                            PrefixReadingsWithEcuName));
                     }
-                } while (resp.Messages.Length > 0);
-            }
-            catch (TimeoutException)
-            {
-                // TODO: Dead since the J2534-Sharp.Core v2 migration. v1 GetMessages threw
-                // TimeoutException when no message arrived within the timeout; v2 ReadMessages
-                // returns an empty GetMessagesResult instead (resp.Messages.Length == 0 ends the
-                // loop). This catch can never fire now and should be removed, or replaced with a
-                // resp.IsTimeout / resp.Status check if timeout handling is actually needed.
-                // skip timeout, no messages received
-            }
+                    else
+                    {
+                        // Unknown ECU response - try legacy parsing
+                        readings.AddRange(LiveDataReading.ParseCanResponse(mesg.Data));
+                    }
+                }
+            } while (resp.Messages.Length > 0);
+
             return readings;
         }
 

@@ -1,250 +1,368 @@
 using SAE.J2534;
 using System.Diagnostics;
+using System.Text;
 
 namespace LotusECMLogger.Services
 {
+    /// <summary>
+    /// Reads static and learned vehicle information from the Lotus ECM over a temporary
+    /// J2534 ISO15765 session: Mode 0x09 identification PIDs (VIN, calibration ID, CVN, ECU
+    /// name, in-use performance tracking), Mode 0x22 extended identification, per-cylinder
+    /// octane scalers, and regional fuel-learn state.
+    /// </summary>
     public class VehicleInfoService : IVehicleInfoService
     {
         public List<VehicleParameterReading> LoadVehicleData()
         {
-            var vehicleDataSnapshot = new List<VehicleParameterReading>();
+            var readings = new List<VehicleParameterReading>();
 
-            try
-            {
-                // Create temporary device connection for vehicle data loading
-                using var session = J2534Session.Open();
-                J2534Channel channel = session.OpenIso15765();
+            // Temporary connection scoped to this load; disposed before the caller runs any
+            // probes that need their own separate CAN session.
+            using var session = J2534Session.Open();
+            var channel = session.OpenIso15765();
 
-                // Start message filter
-                channel.StartMessageFilter(ECUDefinition.ECM.CreateFlowControlFilter()).ThrowIfError();
+            // Setup message filter for the Lotus ECM
+            channel.StartMessageFilter(ECUDefinition.ECM.CreateFlowControlFilter()).ThrowIfError();
 
-                // Create ECM header for Lotus vehicles
-                byte[] ecmHeader = [0x00, 0x00, 0x07, 0xE0];
+            var iso15765Service = new Iso15765Service(channel);
 
-                // Execute Mode 0x01 requests first
-                ExecuteMode01Requests(channel, ecmHeader, vehicleDataSnapshot);
+            // Query for available PIDs on service 0x09
+            var availablePIDs = iso15765Service.GetSupportedPIDs(OBDIIMode.RequestVehicleInformation);
 
-                // Execute Mode 0x22 requests
-                ExecuteMode22Requests(channel, ecmHeader, vehicleDataSnapshot);
+            // Mode 0x22 extended identification (serial, hardware, crypto flags, type, cal version)
+            readings.AddRange(QueryMode22ExtendedInfo(channel));
 
-                return vehicleDataSnapshot;
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Error loading vehicle data: {ex.Message}");
-                throw;
-            }
-        }
-
-        /// <summary>
-        /// Execute Mode 0x01 (Service $01) OBD-II requests for standard vehicle data
-        /// </summary>
-        private void ExecuteMode01Requests(J2534Channel channel, byte[] ecmHeader, List<VehicleParameterReading> vehicleDataSnapshot)
-        {
-            // Standard Mode 0x01 PIDs - these will be provided by user later
-            // For now, create a basic set of common PIDs
-            var mode01Requests = new List<(string Name, byte Pid)>
-            {
-                ("Engine RPM", 0x0C),
-            };
-
-            foreach (var (name, pid) in mode01Requests)
+            // Load values for all available Mode 0x09 PIDs
+            foreach (var pid in availablePIDs)
             {
                 try
                 {
-                    // Build and send the request
-                    byte[] message = BuildMode01Message(ecmHeader, pid);
-                    channel.SendMessage(message);
-
-                    // Read response with timeout
-                    var response = channel.ReadMessages(1, 500); // 500ms timeout
-                    if (response.Messages.Length > 0)
+                    var pidData = iso15765Service.GetPID(OBDIIMode.RequestVehicleInformation, pid);
+                    if (pidData != null && pidData.Length > 0)
                     {
-                        var readings = ParseMode01Response(response.Messages[0].Data, name, pid);
-                        if (readings != null)
+                        var reading = ParseVehicleInfoPID(pid, pidData);
+                        if (reading != null)
                         {
-                            vehicleDataSnapshot.Add(readings);
+                            readings.Add(reading);
                         }
                     }
-
-                    // Small delay between requests to avoid overwhelming ECU
-                    Thread.Sleep(50);
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"Failed to execute Mode 01 request {name}: {ex.Message}");
+                    Debug.WriteLine($"Failed to read PID 0x{pid:X2}: {ex.Message}");
                 }
             }
+
+            readings.AddRange(QueryOctaneScalers(channel));
+
+            readings.AddRange(QueryFuelLearnState(channel));
+
+            return readings;
         }
 
-        private byte[] BuildMode01Message(byte[] ecmHeader, byte pid)
+        private static VehicleParameterReading? ParseVehicleInfoPID(int pid, byte[] data)
         {
-            var message = new byte[ecmHeader.Length + 3];
-            Array.Copy(ecmHeader, message, ecmHeader.Length);
-            message[ecmHeader.Length] = 0x01; // Service ID for Mode 01
-            message[ecmHeader.Length + 1] = pid; // PID
-            message[ecmHeader.Length + 2] = 0x00; // Terminator
-            return message;
-        }
-
-        private VehicleParameterReading? ParseMode01Response(byte[] data, string name, byte pid)
-        {
-            // Check if response is valid (from ECM with correct header)
-            if (data.Length <= 4 || data[0] != 0x00 || data[1] != 0x00 || data[2] != 0x07 || data[3] != 0xE8)
-            {
-                return null;
-            }
-
-            // Check if this is a Mode 01 response
-            if (data.Length < 6 || data[4] != 0x41) // 0x41 = Mode 01 response
-            {
-                return null;
-            }
-
-            // Check if PID matches
-            if (data[5] != pid)
-            {
-                return null;
-            }
-
             // Parse based on PID
             return pid switch
             {
-                0x0C => ParseEngineRPM(data), // Engine RPM
+                0x02 => ParseVIN(data),
+                0x04 => ParseCalibrationID(data),
+                0x06 => ParseCalibrationVerificationNumbers(data),
+                0x05 => ParseInUsePerformanceTracking(data, "Compression Ignition IPT"),
+                0x0A => ParseECUName(data),
+                0x0C => ParseInUsePerformanceTracking(data, "Spark Ignition IPT 3"),
                 _ => null
             };
         }
 
-        private VehicleParameterReading? ParseEngineRPM(byte[] data)
+        private static VehicleParameterReading? ParseVIN(byte[] data)
         {
-            if (data.Length >= 8)
+            if (data.Length == 17) // VIN is 17 characters, plus header
             {
-                // Engine RPM: ((A*256)+B)/4
-                int rpm = ((data[6] << 8) | data[7]) / 4;
+                var vin = Encoding.UTF8.GetString(data);
+
                 return new VehicleParameterReading
                 {
-                    Name = "Engine RPM",
-                    Value = rpm.ToString(),
-                    Unit = "RPM"
+                    Name = "Vehicle Identification Number",
+                    Value = vin,
+                    Unit = ""
                 };
             }
             return null;
         }
 
-        /// <summary>
-        /// Execute Mode 0x22 (Service $22) manufacturer-specific OBD-II requests
-        /// </summary>
-        private void ExecuteMode22Requests(J2534Channel channel, byte[] ecmHeader, List<VehicleParameterReading> vehicleDataSnapshot)
+        private static VehicleParameterReading? ParseCalibrationID(byte[] data)
         {
-            // Mode 0x22 requests - these will be provided by user later
-            // For now, create a basic set of Lotus-specific requests
-            var mode22Requests = new List<(string Name, byte SubMode, byte Pid)>
+            if (data.Length >= 10)
             {
-                ("TPS Target", 0x02, 0x3B),
-                ("TPS Actual", 0x02, 0x45),
+                var calId = Encoding.UTF8.GetString(data);
+
+                return new VehicleParameterReading
+                {
+                    Name = "Calibration ID",
+                    Value = calId,
+                    Unit = ""
+                };
+            }
+            return null;
+        }
+
+        private static VehicleParameterReading? ParseCalibrationVerificationNumbers(byte[] data)
+        {
+            if (data.Length >= 4) // CVN is 4 bytes
+            {
+                // CVN is 4 bytes starting at offset 6
+                uint cvn = (uint)((data[0] << 24) | (data[1] << 16) | (data[2] << 8) | data[3]);
+
+                return new VehicleParameterReading
+                {
+                    Name = "Calibration Verification Numbers",
+                    Value = $"0x{cvn:X8}",
+                    Unit = ""
+                };
+            }
+            return null;
+        }
+
+        private static VehicleParameterReading? ParseECUName(byte[] data)
+        {
+            if (data.Length >= 10)
+            {
+                var ecuName = Encoding.UTF8.GetString(data);
+
+                return new VehicleParameterReading
+                {
+                    Name = "ECU Name",
+                    Value = ecuName,
+                    Unit = ""
+                };
+            }
+            return null;
+        }
+
+        private static VehicleParameterReading? ParseInUsePerformanceTracking(byte[] data, string name)
+        {
+            if (data.Length >= 10)
+            {
+                // IPT data is typically 4 bytes
+                uint ipt = (uint)((data[6] << 24) | (data[7] << 16) | (data[8] << 8) | data[9]);
+
+                return new VehicleParameterReading
+                {
+                    Name = name,
+                    Value = ipt.ToString(),
+                    Unit = "IPT"
+                };
+            }
+            return null;
+        }
+
+        private static List<VehicleParameterReading> QueryMode22ExtendedInfo(J2534Channel channel)
+        {
+            var results = new List<VehicleParameterReading>();
+
+            // ECU_serial_number: PID 0x020E, 4 bytes
+            var serialBytes = ReadMode22Payload(channel, 0x0E, 4);
+            if (serialBytes != null)
+                results.Add(new VehicleParameterReading
+                {
+                    Name = "ECU Serial Number",
+                    Value = BitConverter.ToString(serialBytes).Replace("-", " "),
+                    Unit = ""
+                });
+
+            // hardware_number: PID 0x020F, 4 bytes
+            var hwBytes = ReadMode22Payload(channel, 0x0F, 4);
+            if (hwBytes != null)
+                results.Add(new VehicleParameterReading
+                {
+                    Name = "Hardware Number",
+                    Value = BitConverter.ToString(hwBytes).Replace("-", " "),
+                    Unit = ""
+                });
+
+            // crypto_flags: PID 0x0210, 4 bytes
+            var cryptoBytes = ReadMode22Payload(channel, 0x10, 4);
+            if (cryptoBytes != null)
+                results.Add(new VehicleParameterReading
+                {
+                    Name = "Crypto Flags",
+                    Value = BitConverter.ToString(cryptoBytes).Replace("-", " "),
+                    Unit = ""
+                });
+
+            // ECU_type: PID 0x0211, 4 bytes
+            var typeBytes = ReadMode22Payload(channel, 0x11, 4);
+            if (typeBytes != null)
+                results.Add(new VehicleParameterReading
+                {
+                    Name = "ECU Type",
+                    Value = BitConverter.ToString(typeBytes).Replace("-", " "),
+                    Unit = ""
+                });
+
+            // CAL_prog_version: char[32], 4 bytes per PID across 8 PIDs.
+            // PID 0x20 is the supported-PID bitmap and is intentionally skipped.
+            byte[] calVersionPids = [0x1C, 0x1D, 0x1E, 0x1F, 0x21, 0x22, 0x23, 0x24];
+            var versionBytes = new List<byte>();
+            foreach (var pid in calVersionPids)
+            {
+                var chunk = ReadMode22Payload(channel, pid, 4);
+                if (chunk != null) versionBytes.AddRange(chunk);
+            }
+            if (versionBytes.Count > 0)
+                results.Add(new VehicleParameterReading
+                {
+                    Name = "CAL Program Version",
+                    Value = Encoding.ASCII.GetString([.. versionBytes]).TrimEnd('\0'),
+                    Unit = ""
+                });
+
+            return results;
+        }
+
+        // Sends a Mode 22 request with PID [0x02, pid] and returns payloadLength bytes
+        // starting at data[7], or null if the ECU does not respond with a matching positive response.
+        private static byte[]? ReadMode22Payload(J2534Channel channel, byte pid, int payloadLength)
+        {
+            try
+            {
+                byte[] request = [0x00, 0x00, 0x07, 0xE0, 0x22, 0x02, pid];
+                channel.SendMessage(request);
+
+                for (int i = 0; i < 10; i++)
+                {
+                    var response = channel.ReadMessages(1, 250);
+                    if (response.Messages.Length > 0)
+                    {
+                        var data = response.Messages[0].Data;
+                        // 4 ISO-TP header + 0x62 + 2 PID bytes + payload
+                        if (data.Length >= 7 + payloadLength &&
+                            data[4] == 0x62 && data[5] == 0x02 && data[6] == pid)
+                            return data[7..(7 + payloadLength)];
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to read Mode22 PID 0x02{pid:X2}: {ex.Message}");
+            }
+            return null;
+        }
+
+        private static List<VehicleParameterReading> QueryOctaneScalers(J2534Channel channel)
+        {
+            var results = new List<VehicleParameterReading>();
+            var scalerPIDs = new (string Name, byte Pid)[]
+            {
+                ("Octane Scaler Cyl 1", 0x18),
+                ("Octane Scaler Cyl 2", 0x19),
+                ("Octane Scaler Cyl 3", 0x1A),
+                ("Octane Scaler Cyl 4", 0x1B),
+                ("Octane Scaler Cyl 5", 0x4D),
+                ("Octane Scaler Cyl 6", 0x4E),
             };
 
-            foreach (var (name, subMode, pid) in mode22Requests)
+            foreach (var (name, pid) in scalerPIDs)
             {
                 try
                 {
-                    // Build and send the request
-                    byte[] message = BuildMode22Message(ecmHeader, subMode, pid);
-                    channel.SendMessage(message);
+                    byte[] request = [0x00, 0x00, 0x07, 0xE0, 0x22, 0x02, pid];
+                    channel.SendMessage(request);
 
-                    // Read response with timeout
-                    var response = channel.ReadMessages(1, 500); // 500ms timeout
-                    if (response.Messages.Length > 0)
+                    for (int i = 0; i < 10; i++)
                     {
-                        var readings = ParseMode22Response(response.Messages[0].Data, name, subMode, pid);
-                        if (readings != null)
+                        var response = channel.ReadMessages(1, 250);
+                        if (response.Messages.Length > 0)
                         {
-                            vehicleDataSnapshot.Add(readings);
+                            var data = response.Messages[0].Data;
+                            if (data.Length >= 9 &&
+                                data[4] == 0x62 && data[5] == 0x02 && data[6] == pid)
+                            {
+                                int rawValue = (data[7] << 8) | data[8];
+                                double percent = rawValue / 65535.0 * 100.0;
+                                results.Add(new VehicleParameterReading
+                                {
+                                    Name = name,
+                                    Value = Math.Round(percent, 1).ToString(),
+                                    Unit = "%"
+                                });
+                                break;
+                            }
                         }
                     }
-
-                    // Small delay between requests to avoid overwhelming ECU
-                    Thread.Sleep(50);
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"Failed to execute Mode 22 request {name}: {ex.Message}");
+                    Debug.WriteLine($"Failed to read {name}: {ex.Message}");
                 }
             }
+            return results;
         }
 
-        private byte[] BuildMode22Message(byte[] ecmHeader, byte subMode, byte pid)
+        // Reads the regional fuel-learn state via Mode 0x22 DIDs and returns a one-shot snapshot.
+        private static List<VehicleParameterReading> QueryFuelLearnState(J2534Channel channel)
         {
-            var message = new byte[ecmHeader.Length + 4];
-            Array.Copy(ecmHeader, message, ecmHeader.Length);
-            message[ecmHeader.Length] = 0x22; // Service ID for Mode 22
-            message[ecmHeader.Length + 1] = subMode; // Sub-mode
-            message[ecmHeader.Length + 2] = pid; // PID
-            message[ecmHeader.Length + 3] = 0x00; // Terminator
-            return message;
-        }
+            var results = new List<VehicleParameterReading>();
 
-        private VehicleParameterReading? ParseMode22Response(byte[] data, string name, byte subMode, byte pid)
-        {
-            // Check if response is valid (from ECM with correct header)
-            if (data.Length <= 4 || data[0] != 0x00 || data[1] != 0x00 || data[2] != 0x07 || data[3] != 0xE8)
+            // Zone trims: single offset-128 byte, 0x80 = 0%, ~0.391% per count.
+            var zonePIDs = new (string Name, byte Pid)[]
             {
-                return null;
-            }
-
-            // Check if this is a Mode 22 response
-            if (data.Length < 7 || data[4] != 0x62) // 0x62 = Mode 22 response
-            {
-                return null;
-            }
-
-            // Check if sub-mode and PID match
-            if (data[5] != subMode || data[6] != pid)
-            {
-                return null;
-            }
-
-            // Parse based on PID
-            return (subMode, pid) switch
-            {
-                (0x02, 0x3B) => ParseTPSTarget(data), // TPS Target
-                (0x02, 0x45) => ParseTPSActual(data), // TPS Actual
-                _ => null
+                ("Fuel Learn Zone 2 Bank 1", 0x48),
+                ("Fuel Learn Zone 3 Bank 1", 0x49),
+                ("Fuel Learn Zone 2 Bank 2", 0x5A),
+                ("Fuel Learn Zone 3 Bank 2", 0x5B),
             };
-        }
-
-        private VehicleParameterReading? ParseTPSTarget(byte[] data)
-        {
-            if (data.Length >= 10)
+            foreach (var (name, pid) in zonePIDs)
             {
-                // TPS Target: (A*256 + B) * 100 / 1024
-                int rawValue = (data[7] << 8) | data[8];
-                double tpsTarget = rawValue * 100.0 / 1024.0;
-                return new VehicleParameterReading
+                var bytes = ReadMode22Payload(channel, pid, 1);
+                if (bytes != null)
                 {
-                    Name = "TPS Target",
-                    Value = Math.Round(tpsTarget, 2).ToString(),
-                    Unit = "%"
-                };
+                    double correctionPct = (sbyte)(bytes[0] - 0x80) * 500.0 / 128 / 10;
+                    results.Add(new VehicleParameterReading
+                    {
+                        Name = name,
+                        Value = Math.Round(correctionPct, 1).ToString(),
+                        Unit = "%"
+                    });
+                }
             }
-            return null;
-        }
 
-        private VehicleParameterReading? ParseTPSActual(byte[] data)
-        {
-            if (data.Length >= 10)
+            // Idle additive trims: signed 16-bit, microseconds added to injector pulse width.
+            var leanTimePIDs = new (string Name, byte Pid)[]
             {
-                // TPS Actual: (A*256 + B) * 100 / 1024
-                int rawValue = (data[7] << 8) | data[8];
-                double tpsActual = rawValue * 100.0 / 1024.0;
-                return new VehicleParameterReading
+                ("Fuel Learn Lean Time Bank 1", 0x2E),
+                ("Fuel Learn Lean Time Bank 2", 0x55),
+            };
+            foreach (var (name, pid) in leanTimePIDs)
+            {
+                var bytes = ReadMode22Payload(channel, pid, 2);
+                if (bytes != null)
                 {
-                    Name = "TPS Actual",
-                    Value = Math.Round(tpsActual, 2).ToString(),
-                    Unit = "%"
-                };
+                    short leanTime = (short)((bytes[0] << 8) | bytes[1]);
+                    results.Add(new VehicleParameterReading
+                    {
+                        Name = name,
+                        Value = leanTime.ToString(),
+                        Unit = "us"
+                    });
+                }
             }
-            return null;
+
+            // Learn dwell/update timer: unsigned 16-bit.
+            var timerBytes = ReadMode22Payload(channel, 0x3A, 2);
+            if (timerBytes != null)
+            {
+                int fuelLearnTimer = (timerBytes[0] << 8) | timerBytes[1];
+                results.Add(new VehicleParameterReading
+                {
+                    Name = "Fuel Learn Timer",
+                    Value = fuelLearnTimer.ToString(),
+                    Unit = ""
+                });
+            }
+
+            return results;
         }
     }
 }

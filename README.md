@@ -78,19 +78,13 @@ Available from the **Tools** menu, Erase Model Info clears the model identificat
 
 ### UI / UX
 - **Tab and button icons are not visible in the Visual Studio designer.** Icons are applied at runtime using Segoe MDL2 Assets glyph rendering (`GuiIcons.cs`), but the WinForms designer only executes `InitializeComponent()` and does not run post-constructor code. Fix: pre-render glyphs to PNG and store them as embedded resources in the project `.resx` file, then reference them via `Properties.Resources` in `InitializeComponent()` so the designer can read and re-serialize them.
-- **`MainWindow` silently swallows exceptions** in three constructor `try/catch` blocks when creating `OBDLoggerControl`, `EcuCodingControl`, and `T6RMAControl`. If a control fails to initialize the tab just appears empty with no feedback. Add proper error reporting.
-- **`MainWindow.OnLoggerStateChanged` also swallows exceptions silently.** Any failure propagating logger state to child controls is hidden.
-
-### Threading / Correctness
-- **`liveData` dictionary has a data race.** It is written by the background logger thread and read on the UI thread with no synchronization. Fix by using `ConcurrentDictionary` or capturing a snapshot under a lock before dispatching to the UI thread. (`OBDLoggerControl.cs`)
+- **`MainWindow.OnLoggerStateChanged` has no user-facing error reporting.** It now logs any failure propagating logger state to child controls via `Debug.WriteLine`, but a failure is still invisible to the user at runtime. Consider surfacing it.
 
 ### Code Quality
-- **`VehicleInfoService` is instantiated but never used.** All protocol work (Mode 0x09, Mode 0x22, octane scalers) is duplicated inline in `VehicleInfoControl`. Consolidate into `VehicleInfoService` and have the control delegate to it. The service currently contains stubs that don't match the real parsing and should be removed.
 - **`T6LiveTuningService.ReadEcuImageToFileAsync` is a stub.** The method validates arguments and logs but does not read ECU memory. Needs implementation: validate RAM address range (0x40000000–0x4000FFFF), read in chunks via `T6RMAService`, handle multi-frame reads, write binary output to file.
-- **`T6eCodingDecoder` individual backing fields may be redundant.** `_codingDataHigh` and `_codingDataLow` are stored as raw byte arrays alongside the computed `BitField`. Evaluate whether the raw arrays are still needed or can be derived on demand.
-- **`T6eCodingDecoder` constructor logic is duplicated.** Initialization is repeated across two constructors; refactor into a shared private method.
 - **`T6eCodingDecoder` validation rules are incomplete.** Coding validation only covers a subset of models. Add validation rules for S2, Exige, and Emira variants.
-- **`Iso15765Service` response filtering is loose.** After sending a request, the first non-empty message is accepted without checking whether it is actually the expected response. Add response header validation. (`Iso15765Service.cs:110`)
+- **`J2534EcuCodingService` program-mismatch repair is unimplemented.** When the ECU is unlocked, read the program-mismatch flag and, if set, optionally clear it by issuing the reset command through the coding handler (command register accepts values 1–7).
+- **`J2534Compat` shim should eventually be removed.** It restores J2534-Sharp v1 throw-on-error semantics on top of the result-based v2 API. Long term, handle `J2534Result`/`J2534Result<T>` (`.IsSuccess`/`.Status`/`.IsTimeout`) explicitly at each call site and delete the shim.
 
 ### Protocol / Data
-- **Throttle position scaling constant may not be portable.** `LiveDataReading.cs` uses a hard-coded divisor of 77 as the observed max raw throttle value. This may vary across ECU calibrations. Verify and replace with a documented or configurable value.
+- **Throttle position scaling constant may not be portable.** `LiveDataReading.cs` uses a hard-coded divisor of 77 as the observed max raw throttle value, and PID 0x11 currently appears to be scaled twice (`raw * 100 / 77`, then `* 100 / 255`). Verify against the OBD spec and replace with a single documented or configurable scaling.

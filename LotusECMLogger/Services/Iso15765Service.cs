@@ -270,17 +270,25 @@ namespace LotusECMLogger.Services
                 byte[] request = BuildModeMessage(mode, 0x00);
                 _channel.SendMessage(request);
 
-                for(int i=0; i<100; i++) // only wait for 100 messages
+                byte expectedResponse = (byte)(0x40 | (byte)mode);
+
+                for (int i = 0; i < 100; i++) // only wait for 100 messages
                 {
                     // Get response with timeout
                     var response = _channel.ReadMessages(1, 1000);
+                    if (response.Messages.Length == 0)
+                        continue;
 
-                    var messages = response.Messages;
-                    // TODO check for specific response message
-                    if (messages.Length > 0 && messages[0].Data.Length > 4)
-                    {
-                        return ParseSupportedPIDsResponse(response.Messages[0].Data, mode);
-                    }
+                    // Skip echoes of our own transmit and TX-confirmation frames; only accept the
+                    // ECM's supported-PIDs response ([..0x07,0xE8] <SID|0x40> 0x00 <bitmask...>).
+                    // Accepting the first non-empty frame would return an empty list on an echo
+                    // and give up before the real response arrives.
+                    var data = response.Messages[0].Data;
+                    if (data.Length < 6 || data[2] != 0x07 || data[3] != 0xE8 ||
+                        data[4] != expectedResponse || data[5] != 0x00)
+                        continue;
+
+                    return ParseSupportedPIDsResponse(data, mode);
                 }
                 return [];
             }

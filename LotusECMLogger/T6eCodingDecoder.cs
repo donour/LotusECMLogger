@@ -10,9 +10,8 @@ namespace LotusECMLogger
     /// </summary>
     public class T6eCodingDecoder
     {
-        // TODO are these individual fields needed now?
-        private readonly byte[] _codingDataHigh;
-        private readonly byte[] _codingDataLow;
+        // The 64-bit coding field is the single source of truth; the byte-array views
+        // (CodingDataLow/High, GetLowBytes/GetHighBytes, CodingData) are derived on demand.
         private readonly ulong _bitField;
 
         // Constants for boolean options
@@ -84,19 +83,7 @@ namespace LotusECMLogger
 
         public T6eCodingDecoder(ulong bitfield)
         {
-            // TODO this is duplicated in the other constructor, refactor into a method
-            //bitfield = bitfield & 0xfcffffff;
-            //bitfield = bitfield | 0x00c00000;
-
             _bitField = bitfield;
-            _codingDataLow = new byte[4];
-            _codingDataHigh = new byte[4];
-            // Split the 64-bit value into two 4-byte arrays
-            for (int i = 0; i < 4; i++)
-            {
-                _codingDataLow[i] = (byte)(_bitField >> (i * 8));
-                _codingDataHigh[i] = (byte)(_bitField >> ((i + 4) * 8));
-            }
         }
 
         /// <summary>
@@ -117,49 +104,63 @@ namespace LotusECMLogger
             {
                 throw new ArgumentException("Higher coding data must be exactly 4 bytes", nameof(codingDataHigh));
             }
-            _codingDataLow = (byte[])codingDataLow.Clone();
-            _codingDataHigh = (byte[])codingDataHigh.Clone();
 
-            // Convert 8 bytes to 64-bit value for easier bit manipulation
-            // High bytes (bits 32-63)
-            ulong highBits = ((ulong)codingDataHigh[3] << 24) | 
-                           ((ulong)codingDataHigh[2] << 16) | 
-                           ((ulong)codingDataHigh[1] << 8) | 
-                           codingDataHigh[0];
-            
-            // Low bytes (bits 0-31)
-            ulong lowBits = ((ulong)codingDataLow[3] << 24) | 
-                          ((ulong)codingDataLow[2] << 16) | 
-                          ((ulong)codingDataLow[1] << 8) | 
-                          codingDataLow[0];
-            
-            // Combine into 64-bit field
-            _bitField = (highBits << 32) | lowBits;
+            _bitField = ToBitField(codingDataLow, codingDataHigh);
 
             if (validate)
                 ThrowIfInvalidCoding(_bitField);
+        }
 
+        /// <summary>
+        /// Packs the two little-endian 4-byte halves into the 64-bit coding field:
+        /// low bytes occupy bits 0-31, high bytes bits 32-63.
+        /// </summary>
+        private static ulong ToBitField(byte[] codingDataLow, byte[] codingDataHigh)
+        {
+            ulong highBits = ((ulong)codingDataHigh[3] << 24) |
+                           ((ulong)codingDataHigh[2] << 16) |
+                           ((ulong)codingDataHigh[1] << 8) |
+                           codingDataHigh[0];
+
+            ulong lowBits = ((ulong)codingDataLow[3] << 24) |
+                          ((ulong)codingDataLow[2] << 16) |
+                          ((ulong)codingDataLow[1] << 8) |
+                          codingDataLow[0];
+
+            return (highBits << 32) | lowBits;
         }
 
         /// <summary>
         /// Get the lower 4 bytes of coding data
         /// </summary>
-        public byte[] CodingDataLow => (byte[])_codingDataLow.Clone();
+        public byte[] CodingDataLow => GetLowBytes();
 
         /// <summary>
         /// Get the higher 4 bytes of coding data
         /// </summary>
-        public byte[] CodingDataHigh => (byte[])_codingDataHigh.Clone();
+        public byte[] CodingDataHigh => GetHighBytes();
 
         /// <summary>
         /// Get the lower 4 bytes of coding data for writing to ECU
         /// </summary>
-        public byte[] GetLowBytes() => (byte[])_codingDataLow.Clone();
+        public byte[] GetLowBytes()
+        {
+            var bytes = new byte[4];
+            for (int i = 0; i < 4; i++)
+                bytes[i] = (byte)(_bitField >> (i * 8));
+            return bytes;
+        }
 
         /// <summary>
         /// Get the higher 4 bytes of coding data for writing to ECU
         /// </summary>
-        public byte[] GetHighBytes() => (byte[])_codingDataHigh.Clone();
+        public byte[] GetHighBytes()
+        {
+            var bytes = new byte[4];
+            for (int i = 0; i < 4; i++)
+                bytes[i] = (byte)(_bitField >> ((i + 4) * 8));
+            return bytes;
+        }
 
         /// <summary>
         /// Get the complete 8-byte coding data array
@@ -169,8 +170,8 @@ namespace LotusECMLogger
             get
             {
                 var result = new byte[8];
-                Array.Copy(_codingDataLow, 0, result, 0, 4);
-                Array.Copy(_codingDataHigh, 0, result, 4, 4);
+                Array.Copy(GetLowBytes(), 0, result, 0, 4);
+                Array.Copy(GetHighBytes(), 0, result, 4, 4);
                 return result;
             }
         }
