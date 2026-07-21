@@ -1,6 +1,7 @@
 using LotusECMLogger.Models;
 using LotusECMLogger.Services;
 using System.ComponentModel;
+using System.Diagnostics;
 
 namespace LotusECMLogger.Controls
 {
@@ -15,6 +16,10 @@ namespace LotusECMLogger.Controls
 		private readonly Dictionary<string, Label> codingValidationLabels = new Dictionary<string, Label>();
 		private readonly ToolTip validationToolTip;
 
+		// True while control selections are updated programmatically, so the
+		// SelectedIndexChanged handlers don't treat those updates as user edits.
+		private bool isSyncingControls;
+
 		private bool isLoggerActive;
 		[DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
 		public bool IsLoggerActive
@@ -26,6 +31,15 @@ namespace LotusECMLogger.Controls
 				readCodesButton.Enabled = !isLoggerActive;
 				writeCodesButton.Enabled = !isLoggerActive && modifiedCodingDecoder != null;
 			}
+		}
+
+		/// <summary>
+		/// Design-time constructor. The Windows Forms designer requires a public
+		/// parameterless constructor to instantiate the control on its design surface.
+		/// It is never used at runtime; the coding service is supplied via the other constructor.
+		/// </summary>
+		public EcuCodingControl() : this(null!)
+		{
 		}
 
 		public EcuCodingControl(IEcuCodingService service)
@@ -41,6 +55,67 @@ namespace LotusECMLogger.Controls
 			GuiIcons.ApplyToButton(writeCodesButton,  GuiIcons.Write);
 			GuiIcons.ApplyToButton(saveCodingButton,  GuiIcons.Save);
 			GuiIcons.ApplyToButton(resetCodingButton, GuiIcons.Refresh);
+
+			SetupCodingControls();
+		}
+
+		/// <summary>
+		/// Binds the statically declared coding rows (labels, combo boxes and validation
+		/// labels defined in the designer) to their coding options and populates the combo
+		/// choices from the decoder metadata. The rows are laid out at design time so they
+		/// are visible without any data being read; this only wires up behaviour and choices.
+		/// </summary>
+		private void SetupCodingControls()
+		{
+			// A zero-valued decoder exposes the option metadata (names and possible
+			// values) without needing any coding data to be read from the ECU.
+			var metadata = new T6eCodingDecoder(0UL);
+
+			isSyncingControls = true;
+			try
+			{
+				foreach (Control child in codingScrollPanel.Controls)
+				{
+					if (child.Tag is not string optionName)
+						continue;
+
+					switch (child)
+					{
+						case ComboBox comboBox:
+							codingControls[optionName] = comboBox;
+							if (!metadata.IsOptionNumeric(optionName))
+							{
+								comboBox.Items.Clear();
+								comboBox.Items.AddRange(metadata.GetOptionPossibleValues(optionName));
+							}
+							comboBox.SelectedIndexChanged += (s, e) =>
+							{
+								if (isSyncingControls)
+									return;
+								var selectedItem = comboBox.SelectedItem?.ToString();
+								if (selectedItem != null && !selectedItem.StartsWith("Invalid raw value:", StringComparison.Ordinal))
+									OnCodingValueChanged(optionName, selectedItem);
+							};
+							break;
+
+						case Label label when label.Name.StartsWith("codingValidation", StringComparison.Ordinal):
+							codingValidationLabels[optionName] = label;
+							break;
+
+						case Label label:
+							codingLabels[optionName] = label;
+							break;
+					}
+				}
+			}
+			finally
+			{
+				isSyncingControls = false;
+			}
+
+			Debug.Assert(
+				codingControls.Count == metadata.GetAvailableOptions().Length,
+				"EcuCodingControl designer rows are out of sync with T6eCodingDecoder options.");
 		}
 
 		private void readCodesButton_Click(object? sender, EventArgs e)
@@ -340,88 +415,18 @@ namespace LotusECMLogger.Controls
 			if (originalCodingDecoder == null)
 				return;
 
-			codingScrollPanel.Controls.Clear();
-			codingControls.Clear();
-			codingLabels.Clear();
-			codingValidationLabels.Clear();
-
-			var optionNames = originalCodingDecoder.GetAvailableOptions();
-			int yPosition = 10;
-
-			foreach (var optionName in optionNames)
+			isSyncingControls = true;
+			try
 			{
-				Label label = new()
+				foreach (var optionName in originalCodingDecoder.GetAvailableOptions())
 				{
-					Text = optionName + ":",
-					Size = new Size(250, 23),
-					Location = new Point(10, yPosition),
-					Anchor = AnchorStyles.Top | AnchorStyles.Left
-				};
-				codingScrollPanel.Controls.Add(label);
-				codingLabels[optionName] = label;
-
-				Control control;
-				if (originalCodingDecoder.IsOptionNumeric(optionName))
-				{
-					var numericUpDown = new NumericUpDown
-					{
-						Size = new Size(100, 23),
-						Location = new Point(270, yPosition),
-						Minimum = 0,
-						Maximum = 999,
-						Value = originalCodingDecoder.GetOptionRawValue(optionName)
-					};
-					numericUpDown.ValueChanged += (s, e) => OnCodingValueChanged(optionName, (int)numericUpDown.Value);
-					numericUpDown.Anchor = AnchorStyles.Top | AnchorStyles.Left;
-					control = numericUpDown;
+					if (codingControls.TryGetValue(optionName, out var control))
+						SyncControlToDecoder(control, optionName, originalCodingDecoder);
 				}
-				else
-				{
-					var comboBox = new ComboBox
-					{
-						Size = new Size(200, 23),
-						Location = new Point(270, yPosition),
-						DropDownStyle = ComboBoxStyle.DropDownList
-					};
-					var possibleValues = originalCodingDecoder.GetOptionPossibleValues(optionName);
-					comboBox.Items.AddRange(possibleValues);
-					var rawValue = originalCodingDecoder.GetOptionRawValue(optionName);
-					if (rawValue >= 0 && rawValue < possibleValues.Length)
-					{
-						comboBox.SelectedIndex = rawValue;
-					}
-					else
-					{
-						comboBox.Items.Add($"Invalid raw value: {rawValue}");
-						comboBox.SelectedIndex = comboBox.Items.Count - 1;
-					}
-					comboBox.SelectedIndexChanged += (s, e) =>
-					{
-						var selectedItem = comboBox.SelectedItem?.ToString();
-						if (selectedItem != null && !selectedItem.StartsWith("Invalid raw value:", StringComparison.Ordinal))
-						{
-							OnCodingValueChanged(optionName, selectedItem);
-						}
-					};
-					comboBox.Anchor = AnchorStyles.Top | AnchorStyles.Left;
-					control = comboBox;
-				}
-
-				codingScrollPanel.Controls.Add(control);
-				codingControls[optionName] = control;
-
-				var validationLabel = new Label
-				{
-					AutoEllipsis = true,
-					ForeColor = Color.Firebrick,
-					Location = new Point(490, yPosition + 3),
-					Size = new Size(280, 20),
-					Visible = false
-				};
-				codingScrollPanel.Controls.Add(validationLabel);
-				codingValidationLabels[optionName] = validationLabel;
-
-				yPosition += 35;
+			}
+			finally
+			{
+				isSyncingControls = false;
 			}
 
 			saveCodingButton.Enabled = true;
@@ -430,11 +435,49 @@ namespace LotusECMLogger.Controls
 			UpdateBitFieldLabel();
 		}
 
+		/// <summary>
+		/// Updates a single coding row control to reflect the value held by the decoder.
+		/// Callers are responsible for suppressing change notifications where needed.
+		/// </summary>
+		private static void SyncControlToDecoder(Control control, string optionName, T6eCodingDecoder decoder)
+		{
+			if (control is ComboBox comboBox)
+			{
+				// Remove any "Invalid raw value" marker left over from a previous load.
+				for (int i = comboBox.Items.Count - 1; i >= 0; i--)
+				{
+					if (comboBox.Items[i] is string s && s.StartsWith("Invalid raw value:", StringComparison.Ordinal))
+						comboBox.Items.RemoveAt(i);
+				}
+
+				var possibleValues = decoder.GetOptionPossibleValues(optionName);
+				var rawValue = decoder.GetOptionRawValue(optionName);
+				if (rawValue >= 0 && rawValue < possibleValues.Length)
+				{
+					comboBox.SelectedIndex = rawValue;
+				}
+				else
+				{
+					comboBox.Items.Add($"Invalid raw value: {rawValue}");
+					comboBox.SelectedIndex = comboBox.Items.Count - 1;
+				}
+			}
+			else if (control is NumericUpDown numericUpDown)
+			{
+				numericUpDown.Value = decoder.GetOptionRawValue(optionName);
+			}
+		}
+
 		private void OnCodingValueChanged(string optionName, object value)
 		{
+			// Ignore changes made before any coding data has been read (the rows are
+			// visible and interactive at design time / before a read for previewing).
+			if (originalCodingDecoder == null || modifiedCodingDecoder == null)
+				return;
+
 			try
 			{
-				modifiedCodingDecoder = modifiedCodingDecoder!.SetOptionValue(optionName, value);
+				modifiedCodingDecoder = modifiedCodingDecoder.SetOptionValue(optionName, value);
 				bool hasChanges = !modifiedCodingDecoder.BitField.Equals(originalCodingDecoder!.BitField);
 				saveCodingButton.Text = hasChanges ? "Save Changes*" : "Save Changes";
 				ApplyValidationHighlights();
@@ -449,20 +492,18 @@ namespace LotusECMLogger.Controls
 
 		private void ResetSingleControl(string optionName)
 		{
-			if (!codingControls.TryGetValue(optionName, out var control))
+			if (originalCodingDecoder == null || !codingControls.TryGetValue(optionName, out var control))
 				return;
 
-			if (control is ComboBox comboBox)
+			isSyncingControls = true;
+			try
 			{
-				var rawValue = originalCodingDecoder!.GetOptionRawValue(optionName);
-				var possibleValues = originalCodingDecoder.GetOptionPossibleValues(optionName);
-				if (rawValue >= 0 && rawValue < possibleValues.Length)
-					comboBox.SelectedIndex = rawValue;
-				else
-					comboBox.SelectedItem = $"Invalid raw value: {rawValue}";
+				SyncControlToDecoder(control, optionName, originalCodingDecoder);
 			}
-			else if (control is NumericUpDown numericUpDown)
-				numericUpDown.Value = originalCodingDecoder!.GetOptionRawValue(optionName);
+			finally
+			{
+				isSyncingControls = false;
+			}
 		}
 
 		private void ApplyValidationHighlights()
@@ -518,7 +559,7 @@ namespace LotusECMLogger.Controls
 
 				if (codingValidationLabels.TryGetValue(optionName, out var validationLabel))
 				{
-					validationLabel.Text = "Invalid";
+					validationLabel.Text = "⚠"; // warning marker; full detail is in the tooltip
 					validationLabel.Visible = true;
 					validationToolTip.SetToolTip(validationLabel, message);
 				}
