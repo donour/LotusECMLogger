@@ -71,9 +71,9 @@ namespace LotusECMLogger.Controls
             statusLayout.SuspendLayout();
             dataGroupBox.SuspendLayout();
             SuspendLayout();
-            // 
+            //
             // layoutPanel
-            // 
+            //
             layoutPanel.AutoSize = true;
             layoutPanel.ColumnCount = 1;
             layoutPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
@@ -90,9 +90,9 @@ namespace LotusECMLogger.Controls
             layoutPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
             layoutPanel.Size = new Size(1115, 966);
             layoutPanel.TabIndex = 0;
-            // 
+            //
             // configGroupBox
-            // 
+            //
             configGroupBox.AutoSize = true;
             configGroupBox.Controls.Add(configLayout);
             configGroupBox.Dock = DockStyle.Fill;
@@ -104,9 +104,9 @@ namespace LotusECMLogger.Controls
             configGroupBox.TabIndex = 0;
             configGroupBox.TabStop = false;
             configGroupBox.Text = "Memory Read Configuration";
-            // 
+            //
             // configLayout
-            // 
+            //
             configLayout.AutoSize = true;
             configLayout.ColumnCount = 3;
             configLayout.ColumnStyles.Add(new ColumnStyle());
@@ -133,9 +133,9 @@ namespace LotusECMLogger.Controls
             configLayout.RowStyles.Add(new RowStyle());
             configLayout.Size = new Size(1079, 249);
             configLayout.TabIndex = 0;
-            // 
+            //
             // addressLabel
-            // 
+            //
             addressLabel.Anchor = AnchorStyles.Left;
             addressLabel.AutoSize = true;
             addressLabel.Location = new Point(4, 8);
@@ -144,18 +144,18 @@ namespace LotusECMLogger.Controls
             addressLabel.Size = new Size(195, 25);
             addressLabel.TabIndex = 0;
             addressLabel.Text = "Memory Address (hex):";
-            // 
+            //
             // addressTextBox
-            // 
+            //
             addressTextBox.Location = new Point(207, 5);
             addressTextBox.Margin = new Padding(4, 5, 4, 5);
             addressTextBox.Name = "addressTextBox";
             addressTextBox.Size = new Size(284, 31);
             addressTextBox.TabIndex = 1;
             addressTextBox.Text = "0x40000000";
-            // 
+            //
             // lengthLabel
-            // 
+            //
             lengthLabel.Anchor = AnchorStyles.Left;
             lengthLabel.AutoSize = true;
             lengthLabel.Location = new Point(4, 49);
@@ -164,9 +164,9 @@ namespace LotusECMLogger.Controls
             lengthLabel.Size = new Size(128, 25);
             lengthLabel.TabIndex = 2;
             lengthLabel.Text = "Length (bytes):";
-            // 
+            //
             // lengthNumeric
-            // 
+            //
             lengthNumeric.Location = new Point(207, 46);
             lengthNumeric.Margin = new Padding(4, 5, 4, 5);
             lengthNumeric.Maximum = new decimal(new int[] { 255, 0, 0, 0 });
@@ -175,9 +175,9 @@ namespace LotusECMLogger.Controls
             lengthNumeric.Size = new Size(143, 31);
             lengthNumeric.TabIndex = 3;
             lengthNumeric.Value = new decimal(new int[] { 4, 0, 0, 0 });
-            // 
+            //
             // intervalLabel
-            // 
+            //
             intervalLabel.Anchor = AnchorStyles.Left;
             intervalLabel.AutoSize = true;
             intervalLabel.Location = new Point(4, 90);
@@ -186,9 +186,9 @@ namespace LotusECMLogger.Controls
             intervalLabel.Size = new Size(171, 25);
             intervalLabel.TabIndex = 4;
             intervalLabel.Text = "Polling Interval (ms):";
-            // 
+            //
             // intervalNumeric
-            // 
+            //
             intervalNumeric.Location = new Point(207, 87);
             intervalNumeric.Margin = new Padding(4, 5, 4, 5);
             intervalNumeric.Maximum = new decimal(new int[] { 10000, 0, 0, 0 });
@@ -197,9 +197,9 @@ namespace LotusECMLogger.Controls
             intervalNumeric.Size = new Size(143, 31);
             intervalNumeric.TabIndex = 5;
             intervalNumeric.Value = new decimal(new int[] { 100, 0, 0, 0 });
-            // 
+            //
             // csvPathLabel
-            // 
+            //
             csvPathLabel.Anchor = AnchorStyles.Left;
             csvPathLabel.AutoSize = true;
             csvPathLabel.Location = new Point(4, 144);
@@ -208,9 +208,9 @@ namespace LotusECMLogger.Controls
             csvPathLabel.Size = new Size(141, 25);
             csvPathLabel.TabIndex = 6;
             csvPathLabel.Text = "CSV Output File:";
-            // 
+            //
             // csvPanel
-            // 
+            //
             csvPanel.AutoSize = true;
             csvPanel.Controls.Add(csvPathTextBox);
             csvPanel.Controls.Add(browseCsvButton);
@@ -221,18 +221,18 @@ namespace LotusECMLogger.Controls
             csvPanel.Size = new Size(876, 68);
             csvPanel.TabIndex = 7;
             csvPanel.WrapContents = false;
-            // 
+            //
             // csvPathTextBox
-            // 
+            //
             csvPathTextBox.Anchor = AnchorStyles.Left | AnchorStyles.Right;
             csvPathTextBox.Location = new Point(4, 18);
             csvPathTextBox.Margin = new Padding(4, 5, 4, 5);
             csvPathTextBox.Name = "csvPathTextBox";
             csvPathTextBox.Size = new Size(713, 31);
             csvPathTextBox.TabIndex = 0;
-            // 
+            //
             // browseCsvButton
-            // 
+            //
             browseCsvButton.AutoSize = true;
             browseCsvButton.Location = new Point(725, 5);
             browseCsvButton.Margin = new Padding(4, 5, 4, 5);
@@ -242,9 +242,9 @@ namespace LotusECMLogger.Controls
             browseCsvButton.Text = "Browse...";
             browseCsvButton.UseVisualStyleBackColor = true;
             browseCsvButton.Click += BrowseCsvButton_Click;
-            // 
+            //
             // buttonPanel
-            // 
+            //
             buttonPanel.AutoSize = true;
             buttonPanel.Controls.Add(startButton);
             buttonPanel.Controls.Add(stopButton);
@@ -255,9 +255,9 @@ namespace LotusECMLogger.Controls
             buttonPanel.Size = new Size(876, 45);
             buttonPanel.TabIndex = 8;
             buttonPanel.WrapContents = false;
-            // 
+            //
             // startButton
-            // 
+            //
             startButton.AutoSize = true;
             startButton.Location = new Point(4, 5);
             startButton.Margin = new Padding(4, 5, 4, 5);
@@ -267,9 +267,9 @@ namespace LotusECMLogger.Controls
             startButton.Text = "Start Logging";
             startButton.UseVisualStyleBackColor = true;
             startButton.Click += StartButton_Click;
-            // 
+            //
             // stopButton
-            // 
+            //
             stopButton.AutoSize = true;
             stopButton.Enabled = false;
             stopButton.Location = new Point(196, 5);
@@ -280,9 +280,9 @@ namespace LotusECMLogger.Controls
             stopButton.Text = "Stop Logging";
             stopButton.UseVisualStyleBackColor = true;
             stopButton.Click += StopButton_Click;
-            // 
+            //
             // statusGroupBox
-            // 
+            //
             statusGroupBox.AutoSize = true;
             statusGroupBox.Controls.Add(statusLayout);
             statusGroupBox.Dock = DockStyle.Fill;
@@ -294,9 +294,9 @@ namespace LotusECMLogger.Controls
             statusGroupBox.TabIndex = 1;
             statusGroupBox.TabStop = false;
             statusGroupBox.Text = "Logging Status";
-            // 
+            //
             // statusLayout
-            // 
+            //
             statusLayout.AutoSize = true;
             statusLayout.ColumnCount = 2;
             statusLayout.ColumnStyles.Add(new ColumnStyle());
@@ -317,9 +317,9 @@ namespace LotusECMLogger.Controls
             statusLayout.RowStyles.Add(new RowStyle());
             statusLayout.Size = new Size(1079, 75);
             statusLayout.TabIndex = 0;
-            // 
+            //
             // statusLabel
-            // 
+            //
             statusLabel.AutoSize = true;
             statusLabel.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             statusLabel.Location = new Point(4, 0);
@@ -328,9 +328,9 @@ namespace LotusECMLogger.Controls
             statusLabel.Size = new Size(70, 25);
             statusLabel.TabIndex = 0;
             statusLabel.Text = "Status:";
-            // 
+            //
             // statusValueLabel
-            // 
+            //
             statusValueLabel.AutoSize = true;
             statusValueLabel.Location = new Point(183, 0);
             statusValueLabel.Margin = new Padding(4, 0, 4, 0);
@@ -338,9 +338,9 @@ namespace LotusECMLogger.Controls
             statusValueLabel.Size = new Size(41, 25);
             statusValueLabel.TabIndex = 1;
             statusValueLabel.Text = "Idle";
-            // 
+            //
             // samplesLabel
-            // 
+            //
             samplesLabel.AutoSize = true;
             samplesLabel.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             samplesLabel.Location = new Point(4, 25);
@@ -349,9 +349,9 @@ namespace LotusECMLogger.Controls
             samplesLabel.Size = new Size(171, 25);
             samplesLabel.TabIndex = 2;
             samplesLabel.Text = "Samples Collected:";
-            // 
+            //
             // samplesValueLabel
-            // 
+            //
             samplesValueLabel.AutoSize = true;
             samplesValueLabel.Location = new Point(183, 25);
             samplesValueLabel.Margin = new Padding(4, 0, 4, 0);
@@ -359,9 +359,9 @@ namespace LotusECMLogger.Controls
             samplesValueLabel.Size = new Size(22, 25);
             samplesValueLabel.TabIndex = 3;
             samplesValueLabel.Text = "0";
-            // 
+            //
             // lastUpdateLabel
-            // 
+            //
             lastUpdateLabel.AutoSize = true;
             lastUpdateLabel.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             lastUpdateLabel.Location = new Point(4, 50);
@@ -370,9 +370,9 @@ namespace LotusECMLogger.Controls
             lastUpdateLabel.Size = new Size(118, 25);
             lastUpdateLabel.TabIndex = 4;
             lastUpdateLabel.Text = "Last Update:";
-            // 
+            //
             // lastUpdateValueLabel
-            // 
+            //
             lastUpdateValueLabel.AutoSize = true;
             lastUpdateValueLabel.Location = new Point(183, 50);
             lastUpdateValueLabel.Margin = new Padding(4, 0, 4, 0);
@@ -380,9 +380,9 @@ namespace LotusECMLogger.Controls
             lastUpdateValueLabel.Size = new Size(44, 25);
             lastUpdateValueLabel.TabIndex = 5;
             lastUpdateValueLabel.Text = "N/A";
-            // 
+            //
             // dataGroupBox
-            // 
+            //
             dataGroupBox.Controls.Add(dataTextBox);
             dataGroupBox.Dock = DockStyle.Fill;
             dataGroupBox.Location = new Point(4, 475);
@@ -393,9 +393,9 @@ namespace LotusECMLogger.Controls
             dataGroupBox.TabIndex = 2;
             dataGroupBox.TabStop = false;
             dataGroupBox.Text = "Latest Data";
-            // 
+            //
             // dataTextBox
-            // 
+            //
             dataTextBox.Dock = DockStyle.Fill;
             dataTextBox.Font = new Font("Consolas", 9F);
             dataTextBox.Location = new Point(14, 41);
@@ -407,9 +407,9 @@ namespace LotusECMLogger.Controls
             dataTextBox.Size = new Size(1079, 428);
             dataTextBox.TabIndex = 0;
             dataTextBox.Text = "No data received yet...";
-            // 
+            //
             // T6RMAControl
-            // 
+            //
             AutoScaleDimensions = new SizeF(10F, 25F);
             AutoScaleMode = AutoScaleMode.Font;
             Controls.Add(layoutPanel);

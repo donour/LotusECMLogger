@@ -82,11 +82,11 @@ ECU coding service:
 
 #### MainWindow - 6 Tabs
 1. **Vehicle Information**: VIN, calibration ID, CVN (hex), octane scalers per cylinder; includes Learned Data Reset button (OBD Mode 0x11)
-2. **Live Data**: Two sub-tabs — Logger (real-time parameter display with start/stop) and Logging Config (JSON config editor for ECUs and PIDs)
+2. **Live Data**: Sub-tabs — High-Speed Log, OBD-II Logging (Logger + Logging Config), and T6 RMA Logging (direct ECU RAM read/log via RMA protocol)
 3. **ECU Coding**: Vehicle configuration bit field editor
 4. **Diagnostic Trouble Codes**: Read stored (Mode 03) and permanent (Mode 0A) codes; clear codes and freeze frames (Mode 04) with confirmation
-5. **T6 RMA Logging**: Direct ECU RAM read/log via RMA protocol
-6. **T6 Live Tuning**: Real-time calibration editing via .CPT file monitoring
+5. **T6 Live Tuning**: Real-time calibration editing via .CPT file monitoring
+6. **Snapshots**: One-shot binary downloads of ECU flash regions (Learned Data, Calibration, Program) via the T6 RMA read protocol; an ECU Version selector (T4e, K4, T4, T6/T6e) picks which generation's memory map to use, since each lays out flash differently; shares its `IT6RMAService` instance with the T6 RMA Logging tab
 
 #### EcuCodingControl (250+ lines)
 ECU coding editor:

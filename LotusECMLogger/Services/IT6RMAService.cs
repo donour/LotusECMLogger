@@ -64,6 +64,56 @@ namespace LotusECMLogger.Services
 		Task<bool> ReadMemoryToFileAsync(uint startAddress, uint length, string filePath, IProgress<(int bytesRead, int totalBytes)>? progress = null);
 
 		/// <summary>
+		/// Downloads the ECU's flash-resident Learned Data region (persisted adaptive
+		/// fuel/idle/knock trims) to a binary file, using the same RMA read protocol as
+		/// <see cref="ReadMemoryToFileAsync"/>. This targets flash (or, on T4e, a small RAM/DECRAM
+		/// window) rather than the main RAM window, at the address for the given <paramref name="variant"/>,
+		/// mirroring the "Learned" zone for that generation in the reference lotusecu-tools dumper.
+		/// </summary>
+		/// <param name="variant">Which ECU generation's memory map to use.</param>
+		/// <param name="filePath">Path where the binary dump will be saved.</param>
+		/// <param name="progress">Optional progress callback (bytesRead, totalBytes).</param>
+		/// <returns>True if successful, false otherwise.</returns>
+		/// <remarks>
+		/// Requires the ECU to be unlocked (see <see cref="IsEcuUnlocked"/>); a locked ECU
+		/// will not respond to the underlying memory reads.
+		/// </remarks>
+		Task<bool> DownloadLearnedDataAsync(EcuVariant variant, string filePath, IProgress<(int bytesRead, int totalBytes)>? progress = null);
+
+		/// <summary>
+		/// Downloads the ECU's flash-resident Calibration region (the active tune: fuel/ignition
+		/// maps, limiters, etc.) to a binary file, using the same RMA read protocol as
+		/// <see cref="ReadMemoryToFileAsync"/>, at the address for the given <paramref name="variant"/>,
+		/// mirroring the "Calibration" zone for that generation in the reference lotusecu-tools dumper.
+		/// </summary>
+		/// <param name="variant">Which ECU generation's memory map to use.</param>
+		/// <param name="filePath">Path where the binary dump will be saved.</param>
+		/// <param name="progress">Optional progress callback (bytesRead, totalBytes).</param>
+		/// <returns>True if successful, false otherwise.</returns>
+		/// <remarks>
+		/// Requires the ECU to be unlocked (see <see cref="IsEcuUnlocked"/>); a locked ECU
+		/// will not respond to the underlying memory reads.
+		/// </remarks>
+		Task<bool> DownloadCalibrationAsync(EcuVariant variant, string filePath, IProgress<(int bytesRead, int totalBytes)>? progress = null);
+
+		/// <summary>
+		/// Downloads the ECU's flash-resident Program region (the compiled firmware code) to a
+		/// binary file, using the same RMA read protocol as <see cref="ReadMemoryToFileAsync"/>, at
+		/// the address for the given <paramref name="variant"/>, mirroring the "Program" zone for
+		/// that generation in the reference lotusecu-tools dumper. It is the largest of the flash
+		/// regions on every variant, so a full download can take a while over CAN.
+		/// </summary>
+		/// <param name="variant">Which ECU generation's memory map to use.</param>
+		/// <param name="filePath">Path where the binary dump will be saved.</param>
+		/// <param name="progress">Optional progress callback (bytesRead, totalBytes).</param>
+		/// <returns>True if successful, false otherwise.</returns>
+		/// <remarks>
+		/// Requires the ECU to be unlocked (see <see cref="IsEcuUnlocked"/>); a locked ECU
+		/// will not respond to the underlying memory reads.
+		/// </remarks>
+		Task<bool> DownloadProgramAsync(EcuVariant variant, string filePath, IProgress<(int bytesRead, int totalBytes)>? progress = null);
+
+		/// <summary>
 		/// Write a 32-bit word to ECU memory using T6 RMA protocol (CAN ID 0x54)
 		/// </summary>
 		/// <param name="address">ECU memory address (must be in RAM: 0x40000000-0x4000FFFF)</param>

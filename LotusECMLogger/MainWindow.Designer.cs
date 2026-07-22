@@ -57,6 +57,7 @@ namespace LotusECMLogger
             dtcControl = new LotusECMLogger.Controls.DTCControl();
             liveTuningTab = new TabPage();
             liveTuningControl = new LotusECMLogger.Controls.LiveTuningDiskMonitorControl();
+            snapshotsTab = new TabPage();
             menuStrip1.SuspendLayout();
             statusStrip1.SuspendLayout();
             mainTabControl.SuspendLayout();
@@ -161,6 +162,7 @@ namespace LotusECMLogger
             mainTabControl.Controls.Add(codingDataTab);
             mainTabControl.Controls.Add(dtcTab);
             mainTabControl.Controls.Add(liveTuningTab);
+            mainTabControl.Controls.Add(snapshotsTab);
             mainTabControl.Dock = DockStyle.Fill;
             mainTabControl.Location = new Point(0, 37);
             mainTabControl.Margin = new Padding(4);
@@ -331,6 +333,16 @@ namespace LotusECMLogger
             highSpeedLogTab.Text = "High-Speed Log";
             highSpeedLogTab.UseVisualStyleBackColor = true;
             //
+            // snapshotsTab
+            //
+            snapshotsTab.Location = new Point(4, 64);
+            snapshotsTab.Margin = new Padding(4);
+            snapshotsTab.Name = "snapshotsTab";
+            snapshotsTab.Size = new Size(992, 613);
+            snapshotsTab.TabIndex = 5;
+            snapshotsTab.Text = "Snapshots";
+            snapshotsTab.UseVisualStyleBackColor = true;
+            //
             // MainWindow
             //
             AutoScaleDimensions = new SizeF(10F, 25F);
@@ -391,5 +403,6 @@ namespace LotusECMLogger
         private TabPage liveTuningTab;
         private LotusECMLogger.Controls.LiveTuningDiskMonitorControl liveTuningControl;
         private TabPage highSpeedLogTab;
+        private TabPage snapshotsTab;
     }
 }

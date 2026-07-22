@@ -49,7 +49,7 @@ namespace LotusECMLogger.Services
     }
 
     /// <summary>
-    /// Service for the T6e high-speed CAN channel logger. Configures the ECU's developer telemetry
+    /// Service for the T6 high-speed CAN channel logger. Configures the ECU's developer telemetry
     /// facility over CAN ID 0x350, then streams decoded channel data from 0x351 to a CSV file and to
     /// <see cref="DataReceived"/> subscribers. Protocol per <c>ChannelLogger.md</c>.
     /// </summary>

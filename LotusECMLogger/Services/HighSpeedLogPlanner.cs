@@ -4,7 +4,7 @@ namespace LotusECMLogger.Services
 {
     /// <summary>
     /// Turns a user selection of channels + per-channel rates into a validated <see cref="LoggingPlan"/>
-    /// for the T6e high-speed CAN channel logger, applying the firmware's packing rules:
+    /// for the T6 high-speed CAN channel logger, applying the firmware's packing rules:
     /// <list type="bullet">
     ///   <item>each frame holds at most 7 payload bytes of channels (hard limit, silent truncation);</item>
     ///   <item>each group holds at most 12 frames; there are at most 10 groups;</item>

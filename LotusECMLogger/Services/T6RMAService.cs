@@ -38,7 +38,9 @@ namespace LotusECMLogger.Services
 	/// • Byte Order: BIG-ENDIAN (network byte order) for all addresses and multi-byte data
 	/// • Response CAN ID: 0x7A0 (all read operations)
 	/// • Security: Requires ecu_unlocked == true (calibration must contain "WTF?" magic)
-	/// • Valid Address Range: 0x40000000 - 0x4000FFFF (64KB RAM only)
+	/// • Valid Address Range: 0x40000000 - 0x4000FFFF (64KB RAM) for polling/logging/writes.
+	///   The read path (0x53) also reaches the flash-mapped address space (0x00000000+), used
+	///   by the Download*Async snapshot methods (per-<see cref="EcuVariant"/> zone addresses).
 	/// • Multi-frame Read (0x53): ECU sends first 8 bytes immediately, continuation via 0x7A0
 	/// • Multi-frame Write (0x57): Host sends continuation frames after initial command
 	/// • Fixed-length reads (0x50-0x52): Optimized for atomic register/variable access
@@ -61,6 +63,43 @@ namespace LotusECMLogger.Services
 		// Memory address ranges from firmware
 		private const uint RAM_START = 0x40000000;
 		private const uint RAM_END = 0x4000FFFF;         // 64KB RAM
+
+		// Per-variant flash zone tables, transcribed from the zone list in the reference
+		// lotusecu-tools dumper (lib/ltacc.py). The RMA read protocol (CAN ID 0x53) addresses
+		// the ECU's full memory map, so the same read path used for RAM above also reaches these
+		// flash regions (and, on T4e, the small RAM1/DECRAM window used for its Learned zone).
+		//
+		// Learned Data: persisted adaptive fuel/idle/knock trims. On T6 this sits in flash,
+		// distinct from the Coding zone (0x1C000-0x20000) already read via Mode 22 PIDs
+		// 0x2263/0x2264 in J2534EcuCodingService; T4e keeps it in a small battery-backed RAM/DECRAM
+		// window instead.
+		private static readonly Dictionary<EcuVariant, (uint Address, uint Length)> LearnedDataZones = new()
+		{
+			[EcuVariant.T4e] = (0x002F8000, 0x00000800), // RAM1/DECRAM, 2KB
+			[EcuVariant.K4] = (0x00006000, 0x00002000),  // S2, 8KB
+			[EcuVariant.T4] = (0x00006000, 0x00002000),  // S2, 8KB
+			[EcuVariant.T6] = (0x00010000, 0x0000C000),  // L2, 48KB
+		};
+
+		// Calibration: the active tune (fuel/ignition maps, limiters, etc.) as loaded into the ECU.
+		private static readonly Dictionary<EcuVariant, (uint Address, uint Length)> CalibrationZones = new()
+		{
+			[EcuVariant.T4e] = (0x00010000, 0x00010000), // S1, 64KB
+			[EcuVariant.K4] = (0x00030000, 0x00010000),  // S6, 64KB
+			[EcuVariant.T4] = (0x00070000, 0x00010000),  // S10, 64KB
+			[EcuVariant.T6] = (0x00020000, 0x00010000),  // L4, 64KB
+		};
+
+		// Program: the ECU's compiled firmware code. Largest of the flash regions on every
+		// variant, so a full download runs to many RMA read chunks (255 bytes each) and can
+		// take a while over CAN.
+		private static readonly Dictionary<EcuVariant, (uint Address, uint Length)> ProgramZones = new()
+		{
+			[EcuVariant.T4e] = (0x00020000, 0x00060000), // S2-S7, 384KB
+			[EcuVariant.K4] = (0x00010000, 0x00020000),  // S4-S5, 128KB
+			[EcuVariant.T4] = (0x00010000, 0x00060000),  // S4-S9, 384KB
+			[EcuVariant.T6] = (0x00040000, 0x000C0000),  // M0-H3, 768KB
+		};
 
 		private J2534Session? _session;
 		private J2534Channel? _channel;
@@ -500,8 +539,6 @@ namespace LotusECMLogger.Services
 
 		public async Task<bool> ReadMemoryToFileAsync(uint startAddress, uint length, string filePath, IProgress<(int bytesRead, int totalBytes)>? progress = null)
 		{
-			const byte MAX_CHUNK_SIZE = 255; // Maximum bytes per RMA read request
-
 			// Validate parameters
 			if (length == 0)
 			{
@@ -527,6 +564,46 @@ namespace LotusECMLogger.Services
 					nameof(length),
 					$"Memory range exceeds RAM bounds. Start: 0x{startAddress:X8}, Length: {length}, End: 0x{startAddress + length - 1:X8}, Max: 0x{RAM_END:X8}");
 			}
+
+			return await ReadMemoryToFileCoreAsync(startAddress, length, filePath, progress);
+		}
+
+		public async Task<bool> DownloadLearnedDataAsync(EcuVariant variant, string filePath, IProgress<(int bytesRead, int totalBytes)>? progress = null)
+		{
+			if (string.IsNullOrWhiteSpace(filePath))
+			{
+				throw new ArgumentException("File path cannot be empty", nameof(filePath));
+			}
+
+			var (address, length) = LearnedDataZones[variant];
+			return await ReadMemoryToFileCoreAsync(address, length, filePath, progress);
+		}
+
+		public async Task<bool> DownloadCalibrationAsync(EcuVariant variant, string filePath, IProgress<(int bytesRead, int totalBytes)>? progress = null)
+		{
+			if (string.IsNullOrWhiteSpace(filePath))
+			{
+				throw new ArgumentException("File path cannot be empty", nameof(filePath));
+			}
+
+			var (address, length) = CalibrationZones[variant];
+			return await ReadMemoryToFileCoreAsync(address, length, filePath, progress);
+		}
+
+		public async Task<bool> DownloadProgramAsync(EcuVariant variant, string filePath, IProgress<(int bytesRead, int totalBytes)>? progress = null)
+		{
+			if (string.IsNullOrWhiteSpace(filePath))
+			{
+				throw new ArgumentException("File path cannot be empty", nameof(filePath));
+			}
+
+			var (address, length) = ProgramZones[variant];
+			return await ReadMemoryToFileCoreAsync(address, length, filePath, progress);
+		}
+
+		private async Task<bool> ReadMemoryToFileCoreAsync(uint startAddress, uint length, string filePath, IProgress<(int bytesRead, int totalBytes)>? progress)
+		{
+			const byte MAX_CHUNK_SIZE = 255; // Maximum bytes per RMA read request
 
 			J2534Session? tempSession = null;
 			J2534Channel? tempChannel = null;

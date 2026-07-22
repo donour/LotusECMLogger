@@ -8,7 +8,7 @@ using SAE.J2534;
 namespace LotusECMLogger.Services
 {
     /// <summary>
-    /// Implements the T6e high-speed CAN channel logger (developer telemetry facility).
+    /// Implements the T6 high-speed CAN channel logger (developer telemetry facility).
     ///
     /// The PC configures the ECU as a programmable sampler by sending 8-byte command frames on
     /// CAN ID 0x350; the ECU then autonomously streams the selected memory locations back on 0x351.

@@ -326,7 +326,7 @@ namespace LotusECMLogger
         {
             AddHeading("ECU Coding");
 
-            AddParagraph("The ECU Coding tab allows you to read and modify ECU configuration settings for Lotus T6e ECUs. These settings control various vehicle features and behaviors that are not accessible through standard OBD-II parameters.");
+            AddParagraph("The ECU Coding tab allows you to read and modify ECU configuration settings for Lotus T6 ECUs. These settings control various vehicle features and behaviors that are not accessible through standard OBD-II parameters.");
 
             AddSubheading("How to Use:");
             AddParagraph("1. Read Codes: Click 'Read Codes' to retrieve the current coding configuration from your ECU. The application will display all available options with their current values.");
@@ -479,7 +479,7 @@ namespace LotusECMLogger
             AddParagraph("The 'Adaptations Reset' button on the Vehicle Information tab performs an OBD-II Mode 0x11 reset to clear learned parameters from the ECU. This operation resets adaptive learning values, which may be necessary after certain repairs or modifications, though the ECU will need time to relearn optimal settings afterward.");
 
             AddSubheading("What is Learned Data?");
-            AddParagraph("The ECU continuously adapts to your engine, fuel, and component wear by adjusting various parameters as you drive. On the Lotus T6e these adaptations are stored as 'learned values' in the ECU's EEPROM (protected by a checksum) so they persist across power cycles. They include:");
+            AddParagraph("The ECU continuously adapts to your engine, fuel, and component wear by adjusting various parameters as you drive. On the Lotus T6 these adaptations are stored as 'learned values' in the ECU's EEPROM (protected by a checksum) so they persist across power cycles. They include:");
             AddBulletPoint("Octane scalers (per cylinder): Knock-based octane learning - one value per cylinder tracking how much knock-based fuel/timing correction has been accumulated. These are also shown on the Extended Vehicle Information tab.");
             AddBulletPoint("Knock retard learning: Learned ignition timing retard derived from knock sensor activity.");
             AddBulletPoint("Throttle tip-in / alpha-N load trim: A learned correction to the throttle-angle-and-speed (alpha-N) airflow model across RPM and throttle position, used when estimating engine load from throttle position. A reset re-seeds this to the base calibration.");
@@ -540,7 +540,7 @@ namespace LotusECMLogger
         {
             AddHeading("T6 Live Tuning");
 
-            AddParagraph("The Live Tuning tab enables real-time calibration editing on unlocked T6e ECUs. It synchronizes a calibration file on disk with the ECU's RAM: the application reads a region of ECU memory to a .cpt file, watches that file for changes, and automatically writes any modified 32-bit words back to the ECU while the engine is running. Edit the file in your calibration editor of choice and the changes take effect on the ECU within a fraction of a second of saving.");
+            AddParagraph("The Live Tuning tab enables real-time calibration editing on unlocked T6 ECUs. It synchronizes a calibration file on disk with the ECU's RAM: the application reads a region of ECU memory to a .cpt file, watches that file for changes, and automatically writes any modified 32-bit words back to the ECU while the engine is running. Edit the file in your calibration editor of choice and the changes take effect on the ECU within a fraction of a second of saving.");
 
             AddSubheading("Requirements:");
             AddBulletPoint("Unlocked ECU: Live tuning uses the raw-CAN RMA protocol, which standard locked calibrations do not answer. The 'ECU' indicator on the Vehicle Information tab shows whether the ECU is unlocked.");
@@ -567,7 +567,7 @@ namespace LotusECMLogger
         {
             AddHeading("T6E Calibration Flasher");
 
-            AddParagraph("The T6E Calibration Flasher provides a convenient interface for flashing ECU calibrations to Lotus T6e engine control units. Access this feature from the Tools menu: Tools > T6E Calibration Flasher.");
+            AddParagraph("The T6E Calibration Flasher provides a convenient interface for flashing ECU calibrations to Lotus T6 engine control units. Access this feature from the Tools menu: Tools > T6E Calibration Flasher.");
 
             AddParagraph("Note: Flashing a new firmware version does not update the ECU's stored model info. After migrating to a different firmware version, run Tools > Erase Model Info to let the new firmware claim the model identity. See the 'Erase Model Info' help topic.");
 
@@ -709,7 +709,7 @@ namespace LotusECMLogger
             AddBulletPoint("Ensure ignition is on with engine off");
             AddBulletPoint("Some coding operations require specific ECU states");
             AddBulletPoint("Not all Lotus ECUs support coding modifications");
-            AddBulletPoint("Check that you have a T6e ECU (coding may not work on older models)");
+            AddBulletPoint("Check that you have a T6 ECU (coding may not work on older models)");
 
             AddSubheading("General Tips:");
             AddBulletPoint("Always ensure your vehicle battery is fully charged before diagnostic operations");

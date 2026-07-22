@@ -11,8 +11,11 @@ namespace LotusECMLogger
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "LotusECMLogger");
 
         /// <summary>Builds a default output path like <c>Documents\LotusECMLogger\{prefix}_{timestamp}.csv</c>.</summary>
-        public static string TimestampedCsvPath(string prefix) =>
-            Path.Combine(OutputDirectory, $"{prefix}_{DateTime.Now:yyyyMMdd_HHmmss}.csv");
+        public static string TimestampedCsvPath(string prefix) => TimestampedPath(prefix, "csv");
+
+        /// <summary>Builds a default output path like <c>Documents\LotusECMLogger\{prefix}_{timestamp}.{extension}</c>.</summary>
+        public static string TimestampedPath(string prefix, string extension) =>
+            Path.Combine(OutputDirectory, $"{prefix}_{DateTime.Now:yyyyMMdd_HHmmss}.{extension}");
 
         /// <summary>
         /// Returns <paramref name="filePath"/> if nothing exists there; otherwise appends _1, _2, …

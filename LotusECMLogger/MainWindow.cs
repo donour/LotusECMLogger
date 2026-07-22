@@ -61,7 +61,8 @@ namespace LotusECMLogger
                     MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
 
-            // Add T6 RMA logging control
+            // Add T6 RMA logging control. The RMA service is shared with the Snapshots tab
+            // below so both agree on whether an RMA logging session is currently active.
             try
             {
                 var rmaService = new T6RMAService();
@@ -72,6 +73,14 @@ namespace LotusECMLogger
                 };
                 t6RmaTab.Controls.Clear();
                 t6RmaTab.Controls.Add(rmaControl);
+
+                var snapshotsControl = new SnapshotsControl(rmaService)
+                {
+                    Dock = DockStyle.Fill,
+                    IsLoggerActive = false
+                };
+                snapshotsTab.Controls.Clear();
+                snapshotsTab.Controls.Add(snapshotsControl);
             }
             catch (Exception ex)
             {
@@ -118,6 +127,10 @@ namespace LotusECMLogger
                 var hsControl = highSpeedLogTab.Controls.OfType<HighSpeedLogControl>().FirstOrDefault();
                 if (hsControl != null)
                     hsControl.IsLoggerActive = isLogging;
+
+                var snapshotsControl = snapshotsTab.Controls.OfType<SnapshotsControl>().FirstOrDefault();
+                if (snapshotsControl != null)
+                    snapshotsControl.IsLoggerActive = isLogging;
 
                 // Erasing model info issues an RMA write, which conflicts with active logging.
                 eraseModelInfoToolStripMenuItem.Enabled = !isLogging;
@@ -190,13 +203,15 @@ namespace LotusECMLogger
                 GuiIcons.LiveData,
                 GuiIcons.EcuCoding,
                 GuiIcons.Dtc,
-                GuiIcons.LiveTuning);
+                GuiIcons.LiveTuning,
+                GuiIcons.Snapshots);
             mainTabControl.ImageList = mainIcons;
             vehicleInfoTab.ImageIndex = 0;
             loggingTab.ImageIndex     = 1;
             codingDataTab.ImageIndex  = 2;
             dtcTab.ImageIndex         = 3;
             liveTuningTab.ImageIndex  = 4;
+            snapshotsTab.ImageIndex   = 5;
 
             var loggingModeIcons = GuiIcons.BuildImageList(20, tabColor,
                 GuiIcons.HighSpeedLog,

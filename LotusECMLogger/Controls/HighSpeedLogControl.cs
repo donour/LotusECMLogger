@@ -6,7 +6,7 @@ using LotusECMLogger.Services;
 namespace LotusECMLogger.Controls
 {
     /// <summary>
-    /// Spreadsheet-style UI for the T6e high-speed CAN channel logger. Channels come from JSON presets
+    /// Spreadsheet-style UI for the T6 high-speed CAN channel logger. Channels come from JSON presets
     /// (<c>config/highSpeedLogger</c>); the user checks the ones to log and picks a per-channel rate,
     /// then Start programs and arms the ECU via <see cref="IHighSpeedLogService"/> and streams live
     /// values into the grid and a CSV file.
