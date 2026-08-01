@@ -1,114 +1,110 @@
+using System.Globalization;
+using System.Text;
 using SAE.J2534;
 
 namespace LotusECMLogger.Services
 {
     /// <summary>
-    /// KWP2000 (ISO 14230) diagnostic client for the Bosch ESP8 ABS/ESP module over ISO-TP.
-    /// The ABS uses CAN IDs 0x7E2 (request) / 0x7EA (response) — distinct from the engine ECU
-    /// (0x7E0/0x7E8) and with a different SID table — so it needs its own flow-control filter
-    /// and request header.
+    /// KWP2000 (ISO 14230) diagnostic client for the Bosch ESP8 ABS/ESP module over ISO-TP,
+    /// implementing <c>DIAGNOSTICS_PROGRAMMING_GUIDE.md</c>. The module answers on CAN ids
+    /// 0x6F4 (request) / 0x6F5 (response) — captured from a reference tester, not the ISO 15765-4
+    /// slot the guide assumed — so it needs its own flow-control filter and request header.
     ///
-    /// <see cref="ReadModuleInfo"/> unlocks the module (SecurityAccess level 1, which the
-    /// firmware only grants in the programming session) and reads its ECU identification record.
-    /// It performs no write, clear, or routine services, so it cannot modify the module — the
-    /// unlock here only grants read access.
+    /// Read services (identification, coding, memory, DTCs) and the hydraulic actuation routines
+    /// are implemented. Services that alter persistent state — variant recoding (0x3B), memory
+    /// write (0x3D), DTC clear (0x14) — are deliberately absent, matching the guide's scope.
     /// </summary>
-    public sealed class J2534AbsService : IAbsService
+    public sealed class J2534AbsService : IAbsService, IDisposable
     {
         private static readonly ECUDefinition Abs = ECUDefinition.ABS;
 
-        // KWP2000 service IDs used here.
-        private const byte SidStartDiagnosticSession = 0x10;
-        private const byte SidReadEcuIdentification = 0x1A;
-        private const byte SidSecurityAccess = 0x27;
+        /// <summary>
+        /// Session bytes tried in order when a service needs an open session. The guide specifies
+        /// programming (0x02), but this firmware was observed accepting the reference tester's 0x89
+        /// while refusing 0x02, so both are attempted before the extended session.
+        /// </summary>
+        private static readonly byte[] SessionCandidates =
+            [AbsProtocol.SessionProgramming, AbsProtocol.SessionTester, AbsProtocol.SessionExtended];
 
-        // A positive KWP response echoes the request SID with bit 6 set (SID | 0x40).
-        private const byte PositiveResponseFlag = 0x40;
+        /// <summary>Guards the J2534 device: one operation (or the telemetry monitor) at a time.</summary>
+        private readonly object _deviceLock = new();
 
-        private const byte DiagnosticSession89 = 0x89; // session byte the reference tester uses
-        private const byte IdentificationRecordAll = 0x87;
+        private Thread? _telemetryThread;
+        private CancellationTokenSource? _telemetryCts;
+        private volatile bool _monitoring;
 
-        // SecurityAccess sub-functions and seed size.
-        private const byte SecurityRequestSeed = 0x01;
-        private const byte SecuritySendKey = 0x02;
-        private const int SeedLength = 4;
+        public event EventHandler<AbsTelemetrySample>? TelemetryReceived;
+        public event EventHandler<string>? TelemetryError;
 
-        private const byte NrcResponsePending = 0x78;
-        private const byte NrcSecurityAccessDenied = 0x33;
-        private const byte NegativeResponseSid = 0x7F;
+        public bool IsMonitoringTelemetry => _monitoring;
 
-        // SecurityAccess key derivation: key[i] = SBOX[seed[i]]. This 256-byte substitution
-        // table is transcribed from the ESP8 firmware (flash 0xB8530); see CAN_DIAGNOSTICS_GUIDE.md.
-        // Verified properties: SBOX[0]=0, full permutation, XOR-linear.
-        private static readonly byte[] SBox =
-        [
-            0x00, 0x1D, 0x3A, 0x27, 0x74, 0x69, 0x4E, 0x53, 0xE8, 0xF5, 0xD2, 0xCF, 0x9C, 0x81, 0xA6, 0xBB,
-            0xCD, 0xD0, 0xF7, 0xEA, 0xB9, 0xA4, 0x83, 0x9E, 0x25, 0x38, 0x1F, 0x02, 0x51, 0x4C, 0x6B, 0x76,
-            0x87, 0x9A, 0xBD, 0xA0, 0xF3, 0xEE, 0xC9, 0xD4, 0x6F, 0x72, 0x55, 0x48, 0x1B, 0x06, 0x21, 0x3C,
-            0x4A, 0x57, 0x70, 0x6D, 0x3E, 0x23, 0x04, 0x19, 0xA2, 0xBF, 0x98, 0x85, 0xD6, 0xCB, 0xEC, 0xF1,
-            0x13, 0x0E, 0x29, 0x34, 0x67, 0x7A, 0x5D, 0x40, 0xFB, 0xE6, 0xC1, 0xDC, 0x8F, 0x92, 0xB5, 0xA8,
-            0xDE, 0xC3, 0xE4, 0xF9, 0xAA, 0xB7, 0x90, 0x8D, 0x36, 0x2B, 0x0C, 0x11, 0x42, 0x5F, 0x78, 0x65,
-            0x94, 0x89, 0xAE, 0xB3, 0xE0, 0xFD, 0xDA, 0xC7, 0x7C, 0x61, 0x46, 0x5B, 0x08, 0x15, 0x32, 0x2F,
-            0x59, 0x44, 0x63, 0x7E, 0x2D, 0x30, 0x17, 0x0A, 0xB1, 0xAC, 0x8B, 0x96, 0xC5, 0xD8, 0xFF, 0xE2,
-            0x26, 0x3B, 0x1C, 0x01, 0x52, 0x4F, 0x68, 0x75, 0xCE, 0xD3, 0xF4, 0xE9, 0xBA, 0xA7, 0x80, 0x9D,
-            0xEB, 0xF6, 0xD1, 0xCC, 0x9F, 0x82, 0xA5, 0xB8, 0x03, 0x1E, 0x39, 0x24, 0x77, 0x6A, 0x4D, 0x50,
-            0xA1, 0xBC, 0x9B, 0x86, 0xD5, 0xC8, 0xEF, 0xF2, 0x49, 0x54, 0x73, 0x6E, 0x3D, 0x20, 0x07, 0x1A,
-            0x6C, 0x71, 0x56, 0x4B, 0x18, 0x05, 0x22, 0x3F, 0x84, 0x99, 0xBE, 0xA3, 0xF0, 0xED, 0xCA, 0xD7,
-            0x35, 0x28, 0x0F, 0x12, 0x41, 0x5C, 0x7B, 0x66, 0xDD, 0xC0, 0xE7, 0xFA, 0xA9, 0xB4, 0x93, 0x8E,
-            0xF8, 0xE5, 0xC2, 0xDF, 0x8C, 0x91, 0xB6, 0xAB, 0x10, 0x0D, 0x2A, 0x37, 0x64, 0x79, 0x5E, 0x43,
-            0xB2, 0xAF, 0x88, 0x95, 0xC6, 0xDB, 0xFC, 0xE1, 0x5A, 0x47, 0x60, 0x7D, 0x2E, 0x33, 0x14, 0x09,
-            0x7F, 0x62, 0x45, 0x58, 0x0B, 0x16, 0x31, 0x2C, 0x97, 0x8A, 0xAD, 0xB0, 0xE3, 0xFE, 0xD9, 0xC4,
-        ];
+        // ═══════════════════════════════════════════════════════════════════════════════
+        // §7 / §6 — identification and coding records
+        // ═══════════════════════════════════════════════════════════════════════════════
 
         public (bool success, string errorMessage, AbsModuleInfo result) ReadModuleInfo(IProgress<string>? progress)
         {
             try
             {
-                using var session = J2534Session.Open();
-                J2534Channel channel = session.OpenIso15765();
-                channel.StartMessageFilter(Abs.CreateFlowControlFilter()).ThrowIfError();
-
-                var rows = new List<KeyValuePair<string, string>>();
-
-                // Enter the tester's diagnostic session (0x89) — no SecurityAccess, no writes.
-                var sess = Request(channel, [SidStartDiagnosticSession, DiagnosticSession89]);
-                rows.Add(new KeyValuePair<string, string>("Session 10 89", sess.ok ? "accepted" : sess.error));
-
-                // Identification records (ReadEcuIdentification 1A 80-9F). No unlock needed; the
-                // module NRC-rejects unknown records quickly, so the scan is fast.
-                progress?.Report("Reading identification records (1A 80-9F)…");
-                int idFound = 0;
-                for (byte record = 0x80; record <= 0x9F; record++)
+                EnsureDeviceFree();
+                lock (_deviceLock)
                 {
-                    var r = Request(channel, [SidReadEcuIdentification, record]);
-                    if (r.ok && r.payload.Length > 1)
+                    using var abs = AbsKwpSession.Open();
+                    var rows = new List<AbsReportRow>();
+
+                    // Open a session. Identification reads work without SecurityAccess on this
+                    // firmware, so a refusal here is reported and the scan continues anyway.
+                    var (sessionOk, sessionDetail, _) = abs.EnterSession(AbsProtocol.SessionTester,
+                        AbsProtocol.SessionExtended, AbsProtocol.SessionProgramming);
+                    rows.Add(new AbsReportRow("Diagnostic session", sessionOk ? "open" : "refused", sessionDetail));
+
+                    // ReadEcuIdentification (§7). The guide's "read all" record 0x87 is tried first,
+                    // then the whole 0x80-0x9F record space, since 0x87 is not implemented here.
+                    progress?.Report("Reading identification records (1A 80-9F)…");
+                    int idFound = 0;
+                    for (byte record = 0x80; record <= 0x9F; record++)
                     {
-                        rows.Add(new KeyValuePair<string, string>(IdentificationLabel(record), FormatData(r.payload[1..])));
+                        var r = abs.Request(AbsProtocol.SidReadEcuIdentification, record);
+                        if (!r.Ok || r.Payload.Length <= 1)
+                            continue;
+
+                        var (value, detail) = FormatData(r.Payload[1..]);
+                        rows.Add(new AbsReportRow(IdentificationLabel(record), value, detail));
                         idFound++;
                     }
-                }
 
-                // Coding / configuration records (ReadDataByLocalId 21 00-FF, 1-byte local id). The
-                // guide's F1 90 / F1 91 were wrong (2-byte); scan the real 1-byte id space instead.
-                progress?.Report("Scanning coding records (21 00-FF)…");
-                int codeFound = 0;
-                for (int lid = 0x00; lid <= 0xFF; lid++)
-                {
-                    if ((lid & 0x1F) == 0)
-                        progress?.Report($"Scanning coding records… 0x{lid:X2}/0xFF");
-
-                    var r = Request(channel, [0x21, (byte)lid]);
-                    if (r.ok && r.payload.Length > 1)
+                    // ReadDataByLocalId (§6). The guide's 2-byte identifiers (0xF190/0xF191) are not
+                    // what this module implements — it uses 1-byte local ids — so the full id space is
+                    // scanned and whatever answers is reported.
+                    progress?.Report("Scanning coding records (21 00-FF)…");
+                    int codeFound = 0;
+                    for (int lid = 0x00; lid <= 0xFF; lid++)
                     {
-                        rows.Add(new KeyValuePair<string, string>($"Coding 21 {lid:X2}", FormatData(r.payload[1..])));
+                        if ((lid & 0x1F) == 0)
+                            progress?.Report($"Scanning coding records… 0x{lid:X2}/0xFF");
+
+                        var r = abs.Request(AbsProtocol.SidReadDataByLocalId, (byte)lid);
+                        if (!r.Ok || r.Payload.Length <= 1)
+                            continue;
+
+                        byte[] data = r.Payload[1..];
+                        var (value, detail) = FormatData(data);
+
+                        // A single-byte coding record is the variant byte the guide describes, so add
+                        // its (inferred) bit-field reading alongside the raw value.
+                        if (data.Length == 1)
+                            detail = AbsProtocol.DescribeVariantCoding(data[0]);
+
+                        rows.Add(new AbsReportRow($"Coding 21 {lid:X2}", value, detail));
                         codeFound++;
                     }
+
+                    rows.Add(new AbsReportRow("Scan summary",
+                        $"{idFound} identification + {codeFound} coding record(s)",
+                        "read-only; no SecurityAccess required on this firmware"));
+
+                    return (true, "", new AbsModuleInfo { Fields = rows });
                 }
-
-                rows.Add(new KeyValuePair<string, string>("Scan summary",
-                    $"{idFound} identification + {codeFound} coding record(s) — no unlock needed"));
-
-                return (true, "", new AbsModuleInfo { Fields = rows });
             }
             catch (Exception ex)
             {
@@ -116,8 +112,8 @@ namespace LotusECMLogger.Services
             }
         }
 
-        // Friendly names for the ReadEcuIdentification records seen on the ESP8. Traceable via the
-        // record number and inferred from the data content, so easy to correct against a real tester.
+        // Friendly names for the ReadEcuIdentification records confirmed on this module. Traceable
+        // via the record number, so easy to correct against a reference tester.
         private static string IdentificationLabel(byte record) => record switch
         {
             0x85 => "Serial number (1A 85)",
@@ -127,35 +123,127 @@ namespace LotusECMLogger.Services
             _ => $"ECU Id 1A {record:X2}",
         };
 
-        // Formats read data as hex, adding a printable-ASCII rendering when it looks like text, and
-        // truncating long blocks (e.g. a calibration dump) so a single row stays readable.
-        private static string FormatData(byte[] data)
+        /// <summary>
+        /// Splits read data into a display value and a detail column: printable records show their
+        /// text with the hex behind them, binary records show hex with the byte count.
+        /// </summary>
+        private static (string value, string detail) FormatData(byte[] data)
         {
             const int max = 24;
             byte[] shown = data.Length > max ? data[..max] : data;
             string hex = BitConverter.ToString(shown) + (data.Length > max ? $" … ({data.Length} bytes)" : "");
             string ascii = ToPrintable(shown);
-            return ascii.Trim('.').Length >= 3 ? $"{hex}  \"{ascii}\"" : hex;
+
+            return ascii.Trim('.').Length >= 3 ? (ascii, hex) : (hex, $"{data.Length} byte(s)");
         }
 
         private static string ToPrintable(byte[] data) =>
             new string(data.Select(b => b >= 0x20 && b < 0x7F ? (char)b : '.').ToArray());
 
+        // ═══════════════════════════════════════════════════════════════════════════════
+        // §5 — live internal state (ReadMemoryByAddress)
+        // ═══════════════════════════════════════════════════════════════════════════════
+
+        public (bool success, string errorMessage, AbsLiveStateResult result) ReadLiveState(IProgress<string>? progress)
+        {
+            try
+            {
+                EnsureDeviceFree();
+                lock (_deviceLock)
+                {
+                    using var abs = AbsKwpSession.Open();
+                    var rows = new List<AbsReportRow>();
+
+                    // The guide puts memory reads in the default session; this module wants one of its
+                    // own session bytes before it will grant security, so a session is opened first and
+                    // the outcome recorded either way.
+                    var (sessionOk, sessionDetail, _) = abs.EnterSession(SessionCandidates);
+                    rows.Add(new AbsReportRow("Diagnostic session", sessionOk ? "open" : "refused", sessionDetail));
+
+                    var (unlockOk, unlockDetail) = abs.TryUnlock();
+                    rows.Add(new AbsReportRow("SecurityAccess", unlockOk ? "unlocked" : "not unlocked", unlockDetail));
+
+                    int ok = 0;
+                    foreach (var entry in AbsProtocol.LiveStateMap)
+                    {
+                        progress?.Report($"Reading {entry.Name}…");
+
+                        var response = abs.ReadMemory(entry.Address, entry.Length);
+                        string address = $"0x{entry.Address:X8}";
+
+                        if (response.Ok && response.Payload.Length >= entry.Length)
+                        {
+                            // The raw bytes are always shown: the module's 0x63 response echoes the
+                            // address before the data, and if that echo were ever shaped differently
+                            // than expected the decoded value would silently be an echo byte. Any
+                            // surplus length is called out for the same reason.
+                            string note = entry.Note.Length == 0 ? "" : $" — {entry.Note}";
+                            if (response.Payload.Length != entry.Length)
+                                note = $" — unexpected length ({response.Payload.Length} bytes){note}";
+
+                            rows.Add(new AbsReportRow(entry.Name,
+                                AbsProtocol.FormatLiveValue(entry, response.Payload),
+                                $"{address} = {BitConverter.ToString(response.Payload)}{note}"));
+                            ok++;
+                        }
+                        else
+                        {
+                            rows.Add(new AbsReportRow(entry.Name, "unavailable",
+                                $"{address} — {response.DetailedError}"));
+                        }
+                    }
+
+                    rows.Add(new AbsReportRow("Read summary", $"{ok}/{AbsProtocol.LiveStateMap.Length} locations",
+                        abs.AcceptedAddressFormat is byte aal
+                            ? $"address format byte 0x{aal:X2} accepted"
+                            : $"no address format accepted (tried {string.Join(", ",
+                                AbsProtocol.AddressAndLengthCandidates.Select(b => $"0x{b:X2}"))})"));
+
+                    return (true, "", new AbsLiveStateResult { Rows = rows });
+                }
+            }
+            catch (Exception ex)
+            {
+                return (false, ex.Message, AbsLiveStateResult.Empty);
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════════════
+        // §8 — fault codes
+        // ═══════════════════════════════════════════════════════════════════════════════
+
         public (bool success, string errorMessage, AbsDtcResult result) ReadDtcs()
         {
             try
             {
-                using var session = J2534Session.Open();
-                J2534Channel channel = session.OpenIso15765();
-                channel.StartMessageFilter(Abs.CreateFlowControlFilter()).ThrowIfError();
+                EnsureDeviceFree();
+                lock (_deviceLock)
+                {
+                    using var abs = AbsKwpSession.Open();
 
-                // ReadDtcByStatus: report all DTCs by status mask (18 00 FF 00) — the exact request
-                // the reference tester used, which the ABS answers without any session or unlock.
-                var result = Request(channel, [0x18, 0x00, 0xFF, 0x00]);
-                if (!result.ok)
-                    return (false, $"Failed to read ABS DTCs: {result.error}", AbsDtcResult.Empty);
+                    // ReadDtcByStatus: report all DTCs by status mask (18 00 FF 00) — the exact request
+                    // the reference tester used, which the ABS answers with no session and no unlock.
+                    var response = abs.Request(AbsProtocol.SidReadDtcByStatus, 0x00, 0xFF, 0x00);
+                    if (!response.Ok)
+                        return (false, $"Failed to read ABS DTCs: {response.DetailedError}", AbsDtcResult.Empty);
 
-                return (true, "", AbsDtcResult.FromResponse(result.payload));
+                    var result = AbsDtcResult.FromResponse(response.Payload);
+
+                    // ReadStatusOfDtc (0x17) per stored code — the module's own view of each fault's
+                    // confirmed/pending state, which can differ from the status in the 0x18 summary.
+                    var rows = new List<AbsReportRow>(result.Rows);
+                    foreach (var (code, _) in result.Codes)
+                    {
+                        var status = abs.Request(AbsProtocol.SidReadStatusOfDtc, (byte)(code >> 8), (byte)code);
+                        rows.Add(status.Ok
+                            ? new AbsReportRow($"Status of {AbsProtocol.FormatDtcCode(code)}",
+                                DescribeDtcStatusResponse(status.Payload), BitConverter.ToString(status.Payload))
+                            : new AbsReportRow($"Status of {AbsProtocol.FormatDtcCode(code)}",
+                                "unavailable", status.DetailedError));
+                    }
+
+                    return (true, "", result with { Rows = rows });
+                }
             }
             catch (Exception ex)
             {
@@ -163,79 +251,516 @@ namespace LotusECMLogger.Services
             }
         }
 
-        public (bool success, string errorMessage, AbsProbeResult result) ProbeConnection()
+        /// <summary>
+        /// Renders a ReadStatusOfDtc (0x57) payload. The response echoes the requested code and ends
+        /// with the status byte, so the last byte is decoded as status and the echo left in the raw
+        /// column rather than assuming a fixed offset.
+        /// </summary>
+        private static string DescribeDtcStatusResponse(byte[] payload) =>
+            payload.Length == 0
+                ? "empty response"
+                : $"0x{payload[^1]:X2} — {AbsProtocol.DescribeDtcStatus(payload[^1])}";
+
+        // ═══════════════════════════════════════════════════════════════════════════════
+        // §4 — passive telemetry
+        // ═══════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>UI event throttle: the module broadcasts at 100 Hz, far faster than a grid needs.</summary>
+        private const int TelemetryEventIntervalMs = 100;
+
+        public void StartTelemetryMonitor(string? csvFilePath)
         {
+            lock (_deviceLock)
+            {
+                if (_monitoring)
+                    throw new InvalidOperationException("ABS telemetry monitoring is already running.");
+
+                _telemetryCts = new CancellationTokenSource();
+                CancellationToken token = _telemetryCts.Token;
+                _monitoring = true;
+
+                _telemetryThread = new Thread(() => TelemetryLoop(csvFilePath, token))
+                {
+                    IsBackground = true,
+                    Name = "ABS Telemetry Monitor",
+                };
+                _telemetryThread.Start();
+            }
+        }
+
+        public void StopTelemetryMonitor()
+        {
+            Thread? thread;
+            lock (_deviceLock)
+            {
+                // Keyed on the thread, not on _monitoring: a monitor that stopped itself after an
+                // error has already cleared _monitoring but still needs its state cleaned up here.
+                if (_telemetryThread is null)
+                    return;
+
+                _telemetryCts?.Cancel();
+                thread = _telemetryThread;
+            }
+
+            // Joined outside the lock: the loop takes the device lock on its way out.
+            thread?.Join(TimeSpan.FromSeconds(3));
+
+            lock (_deviceLock)
+            {
+                _telemetryCts?.Dispose();
+                _telemetryCts = null;
+                _telemetryThread = null;
+                _monitoring = false;
+            }
+        }
+
+        /// <summary>
+        /// Reads the module's broadcasts and decodes them until cancelled. Nothing is transmitted, so
+        /// this is safe with the vehicle in motion — the guide's recommended way to log while driving.
+        /// </summary>
+        private void TelemetryLoop(string? csvFilePath, CancellationToken token)
+        {
+            StreamWriter? csv = null;
             try
             {
                 using var session = J2534Session.Open();
                 J2534Channel channel = session.OpenCan();
+                channel.StartMessageFilter(PassAllFilter()).ThrowIfError();
 
-                // Pass-all filter so we can learn the broadcast baseline and catch a reply on any id.
-                channel.StartMessageFilter(new MessageFilter
+                if (!string.IsNullOrWhiteSpace(csvFilePath))
                 {
-                    FilterType = Filter.PASS_FILTER,
-                    Mask = [0x00, 0x00, 0x00, 0x00],
-                    Pattern = [0x00, 0x00, 0x00, 0x00],
-                }).ThrowIfError();
-
-                var rows = new List<KeyValuePair<string, string>>();
-
-                // Baseline — learn the periodic broadcast ids so request-triggered replies stand
-                // out. Also confirms the channel receives at all.
-                var baseline = new HashSet<uint>(Listen(channel, 1200).Keys);
-                rows.Add(new KeyValuePair<string, string>("Bus",
-                    baseline.Count == 0
-                        ? "SILENT — no CAN traffic received at all"
-                        : $"alive — {baseline.Count} broadcast id(s): {SampleIds(baseline)}"));
-
-                // Named control probes — always reported, even when silent.
-                void Named(string label, uint reqId, byte[] payload)
-                {
-                    var hits = Probe(channel, reqId, payload, baseline, 250);
-                    if (hits.Count == 0)
-                        rows.Add(new KeyValuePair<string, string>(label, "no diagnostic reply"));
-                    else
-                        rows.AddRange(hits.Select(h => new KeyValuePair<string, string>(label, h)));
+                    LoggerPaths.EnsureParentDirectory(csvFilePath);
+                    csv = new StreamWriter(csvFilePath, append: false);
+                    csv.WriteLine("Timestamp,LF,RF,LR,RR,VehicleSpeedRaw,VehicleSpeedKph,BrakeSwitch," +
+                                  "EspActive,AbsActive,TorqueRequest,EspWarning");
                 }
 
-                // ECM control proves the request/response path and that the bus is awake.
-                Named("ECM control (0x7E0, 01 00)", 0x7E0, [0x01, 0x00]);
+                var sample = new AbsTelemetrySample();
+                DateTime lastEvent = DateTime.MinValue;
+                int rowsSinceFlush = 0;
 
-                // Shared-mailbox hypothesis: the ABS may share the ECU's 0x7E0 request id (its real
-                // diagnostic id is set by the ERCOSEK COM config, not visible in firmware). Send
-                // requests the ABS supports to 0x7E0 and capture every reply. 1A 87 discriminates:
-                // the ABS answers 5A 87 or 7F 1A 33 (security), the ECU answers 7F 1A 11 or ignores.
-                // 10 02 then 1A 87 also covers modules that only answer after a session is opened.
-                Named("0x7E0 TesterPresent (3E 00)", 0x7E0, [0x3E, 0x00]);
-                Named("0x7E0 ReadEcuId (1A 87)", 0x7E0, [0x1A, 0x87]);
-                Named("0x7E0 ProgSession (10 02)", 0x7E0, [0x10, 0x02]);
-                Named("0x7E0 ReadEcuId in-session (1A 87)", 0x7E0, [0x1A, 0x87]);
-
-                // Functional broadcast — every module must listen on 0x7DF.
-                Named("Functional (0x7DF, 3E 00)", 0x7DF, [0x3E, 0x00]);
-                Named("Functional (0x7DF, 01 00)", 0x7DF, [0x01, 0x00]);
-
-                // Physical scan — StartDiagnosticSession(default) to every 8th id across the whole
-                // 11-bit diagnostic range (0x600-0x7F8), skipping the ECM and any id a node already
-                // broadcasts on (to avoid an arbitration clash). Any NEW responder on ANY id is
-                // reported. 10 01 selects the DEFAULT (normal) session, so it changes nothing.
-                int responders = 0;
-                int scanned = 0;
-                for (uint reqId = 0x600; reqId <= 0x7F8; reqId += 0x08)
+                while (!token.IsCancellationRequested)
                 {
-                    if (reqId == 0x7E0 || baseline.Contains(reqId))
-                        continue;
-                    scanned++;
-                    foreach (string hit in Probe(channel, reqId, [0x10, 0x01], baseline, 80))
+                    var read = channel.ReadMessages(64, 50);
+                    bool updated = false;
+
+                    foreach (var message in read.Messages)
                     {
-                        rows.Add(new KeyValuePair<string, string>($"Scan 0x{reqId:X3}", hit));
-                        responders++;
+                        byte[] data = message.Data;
+                        if (data is null || data.Length < 5)
+                            continue;
+
+                        uint id = FrameId(data);
+                        if (id is not (AbsTelemetryDecoder.FrontWheelsCanId
+                            or AbsTelemetryDecoder.RearWheelsCanId
+                            or AbsTelemetryDecoder.EspStatusCanId))
+                            continue;
+
+                        AbsTelemetrySample previous = sample;
+                        sample = AbsTelemetryDecoder.Apply(sample, id, data[4..]);
+                        if (ReferenceEquals(previous, sample))
+                            continue;
+
+                        updated = true;
+
+                        // One CSV row per front-wheel frame — the 100 Hz anchor of the three.
+                        if (csv is not null && id == AbsTelemetryDecoder.FrontWheelsCanId)
+                        {
+                            WriteTelemetryCsvRow(csv, sample);
+                            if (++rowsSinceFlush >= 100)
+                            {
+                                csv.Flush();
+                                rowsSinceFlush = 0;
+                            }
+                        }
+                    }
+
+                    if (updated && (DateTime.UtcNow - lastEvent).TotalMilliseconds >= TelemetryEventIntervalMs)
+                    {
+                        lastEvent = DateTime.UtcNow;
+                        TelemetryReceived?.Invoke(this, sample);
                     }
                 }
-                rows.Add(new KeyValuePair<string, string>("Scan",
-                    $"swept {scanned} ids (0x600-0x7F8, step 8) with 10 01 — {responders} responder(s)"));
+            }
+            catch (Exception ex)
+            {
+                _monitoring = false;
+                TelemetryError?.Invoke(this, ex.Message);
+            }
+            finally
+            {
+                try { csv?.Flush(); csv?.Dispose(); } catch { /* closing a log must not mask the exit reason */ }
+            }
+        }
 
-                return (true, "", new AbsProbeResult { Rows = rows });
+        private static void WriteTelemetryCsvRow(StreamWriter csv, AbsTelemetrySample s)
+        {
+            var row = new StringBuilder();
+            row.Append(s.Timestamp.ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture)).Append(',');
+            row.Append(Num(s.WheelLf)).Append(',');
+            row.Append(Num(s.WheelRf)).Append(',');
+            row.Append(Num(s.WheelLr)).Append(',');
+            row.Append(Num(s.WheelRr)).Append(',');
+            row.Append(Num(s.VehicleSpeedRaw)).Append(',');
+            row.Append(s.VehicleSpeedRaw is int raw
+                ? AbsTelemetrySample.ToKph(raw).ToString("F2", CultureInfo.InvariantCulture)
+                : "").Append(',');
+            row.Append(Num(s.BrakeSwitch)).Append(',');
+            row.Append(Flag(s.EspActive)).Append(',');
+            row.Append(Flag(s.AbsActive)).Append(',');
+            row.Append(Flag(s.TorqueRequest)).Append(',');
+            row.Append(Flag(s.EspWarning));
+            csv.WriteLine(row.ToString());
+
+            static string Num(int? value) => value?.ToString(CultureInfo.InvariantCulture) ?? "";
+            static string Flag(bool? value) => value is null ? "" : value.Value ? "1" : "0";
+        }
+
+        public (bool success, string errorMessage, AbsTelemetrySample result) ReadTelemetrySnapshot(int durationMs)
+        {
+            try
+            {
+                EnsureDeviceFree();
+                lock (_deviceLock)
+                {
+                    using var session = J2534Session.Open();
+                    J2534Channel channel = session.OpenCan();
+                    channel.StartMessageFilter(PassAllFilter()).ThrowIfError();
+
+                    var sample = new AbsTelemetrySample();
+                    DateTime deadline = DateTime.UtcNow.AddMilliseconds(durationMs);
+                    while (DateTime.UtcNow < deadline)
+                    {
+                        foreach (var message in channel.ReadMessages(64, 25).Messages)
+                        {
+                            byte[] data = message.Data;
+                            if (data is { Length: >= 5 })
+                                sample = AbsTelemetryDecoder.Apply(sample, FrameId(data), data[4..]);
+                        }
+                    }
+
+                    return (true, "", sample);
+                }
+            }
+            catch (Exception ex)
+            {
+                return (false, ex.Message, new AbsTelemetrySample());
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════════════
+        // §9 — pump / valve actuation
+        // ═══════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>How long to listen for telemetry when judging the actuation preconditions.</summary>
+        private const int PreconditionSampleMs = 800;
+
+        public (bool success, string errorMessage, AbsPreconditionCheck result) CheckActuationPreconditions()
+        {
+            var (success, error, sample) = ReadTelemetrySnapshot(PreconditionSampleMs);
+            if (!success)
+                return (false, error, new AbsPreconditionCheck());
+
+            // Absent signals must not read as "satisfied": each condition requires positive evidence,
+            // so a missing broadcast leaves its flag false and TelemetrySeen explains why.
+            bool stationary = sample.VehicleSpeedRaw == 0;
+            bool brakeReleased = sample.BrakeSwitch == 0;
+            bool noIntervention = sample.AbsActive == false && sample.EspActive == false;
+
+            var rows = new List<AbsReportRow>
+            {
+                new("Vehicle stationary", Verdict(stationary),
+                    sample.VehicleSpeedRaw is int v
+                        ? $"speed raw {v} ({AbsTelemetrySample.ToKph(v):F1} km/h)"
+                        : "no 0xA2 broadcast seen"),
+                new("Brake released", Verdict(brakeReleased),
+                    sample.BrakeSwitch is int b
+                        ? AbsTelemetrySample.BrakeSwitchName(b)
+                        : "no 0xA4 broadcast seen"),
+                new("No ABS/ESP intervention", Verdict(noIntervention),
+                    sample.AbsActive is null
+                        ? "no 0xA8 broadcast seen"
+                        : $"ABS {OnOff(sample.AbsActive)}, ESP {OnOff(sample.EspActive)}"),
+                new("Ignition ON, engine OFF", "check manually",
+                    "not observable from ABS telemetry — the module enforces it with NRC 0x22"),
+            };
+
+            return (true, "", new AbsPreconditionCheck
+            {
+                TelemetrySeen = sample.HasData,
+                Stationary = stationary,
+                BrakeReleased = brakeReleased,
+                NoIntervention = noIntervention,
+                Rows = rows,
+            });
+
+            static string Verdict(bool ok) => ok ? "OK" : "NOT MET";
+            static string OnOff(bool? flag) => flag is null ? "unknown" : flag.Value ? "active" : "clear";
+        }
+
+        public (bool success, string errorMessage, AbsRoutineResult result) RunRoutine(
+            byte routineType, int seconds, IProgress<AbsRoutineProgress>? progress, CancellationToken cancellationToken)
+            => RunRoutines([(routineType, seconds)], progress, cancellationToken);
+
+        public (bool success, string errorMessage, AbsRoutineResult result) RunBleedSequence(
+            IProgress<AbsRoutineProgress>? progress, CancellationToken cancellationToken)
+            => RunRoutines(AbsProtocol.BleedSequence, progress, cancellationToken);
+
+        /// <summary>
+        /// Runs a sequence of actuation routines on one diagnostic session. Every routine that is
+        /// started is stopped again and the module is returned to the default session, whatever the
+        /// outcome — the guide is explicit that leaving a routine running can strand the hydraulic
+        /// unit in an intermediate valve state until the next power cycle.
+        /// </summary>
+        private (bool success, string errorMessage, AbsRoutineResult result) RunRoutines(
+            IReadOnlyList<(byte Type, int Seconds)> sequence,
+            IProgress<AbsRoutineProgress>? progress,
+            CancellationToken cancellationToken)
+        {
+            var rows = new List<AbsReportRow>();
+
+            try
+            {
+                // Precondition gate before anything is sent. The module also refuses with NRC 0x22,
+                // but the guide warns against relying on that alone.
+                var (checkOk, checkError, preconditions) = CheckActuationPreconditions();
+                if (!checkOk)
+                    return (false, $"Could not verify preconditions: {checkError}", AbsRoutineResult.Empty);
+
+                rows.AddRange(preconditions.Rows);
+                if (!preconditions.AllSatisfied)
+                    return (false, $"Preconditions not met: {preconditions.BlockingReason}",
+                        new AbsRoutineResult { Rows = rows });
+
+                EnsureDeviceFree();
+                lock (_deviceLock)
+                {
+                    using var abs = AbsKwpSession.Open();
+
+                    // Actuation needs the programming session and SecurityAccess level 1.
+                    var (sessionOk, sessionDetail, _) = abs.EnterSession(SessionCandidates);
+                    rows.Add(new AbsReportRow("Diagnostic session", sessionOk ? "open" : "refused", sessionDetail));
+                    if (!sessionOk)
+                        return (false, $"Could not open a diagnostic session ({sessionDetail}).",
+                            new AbsRoutineResult { Rows = rows });
+
+                    var (unlockOk, unlockDetail) = abs.TryUnlock();
+                    rows.Add(new AbsReportRow("SecurityAccess", unlockOk ? "unlocked" : "not unlocked", unlockDetail));
+
+                    bool completed = true;
+                    string error = "";
+
+                    try
+                    {
+                        foreach (var (type, seconds) in sequence)
+                        {
+                            var (phaseOk, phaseError) =
+                                RunOnePhase(abs, type, seconds, rows, progress, cancellationToken);
+                            if (phaseOk)
+                                continue;
+
+                            completed = false;
+                            error = phaseError;
+                            break; // a failed phase aborts the sequence; each phase stops itself
+                        }
+                    }
+                    finally
+                    {
+                        // Return to the default session so the module is released cleanly — the guide
+                        // warns that leaving it otherwise can strand the hydraulic unit until the next
+                        // power cycle, so this runs even if a phase threw.
+                        var restored = abs.Request(AbsProtocol.SidStartDiagnosticSession, AbsProtocol.SessionDefault);
+                        rows.Add(new AbsReportRow("Default session restored", restored.Ok ? "yes" : "no",
+                            restored.Ok ? "10 01 accepted" : restored.DetailedError));
+                    }
+
+                    return (completed, error, new AbsRoutineResult { Rows = rows, Completed = completed });
+                }
+            }
+            catch (Exception ex)
+            {
+                return (false, ex.Message, new AbsRoutineResult { Rows = rows });
+            }
+        }
+
+        /// <summary>Poll interval for routine status and the monitored valve/pressure locations.</summary>
+        private const int RoutinePollIntervalMs = 500;
+
+        /// <summary>
+        /// Starts one routine, polls it for <paramref name="seconds"/>, then stops it. The stop is in
+        /// a finally block so cancellation, an exception, or a mid-run error still shuts the pump off.
+        /// </summary>
+        private static (bool ok, string error) RunOnePhase(
+            AbsKwpSession abs, byte type, int seconds, List<AbsReportRow> rows,
+            IProgress<AbsRoutineProgress>? progress, CancellationToken cancellationToken)
+        {
+            var routine = AbsProtocol.FindRoutine(type);
+            string phase = $"{routine?.Name ?? "Routine"} (0x{type:X2})";
+
+            var start = abs.Request(AbsProtocol.SidStartRoutineByLocalId, AbsProtocol.RoutineSubFunction, type);
+            if (!start.Ok)
+            {
+                rows.Add(new AbsReportRow(phase, "start refused", start.DetailedError));
+                return (false, $"{phase} could not be started: {start.DetailedError}");
+            }
+
+            rows.Add(new AbsReportRow(phase, "started", routine?.Description ?? ""));
+
+            try
+            {
+                DateTime begin = DateTime.UtcNow;
+                var lastRows = new List<AbsReportRow>();
+
+                while (true)
+                {
+                    double elapsed = (DateTime.UtcNow - begin).TotalSeconds;
+                    if (elapsed >= seconds || cancellationToken.IsCancellationRequested)
+                        break;
+
+                    lastRows = PollRoutine(abs, type);
+                    progress?.Report(new AbsRoutineProgress
+                    {
+                        Phase = phase,
+                        ElapsedSeconds = elapsed,
+                        TotalSeconds = seconds,
+                        Rows = lastRows,
+                    });
+
+                    // Requests refresh the session clock themselves; this covers any quiet gap.
+                    abs.KeepAlive();
+                    cancellationToken.WaitHandle.WaitOne(RoutinePollIntervalMs);
+                }
+
+                rows.AddRange(lastRows.Select(r => r with { Field = $"{phase} — {r.Field}" }));
+
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    rows.Add(new AbsReportRow(phase, "cancelled", "stopped early at the operator's request"));
+                    return (false, $"{phase} was cancelled.");
+                }
+
+                return (true, "");
+            }
+            finally
+            {
+                var stop = abs.Request(AbsProtocol.SidStopRoutineByLocalId, AbsProtocol.RoutineSubFunction, type);
+                rows.Add(new AbsReportRow(phase, stop.Ok ? "stopped" : "STOP FAILED",
+                    stop.Ok ? "32 01 accepted" : stop.DetailedError));
+            }
+        }
+
+        /// <summary>
+        /// Polls a running routine: per-wheel status from RequestRoutineResults (0x33) plus the valve
+        /// positions and brake pressures the guide recommends watching to confirm the hydraulic unit
+        /// is actually responding.
+        /// </summary>
+        private static List<AbsReportRow> PollRoutine(AbsKwpSession abs, byte type)
+        {
+            var rows = new List<AbsReportRow>();
+
+            var poll = abs.Request(AbsProtocol.SidRequestRoutineResults, AbsProtocol.RoutineSubFunction, type);
+            if (poll.Ok)
+            {
+                // Response payload is [echoed sub-function][echoed type][LF RF LR RR].
+                byte[] status = poll.Payload.Length >= 6 ? poll.Payload[2..6] : [];
+                rows.Add(status.Length == 4
+                    ? new AbsReportRow("Wheel status", string.Join("  ",
+                        AbsProtocol.RoutineWheelNames.Select((name, i) =>
+                            $"{name}={AbsProtocol.RoutineWheelStatus(status[i])}")),
+                        BitConverter.ToString(poll.Payload))
+                    : new AbsReportRow("Wheel status", "unexpected length", BitConverter.ToString(poll.Payload)));
+            }
+            else
+            {
+                rows.Add(new AbsReportRow("Wheel status", "unavailable", poll.DetailedError));
+            }
+
+            foreach (var entry in AbsProtocol.ActuationMonitorMap)
+            {
+                var response = abs.ReadMemory(entry.Address, entry.Length);
+                rows.Add(response.Ok && response.Payload.Length >= entry.Length
+                    ? new AbsReportRow(entry.Name, AbsProtocol.FormatLiveValue(entry, response.Payload),
+                        $"0x{entry.Address:X8} = {BitConverter.ToString(response.Payload)}")
+                    : new AbsReportRow(entry.Name, "unavailable", response.DetailedError));
+            }
+
+            return rows;
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════════════
+        // Addressing discovery tools
+        // ═══════════════════════════════════════════════════════════════════════════════
+
+        public (bool success, string errorMessage, AbsProbeResult result) ProbeConnection()
+        {
+            try
+            {
+                EnsureDeviceFree();
+                lock (_deviceLock)
+                {
+                    using var session = J2534Session.Open();
+                    J2534Channel channel = session.OpenCan();
+
+                    // Pass-all filter so we can learn the broadcast baseline and catch a reply on any id.
+                    channel.StartMessageFilter(PassAllFilter()).ThrowIfError();
+
+                    var rows = new List<AbsReportRow>();
+
+                    // Baseline — learn the periodic broadcast ids so request-triggered replies stand
+                    // out. Also confirms the channel receives at all.
+                    var baseline = new HashSet<uint>(Listen(channel, 1200).Keys);
+                    rows.Add(new AbsReportRow("Bus",
+                        baseline.Count == 0 ? "SILENT" : $"alive — {baseline.Count} broadcast id(s)",
+                        baseline.Count == 0 ? "no CAN traffic received at all" : SampleIds(baseline)));
+
+                    // The ABS broadcasts are the quickest confirmation that the module itself is awake.
+                    rows.Add(new AbsReportRow("ABS telemetry",
+                        baseline.Overlaps([AbsTelemetryDecoder.FrontWheelsCanId,
+                            AbsTelemetryDecoder.RearWheelsCanId, AbsTelemetryDecoder.EspStatusCanId])
+                            ? "broadcasting" : "not seen",
+                        "0x0A2 / 0x0A4 / 0x0A8 at 100 Hz"));
+
+                    void Named(string label, uint reqId, byte[] payload)
+                    {
+                        var hits = Probe(channel, reqId, payload, baseline, 250);
+                        if (hits.Count == 0)
+                            rows.Add(new AbsReportRow(label, "no reply"));
+                        else
+                            rows.AddRange(hits.Select(h => new AbsReportRow(label, "reply", h)));
+                    }
+
+                    // The confirmed ABS diagnostic pair first: a DTC read is the request the reference
+                    // tester used and needs neither session nor unlock, so a reply here is definitive.
+                    Named($"ABS 0x{Abs.RequestId:X3} ReadDtcByStatus (18 00 FF 00)", Abs.RequestId, [0x18, 0x00, 0xFF, 0x00]);
+                    Named($"ABS 0x{Abs.RequestId:X3} TesterPresent (3E 00)", Abs.RequestId, [0x3E, 0x00]);
+
+                    // ECM control proves the request/response path and that the bus is awake.
+                    Named("ECM control (0x7E0, 01 00)", 0x7E0, [0x01, 0x00]);
+
+                    // Functional broadcast — every module must listen on 0x7DF.
+                    Named("Functional (0x7DF, 3E 00)", 0x7DF, [0x3E, 0x00]);
+
+                    // Physical scan — StartDiagnosticSession(default) to every 8th id across the whole
+                    // 11-bit diagnostic range, skipping the ECM and any id a node already broadcasts on
+                    // (to avoid an arbitration clash). 10 01 selects the default session: nothing changes.
+                    int responders = 0;
+                    int scanned = 0;
+                    for (uint reqId = 0x600; reqId <= 0x7F8; reqId += 0x08)
+                    {
+                        if (reqId == 0x7E0 || baseline.Contains(reqId))
+                            continue;
+                        scanned++;
+                        foreach (string hit in Probe(channel, reqId, [0x10, 0x01], baseline, 80))
+                        {
+                            rows.Add(new AbsReportRow($"Scan 0x{reqId:X3}", "reply", hit));
+                            responders++;
+                        }
+                    }
+                    rows.Add(new AbsReportRow("Scan", $"{responders} responder(s)",
+                        $"swept {scanned} ids (0x600-0x7F8, step 8) with 10 01"));
+
+                    return (true, "", new AbsProbeResult { Rows = rows });
+                }
             }
             catch (Exception ex)
             {
@@ -245,11 +770,9 @@ namespace LotusECMLogger.Services
 
         /// <summary>
         /// Sends a single-frame request to <paramref name="requestId"/> and returns a description of
-        /// every distinct reply (any id) that was NOT already broadcasting in the baseline (empty
-        /// when silent). Distinct id+payload pairs are kept, so two modules answering on one id — or
-        /// a reply on a second id — are both surfaced. The payloads used here are read-only: OBD
-        /// Mode 01, TesterPresent, ReadEcuIdentification, and StartDiagnosticSession (which changes
-        /// only volatile session state, never module data).
+        /// every distinct reply (any id) that was NOT already broadcasting in the baseline (empty when
+        /// silent). The payloads used here are read-only: OBD Mode 01, TesterPresent, ReadDtcByStatus,
+        /// and StartDiagnosticSession (which changes only volatile session state, never module data).
         /// </summary>
         private static List<string> Probe(
             J2534Channel channel, uint requestId, byte[] payload, HashSet<uint> baseline, int listenMs)
@@ -276,7 +799,7 @@ namespace LotusECMLogger.Services
                     if (data is null || data.Length < 5)
                         continue;
 
-                    uint id = (uint)((data[0] << 24) | (data[1] << 16) | (data[2] << 8) | data[3]);
+                    uint id = FrameId(data);
                     // Capture a reply on ANY new id — the ABS may respond outside 0x7E8-0x7EF.
                     if (id == requestId || baseline.Contains(id))
                         continue;
@@ -308,8 +831,7 @@ namespace LotusECMLogger.Services
                     if (data is null || data.Length < 4)
                         continue;
 
-                    uint id = (uint)((data[0] << 24) | (data[1] << 16) | (data[2] << 8) | data[3]);
-                    seen[id] = data.Length > 4 ? BitConverter.ToString(data, 4) : "(no data)";
+                    seen[FrameId(data)] = data.Length > 4 ? BitConverter.ToString(data, 4) : "(no data)";
                 }
             }
 
@@ -325,9 +847,10 @@ namespace LotusECMLogger.Services
 
         private static string ModuleName(uint id) => id switch
         {
+            0x6F5 => " (ABS diagnostic)",
             0x7E8 => " (ECM)",
             0x7E9 => " (TCM)",
-            0x7EA => " (ABS)",
+            0x7EA => " (ABS slot, unused here)",
             0x7EB => " (Body)",
             _ => "",
         };
@@ -337,58 +860,57 @@ namespace LotusECMLogger.Services
         {
             try
             {
-                using var session = J2534Session.Open();
-                // CAN_ID_BOTH so we also capture 29-bit ids, in case the ABS uses extended addressing.
-                J2534Channel channel = session.OpenChannel(Protocol.CAN, Baud.CAN, ConnectFlag.CAN_ID_BOTH);
-                channel.StartMessageFilter(new MessageFilter
+                EnsureDeviceFree();
+                lock (_deviceLock)
                 {
-                    FilterType = Filter.PASS_FILTER,
-                    Mask = [0x00, 0x00, 0x00, 0x00],
-                    Pattern = [0x00, 0x00, 0x00, 0x00],
-                }).ThrowIfError();
+                    using var session = J2534Session.Open();
+                    // CAN_ID_BOTH so we also capture 29-bit ids, in case the ABS uses extended addressing.
+                    J2534Channel channel = session.OpenChannel(Protocol.CAN, Baud.CAN, ConnectFlag.CAN_ID_BOTH);
+                    channel.StartMessageFilter(PassAllFilter()).ThrowIfError();
 
-                // Phase 1 — learn the periodic broadcast ids while the tester is idle.
-                progress?.Report("Learning bus baseline (5s) — keep the reference tester idle…");
-                var baseline = new HashSet<uint>();
-                DateTime b0 = DateTime.UtcNow;
-                while ((DateTime.UtcNow - b0).TotalSeconds < 5)
-                    foreach (var m in channel.ReadMessages(64, 50).Messages)
-                        if (m.Data is { Length: >= 4 })
-                            baseline.Add(FrameId(m.Data));
+                    // Phase 1 — learn the periodic broadcast ids while the tester is idle.
+                    progress?.Report("Learning bus baseline (5s) — keep the reference tester idle…");
+                    var baseline = new HashSet<uint>();
+                    DateTime b0 = DateTime.UtcNow;
+                    while ((DateTime.UtcNow - b0).TotalSeconds < 5)
+                        foreach (var m in channel.ReadMessages(64, 50).Messages)
+                            if (m.Data is { Length: >= 4 })
+                                baseline.Add(FrameId(m.Data));
 
-                // Phase 2 — log every frame on an id that was NOT broadcasting in the baseline. The
-                // tester↔ABS diagnostic exchange appears here because those ids are only active
-                // while the tester is talking.
-                progress?.Report($"Capturing {captureSeconds}s — run the reference tester's ABS read NOW…");
-                var frames = new List<string>();
-                var counts = new SortedDictionary<uint, int>();
-                DateTime start = DateTime.UtcNow;
-                while ((DateTime.UtcNow - start).TotalSeconds < captureSeconds && frames.Count < 20000)
-                {
-                    foreach (var m in channel.ReadMessages(64, 50).Messages)
+                    // Phase 2 — log every frame on an id that was NOT broadcasting in the baseline. The
+                    // tester↔ABS diagnostic exchange appears here because those ids are only active
+                    // while the tester is talking.
+                    progress?.Report($"Capturing {captureSeconds}s — run the reference tester's ABS read NOW…");
+                    var frames = new List<string>();
+                    var counts = new SortedDictionary<uint, int>();
+                    DateTime start = DateTime.UtcNow;
+                    while ((DateTime.UtcNow - start).TotalSeconds < captureSeconds && frames.Count < 20000)
                     {
-                        byte[] data = m.Data;
-                        if (data is null || data.Length < 4)
-                            continue;
+                        foreach (var m in channel.ReadMessages(64, 50).Messages)
+                        {
+                            byte[] data = m.Data;
+                            if (data is null || data.Length < 4)
+                                continue;
 
-                        uint id = FrameId(data);
-                        if (baseline.Contains(id))
-                            continue;
+                            uint id = FrameId(data);
+                            if (baseline.Contains(id))
+                                continue;
 
-                        double ms = (DateTime.UtcNow - start).TotalMilliseconds;
-                        string payload = data.Length > 4 ? BitConverter.ToString(data, 4) : "";
-                        frames.Add($"{ms,8:F0} ms  0x{id:X3}  {payload}");
-                        counts[id] = counts.GetValueOrDefault(id) + 1;
+                            double ms = (DateTime.UtcNow - start).TotalMilliseconds;
+                            string payload = data.Length > 4 ? BitConverter.ToString(data, 4) : "";
+                            frames.Add($"{ms,8:F0} ms  0x{id:X3}  {payload}");
+                            counts[id] = counts.GetValueOrDefault(id) + 1;
+                        }
                     }
-                }
 
-                progress?.Report("Sniff complete");
-                return (true, "", new AbsSniffResult
-                {
-                    BaselineIdCount = baseline.Count,
-                    NewIds = counts.Select(kv => $"0x{kv.Key:X3}{ModuleName(kv.Key)} — {kv.Value} frame(s)").ToList(),
-                    Frames = frames,
-                });
+                    progress?.Report("Sniff complete");
+                    return (true, "", new AbsSniffResult
+                    {
+                        BaselineIdCount = baseline.Count,
+                        NewIds = counts.Select(kv => $"0x{kv.Key:X3}{ModuleName(kv.Key)} — {kv.Value} frame(s)").ToList(),
+                        Frames = frames,
+                    });
+                }
             }
             catch (Exception ex)
             {
@@ -396,119 +918,32 @@ namespace LotusECMLogger.Services
             }
         }
 
+        // ═══════════════════════════════════════════════════════════════════════════════
+        // Shared helpers
+        // ═══════════════════════════════════════════════════════════════════════════════
+
+        private static MessageFilter PassAllFilter() => new()
+        {
+            FilterType = Filter.PASS_FILTER,
+            Mask = [0x00, 0x00, 0x00, 0x00],
+            Pattern = [0x00, 0x00, 0x00, 0x00],
+        };
+
         private static uint FrameId(byte[] data) =>
             (uint)((data[0] << 24) | (data[1] << 16) | (data[2] << 8) | data[3]);
 
         /// <summary>
-        /// Performs the SecurityAccess level 1 unlock: request the seed (0x27 0x01), derive the
-        /// key from the SBOX, and send it (0x27 0x02). Must already be in the programming session.
-        /// This unlocks read access only — no protected write is performed by this service.
+        /// Rejects an operation that would open the J2534 device while the telemetry monitor owns it.
+        /// Only one channel set can be open at a time, and a second open would fail deeper down with a
+        /// far less obvious error.
         /// </summary>
-        private static (bool ok, string error) SecurityAccess(J2534Channel channel)
+        private void EnsureDeviceFree()
         {
-            var seedResult = Request(channel, [SidSecurityAccess, SecurityRequestSeed]);
-            if (!seedResult.ok)
-                return (false, $"SecurityAccess seed request failed: {seedResult.error}");
-
-            // seedResult.payload = [0x01 (echoed sub-function), seed bytes...].
-            if (seedResult.payload.Length < 1 + SeedLength)
-                return (false, "SecurityAccess seed response was too short.");
-
-            byte[] seed = seedResult.payload[1..(1 + SeedLength)];
-
-            // Convention: an all-zero seed means the module is already unlocked — skip the key.
-            if (Array.TrueForAll(seed, b => b == 0))
-                return (true, "");
-
-            byte[] key = ComputeKey(seed);
-
-            byte[] keyPayload = new byte[2 + key.Length];
-            keyPayload[0] = SidSecurityAccess;
-            keyPayload[1] = SecuritySendKey;
-            Array.Copy(key, 0, keyPayload, 2, key.Length);
-
-            var keyResult = Request(channel, keyPayload);
-            if (!keyResult.ok)
-                return (false, $"SecurityAccess key rejected: {keyResult.error}");
-
-            return (true, "");
+            if (_monitoring)
+                throw new InvalidOperationException(
+                    "ABS telemetry monitoring is running — stop it before running another ABS operation.");
         }
 
-        private static byte[] ComputeKey(byte[] seed)
-        {
-            byte[] key = new byte[seed.Length];
-            for (int i = 0; i < seed.Length; i++)
-                key[i] = SBox[seed[i]];
-            return key;
-        }
-
-        /// <summary>
-        /// Sends a single-frame KWP2000 request to the ABS and waits for its response. The
-        /// J2534 ISO15765 channel handles ISO-TP framing/reassembly, so this works for
-        /// multi-frame responses too. NRC 0x78 (responsePending) is transparently awaited.
-        /// </summary>
-        /// <returns>
-        /// <c>ok</c> with the response payload after the positive-response SID byte, or an
-        /// error string plus the NRC (0 when none) on a negative response or timeout.
-        /// </returns>
-        private static (bool ok, string error, byte[] payload, byte nrc) Request(
-            J2534Channel channel, byte[] kwpPayload)
-        {
-            byte[] header = Abs.GetRequestHeader();
-            byte[] message = new byte[header.Length + kwpPayload.Length];
-            Array.Copy(header, message, header.Length);
-            Array.Copy(kwpPayload, 0, message, header.Length, kwpPayload.Length);
-            channel.SendMessage(message);
-
-            byte requestSid = kwpPayload[0];
-            byte expectedResponseSid = (byte)(requestSid | PositiveResponseFlag);
-
-            // The budget spans the responsePending window (P2*): repeated 250 ms reads.
-            for (int attempt = 0; attempt < 20; attempt++)
-            {
-                var response = channel.ReadMessages(1, 250);
-                if (response.Messages.Length == 0)
-                    continue;
-
-                byte[] data = response.Messages[0].Data;
-                // Accept only frames addressed from the ABS response id; skip our own TX
-                // echoes/confirmations and unrelated bus traffic.
-                if (data.Length < 5 || !Abs.MatchesResponse(data))
-                    continue;
-
-                byte sid = data[4];
-                if (sid == expectedResponseSid)
-                    return (true, "", data[5..], 0);
-
-                // Negative response: [header] 7F <requestSid> <nrc>
-                if (sid == NegativeResponseSid && data.Length >= 7 && data[5] == requestSid)
-                {
-                    byte nrc = data[6];
-                    if (nrc == NrcResponsePending)
-                        continue; // module still working — keep waiting for the final response
-                    return (false, $"NRC 0x{nrc:X2} ({NrcName(nrc)})", [], nrc);
-                }
-                // Some other frame from the ABS id — ignore and keep reading.
-            }
-
-            return (false, "No response from ABS module (timeout).", [], 0);
-        }
-
-        private static string NrcName(byte nrc) => nrc switch
-        {
-            0x10 => "generalReject",
-            0x11 => "serviceNotSupported",
-            0x12 => "subFunctionNotSupported",
-            0x13 => "incorrectMessageLength",
-            0x22 => "conditionsNotCorrect",
-            0x24 => "requestSequenceError",
-            0x31 => "requestOutOfRange",
-            0x33 => "securityAccessDenied",
-            0x34 => "requiredTimeDelayNotExpired",
-            0x35 => "invalidKey",
-            0x36 => "exceedNumberOfAttempts",
-            0x78 => "responsePending",
-            _ => "unknown",
-        };
+        public void Dispose() => StopTelemetryMonitor();
     }
 }
