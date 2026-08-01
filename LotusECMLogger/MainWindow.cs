@@ -227,6 +227,11 @@ namespace LotusECMLogger
                 GuiIcons.Dtc,
                 GuiIcons.LiveTuning,
                 GuiIcons.Snapshots);
+
+            // The ABS tab's brake rotor is drawn rather than taken from a glyph — Segoe MDL2 has no
+            // brake symbol — so it is appended to the list instead of passed to BuildImageList.
+            mainIcons.Images.Add(GuiIcons.RenderBrakeRotor(20, tabColor));
+
             mainTabControl.ImageList = mainIcons;
             vehicleInfoTab.ImageIndex = 0;
             loggingTab.ImageIndex     = 1;
@@ -234,6 +239,7 @@ namespace LotusECMLogger
             dtcTab.ImageIndex         = 3;
             liveTuningTab.ImageIndex  = 4;
             snapshotsTab.ImageIndex   = 5;
+            absTab.ImageIndex         = 6;
 
             var loggingModeIcons = GuiIcons.BuildImageList(20, tabColor,
                 GuiIcons.HighSpeedLog,
