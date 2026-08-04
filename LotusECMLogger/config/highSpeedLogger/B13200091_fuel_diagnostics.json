@@ -3,18 +3,19 @@
   // load/temp axes through target/enrichment, knock PE contribution, flow conversion and pulse
   // width to the closed-loop trims. Port of C132E0278_fuel_diagnostics.json with these deltas:
   //   - No TMAP sensor: airflow comes from the MAF (maf_flow_1) and IAT from air_temp_intake;
-  //     the obd_ii_manifold_temp channel has no equivalent here.4
+  //     the obd_ii_manifold_temp channel has no equivalent here.
   //   - No fuel pressure sensor: inj_flow_rate is a fixed-rail calibration value, so battery
   //     voltage + inj_deadtime_base stand in as the delivery-side health channels.
   //   - This firmware exposes injector duty cycle (inj_duty_bank1/2_pct) and the max available
   //     pulse window (inj_pw_max_available_us) directly — these replace load_limit_from_inj as
   //     the injector-capacity view.
   //   - Single afr_target node: no afr_target2/afr_commanded split on this ECU.
-  //   - Per-cylinder knock retard lives in a hidden [6] array; knock_ign_retard2_sum (total,
-  //     1/4-deg counts) is logged instead.
-  // All channels resolve from database/B13200091.csv; entries with an `undefined*` catalog type
-  // carry inline scale/unit overrides — those marked "assumed" are unverified on this firmware,
-  // sanity-check against a known reading before trusting them.
+  //   - Per-cylinder knock retard lives in a [6] array (knock_ign_retard2); knock_ign_retard_sum
+  //     (total, 1/4-deg) is logged instead.
+  // All channels resolve from database/B13200091.csv; most scale/unit metadata is derived from the
+  // encoded catalog types. Only the remaining `undefined*` entries (ign_comp_rpm, obd_ltft_bank_1/2)
+  // carry inline overrides — those marked "assumed" are unverified on this firmware, sanity-check
+  // against a known reading before trusting them.
   //
   // 4 rate groups (20/10/5/1 Hz), ~140 frames/s ≈ 3-4% of the 500 kbit/s bus — headroom to raise
   // the pulse-width/duty channels to 50-100 Hz for transient work (edit per-channel before Start).
@@ -34,17 +35,17 @@
     { "symbol": "afr_enrichment_from_ign_retard", "rate": 20 },               // Knock/retard PE contribution (AFR = val/100, subtracted)
 
     // ── Knock inputs ─────────────────────────────────────────────────────────────────────────────
-    { "symbol": "knock_ign_retard2_sum", "rate": 10, "scale": 0.25, "unit": "deg" }, // Total knock retard, all cylinders (sum of 1/4-deg counts)
+    { "symbol": "knock_ign_retard_sum", "rate": 10 },                       // Total knock retard, all cylinders (i16_angle_1/4deg)
     { "symbol": "ign_comp_coolant",      "rate": 10 },                        // Coolant ignition comp (deg = val/4)
     { "symbol": "ign_comp_rpm",          "rate": 10, "signed": true, "scale": 0.25, "unit": "deg" }, // RPM ignition comp (assumed i16 1/4-deg)
-    { "symbol": "ign_comp_iat",          "rate": 5,  "signed": true, "scale": 0.25, "unit": "deg" }, // IAT ignition comp (assumed i16 1/4-deg)
+    { "symbol": "ign_comp_iat",          "rate": 5 },                        // IAT ignition comp (i16_angle_1/4deg)
 
     // ── Temp factors ─────────────────────────────────────────────────────────────────────────────
     { "symbol": "inj_warmup_factor",     "rate": 5 },                         // Load/coolant enrichment factor (x val/64, floor 1.0) — CAL_inj_warmup_factor_{manual|ips}
     { "symbol": "inj_comp_iat",          "rate": 5 },                         // Air-temp compensation factor (val/128) — CAL_inj_comp_iat
 
     // ── Flow conversion ──────────────────────────────────────────────────────────────────────────
-    { "symbol": "inj_efficiency",        "rate": 5, "scale": 0.01, "unit": "ratio" }, // Efficiency lookup + test trim (assumed val/100 as on C0278)
+    { "symbol": "inj_efficiency",        "rate": 5 },                        // Efficiency lookup + test trim (u8_factor_1/200; NOT val/100 as on C0278)
     { "symbol": "inj_flow_rate",         "rate": 5 },                         // Commanded injector flow (mg/s) — fixed-rail, no dP correction
     { "symbol": "inj_bank_balance_ratio", "rate": 5 },                        // Bank balance (val/200; 100% = balanced)
     { "symbol": "inj_fuel_mass_required", "rate": 10 },                       // Fuel mass demand per stroke (10 ug units)
@@ -66,10 +67,15 @@
     { "symbol": "inj_duty_bank2_pct",    "rate": 20 },                        // Injector duty bank 2 (%)
     { "symbol": "inj_pw_max_available_us", "rate": 5 },                       // Max pulse window at current RPM (us) — capacity ceiling
 
+    // ── Transient / correction filters ───────────────────────────────────────────────────────────
+    { "symbol": "inj_tip_adj_enrichment", "rate": 10 },                      // Tip-in enrichment adj (undefined4, raw) — nonzero = transient-contaminated sample
+    { "symbol": "inj_tip_adj_enleanment", "rate": 10 },                      // Tip-out enleanment adj (undefined4, raw) — nonzero = transient-contaminated sample
+    { "symbol": "load_alphaN_trim_factor", "rate": 1 },                      // Learned alpha-N airflow trim (u16_factor_1/100) — ECU's own correction on top of the MAF curve
+
     // ── Bank trims ───────────────────────────────────────────────────────────────────────────────
-    // 16-bit internal trims; assumed % = val/20 as on C0278. Enable if the O2 traces aren't enough.
-    //{ "symbol": "stft_bank1",           "rate": 20, "signed": true, "scale": 0.05, "unit": "%" }, // Short-term trim B1
-    //{ "symbol": "stft_bank2",           "rate": 20, "signed": true, "scale": 0.05, "unit": "%" }, // Short-term trim B2
+    // 16-bit internal trims, catalog-typed i16_factor_1/20. Enable if the O2 traces aren't enough.
+    //{ "symbol": "stft_bank1",           "rate": 20 },                      // Short-term trim B1
+    //{ "symbol": "stft_bank2",           "rate": 20 },                      // Short-term trim B2
     { "symbol": "obd_ltft_bank_1",       "rate": 1, "scale": 0.78125, "offset": -100, "unit": "%" }, // Long-term trim B1 (assumed OBD A/1.28-100 encoding)
     { "symbol": "obd_ltft_bank_2",       "rate": 1, "scale": 0.78125, "offset": -100, "unit": "%" }, // Long-term trim B2 (assumed OBD A/1.28-100 encoding)
 
