@@ -53,6 +53,19 @@ namespace LotusECMLogger
         };
 
         /// <summary>
+        /// Bosch ESP8 ABS/ESP module. Speaks KWP2000 over ISO-TP with a different SID table than
+        /// the engine ECU, so it needs its own channel filter. The diagnostic ids (request 0x6F4,
+        /// response 0x6F5) were captured from a reference tester on a real car — the ISO 15765-4
+        /// "ABS" slot (0x7E2/0x7EA) the guide assumed is NOT what this module uses.
+        /// </summary>
+        public static ECUDefinition ABS => new()
+        {
+            Name = "ABS/ESP",
+            RequestId = 0x6F4,
+            ResponseId = 0x6F5
+        };
+
+        /// <summary>
         /// Get the 4-byte CAN header for requests to this ECU
         /// </summary>
         public byte[] GetRequestHeader()
