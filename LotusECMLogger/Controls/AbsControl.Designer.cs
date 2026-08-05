@@ -309,7 +309,7 @@ namespace LotusECMLogger.Controls
             actuationTab.Padding = new Padding(3);
             actuationTab.Size = new Size(892, 437);
             actuationTab.TabIndex = 3;
-            actuationTab.Text = "Pump && Valves";
+            actuationTab.Text = "Pump && Valves (untested)";
             actuationTab.UseVisualStyleBackColor = true;
             //
             // actuationListView
