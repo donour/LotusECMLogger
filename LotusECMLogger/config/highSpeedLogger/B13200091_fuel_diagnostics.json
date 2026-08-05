@@ -2,7 +2,8 @@
   // Fuel/injection diagnostics preset for the B13200091 ECU: traces the AFR pipeline from the
   // load/temp axes through target/enrichment, knock PE contribution, flow conversion and pulse
   // width to the closed-loop trims. Port of C132E0278_fuel_diagnostics.json with these deltas:
-  //   - No TMAP sensor: airflow comes from the MAF (maf_flow_1) and IAT from air_temp_intake;
+  //   - No TMAP sensor: airflow comes from the MAF (maf_flow_1, plus its raw sensor voltage
+  //     sensor_adc_maf1) and IAT from air_temp_intake;
   //     the obd_ii_manifold_temp channel has no equivalent here.
   //   - No fuel pressure sensor: inj_flow_rate is a fixed-rail calibration value, so battery
   //     voltage + inj_deadtime_base stand in as the delivery-side health channels.
@@ -27,6 +28,9 @@
     { "symbol": "engine_speed_16bit",    "rate": 20 },                        // X of the fueling tables (RPM)
     { "symbol": "load_mass_per_stroke",  "rate": 20 },                        // Y of enrichment tables (mg/stk = val*4)
     { "symbol": "maf_flow_1",            "rate": 20 },                        // Primary MAF — airflow basis of the fuel calc (mg/s = val*10)
+    { "symbol": "sensor_adc_maf1",       "rate": 20 },                        // Raw primary MAF sensor voltage (V = val*5/1023) — pre-transfer-function input to maf_flow_1;
+                                                                              // pair with maf_flow_1 to separate a sensor/wiring fault from a wrong CAL_sensor_maf_scaling curve.
+                                                                              // (sensor_adc_maf2 is the secondary element if the two MAF flows disagree.)
     { "symbol": "coolant_temp",          "rate": 1 },                         // Y of warmup/enrichment table
     { "symbol": "air_temp_intake",       "rate": 1 },                         // IAT comp input (no TMAP on this ECU)
 
