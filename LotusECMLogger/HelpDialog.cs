@@ -233,7 +233,7 @@ namespace LotusECMLogger
             AddBulletPoint("Learned Data Reset: Clear adaptive learning values from the ECU.");
             AddBulletPoint("ABS/ESP Diagnostics: Read fault codes, identification, and live internal state from the Bosch ESP8 ABS module; log all four wheel speeds at 100 Hz; and run the pump/valve routines used for brake bleeding.");
             AddBulletPoint("T6 RMA Logging: Advanced memory address logging for development.");
-            AddBulletPoint("T6 Live Tuning: Edit calibration values in ECU RAM in real time by monitoring a calibration file on disk (requires an unlocked ECU).");
+            AddBulletPoint("T6 Live Tuning: Edit calibration values in ECU RAM in real time by monitoring a calibration file on disk, or upload a whole calibration into RAM in one operation (requires an unlocked ECU).");
             AddBulletPoint("T6E Calibration Flasher: Flash calibration files to the ECU.");
             AddBulletPoint("Erase Model Info: Clear stored model info after a firmware migration so the new firmware activates (Tools menu).");
             AddBulletPoint("Free and open source: No cost, no restrictions, and community-driven development.");
@@ -784,6 +784,25 @@ namespace LotusECMLogger
             AddSubheading("Using an Existing File:");
             AddParagraph("If you already have a .cpt file that matches the ECU's current calibration, select it under 'Calibration File' and click 'Start Monitoring' to begin synchronizing without re-reading the ECU. The file must correspond to the configured base address, otherwise writes will land at the wrong locations.");
 
+            AddSubheading("Upload to ECU (Whole-Calibration Upload):");
+            AddParagraph("Where monitoring writes individual words as you edit them, 'Upload to ECU' writes an entire .cpt into ECU RAM in one operation - the inverse of 'Read & Start'. Use it to swap in a complete calibration you prepared earlier, or to restore a saved one, without flashing.");
+            AddParagraph("1. Select the file under 'Calibration File' and confirm the base address is right for it (the memory presets set this for you).");
+            AddParagraph("2. Click 'Upload to ECU' and read the confirmation dialog, which shows the exact address range that will be overwritten.");
+            AddParagraph("3. Watch the progress bar and the status log. The upload can be cancelled while it runs.");
+            AddParagraph("The file's own size decides how much is written - no more and no less. The length box on this tab applies to reading, not uploading; if the two disagree the confirmation dialog says so, because that usually means the selected preset does not match the file.");
+
+            AddSubheading("How an Upload Protects You:");
+            AddParagraph("Two checks run around every upload, because writing a whole calibration into a running engine has more ways to go wrong than editing one value.");
+            AddBulletPoint("Before writing: the first 32 bytes of the file are compared against the same bytes already in ECU memory. If they differ, the file almost certainly belongs to a different calibration, a different ECU, or a different memory region, and the upload stops before sending anything. Both headers are shown so you can see what differs, and you can override the check if you genuinely mean to replace the running calibration with an unrelated one.");
+            AddBulletPoint("After writing: the region is read back and compared against the file. RMA writes are fire-and-forget - the ECU never acknowledges them - so this read-back is the only proof that every word actually landed. Any mismatch is reported with a count and the first differing addresses.");
+            AddParagraph("These checks answer different questions. The read-back confirms that what was sent arrived intact; it cannot tell that the wrong file was sent. The pre-flight check is the one that catches that.");
+
+            AddSubheading("Upload Cautions:");
+            AddBulletPoint("The transfer is not atomic. It takes several seconds, and until it finishes the engine is running on a mix of the old and new calibrations. Prefer to upload with the engine off, or at idle in a safe place - not under load.");
+            AddBulletPoint("Cancelling mid-upload leaves that mix in place. Upload again to finish, or cycle the ignition to reload the flashed calibration.");
+            AddBulletPoint("If the ECU is locked it silently discards the writes. The application probes the unlock state first and refuses rather than letting you discover this from a failed verification.");
+            AddBulletPoint("'Upload to ECU' stays greyed out until a valid file is selected under 'Calibration File', and is disabled while monitoring is active. Note that 'Read & Start' does not put the file it creates into that box - browse to it if you want to upload a file you just read.");
+
             AddSubheading("Important Notes:");
             AddBulletPoint("Changes are written to ECU RAM only - they are lost on power-off and do not modify the flashed calibration. To make a change permanent, flash it with the T6E Calibration Flasher.");
             AddBulletPoint("The status log shows every word written, so you can verify each edit as it is applied.");
@@ -958,6 +977,24 @@ namespace LotusECMLogger
             AddBulletPoint("Check the SecurityAccess row near the top of the results - memory reads require the unlock to have succeeded");
             AddBulletPoint("Individual locations may be refused by the module while others succeed; this is reported per row and a partial result is still usable");
             AddBulletPoint("The reason for each refusal is shown in the Detail column - 'conditionsNotCorrect' points at vehicle state, 'securityAccessDenied' at the unlock");
+
+            AddSubheading("Live Tuning Issues:");
+
+            AddParagraph("Problem: 'Upload to ECU' is greyed out");
+            AddBulletPoint("Select a file under 'Calibration File' - the button stays disabled until that box holds a path to a file that exists");
+            AddBulletPoint("'Read & Start' does not fill that box in with the file it creates, so browse to the file even if you just read it from the ECU");
+            AddBulletPoint("Stop monitoring if it is running - upload needs the J2534 device to itself");
+            AddBulletPoint("Check the base address parses as 8 hex digits; the button also requires a valid address");
+
+            AddParagraph("Problem: Upload stops with a calibration mismatch");
+            AddBulletPoint("The first 32 bytes of the file do not match ECU memory, so the file is probably for a different calibration, ECU, or memory region. Nothing has been written at this point");
+            AddBulletPoint("Compare the two headers shown in the dialog, then check the selected file and the base address - a preset that does not match the file is the usual cause");
+            AddBulletPoint("If the file really is meant to replace the running calibration with a different one, answer Yes to upload anyway");
+
+            AddParagraph("Problem: Upload finishes but verification reports mismatched bytes");
+            AddBulletPoint("Some writes did not land. ECU RAM now matches neither the old calibration nor the file - upload again, or cycle the ignition to reload the flashed calibration");
+            AddBulletPoint("A locked ECU discards writes silently; confirm the 'ECU' indicator on the Vehicle Information tab reads UNLOCKED");
+            AddBulletPoint("Check the OBD-II and USB connections - a marginal link drops frames, and RMA writes are never acknowledged, so nothing retries them automatically");
 
             AddSubheading("General Tips:");
             AddBulletPoint("Always ensure your vehicle battery is fully charged before diagnostic operations");

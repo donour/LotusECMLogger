@@ -14,6 +14,82 @@ namespace LotusECMLogger.Services
 	}
 
 	/// <summary>
+	/// Which stage of an upload a progress report describes.
+	/// </summary>
+	public enum T6RMAUploadPhase
+	{
+		/// <summary>Sending the image to ECU memory.</summary>
+		Writing,
+
+		/// <summary>Reading the region back to confirm it matches the image.</summary>
+		Verifying
+	}
+
+	/// <summary>
+	/// Progress report for an upload. Unlike a read, an upload has two stages that each cover the
+	/// whole region, so the phase is carried alongside the byte counts.
+	/// </summary>
+	public readonly record struct T6RMAUploadProgress(T6RMAUploadPhase Phase, int BytesDone, int TotalBytes);
+
+	/// <summary>
+	/// Outcome of an upload, including what the verification pass found.
+	/// </summary>
+	public sealed class T6RMAUploadResult
+	{
+		/// <summary>Bytes sent to the ECU.</summary>
+		public int BytesWritten { get; init; }
+
+		/// <summary>Whether the region was read back and compared after writing.</summary>
+		public bool VerificationRan { get; init; }
+
+		/// <summary>Bytes that read back differently from the uploaded image.</summary>
+		public int MismatchCount { get; init; }
+
+		/// <summary>
+		/// Addresses of the first few mismatching bytes, for diagnostics. Capped, so this is a
+		/// sample rather than the full set when <see cref="MismatchCount"/> is large.
+		/// </summary>
+		public IReadOnlyList<uint> SampleMismatchAddresses { get; init; } = [];
+
+		/// <summary>
+		/// True when nothing mismatched. An unverified upload reports true because nothing
+		/// contradicted it — check <see cref="VerificationRan"/> to tell the two apart.
+		/// </summary>
+		public bool Success => MismatchCount == 0;
+	}
+
+	/// <summary>
+	/// Thrown when an upload's pre-flight check finds that the head of the file does not match the
+	/// head of the region it would overwrite, which means the file almost certainly belongs to a
+	/// different calibration, a different ECU, or a different memory region.
+	/// </summary>
+	/// <remarks>
+	/// Nothing has been written to the ECU when this is thrown — the check runs before the first
+	/// frame goes out. Callers that genuinely intend to replace the running calibration with an
+	/// unrelated one can retry with the check disabled.
+	/// </remarks>
+	public sealed class T6RMAHeaderMismatchException : Exception
+	{
+		public T6RMAHeaderMismatchException(uint address, byte[] expectedFromFile, byte[] actualFromEcu)
+			: base($"The first {expectedFromFile.Length} bytes at 0x{address:X8} do not match the calibration file. " +
+				   "Nothing was written.")
+		{
+			Address = address;
+			ExpectedFromFile = expectedFromFile;
+			ActualFromEcu = actualFromEcu;
+		}
+
+		/// <summary>Address the comparison started at.</summary>
+		public uint Address { get; }
+
+		/// <summary>The bytes the calibration file starts with.</summary>
+		public byte[] ExpectedFromFile { get; }
+
+		/// <summary>The bytes ECU memory currently holds at <see cref="Address"/>.</summary>
+		public byte[] ActualFromEcu { get; }
+	}
+
+	/// <summary>
 	/// Service for reading ECU memory addresses using the T6 RMA (Remote Memory Access) protocol
 	/// Protocol reverse-engineered from firmware function flexcan_a_rx_50_51_52_53()
 	/// </summary>
@@ -112,6 +188,51 @@ namespace LotusECMLogger.Services
 		/// will not respond to the underlying memory reads.
 		/// </remarks>
 		Task<bool> DownloadProgramAsync(EcuVariant variant, string filePath, IProgress<(int bytesRead, int totalBytes)>? progress = null);
+
+		/// <summary>
+		/// Uploads a binary calibration image into ECU RAM, the inverse of
+		/// <see cref="ReadMemoryToFileAsync"/>: the file's bytes land in memory in the order they
+		/// appear in the file, so a region read to a .cpt file and uploaded again is byte-for-byte
+		/// what was read. The image is written with the RMA word-write command (CAN ID 0x54), one
+		/// 4-byte word per CAN frame, with any trailing 1-3 bytes finished by single-byte writes
+		/// (CAN ID 0x56). <paramref name="baseAddress"/> is where file offset 0 lands, and the file's
+		/// own length determines how much is written.
+		/// </summary>
+		/// <param name="baseAddress">ECU address for file offset 0 (RAM: 0x40000000-0x4000FFFF).</param>
+		/// <param name="filePath">Binary image to upload; its length sets the region size.</param>
+		/// <param name="verify">
+		/// When true, reads the region back afterwards and compares it against the image. RMA writes
+		/// are fire-and-forget with no ECU acknowledgement, so this read-back is the only confirmation
+		/// that every frame was accepted.
+		/// </param>
+		/// <param name="checkHeader">
+		/// When true, compares the head of the region against the head of the file before writing
+		/// anything and throws <see cref="T6RMAHeaderMismatchException"/> if they differ. This is the
+		/// only check that can catch the wrong file being uploaded; <paramref name="verify"/> confirms
+		/// that what was sent arrived, not that it should have been sent. Pass false to overwrite a
+		/// running calibration with a deliberately unrelated image.
+		/// </param>
+		/// <param name="progress">Optional progress callback, reported for both phases.</param>
+		/// <param name="cancellationToken">Cancels the upload between frames.</param>
+		/// <returns>The outcome, including any bytes that failed verification.</returns>
+		/// <exception cref="T6RMAHeaderMismatchException">
+		/// The pre-flight check found the file does not belong to the calibration in memory. Nothing
+		/// was written.
+		/// </exception>
+		/// <remarks>
+		/// This writes into the memory a running engine is calibrated from, and the transfer is not
+		/// atomic: until it completes, the ECU is running a mix of the old and new calibrations.
+		/// Cancelling mid-upload leaves that mix in place — an ignition cycle reloads the calibration
+		/// from flash. Requires an unlocked ECU (see <see cref="IsEcuUnlocked"/>); a locked ECU
+		/// silently discards the writes, which surfaces as wholesale verification mismatches.
+		/// </remarks>
+		Task<T6RMAUploadResult> WriteFileToMemoryAsync(
+			uint baseAddress,
+			string filePath,
+			bool verify = true,
+			bool checkHeader = true,
+			IProgress<T6RMAUploadProgress>? progress = null,
+			CancellationToken cancellationToken = default);
 
 		/// <summary>
 		/// Write a 32-bit word to ECU memory using T6 RMA protocol (CAN ID 0x54)
