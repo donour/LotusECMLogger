@@ -76,15 +76,38 @@ Available from the **Tools** menu, Erase Model Info clears the model identificat
 
 ## Developer TODOs
 
+### Architecture
+- **Every diagnostic operation opens its own J2534 device session.** There are 22 `J2534Session.Open()` call sites across 12 service classes, and six controls carry an `IsLoggerActive` flag whose only job is to disable themselves while another operation owns the device — which is why the UI is full of "stop logging to use X". Fix: a session broker that owns one open device and leases channels per operation, so DTC reads, vehicle info and ABS telemetry can run alongside logging. This is also the natural home for pass-thru device selection (see UI / UX), and would let most of the `IsLoggerActive` gating be deleted. Large change that touches every service — land regression tests first (see Code Quality).
+
+### Stability
+- **`OBDLoggerControl.SafeUIInvoke` uses blocking `Invoke`.** The J2534 polling thread blocks until the UI thread has processed each batch, so any UI hitch costs sample rate directly. It also stalls the error path: `Logger_ExceptionOccurred` is raised on the logger thread and marshalled with `Invoke`, and its handler calls `Stop()`, which joins the very thread parked inside that `Invoke` — the UI freezes until the 2 s and 1 s join timeouts expire. Fix: `BeginInvoke`, or better, have the worker publish to a snapshot and let a UI timer render it at a fixed rate.
+- **A single transient bus error ends the logging session permanently.** Any exception in the logger loop stops logging and raises a modal dialog; there is no retry or reconnect. A dropped frame or a momentary interface glitch should not end a dyno pull.
+- **`SetThreadExecutionState` is called on the hot path and cleared on the wrong thread.** `OBDLoggerControl.Logger_DataLogged` P/Invokes it on every UI batch where once at start and once at stop would do. `StopLogger` then clears it from the UI thread, but the flag is per-thread, so the logger thread's sleep-prevention request is only released as a side effect of that thread exiting. Fix: set and clear once, on a single thread.
+- **Shutdown has four different teardown routes.** `MainWindow_FormClosing` explicitly stops only the OBD logger; the high-speed, RMA and ABS loggers stop through control disposal (`HighSpeedLogService.Dispose() => StopLogging()` and equivalents). That works, but it is an implicit ordering dependency that is easy to break by moving a control. There is also no confirmation when closing the window mid-log. Fix: one explicit shutdown path that stops every active logger and prompts if any were running.
+
+### Performance
+- **`LiveDataReading.ParseCanResponse` allocates on every sample.** It runs `ecu.Name.Contains("UEGO", OrdinalIgnoreCase)` — a string search — on every CAN response, and the multi-ECU path rebuilds each reading's name with `$"{prefix}{reading.name}"` every sample. At 100 Hz across ~30 readings that is thousands of short-lived strings per second. Fix: precompute an `IsUego` flag and the prefixed channel names once on `ECUDefinition`.
+
+### Logging & Data Integrity
+- **The first 100 samples of every log are discarded.** `CSVWriter` uses the first 100 batches purely to discover the column set and writes nothing until the header is known, so several seconds are lost from the front of every session. Fix: buffer those rows and emit them once the header is frozen.
+- **Log timestamps wrap at midnight.** `J2534LoggingService` records `DateTime.Now.TimeOfDay.TotalSeconds`, which resets to zero at midnight and jumps if the system clock is corrected mid-session. Fix: a `Stopwatch` started when the log file opens.
+- **Stale values are indistinguishable from fresh ones.** `CSVWriter` carries the last value forward for every column on every row, so a channel that stops responding keeps emitting its last reading with nothing marking it stale.
+
 ### UI / UX
 - **Tab and button icons are not visible in the Visual Studio designer.** Icons are applied at runtime using Segoe MDL2 Assets glyph rendering (`GuiIcons.cs`), but the WinForms designer only executes `InitializeComponent()` and does not run post-constructor code. Fix: pre-render glyphs to PNG and store them as embedded resources in the project `.resx` file, then reference them via `Properties.Resources` in `InitializeComponent()` so the designer can read and re-serialize them.
 - **`MainWindow.OnLoggerStateChanged` has no user-facing error reporting.** It now logs any failure propagating logger state to child controls via `Debug.WriteLine`, but a failure is still invisible to the user at runtime. Consider surfacing it.
+- **Nothing persists between runs.** `Properties/Settings.settings` is still an empty profile, so window size and position, the last-used OBD configuration, the high-speed preset, the ECU variant selection and the output directory all reset on every launch.
+- **No J2534 device selection.** `J2534Session.Open` hard-codes `DiscoverAPIs().First()` and `OpenDevice("")`, so anyone with two interfaces registered cannot choose between them. With none installed, `.First()` throws "Sequence contains no elements" rather than saying the driver is missing. Fix: `FirstOrDefault()` with a clear message, plus a device picker (see Architecture).
+- **No way to reach the logs from inside the app.** The active log path is shown as static text and there is no "Open log folder" action anywhere. One menu item.
+- **Errors are reported exclusively through modal dialogs.** A `MessageBox` mid-drive or mid-pull blocks everything until someone reaches over to dismiss it. A status strip with a scrollback pane would suit the context better.
+- **`OBDLoggerControl.StartLoggerButton_Click` sets `IsLogging = true` before validating the configuration**, so the early return on a missing config leaves Start disabled and Stop enabled with no logger running.
 
 ### Code Quality
 - **`T6LiveTuningService.ReadEcuImageToFileAsync` is a stub.** The method validates arguments and logs but does not read ECU memory. Needs implementation: validate RAM address range (0x40000000–0x4000FFFF), read in chunks via `T6RMAService`, handle multi-frame reads, write binary output to file.
 - **`T6eCodingDecoder` validation rules are incomplete.** Coding validation only covers a subset of models. Add validation rules for S2, Exige, and Emira variants.
 - **`J2534EcuCodingService` program-mismatch repair is unimplemented.** When the ECU is unlocked, read the program-mismatch flag and, if set, optionally clear it by issuing the reset command through the coding handler (command register accepts values 1–7).
 - **`J2534Compat` shim should eventually be removed.** It restores J2534-Sharp v1 throw-on-error semantics on top of the result-based v2 API. Long term, handle `J2534Result`/`J2534Result<T>` (`.IsSuccess`/`.Status`/`.IsTimeout`) explicitly at each call site and delete the shim.
+- **There is no test project in the solution.** Every change is verified by hand against a car. `CSVWriter`, `LiveDataReading.ParseCanResponse`, `T6eCodingDecoder`, `HighSpeedLogPlanner` and the configuration loaders are all pure functions over bytes and files and need no hardware, so a small xUnit project covering those is the cheapest available safety net. It is close to a prerequisite for the session-broker work under Architecture.
 
 ### Protocol / Data
 - **Throttle position scaling constant may not be portable.** `LiveDataReading.cs` uses a hard-coded divisor of 77 as the observed max raw throttle value, and PID 0x11 currently appears to be scaled twice (`raw * 100 / 77`, then `* 100 / 255`). Verify against the OBD spec and replace with a single documented or configurable scaling.
