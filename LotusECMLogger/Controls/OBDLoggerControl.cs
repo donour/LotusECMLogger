@@ -162,7 +162,11 @@ namespace LotusECMLogger.Controls
         /// </summary>
         public void StopLogger()
         {
-            logger?.Stop();
+            // Dispose rather than just Stop, so each run releases its worker-thread resources
+            // instead of abandoning them until the control itself is torn down. Dispose calls
+            // Stop internally and is safe to call more than once.
+            logger?.Dispose();
+            logger = null;
             IsLogging = false;
             currentLogfileName.Text = "No Log File";
             SetThreadExecutionState(ES_CONTINUOUS);
