@@ -63,6 +63,15 @@ the `ecuVersion`). These CSVs live in the project and are build-copied to the ou
 - `rate` (Hz) sets the sample rate and marks the channel **selected**; add `"defaultSelected": false`
   to list it unchecked.
 - Symbol-referenced channels whose symbol is missing from the catalog are skipped with a warning.
+- **Every preset carries engine speed and a load channel** (`engine_speed_16bit` plus one of the
+  `load_*` symbols). They are the axes every other trace is read against, so a log without them is
+  hard to interpret after the fact.
+- **A preset may only use channels from its own `ecuVersion` catalog.** Symbol names are checked at
+  load time, but explicit `address` channels are not — an address copied from the other ECU's preset
+  reads a plausible-looking wrong location silently. The symbol names differ between ECUs too
+  (`map`/`manifold_pressure_calculated`, `iat`/`air_temp_intake`, `afr_commanded`/`afr_target`,
+  `maf_flow`/`maf_flow_1`), so porting a preset means re-resolving every channel, not just the
+  addresses.
 - Files are JSONC (comments and trailing commas allowed) and are copied to the app output directory,
   so no rebuild is needed to add or edit a preset.
 

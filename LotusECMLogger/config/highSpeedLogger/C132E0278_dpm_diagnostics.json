@@ -28,6 +28,7 @@
     { "name": "wheel_speed_lr", "address": "0x40001a98", "size": 2, "scale": 0.01, "unit": "km/h", "defaultSelected": true, "rate": 5 },
     { "name": "wheel_speed_rr", "address": "0x40001a9a", "size": 2, "scale": 0.01, "unit": "km/h", "defaultSelected": true, "rate": 5 },
     { "symbol": "engine_speed_16bit",     "rate": 10 },                      // Engine speed (1 rpm/count)
+    { "symbol": "load_mass_per_stroke",   "rate": 10 },                      // Engine load (mg/stroke = val*4) — what the torque cut is acting on
     { "symbol": "dpm_vehicle_speed_kph",  "rate": 10 },                       // Vehicle speed used by DPM
     { "symbol": "accel_pedal_pos_16bit",  "rate": 5 },                       // Y axis of CAL_dpm_slip_target_from_pedal (val/1023)
     { "symbol": "steering_angle",         "rate": 20 },                      // Steering angle (deg = val/10) — cornering context for L/R diffs

@@ -6,9 +6,10 @@
   // (base + element offset, with defaultSelected so they start checked). Use "Add Channels…" in the
   // High-Speed Log tab to browse the full catalog.
   "name": "Sample (B13200091)",
-  "description": "TPS, pedal, per-cylinder ignition advance & knock retard, AFR, MAF, load, IAT.",
+  "description": "Engine speed, TPS, pedal, per-cylinder ignition advance & knock retard, AFR, MAF, load, IAT.",
   "ecuVersion": "B13200091",
   "channels": [
+    { "symbol": "engine_speed_16bit",    "rate": 100 },
     { "symbol": "tps_8bit",              "rate": 100 },
     { "symbol": "accel_pedal_pos",       "rate": 100 },
 
@@ -29,7 +30,7 @@
     { "name": "Knock Retard Cyl 6", "address": "0x40001c2d", "size": 1, "scale": 0.25, "unit": "deg", "defaultSelected": true, "rate": 100 },
 
     { "symbol": "afr_target",            "rate": 50 },
-    { "symbol": "map",                   "rate": 50 },
+    { "symbol": "manifold_pressure_calculated", "rate": 50 }, // This NA ECU models MAP rather than measuring it
     { "symbol": "maf_flow_1",            "rate": 50 },
     { "symbol": "load_mass_per_stroke",  "rate": 50 },
     { "symbol": "torque_limit_external_and_internal", "rate": 50 },

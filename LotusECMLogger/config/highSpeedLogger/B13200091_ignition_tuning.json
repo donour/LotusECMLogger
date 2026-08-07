@@ -11,14 +11,9 @@
   //   knock_peak_over_threshold    uint8_t[6]            @ 0x40001c4c  (1 B, raw counts)
   //   ign_knock_retard             u8_angle_1/4deg[6]    @ 0x40001c20  (1 B, deg = raw/4, learned)
   //   LEA_octane_scaler            u16_factor_1/65536[6] @ 0x40002fa4  (2 B, % = raw*100/65536)
-  //   octane_scaler_short_term     u16_factor_1/65536[6] @ 0x400049c8  (2 B, % = raw*100/65536)
   // Cylinder order is the array index (1-6), not the firing order.
   //
-  // octane_scaler_current_min is typed `undefined2`; it is assumed to share the 1/65536 factor
-  // encoding of the two scaler arrays and carries an inline override to match — sanity-check it
-  // against the per-cylinder values before trusting the number.
-  //
-  // 5 rate groups (50/20/10/5/1 Hz), ~360 frames/s ≈ 9% of the 500 kbit/s bus. The 50 Hz group is
+  // 4 rate groups (50/20/10/1 Hz), ~354 frames/s ≈ 9% of the 500 kbit/s bus. The 50 Hz group is
   // the knock-event group: raising just those channels to 100 Hz doubles their resolution without
   // adding an ECU group (still 5 frames), at ~16% bus load — worth it when hunting individual
   // detonation events, unnecessary for steady-state timing sweeps.
