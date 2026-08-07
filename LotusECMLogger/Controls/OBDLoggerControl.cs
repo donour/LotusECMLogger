@@ -40,6 +40,13 @@ namespace LotusECMLogger.Controls
         private DateTime lastListViewUpdate = DateTime.MinValue;
         private string selectedObdConfigName = "NO CONFIG";
 
+        // The grid is updated in place rather than rebuilt. Clearing and re-adding every row threw
+        // away the scroll position and selection several times a second, and the row order came from
+        // enumerating a ConcurrentDictionary, which guarantees none — so rows visibly reshuffled
+        // while being read. These two keep a stable, sorted row per parameter for the whole run.
+        private readonly List<string> displayOrder = new();
+        private readonly Dictionary<string, ListViewItem> rowsByName = new();
+
         private bool _isLogging = false;
         public bool IsLogging
         {
@@ -124,7 +131,7 @@ namespace LotusECMLogger.Controls
         {
             try
             {
-                liveData.Clear();
+                ResetLiveDataView();
                 IsLogging = true;
                 var outfn = LoggerPaths.TimestampedCsvPath("LiveData");
 
@@ -162,7 +169,11 @@ namespace LotusECMLogger.Controls
         /// </summary>
         public void StopLogger()
         {
-            logger?.Stop();
+            // Dispose rather than just Stop, so each run releases its worker-thread resources
+            // instead of abandoning them until the control itself is torn down. Dispose calls
+            // Stop internally and is safe to call more than once.
+            logger?.Dispose();
+            logger = null;
             IsLogging = false;
             currentLogfileName.Text = "No Log File";
             SetThreadExecutionState(ES_CONTINUOUS);
@@ -225,17 +236,67 @@ namespace LotusECMLogger.Controls
                 return;
             lastListViewUpdate = now;
 
-            var snapshot = liveData.ToList();
-            ListViewItem[] items = [.. snapshot.Select(kvp => new ListViewItem([
-                kvp.Key,
-                kvp.Value.Current.ToString("F2"),
-                kvp.Value.Min.ToString("F2"),
-                kvp.Value.Max.ToString("F2")]))];
+            // Parameters only ever appear (the first time the ECU answers for one) and never go
+            // away mid-run, so a count change is a reliable and cheap signal that rows are missing.
+            if (liveData.Count != displayOrder.Count)
+                AddMissingRows();
 
             liveDataView.BeginUpdate();
-            liveDataView.Items.Clear();
-            liveDataView.Items.AddRange(items);
+            foreach (var name in displayOrder)
+            {
+                if (liveData.TryGetValue(name, out var stat) && rowsByName.TryGetValue(name, out var item))
+                {
+                    SetCell(item, 1, stat.Current);
+                    SetCell(item, 2, stat.Min);
+                    SetCell(item, 3, stat.Max);
+                }
+            }
             liveDataView.EndUpdate();
+        }
+
+        /// <summary>
+        /// Writes a cell only when its text actually changed — assigning <c>Text</c> invalidates the
+        /// row whether or not the value differs, and most parameters are steady between refreshes.
+        /// </summary>
+        private static void SetCell(ListViewItem item, int index, float value)
+        {
+            string text = value.ToString("F2");
+            if (item.SubItems[index].Text != text)
+                item.SubItems[index].Text = text;
+        }
+
+        /// <summary>
+        /// Splices newly-seen parameters into their sorted position, leaving existing rows — and the
+        /// user's scroll position and selection — untouched.
+        /// </summary>
+        private void AddMissingRows()
+        {
+            displayOrder.Clear();
+            displayOrder.AddRange(liveData.Keys);
+            displayOrder.Sort(StringComparer.OrdinalIgnoreCase);
+
+            // Every name before index i is already present at that index, so inserting a missing
+            // name at i keeps the grid in the same order as displayOrder.
+            for (int i = 0; i < displayOrder.Count; i++)
+            {
+                string name = displayOrder[i];
+                if (rowsByName.ContainsKey(name))
+                    continue;
+
+                var item = new ListViewItem([name, "", "", ""]);
+                rowsByName[name] = item;
+                liveDataView.Items.Insert(i, item);
+            }
+        }
+
+        /// <summary>Drops every row. Only used when a new run starts, never during one.</summary>
+        private void ResetLiveDataView()
+        {
+            liveData.Clear();
+            displayOrder.Clear();
+            rowsByName.Clear();
+            liveDataView.Items.Clear();
+            lastListViewUpdate = DateTime.MinValue;
         }
 
         private void Logger_ExceptionOccurred(Exception ex)

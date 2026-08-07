@@ -6,9 +6,10 @@
   // (base + element offset, with defaultSelected so they start checked). Use "Add Channels…" in the
   // High-Speed Log tab to browse the full catalog.
   "name": "GT430 Sample (C132E0278)",
-  "description": "TPS, pedal, per-cylinder ignition advance & knock retard, AFR, MAF, load, IAT.",
+  "description": "Engine speed, TPS, pedal, per-cylinder ignition advance & knock retard, AFR, MAF, load, IAT.",
   "ecuVersion": "C132E0278",
   "channels": [
+    { "symbol": "engine_speed_16bit",    "rate": 100 },
     { "symbol": "tps_8bit",              "rate": 100 },
     { "symbol": "accel_pedal_pos_16bit", "rate": 100 },
 

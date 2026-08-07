@@ -12,22 +12,37 @@ namespace LotusECMLogger.Services
 
         private readonly string outputFilename;
         private readonly MultiECUConfiguration multiEcuConfig;
-        private bool terminate = false;
         private Thread? loggerThread;
         private Thread? csvWriterThread;
         private J2534Session? session;
+
+        /// <summary>
+        /// The single stop signal for the logger thread. A token carries the memory barriers that a
+        /// plain <c>bool</c> field does not: the polling loop is guaranteed to observe a
+        /// <see cref="CancellationTokenSource.Cancel"/> from the UI thread rather than caching the
+        /// flag in a register and spinning forever — which would leave the J2534 device open until
+        /// the process exits, and the next start failing because the device is still busy.
+        /// </summary>
+        private readonly CancellationTokenSource cts = new();
+
+        /// <summary>
+        /// Hand-off from the logger thread to the CSV writer. <c>CompleteAdding()</c> is the writer's
+        /// stop signal and its wake-up in one, so there is no separate flag or wait handle that
+        /// shutdown could dispose out from under a thread still parked on it.
+        /// </summary>
+        private readonly BlockingCollection<List<LiveDataReading>> csvWriteQueue = new();
+
+        /// <summary>
+        /// Set once both workers have provably exited. Guards the disposal of everything they touch.
+        /// </summary>
+        private bool workersStopped;
 
         /// <summary>
         /// Whether to prefix reading names with ECU name (useful when logging from multiple ECUs)
         /// </summary>
         public bool PrefixReadingsWithEcuName { get; set; } = true;
 
-        public bool IsConnected => session != null && !terminate;
-
-        // CSV writer thread coordination
-        private readonly ConcurrentQueue<List<LiveDataReading>> csvWriteQueue = new();
-        private readonly ManualResetEvent csvDataAvailable = new(false);
-        private volatile bool csvWriterShouldStop = false;
+        public bool IsConnected => session != null && !cts.IsCancellationRequested;
 
         /// <summary>
         /// Creates logger with multi-ECU configuration for logging from multiple control units
@@ -68,27 +83,38 @@ namespace LotusECMLogger.Services
 
         public void Stop()
         {
-            if (terminate)
+            if (cts.IsCancellationRequested)
                 return; // Already stopping/stopped
 
-            terminate = true;
+            cts.Cancel();
 
-            // Signal CSV writer to stop and wait for it to finish
-            csvWriterShouldStop = true;
-            csvDataAvailable.Set();
+            // Ends the writer's consuming loop once it has drained whatever is still queued.
+            csvWriteQueue.CompleteAdding();
 
-            // Wait for threads to finish with timeout
-            loggerThread?.Join(2000); // Wait up to 2 seconds for main logger
-            csvWriterThread?.Join(1000); // Wait up to 1 second for CSV writer
+            // Bounded waits so a wedged worker can never hang the UI thread. Both are background
+            // threads, so anything outliving these joins dies with the process rather than keeping
+            // it alive — but it may still be holding the device, hence the warning.
+            bool loggerStopped = loggerThread?.Join(2000) ?? true;
+            bool writerStopped = csvWriterThread?.Join(1000) ?? true;
+
+            workersStopped = loggerStopped && writerStopped;
+            if (!workersStopped)
+                Debug.WriteLine("[J2534LoggingService] A worker thread did not stop within its join timeout.");
         }
 
         public void Start()
         {
+            // Cancellation is one-way, so a stopped session cannot be restarted. The UI builds a
+            // fresh service per run; this makes the alternative fail loudly instead of silently
+            // starting threads that exit immediately.
+            if (cts.IsCancellationRequested)
+                throw new InvalidOperationException(
+                    "This logging session has already been stopped. Create a new J2534LoggingService.");
+
             session = J2534Session.Open();
             try
             {
                 // Start CSV writer thread first
-                csvWriterShouldStop = false;
                 csvWriterThread = new Thread(RunCSVWriter)
                 {
                     IsBackground = true,
@@ -124,7 +150,7 @@ namespace LotusECMLogger.Services
 
         private void OnDataLogged(List<LiveDataReading> data)
         {
-            if (terminate == false)
+            if (!cts.IsCancellationRequested)
             {
                 try
                 {
@@ -143,7 +169,7 @@ namespace LotusECMLogger.Services
 
         private void OnExceptionOccurred(Exception ex)
         {
-            if (terminate == false)
+            if (!cts.IsCancellationRequested)
             {
                 try
                 {
@@ -167,31 +193,13 @@ namespace LotusECMLogger.Services
         {
             try
             {
-                using (var writer = new CSVWriter(outputFilename))
+                using var writer = new CSVWriter(outputFilename);
+
+                // Blocks until a batch arrives, and ends only once CompleteAdding() has been called
+                // AND the queue is empty — so rows already queued at shutdown are still written.
+                foreach (var readings in csvWriteQueue.GetConsumingEnumerable())
                 {
-                    while (!csvWriterShouldStop)
-                    {
-                        // Wait for data to be available
-                        csvDataAvailable.WaitOne();
-
-                        // Process all queued data
-                        while (csvWriteQueue.TryDequeue(out var readings))
-                        {
-                            writer.WriteLine(readings);
-                        }
-
-                        // Reset the signal if queue is empty
-                        if (csvWriteQueue.IsEmpty)
-                        {
-                            csvDataAvailable.Reset();
-                        }
-                    }
-
-                    // Process any remaining data in the queue before shutdown
-                    while (csvWriteQueue.TryDequeue(out var readings))
-                    {
-                        writer.WriteLine(readings);
-                    }
+                    writer.WriteLine(readings);
                 }
             }
             catch (Exception ex)
@@ -229,7 +237,7 @@ namespace LotusECMLogger.Services
                 }
 
                 uint ui_update_counter = 0;
-                while (terminate == false)
+                while (!cts.IsCancellationRequested)
                 {
                     List<LiveDataReading> readings = [];
 
@@ -275,10 +283,16 @@ namespace LotusECMLogger.Services
         /// <param name="readings">Data to write to CSV</param>
         private void QueueDataForCSVWriting(List<LiveDataReading> readings)
         {
-            // Create a copy to avoid shared memory issues between threads
-            var readingsCopy = new List<LiveDataReading>(readings);
-            csvWriteQueue.Enqueue(readingsCopy);
-            csvDataAvailable.Set();
+            try
+            {
+                // Create a copy to avoid shared memory issues between threads
+                csvWriteQueue.Add(new List<LiveDataReading>(readings));
+            }
+            catch (InvalidOperationException)
+            {
+                // Stop() called CompleteAdding() between this loop's cancellation check and the Add.
+                // The batch is dropped deliberately rather than reopening a queue already draining.
+            }
         }
 
         /// <summary>
@@ -322,13 +336,20 @@ namespace LotusECMLogger.Services
             return readings;
         }
 
-        /// <summary>
-        /// Dispose resources including the ManualResetEvent
-        /// </summary>
         public void Dispose()
         {
             Stop();
-            csvDataAvailable?.Dispose();
+
+            // Only release what the workers touch once they have provably exited. A thread that
+            // blew its join timeout may still be reading the token or adding to the queue, and
+            // disposing underneath it would throw ObjectDisposedException on a background thread.
+            // Leaking them in that (already degraded) case is the cheaper failure.
+            if (workersStopped)
+            {
+                cts.Dispose();
+                csvWriteQueue.Dispose();
+            }
+
             GC.SuppressFinalize(this);
         }
     }

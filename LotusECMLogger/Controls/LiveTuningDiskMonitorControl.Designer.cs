@@ -30,6 +30,9 @@ namespace LotusECMLogger.Controls
             existingFileTextBox = new TextBox();
             browseFileButton = new Button();
             startMonitoringButton = new Button();
+            uploadProgressBar = new ProgressBar();
+            cancelUploadButton = new Button();
+            uploadToEcuButton = new Button();
             stopMonitoringButton = new Button();
             statusTextBox = new TextBox();
             mainTableLayout.SuspendLayout();
@@ -58,13 +61,17 @@ namespace LotusECMLogger.Controls
             mainTableLayout.Controls.Add(existingFileTextBox, 1, 3);
             mainTableLayout.Controls.Add(browseFileButton, 3, 3);
             mainTableLayout.Controls.Add(startMonitoringButton, 4, 3);
-            mainTableLayout.Controls.Add(stopMonitoringButton, 0, 4);
-            mainTableLayout.Controls.Add(statusTextBox, 0, 5);
+            mainTableLayout.Controls.Add(uploadProgressBar, 1, 4);
+            mainTableLayout.Controls.Add(cancelUploadButton, 3, 4);
+            mainTableLayout.Controls.Add(uploadToEcuButton, 4, 4);
+            mainTableLayout.Controls.Add(stopMonitoringButton, 0, 5);
+            mainTableLayout.Controls.Add(statusTextBox, 0, 6);
             mainTableLayout.Dock = DockStyle.Fill;
             mainTableLayout.Location = new Point(0, 0);
             mainTableLayout.Name = "mainTableLayout";
             mainTableLayout.Padding = new Padding(10);
-            mainTableLayout.RowCount = 6;
+            mainTableLayout.RowCount = 7;
+            mainTableLayout.RowStyles.Add(new RowStyle());
             mainTableLayout.RowStyles.Add(new RowStyle());
             mainTableLayout.RowStyles.Add(new RowStyle());
             mainTableLayout.RowStyles.Add(new RowStyle());
@@ -220,30 +227,63 @@ namespace LotusECMLogger.Controls
             startMonitoringButton.Text = "Start Monitoring";
             startMonitoringButton.UseVisualStyleBackColor = true;
             startMonitoringButton.Click += StartMonitoringButton_Click;
-            // 
+            //
+            // uploadProgressBar
+            //
+            uploadProgressBar.Anchor = AnchorStyles.Left | AnchorStyles.Right;
+            mainTableLayout.SetColumnSpan(uploadProgressBar, 2);
+            uploadProgressBar.Location = new Point(186, 168);
+            uploadProgressBar.Name = "uploadProgressBar";
+            uploadProgressBar.Size = new Size(492, 26);
+            uploadProgressBar.TabIndex = 15;
+            //
+            // cancelUploadButton
+            //
+            cancelUploadButton.Anchor = AnchorStyles.Left;
+            cancelUploadButton.Enabled = false;
+            cancelUploadButton.Location = new Point(684, 165);
+            cancelUploadButton.Name = "cancelUploadButton";
+            cancelUploadButton.Size = new Size(90, 32);
+            cancelUploadButton.TabIndex = 16;
+            cancelUploadButton.Text = "Cancel";
+            cancelUploadButton.UseVisualStyleBackColor = true;
+            cancelUploadButton.Click += CancelUploadButton_Click;
+            //
+            // uploadToEcuButton
+            //
+            uploadToEcuButton.Anchor = AnchorStyles.Left;
+            uploadToEcuButton.Enabled = false;
+            uploadToEcuButton.Location = new Point(1010, 165);
+            uploadToEcuButton.Name = "uploadToEcuButton";
+            uploadToEcuButton.Size = new Size(120, 32);
+            uploadToEcuButton.TabIndex = 17;
+            uploadToEcuButton.Text = "Upload to ECU";
+            uploadToEcuButton.UseVisualStyleBackColor = true;
+            uploadToEcuButton.Click += UploadToEcuButton_Click;
+            //
             // stopMonitoringButton
-            // 
+            //
             stopMonitoringButton.Enabled = false;
-            stopMonitoringButton.Location = new Point(13, 165);
+            stopMonitoringButton.Location = new Point(13, 203);
             stopMonitoringButton.Name = "stopMonitoringButton";
             stopMonitoringButton.Size = new Size(120, 32);
-            stopMonitoringButton.TabIndex = 14;
+            stopMonitoringButton.TabIndex = 18;
             stopMonitoringButton.Text = "Stop Monitoring";
             stopMonitoringButton.UseVisualStyleBackColor = true;
             stopMonitoringButton.Click += StopMonitoringButton_Click;
-            // 
+            //
             // statusTextBox
-            // 
+            //
             mainTableLayout.SetColumnSpan(statusTextBox, 5);
             statusTextBox.Dock = DockStyle.Fill;
             statusTextBox.Font = new Font("Consolas", 9F);
-            statusTextBox.Location = new Point(13, 203);
+            statusTextBox.Location = new Point(13, 241);
             statusTextBox.Multiline = true;
             statusTextBox.Name = "statusTextBox";
             statusTextBox.ReadOnly = true;
             statusTextBox.ScrollBars = ScrollBars.Both;
-            statusTextBox.Size = new Size(1117, 784);
-            statusTextBox.TabIndex = 15;
+            statusTextBox.Size = new Size(1117, 746);
+            statusTextBox.TabIndex = 19;
             statusTextBox.WordWrap = false;
             // 
             // LiveTuningDiskMonitorControl
@@ -276,6 +316,9 @@ namespace LotusECMLogger.Controls
         private TextBox existingFileTextBox;
         private Button browseFileButton;
         private Button startMonitoringButton;
+        private ProgressBar uploadProgressBar;
+        private Button cancelUploadButton;
+        private Button uploadToEcuButton;
         private Button stopMonitoringButton;
         private TextBox statusTextBox;
     }

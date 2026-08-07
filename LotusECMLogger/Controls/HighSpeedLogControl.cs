@@ -435,8 +435,15 @@ namespace LotusECMLogger.Controls
         {
             foreach (DataGridViewRow row in channelsGrid.Rows)
             {
-                if (row.Tag is HighSpeedChannel ch && latestValues.TryGetValue(ch.Name, out var v))
-                    row.Cells[valueColumn.Index].Value = v.value.ToString("F2");
+                if (row.Tag is not HighSpeedChannel ch || !latestValues.TryGetValue(ch.Name, out var v))
+                    continue;
+
+                // Assigning Value invalidates the cell whether or not it changed. Now that the grid
+                // is scrollable during logging, skipping the no-op writes keeps scrolling smooth.
+                var cell = row.Cells[valueColumn.Index];
+                string text = v.value.ToString("F2");
+                if (!string.Equals(cell.Value as string, text, StringComparison.Ordinal))
+                    cell.Value = text;
             }
 
             framesValueLabel.Text = Volatile.Read(ref frameCount).ToString();
@@ -478,7 +485,20 @@ namespace LotusECMLogger.Controls
             csvPathTextBox.Enabled = configurable;
             browseCsvButton.Enabled = configurable;
             aemToggleButton.Enabled = configurable;
-            channelsGrid.Enabled = configurable;
+
+            // The grid stays enabled while logging so its live values can be scrolled, selected and
+            // copied — a disabled control takes no wheel or scrollbar input. What actually has to be
+            // locked is editing: the channel set is fixed once the ECU is armed, and a mid-run change
+            // would only make the grid disagree with what is being sampled.
+            //
+            // Only the two editable columns are toggled. Setting DataGridView.ReadOnly back to false
+            // would propagate to every column and clobber the designer's per-column ReadOnly flags on
+            // name/address/unit/value.
+            channelsGrid.Enabled = true;
+            selectColumn.ReadOnly = !configurable;
+            rateColumn.ReadOnly = !configurable;
+            channelsGrid.AllowUserToDeleteRows = configurable;
+
             addChannelsButton.Enabled = configurable;
             testConnectionButton.Enabled = configurable;
             stopButton.Enabled = logging;

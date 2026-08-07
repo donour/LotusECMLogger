@@ -31,6 +31,17 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Hand-authored rather than added through the VS "User Control" template, so the designer
+         association is declared explicitly instead of relying on auto-detection. -->
+    <Compile Update="Controls\AbsControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Update="Controls\AbsControl.Designer.cs">
+      <DependentUpon>AbsControl.cs</DependentUpon>
+    </Compile>
+  </ItemGroup>
+
+  <ItemGroup>
     <Compile Update="Properties\Resources.Designer.cs">
       <DesignTime>True</DesignTime>
       <AutoGen>True</AutoGen>

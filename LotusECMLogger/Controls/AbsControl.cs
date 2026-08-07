@@ -21,18 +21,22 @@ namespace LotusECMLogger.Controls
     /// </summary>
     public partial class AbsControl : UserControl
     {
-        private readonly IAbsService absService;
+        /// <summary>
+        /// Null only under the Windows Forms designer, which builds the control through the
+        /// parameterless constructor. Use <see cref="Service"/> from anything a user can trigger.
+        /// </summary>
+        private readonly IAbsService? absService;
+
         private bool isLoggerActive;
         private CancellationTokenSource? routineCts;
 
-        public AbsControl(IAbsService absService)
+        /// <summary>
+        /// Design-time constructor: lays out the control and nothing else. It must not create or
+        /// touch an <see cref="IAbsService"/> — that would open a J2534 device inside Visual Studio.
+        /// </summary>
+        public AbsControl()
         {
-            this.absService = absService ?? throw new ArgumentNullException(nameof(absService));
-            this.absService.TelemetryReceived += OnTelemetryReceived;
-            this.absService.TelemetryError += OnTelemetryError;
-
             InitializeComponent();
-            SetupListViewColumns();
             PopulateRoutines();
 
             GuiIcons.ApplyToButton(readInfoButton, GuiIcons.Dtc);
@@ -47,11 +51,28 @@ namespace LotusECMLogger.Controls
             GuiIcons.ApplyToButton(stopRoutineButton, GuiIcons.Stop);
         }
 
+        public AbsControl(IAbsService absService) : this()
+        {
+            this.absService = absService ?? throw new ArgumentNullException(nameof(absService));
+            this.absService.TelemetryReceived += OnTelemetryReceived;
+            this.absService.TelemetryError += OnTelemetryError;
+        }
+
+        /// <summary>The ABS service backing every operation. Never reached at design time.</summary>
+        private IAbsService Service => absService
+            ?? throw new InvalidOperationException("AbsControl was created without an IAbsService.");
+
+        /// <summary>False at design time, where there is no service to monitor with.</summary>
+        private bool IsMonitoringTelemetry => absService?.IsMonitoringTelemetry == true;
+
         partial void DisposeManaged()
         {
+            routineCts?.Cancel();
+            if (absService is null)
+                return;
+
             absService.TelemetryReceived -= OnTelemetryReceived;
             absService.TelemetryError -= OnTelemetryError;
-            routineCts?.Cancel();
             (absService as IDisposable)?.Dispose();
         }
 
@@ -70,17 +91,6 @@ namespace LotusECMLogger.Controls
             }
         }
 
-        private void SetupListViewColumns()
-        {
-            foreach (var list in new[] { infoListView, liveStateListView, telemetryListView, actuationListView })
-            {
-                list.Columns.Clear();
-                list.Columns.Add("Field", 230);
-                list.Columns.Add("Value", 260);
-                list.Columns.Add("Detail", 420);
-            }
-        }
-
         /// <summary>Selectable actuation routines, plus the guide's full 3-phase bleeding sequence.</summary>
         private sealed record RoutineChoice(byte? Type, string Label, int DefaultSeconds, string Description)
         {
@@ -92,6 +102,7 @@ namespace LotusECMLogger.Controls
 
         private void PopulateRoutines()
         {
+            routineComboBox.Items.Clear();
             routineComboBox.Items.Add(new RoutineChoice(null, "Full bleed sequence (3 phases)",
                 AbsProtocol.BleedSequence.Sum(p => p.Seconds),
                 "Runs bleed circulation (30 s), pressure hold (10 s), then a quick valve cycle (5 s)."));
@@ -126,7 +137,7 @@ namespace LotusECMLogger.Controls
         /// </summary>
         private void SetActionsEnabled(bool enabled)
         {
-            bool on = enabled && !isLoggerActive && !absService.IsMonitoringTelemetry;
+            bool on = enabled && !isLoggerActive && !IsMonitoringTelemetry;
 
             testConnectionButton.Enabled = on;
             readInfoButton.Enabled = on;
@@ -139,9 +150,9 @@ namespace LotusECMLogger.Controls
             durationNumeric.Enabled = on && SelectedRoutine?.IsBleedSequence == false;
 
             // The telemetry monitor is the one action that stays available while it owns the device.
-            startTelemetryButton.Enabled = enabled && !isLoggerActive && !absService.IsMonitoringTelemetry;
-            stopTelemetryButton.Enabled = absService.IsMonitoringTelemetry;
-            logTelemetryCheckBox.Enabled = !absService.IsMonitoringTelemetry;
+            startTelemetryButton.Enabled = enabled && !isLoggerActive && !IsMonitoringTelemetry;
+            stopTelemetryButton.Enabled = IsMonitoringTelemetry;
+            logTelemetryCheckBox.Enabled = !IsMonitoringTelemetry;
         }
 
         private void UpdateUIState()
@@ -243,7 +254,7 @@ namespace LotusECMLogger.Controls
                 "ABS connection test", infoListView,
                 () =>
                 {
-                    var (success, error, result) = absService.ProbeConnection();
+                    var (success, error, result) = Service.ProbeConnection();
                     return (success, error, result.Rows);
                 },
                 $"Probe complete — {SavedToLog}");
@@ -253,7 +264,7 @@ namespace LotusECMLogger.Controls
                 "ABS DTC read", infoListView,
                 () =>
                 {
-                    var (success, error, result) = absService.ReadDtcs();
+                    var (success, error, result) = Service.ReadDtcs();
                     return (success, error, result.Rows);
                 },
                 $"ABS trouble codes read — {SavedToLog}");
@@ -265,7 +276,7 @@ namespace LotusECMLogger.Controls
                 "ABS module info read", infoListView,
                 () =>
                 {
-                    var (success, error, result) = absService.ReadModuleInfo(progress);
+                    var (success, error, result) = Service.ReadModuleInfo(progress);
                     return (success, error, result.Fields);
                 },
                 $"ABS module info read — {SavedToLog}");
@@ -280,7 +291,7 @@ namespace LotusECMLogger.Controls
                 "ABS live state read", liveStateListView,
                 () =>
                 {
-                    var (success, error, result) = absService.ReadLiveState(progress);
+                    var (success, error, result) = Service.ReadLiveState(progress);
                     return (success, error, result.Rows);
                 },
                 $"ABS live state read — {SavedToLog}");
@@ -290,7 +301,7 @@ namespace LotusECMLogger.Controls
 
         private void startTelemetryButton_Click(object sender, EventArgs e)
         {
-            if (isLoggerActive || absService.IsMonitoringTelemetry)
+            if (isLoggerActive || IsMonitoringTelemetry)
                 return;
 
             string? csvPath = null;
@@ -299,7 +310,7 @@ namespace LotusECMLogger.Controls
 
             try
             {
-                absService.StartTelemetryMonitor(csvPath);
+                Service.StartTelemetryMonitor(csvPath);
                 telemetryListView.Items.Clear();
                 statusLabel.Text = csvPath is null
                     ? "Monitoring ABS broadcasts (0x0A2 / 0x0A4 / 0x0A8)…"
@@ -317,7 +328,7 @@ namespace LotusECMLogger.Controls
 
         private void stopTelemetryButton_Click(object sender, EventArgs e)
         {
-            absService.StopTelemetryMonitor();
+            Service.StopTelemetryMonitor();
             statusLabel.Text = "Telemetry monitor stopped.";
             SetActionsEnabled(true);
         }
@@ -348,7 +359,7 @@ namespace LotusECMLogger.Controls
                 return;
             }
 
-            absService.StopTelemetryMonitor();
+            Service.StopTelemetryMonitor();
             SetActionsEnabled(true);
             statusLabel.Text = "Telemetry monitor stopped after an error.";
             MessageBox.Show($"ABS telemetry monitoring failed:\n\n{message}",
@@ -405,7 +416,7 @@ namespace LotusECMLogger.Controls
                 "ABS precondition check", actuationListView,
                 () =>
                 {
-                    var (success, error, result) = absService.CheckActuationPreconditions();
+                    var (success, error, result) = Service.CheckActuationPreconditions();
                     return (success, error, result.Rows);
                 },
                 "Precondition check complete — review the rows before running a routine.");
@@ -453,8 +464,8 @@ namespace LotusECMLogger.Controls
             try
             {
                 var (success, errorMessage, result) = await Task.Run(() => choice.IsBleedSequence
-                    ? absService.RunBleedSequence(progress, token)
-                    : absService.RunRoutine(choice.Type!.Value, seconds, progress, token));
+                    ? Service.RunBleedSequence(progress, token)
+                    : Service.RunRoutine(choice.Type!.Value, seconds, progress, token));
 
                 Populate(actuationListView, result.Rows);
                 WriteDiagnosticsLog(success ? $"ABS actuation — {choice.Label}"
@@ -538,7 +549,7 @@ namespace LotusECMLogger.Controls
             try
             {
                 var (success, errorMessage, result) = await Task.Run(
-                    () => absService.SniffBus(SniffCaptureSeconds, progress));
+                    () => Service.SniffBus(SniffCaptureSeconds, progress));
 
                 if (!success)
                 {

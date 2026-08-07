@@ -1,3 +1,8 @@
+// The Windows Forms designer resolves the type names in InitializeComponent from this file's own
+// using directives — it does not see the project's implicit global usings — so they are spelled out.
+using System.Drawing;
+using System.Windows.Forms;
+
 namespace LotusECMLogger.Controls
 {
     partial class AbsControl
@@ -37,6 +42,9 @@ namespace LotusECMLogger.Controls
             absTabs = new TabControl();
             moduleTab = new TabPage();
             infoListView = new ListView();
+            infoFieldColumn = new ColumnHeader();
+            infoValueColumn = new ColumnHeader();
+            infoDetailColumn = new ColumnHeader();
             topPanel = new Panel();
             testConnectionButton = new Button();
             readInfoButton = new Button();
@@ -44,11 +52,17 @@ namespace LotusECMLogger.Controls
             sniffBusButton = new Button();
             liveStateTab = new TabPage();
             liveStateListView = new ListView();
+            liveStateFieldColumn = new ColumnHeader();
+            liveStateValueColumn = new ColumnHeader();
+            liveStateDetailColumn = new ColumnHeader();
             liveStatePanel = new Panel();
             readLiveStateButton = new Button();
             liveStateHintLabel = new Label();
             telemetryTab = new TabPage();
             telemetryListView = new ListView();
+            telemetryFieldColumn = new ColumnHeader();
+            telemetryValueColumn = new ColumnHeader();
+            telemetryDetailColumn = new ColumnHeader();
             telemetryPanel = new Panel();
             startTelemetryButton = new Button();
             stopTelemetryButton = new Button();
@@ -56,6 +70,9 @@ namespace LotusECMLogger.Controls
             telemetryHintLabel = new Label();
             actuationTab = new TabPage();
             actuationListView = new ListView();
+            actuationFieldColumn = new ColumnHeader();
+            actuationValueColumn = new ColumnHeader();
+            actuationDetailColumn = new ColumnHeader();
             actuationPanel = new Panel();
             routineComboBox = new ComboBox();
             durationLabel = new Label();
@@ -107,6 +124,7 @@ namespace LotusECMLogger.Controls
             //
             // infoListView
             //
+            infoListView.Columns.AddRange(new ColumnHeader[] { infoFieldColumn, infoValueColumn, infoDetailColumn });
             infoListView.Dock = DockStyle.Fill;
             infoListView.FullRowSelect = true;
             infoListView.GridLines = true;
@@ -116,6 +134,21 @@ namespace LotusECMLogger.Controls
             infoListView.TabIndex = 1;
             infoListView.UseCompatibleStateImageBehavior = false;
             infoListView.View = View.Details;
+            //
+            // infoFieldColumn
+            //
+            infoFieldColumn.Text = "Field";
+            infoFieldColumn.Width = 230;
+            //
+            // infoValueColumn
+            //
+            infoValueColumn.Text = "Value";
+            infoValueColumn.Width = 260;
+            //
+            // infoDetailColumn
+            //
+            infoDetailColumn.Text = "Detail";
+            infoDetailColumn.Width = 420;
             //
             // topPanel
             //
@@ -183,6 +216,7 @@ namespace LotusECMLogger.Controls
             //
             // liveStateListView
             //
+            liveStateListView.Columns.AddRange(new ColumnHeader[] { liveStateFieldColumn, liveStateValueColumn, liveStateDetailColumn });
             liveStateListView.Dock = DockStyle.Fill;
             liveStateListView.FullRowSelect = true;
             liveStateListView.GridLines = true;
@@ -192,6 +226,21 @@ namespace LotusECMLogger.Controls
             liveStateListView.TabIndex = 1;
             liveStateListView.UseCompatibleStateImageBehavior = false;
             liveStateListView.View = View.Details;
+            //
+            // liveStateFieldColumn
+            //
+            liveStateFieldColumn.Text = "Field";
+            liveStateFieldColumn.Width = 230;
+            //
+            // liveStateValueColumn
+            //
+            liveStateValueColumn.Text = "Value";
+            liveStateValueColumn.Width = 260;
+            //
+            // liveStateDetailColumn
+            //
+            liveStateDetailColumn.Text = "Detail";
+            liveStateDetailColumn.Width = 420;
             //
             // liveStatePanel
             //
@@ -236,6 +285,7 @@ namespace LotusECMLogger.Controls
             //
             // telemetryListView
             //
+            telemetryListView.Columns.AddRange(new ColumnHeader[] { telemetryFieldColumn, telemetryValueColumn, telemetryDetailColumn });
             telemetryListView.Dock = DockStyle.Fill;
             telemetryListView.FullRowSelect = true;
             telemetryListView.GridLines = true;
@@ -245,6 +295,21 @@ namespace LotusECMLogger.Controls
             telemetryListView.TabIndex = 1;
             telemetryListView.UseCompatibleStateImageBehavior = false;
             telemetryListView.View = View.Details;
+            //
+            // telemetryFieldColumn
+            //
+            telemetryFieldColumn.Text = "Field";
+            telemetryFieldColumn.Width = 230;
+            //
+            // telemetryValueColumn
+            //
+            telemetryValueColumn.Text = "Value";
+            telemetryValueColumn.Width = 260;
+            //
+            // telemetryDetailColumn
+            //
+            telemetryDetailColumn.Text = "Detail";
+            telemetryDetailColumn.Width = 420;
             //
             // telemetryPanel
             //
@@ -314,6 +379,7 @@ namespace LotusECMLogger.Controls
             //
             // actuationListView
             //
+            actuationListView.Columns.AddRange(new ColumnHeader[] { actuationFieldColumn, actuationValueColumn, actuationDetailColumn });
             actuationListView.Dock = DockStyle.Fill;
             actuationListView.FullRowSelect = true;
             actuationListView.GridLines = true;
@@ -323,6 +389,21 @@ namespace LotusECMLogger.Controls
             actuationListView.TabIndex = 1;
             actuationListView.UseCompatibleStateImageBehavior = false;
             actuationListView.View = View.Details;
+            //
+            // actuationFieldColumn
+            //
+            actuationFieldColumn.Text = "Field";
+            actuationFieldColumn.Width = 230;
+            //
+            // actuationValueColumn
+            //
+            actuationValueColumn.Text = "Value";
+            actuationValueColumn.Width = 260;
+            //
+            // actuationDetailColumn
+            //
+            actuationDetailColumn.Text = "Detail";
+            actuationDetailColumn.Width = 420;
             //
             // actuationPanel
             //
@@ -471,12 +552,18 @@ namespace LotusECMLogger.Controls
         private Button moduleInfoButton;
         private Button sniffBusButton;
         private ListView infoListView;
+        private ColumnHeader infoFieldColumn;
+        private ColumnHeader infoValueColumn;
+        private ColumnHeader infoDetailColumn;
 
         private TabPage liveStateTab;
         private Panel liveStatePanel;
         private Button readLiveStateButton;
         private Label liveStateHintLabel;
         private ListView liveStateListView;
+        private ColumnHeader liveStateFieldColumn;
+        private ColumnHeader liveStateValueColumn;
+        private ColumnHeader liveStateDetailColumn;
 
         private TabPage telemetryTab;
         private Panel telemetryPanel;
@@ -485,6 +572,9 @@ namespace LotusECMLogger.Controls
         private CheckBox logTelemetryCheckBox;
         private Label telemetryHintLabel;
         private ListView telemetryListView;
+        private ColumnHeader telemetryFieldColumn;
+        private ColumnHeader telemetryValueColumn;
+        private ColumnHeader telemetryDetailColumn;
 
         private TabPage actuationTab;
         private Panel actuationPanel;
@@ -497,6 +587,9 @@ namespace LotusECMLogger.Controls
         private Label actuationWarningLabel;
         private Label actuationProgressLabel;
         private ListView actuationListView;
+        private ColumnHeader actuationFieldColumn;
+        private ColumnHeader actuationValueColumn;
+        private ColumnHeader actuationDetailColumn;
 
         private Panel statusPanel;
         private Label statusLabel;

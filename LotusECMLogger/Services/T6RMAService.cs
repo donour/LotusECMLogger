@@ -48,10 +48,12 @@ namespace LotusECMLogger.Services
 	///
 	/// CURRENT IMPLEMENTATION:
 	/// ─────────────────────────────────────────────────────────────────────────────
-	/// This service currently implements CAN ID 0x53 (variable-length read) only.
-	/// Future expansion could add support for:
+	/// Reads use CAN ID 0x53 (variable-length); writes use 0x54 (word) and 0x56 (byte), which
+	/// together cover both single-value edits and whole-image uploads
+	/// (<see cref="WriteFileToMemoryAsync"/>). Future expansion could add:
 	/// - Fixed-length reads (0x50-0x52) for faster single-value polling
-	/// - Write operations (0x54-0x57) for memory modification and calibration updates
+	/// - Block write (0x57) to cut an upload's frame count, once the ECU's continuation-frame
+	///   format and its tolerance for back-to-back frames have been confirmed on a car
 	/// ═══════════════════════════════════════════════════════════════════════════════
 	/// </summary>
 	public sealed class T6RMAService : IT6RMAService
@@ -63,6 +65,16 @@ namespace LotusECMLogger.Services
 		// Memory address ranges from firmware
 		private const uint RAM_START = 0x40000000;
 		private const uint RAM_END = 0x4000FFFF;         // 64KB RAM
+
+		// An upload sends one CAN frame per 4-byte word, so a 27KB calibration is nearly 7000 frames.
+		// Reporting every frame would swamp the UI thread with progress marshalling; a report per
+		// kilobyte still gives a smooth progress bar.
+		private const int UploadProgressStrideBytes = 1024;
+
+		// Bytes compared before an upload to confirm the file belongs to the calibration already in
+		// memory. A calibration's opening bytes identify it, so a file for a different tune, ECU, or
+		// region shows up here rather than after the whole region has been overwritten.
+		private const int HeaderPreflightBytes = 32;
 
 		// Per-variant flash zone tables, transcribed from the zone list in the reference
 		// lotusecu-tools dumper (lib/ltacc.py). The RMA read protocol (CAN ID 0x53) addresses
@@ -772,6 +784,295 @@ namespace LotusECMLogger.Services
 				Debug.WriteLine($"T6RMA: Error sending memory read request: {ex.Message}");
 				throw;
 			}
+		}
+
+		public Task<T6RMAUploadResult> WriteFileToMemoryAsync(
+			uint baseAddress,
+			string filePath,
+			bool verify = true,
+			bool checkHeader = true,
+			IProgress<T6RMAUploadProgress>? progress = null,
+			CancellationToken cancellationToken = default)
+		{
+			if (string.IsNullOrWhiteSpace(filePath))
+			{
+				throw new ArgumentException("File path cannot be empty", nameof(filePath));
+			}
+
+			if (!File.Exists(filePath))
+			{
+				throw new FileNotFoundException("Calibration file not found", filePath);
+			}
+
+			byte[] image = File.ReadAllBytes(filePath);
+
+			if (image.Length == 0)
+			{
+				throw new ArgumentException($"Calibration file is empty: {filePath}", nameof(filePath));
+			}
+
+			// Unlike the read path, which also reaches the flash-mapped regions, the RMA write
+			// commands are serviced for RAM only — so the upload target is bounded by RAM.
+			if (baseAddress < RAM_START)
+			{
+				throw new ArgumentOutOfRangeException(
+					nameof(baseAddress),
+					$"Invalid base address 0x{baseAddress:X8}. Uploads target RAM (0x{RAM_START:X8}-0x{RAM_END:X8}).");
+			}
+
+			if ((ulong)baseAddress + (ulong)image.Length - 1 > RAM_END)
+			{
+				throw new ArgumentOutOfRangeException(
+					nameof(filePath),
+					$"Image does not fit in RAM. Base: 0x{baseAddress:X8}, Size: {image.Length} bytes, " +
+					$"End: 0x{(ulong)baseAddress + (ulong)image.Length - 1:X8}, Max: 0x{RAM_END:X8}");
+			}
+
+			return Task.Run(
+				() => WriteImageToMemory(baseAddress, image, verify, checkHeader, progress, cancellationToken),
+				cancellationToken);
+		}
+
+		/// <summary>
+		/// Sends the image and, when asked, verifies it. Reuses the logging channel if a session is
+		/// already running, since the J2534 device cannot be opened twice.
+		/// </summary>
+		private T6RMAUploadResult WriteImageToMemory(
+			uint baseAddress,
+			byte[] image,
+			bool verify,
+			bool checkHeader,
+			IProgress<T6RMAUploadProgress>? progress,
+			CancellationToken cancellationToken)
+		{
+			J2534Channel? activeChannel;
+			lock (_lock)
+			{
+				activeChannel = _isLogging ? _channel : null;
+			}
+
+			J2534Session? tempSession = null;
+
+			try
+			{
+				J2534Channel channel;
+				if (activeChannel != null)
+				{
+					channel = activeChannel;
+				}
+				else
+				{
+					tempSession = J2534Session.Open();
+					channel = tempSession.OpenCan();
+
+					// Writes draw no reply, but the verification pass reads on 0x7A0.
+					var passFilter = new MessageFilter
+					{
+						FilterType = Filter.PASS_FILTER,
+						Mask = [0x00, 0x00, 0x07, 0xFF],
+						Pattern = [0x00, 0x00, 0x07, 0xA0]
+					};
+					channel.StartMessageFilter(passFilter).ThrowIfError();
+				}
+
+				Debug.WriteLine($"T6RMA: Uploading {image.Length} bytes to 0x{baseAddress:X8} (verify={verify}, checkHeader={checkHeader})");
+
+				if (checkHeader)
+				{
+					CheckHeaderMatches(channel, baseAddress, image);
+				}
+
+				SendImage(channel, baseAddress, image, progress, cancellationToken);
+
+				if (!verify)
+				{
+					return new T6RMAUploadResult { BytesWritten = image.Length, VerificationRan = false };
+				}
+
+				return VerifyImage(channel, baseAddress, image, progress, cancellationToken);
+			}
+			finally
+			{
+				// Only a session we opened is ours to dispose; the logging session (when reused
+				// above) is owned by the logging lifecycle.
+				tempSession?.Dispose();
+			}
+		}
+
+		/// <summary>
+		/// Reads the head of the target region and compares it against the head of the image, before
+		/// any frame goes out.
+		/// </summary>
+		/// <remarks>
+		/// An upload replaces a running calibration wholesale, and the verification pass afterwards
+		/// only proves the bytes arrived intact — it reports a clean success whether or not the file
+		/// had any business being written. This is the check that can tell the difference, on the
+		/// assumption that a calibration's opening bytes identify it and are not rewritten at runtime.
+		/// A pre-flight read that comes back short or empty is treated as a failure rather than a
+		/// pass: an unanswered read means the match cannot be established, which is not the same as
+		/// establishing a match.
+		/// </remarks>
+		/// <exception cref="T6RMAHeaderMismatchException">The heads differ.</exception>
+		private void CheckHeaderMatches(J2534Channel channel, uint baseAddress, byte[] image)
+		{
+			int length = Math.Min(HeaderPreflightBytes, image.Length);
+
+			byte[]? head = SendMemoryReadRequestWithChannel(channel, baseAddress, (byte)length);
+
+			if (head == null || head.Length < length)
+			{
+				throw new InvalidOperationException(
+					$"Pre-flight read at 0x{baseAddress:X8} returned {head?.Length ?? 0} of {length} bytes, " +
+					"so the file could not be matched against the calibration in memory. Nothing was written.");
+			}
+
+			if (head.AsSpan(0, length).SequenceEqual(image.AsSpan(0, length)))
+			{
+				Debug.WriteLine($"T6RMA: Pre-flight header check passed ({length} bytes at 0x{baseAddress:X8})");
+				return;
+			}
+
+			Debug.WriteLine($"T6RMA: Pre-flight header check FAILED at 0x{baseAddress:X8}");
+			throw new T6RMAHeaderMismatchException(baseAddress, image[..length], head[..length]);
+		}
+
+		/// <summary>
+		/// Writes the image one word per CAN frame.
+		/// </summary>
+		/// <remarks>
+		/// The file's bytes are copied straight into the frame payload rather than being routed
+		/// through a uint, so the upload preserves the byte order of the file exactly and a
+		/// read-then-upload round trip is an identity.
+		///
+		/// Frames go out one at a time rather than batched through <c>SendMessages</c>. RMA writes
+		/// are fire-and-forget, so nothing throttles the host: the per-call round trip through the
+		/// pass-thru device is what paces the burst, which keeps the ECU's CAN receive path from
+		/// being overrun by frames it would silently drop. Batching would be the obvious speed-up if
+		/// an upload ever proves too slow, but it needs the ECU's actual tolerance measured first.
+		/// </remarks>
+		private static void SendImage(
+			J2534Channel channel,
+			uint baseAddress,
+			byte[] image,
+			IProgress<T6RMAUploadProgress>? progress,
+			CancellationToken cancellationToken)
+		{
+			// Reused across frames: SendMessage marshals the payload before returning, so the
+			// buffer is free to be rewritten for the next word.
+			// Layout: [CAN ID (4)][Address (4, big-endian)][Data (4, file order)]
+			byte[] wordFrame = new byte[12];
+			wordFrame[3] = 0x54;
+
+			int wholeWords = image.Length / 4;
+			int nextReportAt = 0;
+
+			for (int word = 0; word < wholeWords; word++)
+			{
+				cancellationToken.ThrowIfCancellationRequested();
+
+				int offset = word * 4;
+				WriteAddressBigEndian(wordFrame, baseAddress + (uint)offset);
+				image.AsSpan(offset, 4).CopyTo(wordFrame.AsSpan(8, 4));
+
+				channel.SendMessage(wordFrame).ThrowIfError();
+
+				if (offset >= nextReportAt)
+				{
+					progress?.Report(new T6RMAUploadProgress(T6RMAUploadPhase.Writing, offset + 4, image.Length));
+					nextReportAt = offset + UploadProgressStrideBytes;
+				}
+			}
+
+			// A file whose length is not a multiple of 4 leaves a 1-3 byte tail. Single-byte writes
+			// finish it, so an odd-sized region uploads whole instead of being rejected or truncated.
+			// Layout: [CAN ID (4)][Address (4, big-endian)][Data (1)]
+			byte[] byteFrame = new byte[9];
+			byteFrame[3] = 0x56;
+
+			for (int offset = wholeWords * 4; offset < image.Length; offset++)
+			{
+				cancellationToken.ThrowIfCancellationRequested();
+
+				WriteAddressBigEndian(byteFrame, baseAddress + (uint)offset);
+				byteFrame[8] = image[offset];
+
+				channel.SendMessage(byteFrame).ThrowIfError();
+			}
+
+			progress?.Report(new T6RMAUploadProgress(T6RMAUploadPhase.Writing, image.Length, image.Length));
+		}
+
+		/// <summary>
+		/// Reads the region back and compares it against the image that was just written. Writes draw
+		/// no acknowledgement from the ECU, so this is the only evidence that they landed.
+		/// </summary>
+		private T6RMAUploadResult VerifyImage(
+			J2534Channel channel,
+			uint baseAddress,
+			byte[] image,
+			IProgress<T6RMAUploadProgress>? progress,
+			CancellationToken cancellationToken)
+		{
+			const byte MAX_CHUNK_SIZE = 255;
+			const int MAX_REPORTED_MISMATCHES = 16;
+
+			var sampleMismatches = new List<uint>(MAX_REPORTED_MISMATCHES);
+			int mismatchCount = 0;
+			int offset = 0;
+
+			progress?.Report(new T6RMAUploadProgress(T6RMAUploadPhase.Verifying, 0, image.Length));
+
+			while (offset < image.Length)
+			{
+				cancellationToken.ThrowIfCancellationRequested();
+
+				byte chunkSize = (byte)Math.Min(image.Length - offset, MAX_CHUNK_SIZE);
+				byte[]? chunk = SendMemoryReadRequestWithChannel(channel, baseAddress + (uint)offset, chunkSize);
+
+				if (chunk == null || chunk.Length < chunkSize)
+				{
+					throw new InvalidOperationException(
+						$"Verification read failed at 0x{baseAddress + (uint)offset:X8}: " +
+						$"expected {chunkSize} bytes, got {chunk?.Length ?? 0}. " +
+						"The upload itself may or may not have landed.");
+				}
+
+				for (int i = 0; i < chunkSize; i++)
+				{
+					if (chunk[i] == image[offset + i])
+					{
+						continue;
+					}
+
+					mismatchCount++;
+					if (sampleMismatches.Count < MAX_REPORTED_MISMATCHES)
+					{
+						sampleMismatches.Add(baseAddress + (uint)(offset + i));
+					}
+				}
+
+				offset += chunkSize;
+				progress?.Report(new T6RMAUploadProgress(T6RMAUploadPhase.Verifying, offset, image.Length));
+			}
+
+			Debug.WriteLine($"T6RMA: Verification finished with {mismatchCount} mismatching byte(s)");
+
+			return new T6RMAUploadResult
+			{
+				BytesWritten = image.Length,
+				VerificationRan = true,
+				MismatchCount = mismatchCount,
+				SampleMismatchAddresses = sampleMismatches
+			};
+		}
+
+		/// <summary>Writes an address into a frame's 4-byte address field in big-endian order.</summary>
+		private static void WriteAddressBigEndian(byte[] frame, uint address)
+		{
+			frame[4] = (byte)((address >> 24) & 0xFF);
+			frame[5] = (byte)((address >> 16) & 0xFF);
+			frame[6] = (byte)((address >> 8) & 0xFF);
+			frame[7] = (byte)(address & 0xFF);
 		}
 
 		public async Task WriteWordAsync(uint address, uint value)

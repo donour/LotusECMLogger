@@ -12,6 +12,17 @@ namespace LotusECMLogger.Controls
         private uint _baseAddress;
         private List<MemoryPreset> _presets = [];
 
+        /// <summary>Cancels an in-flight upload; null whenever no upload is running.</summary>
+        private CancellationTokenSource? _uploadCts;
+
+        /// <summary>
+        /// Whether the current upload has put any bytes on the wire. Set from the first write-phase
+        /// progress report, so it distinguishes "cancelled before anything was sent" — which the
+        /// pre-flight check and the unlock probe both make common — from "cancelled part-way
+        /// through", which leaves the region half-written.
+        /// </summary>
+        private bool _uploadSentData;
+
         private bool _isInitialized = false;
 
         public LiveTuningDiskMonitorControl()
@@ -361,6 +372,298 @@ namespace LotusECMLogger.Controls
         }
 
 
+        /// <summary>
+        /// Uploads the selected calibration file into ECU RAM in one shot — the inverse of
+        /// "Read &amp; Start", which reads that region out to a .cpt file. The file's length decides
+        /// how much is written, starting at the base address.
+        /// </summary>
+        private async void UploadToEcuButton_Click(object sender, EventArgs e)
+        {
+            // A monitoring session holds the J2534 device open, and the device cannot be opened
+            // twice. The button is disabled while monitoring; this covers the rest.
+            if (_liveTuningService?.IsMonitoring == true)
+            {
+                MessageBox.Show("Stop live tuning before uploading — the monitoring session holds the J2534 device.",
+                    "Monitoring Active", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            string filePath = existingFileTextBox.Text.Trim();
+            if (string.IsNullOrEmpty(filePath) || !File.Exists(filePath))
+            {
+                MessageBox.Show("Please select a valid calibration file.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            if (!TryParseHexAddress(baseAddressTextBox.Text, out uint baseAddress))
+            {
+                MessageBox.Show("Invalid base address. Must be 8 hex digits (e.g., 40008654)", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            long fileLength = new FileInfo(filePath).Length;
+            if (fileLength == 0)
+            {
+                MessageBox.Show("The selected calibration file is empty.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            if (!ConfirmUpload(filePath, baseAddress, fileLength))
+            {
+                LogStatus("Upload cancelled at confirmation");
+                return;
+            }
+
+            SetReadFromEcuControlsEnabled(false);
+            SetLoadFileControlsEnabled(false);
+            uploadToEcuButton.Enabled = false;
+            cancelUploadButton.Enabled = true;
+
+            _uploadCts = new CancellationTokenSource();
+            _uploadSentData = false;
+
+            try
+            {
+                using var rmaService = new T6RMAService();
+
+                LogStatus("Checking ECU unlock state...");
+                if (!await Task.Run(rmaService.IsEcuUnlocked, _uploadCts.Token))
+                {
+                    LogStatus("ECU did not answer the unlock probe — upload aborted");
+                    MessageBox.Show(
+                        "The ECU did not respond to the unlock probe. A locked ECU silently discards memory writes, " +
+                        "so nothing would be uploaded. Unlock the ECU and try again.",
+                        "ECU Locked", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                LogStatus($"Uploading {fileLength} bytes to 0x{baseAddress:X8}-0x{baseAddress + (uint)fileLength - 1:X8}");
+                LogStatus($"Source: {Path.GetFileName(filePath)}");
+                LogStatus($"Checking the file against the first 32 bytes in ECU memory...");
+
+                await RunUploadAsync(rmaService, baseAddress, filePath, (int)fileLength, _uploadCts.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                if (!_uploadSentData)
+                {
+                    LogStatus("Upload cancelled before any data was sent — ECU memory is unchanged");
+                    return;
+                }
+
+                LogStatus("Upload cancelled — the region now holds a mix of the old and new calibrations");
+                MessageBox.Show(
+                    "Upload cancelled part-way through. ECU RAM now holds part of the old calibration and part of the new one.\n\n" +
+                    "Upload the file again to finish, or cycle the ignition to reload the calibration from flash.",
+                    "Upload Cancelled", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+            catch (Exception ex)
+            {
+                LogStatus($"Upload failed: {ex.Message}");
+                MessageBox.Show($"Failed to upload calibration: {ex.Message}",
+                    "Upload Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                _uploadCts?.Dispose();
+                _uploadCts = null;
+
+                if (!IsDisposed && !Disposing)
+                {
+                    cancelUploadButton.Enabled = false;
+                    uploadProgressBar.Value = 0;
+                    SetReadFromEcuControlsEnabled(true);
+                    SetLoadFileControlsEnabled(true);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Performs the upload and reports the outcome. Split out so the surrounding handler is
+        /// only concerned with guards, control state, and error presentation.
+        /// </summary>
+        private async Task RunUploadAsync(IT6RMAService rmaService, uint baseAddress, string filePath, int fileLength, CancellationToken cancellationToken)
+        {
+            // Both phases cover the whole region, so the bar spans two passes and fills once
+            // across the entire operation rather than resetting when verification starts.
+            uploadProgressBar.Maximum = fileLength * 2;
+            uploadProgressBar.Value = 0;
+
+            int lastLoggedPercent = -1;
+            var progress = new Progress<T6RMAUploadProgress>(p =>
+            {
+                // The tab can be torn down mid-upload (closing the app, for instance) while reports
+                // are still in flight; touching the controls after that throws.
+                if (p.Phase == T6RMAUploadPhase.Writing && p.BytesDone > 0)
+                {
+                    _uploadSentData = true;
+                }
+
+                if (IsDisposed || Disposing)
+                {
+                    return;
+                }
+
+                int overall = (p.Phase == T6RMAUploadPhase.Verifying ? fileLength : 0) + p.BytesDone;
+                uploadProgressBar.Value = Math.Clamp(overall, 0, uploadProgressBar.Maximum);
+
+                // The service reports once per kilobyte; logging every one of those would bury the
+                // rest of the status history, so the log gets one line per 10%.
+                int percent = p.TotalBytes == 0 ? 100 : p.BytesDone * 100 / p.TotalBytes;
+                int bucket = percent / 10;
+                int key = (int)p.Phase * 100 + bucket;
+                if (key == lastLoggedPercent)
+                {
+                    return;
+                }
+                lastLoggedPercent = key;
+
+                string phase = p.Phase == T6RMAUploadPhase.Writing ? "Writing" : "Verifying";
+                LogStatus($"{phase}: {p.BytesDone}/{p.TotalBytes} bytes ({percent}%)");
+            });
+
+            T6RMAUploadResult result;
+            try
+            {
+                result = await rmaService.WriteFileToMemoryAsync(
+                    baseAddress, filePath, verify: true, checkHeader: true, progress, cancellationToken);
+            }
+            catch (T6RMAHeaderMismatchException mismatch)
+            {
+                // Nothing was written — the check runs before the first frame. Uploading a genuinely
+                // different calibration is a legitimate thing to want, so this asks rather than refuses.
+                if (IsDisposed || Disposing)
+                {
+                    return;
+                }
+
+                LogStatus($"Pre-flight check failed at 0x{mismatch.Address:X8} — the file does not match ECU memory");
+
+                if (!ConfirmHeaderMismatch(mismatch))
+                {
+                    LogStatus("Upload abandoned — ECU memory is unchanged");
+                    return;
+                }
+
+                LogStatus("Mismatch overridden — uploading anyway");
+                lastLoggedPercent = -1;
+                uploadProgressBar.Value = 0;
+
+                result = await rmaService.WriteFileToMemoryAsync(
+                    baseAddress, filePath, verify: true, checkHeader: false, progress, cancellationToken);
+            }
+
+            if (IsDisposed || Disposing)
+            {
+                return;
+            }
+
+            uploadProgressBar.Value = uploadProgressBar.Maximum;
+
+            if (result.Success)
+            {
+                LogStatus($"Upload complete and verified: {result.BytesWritten} bytes at 0x{baseAddress:X8}");
+                MessageBox.Show(
+                    $"Uploaded {result.BytesWritten} bytes to 0x{baseAddress:X8} and verified the region reads back identically.\n\n" +
+                    "The calibration is live in RAM. It is not written to flash — cycling the ignition restores the flashed calibration.",
+                    "Upload Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            string sample = string.Join(", ", result.SampleMismatchAddresses.Select(a => $"0x{a:X8}"));
+            LogStatus($"Verification FAILED: {result.MismatchCount} byte(s) differ. First: {sample}");
+            MessageBox.Show(
+                $"The upload sent {result.BytesWritten} bytes, but {result.MismatchCount} byte(s) read back differently.\n\n" +
+                $"First mismatching addresses: {sample}\n\n" +
+                "ECU RAM does not match the file. Upload again, or cycle the ignition to reload the calibration from flash.",
+                "Verification Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+
+        /// <summary>
+        /// Asks for confirmation before writing to live ECU memory, spelling out the target range
+        /// and flagging a file whose size disagrees with the configured region length — usually a
+        /// sign that the selected preset does not match the file.
+        /// </summary>
+        private bool ConfirmUpload(string filePath, uint baseAddress, long fileLength)
+        {
+            var message = new System.Text.StringBuilder();
+            message.AppendLine($"Upload {Path.GetFileName(filePath)} ({fileLength:N0} bytes) into ECU RAM?");
+            message.AppendLine();
+            message.AppendLine($"Target: 0x{baseAddress:X8} - 0x{baseAddress + (uint)fileLength - 1:X8}");
+            message.AppendLine();
+
+            long configuredLength = (long)lengthNumericUpDown.Value;
+            if (fileLength != configuredLength)
+            {
+                message.AppendLine(
+                    $"WARNING: the file is {fileLength:N0} bytes but the configured region length is " +
+                    $"{configuredLength:N0}. The file's own size is what gets written. Check that the " +
+                    "selected preset matches this file.");
+                message.AppendLine();
+            }
+
+            message.AppendLine(
+                "This writes directly into the memory the ECU is calibrated from. The transfer is not " +
+                "atomic — until it finishes, a running engine is using a mix of the old and new " +
+                "calibrations. Only the RAM copy changes; cycling the ignition reloads the flashed one.");
+
+            return MessageBox.Show(message.ToString(), "Confirm Upload to ECU",
+                MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2) == DialogResult.Yes;
+        }
+
+        /// <summary>
+        /// Shows what the pre-flight check found and asks whether to write anyway. Deliberately
+        /// replacing the running calibration with an unrelated image is a real use, so this is a
+        /// confirmation rather than a refusal — but it defaults to No and shows both headers so the
+        /// choice is made on evidence.
+        /// </summary>
+        private bool ConfirmHeaderMismatch(T6RMAHeaderMismatchException mismatch)
+        {
+            var message = new System.Text.StringBuilder();
+            message.AppendLine(
+                $"The first {mismatch.ExpectedFromFile.Length} bytes at 0x{mismatch.Address:X8} do not match the calibration file.");
+            message.AppendLine();
+            message.AppendLine("Currently in ECU memory:");
+            message.Append(FormatHeaderBytes(mismatch.ActualFromEcu));
+            message.AppendLine();
+            message.AppendLine("Calibration file:");
+            message.Append(FormatHeaderBytes(mismatch.ExpectedFromFile));
+            message.AppendLine();
+            message.AppendLine(
+                "This usually means the file belongs to a different calibration, a different ECU, or a " +
+                "different memory region — check the base address and the selected file. Nothing has " +
+                "been written yet.");
+            message.AppendLine();
+            message.AppendLine("Upload anyway?");
+
+            return MessageBox.Show(message.ToString(), "Calibration Mismatch",
+                MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2) == DialogResult.Yes;
+        }
+
+        /// <summary>Renders header bytes as indented hex, 16 per line, for side-by-side comparison.</summary>
+        private static string FormatHeaderBytes(byte[] bytes)
+        {
+            var text = new System.Text.StringBuilder();
+            for (int offset = 0; offset < bytes.Length; offset += 16)
+            {
+                int count = Math.Min(16, bytes.Length - offset);
+                text.AppendLine("    " + Convert.ToHexString(bytes, offset, count));
+            }
+            return text.ToString();
+        }
+
+        private void CancelUploadButton_Click(object sender, EventArgs e)
+        {
+            if (_uploadCts is null)
+            {
+                return;
+            }
+
+            LogStatus("Cancelling upload...");
+            cancelUploadButton.Enabled = false;
+            _uploadCts.Cancel();
+        }
+
         private void OnWordWritten(object? sender, LiveTuningWordWrittenEventArgs e)
         {
             if (InvokeRequired)
@@ -407,6 +710,10 @@ namespace LotusECMLogger.Controls
             bool hasValidFile = !string.IsNullOrWhiteSpace(existingFileTextBox.Text) && File.Exists(existingFileTextBox.Text.Trim());
 
             startMonitoringButton.Enabled = hasValidAddress && hasValidFile;
+
+            // Upload takes the same two inputs as Start Monitoring: which file, and where it lives
+            // in ECU memory.
+            uploadToEcuButton.Enabled = hasValidAddress && hasValidFile;
         }
 
         private bool TryParseReadFromEcuInputs(out uint baseAddress, out uint length, out string outputDir)
@@ -521,6 +828,7 @@ namespace LotusECMLogger.Controls
             else
             {
                 startMonitoringButton.Enabled = false;
+                uploadToEcuButton.Enabled = false;
             }
         }
 
@@ -528,6 +836,10 @@ namespace LotusECMLogger.Controls
         {
             if (disposing)
             {
+                // An upload in flight would otherwise keep writing to the ECU after the tab is gone.
+                // The handler's finally block disposes the source, so only cancel here.
+                _uploadCts?.Cancel();
+
                 // Stop and dispose live tuning service
                 if (_liveTuningService != null)
                 {
