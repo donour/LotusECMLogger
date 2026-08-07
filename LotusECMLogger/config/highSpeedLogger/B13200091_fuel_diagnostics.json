@@ -25,66 +25,200 @@
   "ecuVersion": "B13200091",
   "channels": [
     // ── Axes ─────────────────────────────────────────────────────────────────────────────────────
-    { "symbol": "engine_speed_16bit",    "rate": 20 },                        // X of the fueling tables (RPM)
-    { "symbol": "load_mass_per_stroke",  "rate": 20 },                        // Y of enrichment tables (mg/stk = val*4)
-    { "symbol": "maf_flow_1",            "rate": 20 },                        // Primary MAF — airflow basis of the fuel calc (mg/s = val*10)
-    { "symbol": "sensor_adc_maf1",       "rate": 20 },                        // Raw primary MAF sensor voltage (V = val*5/1023) — pre-transfer-function input to maf_flow_1;
-                                                                              // pair with maf_flow_1 to separate a sensor/wiring fault from a wrong CAL_sensor_maf_scaling curve.
-                                                                              // (sensor_adc_maf2 is the secondary element if the two MAF flows disagree.)
-    { "symbol": "coolant_temp",          "rate": 1 },                         // Y of warmup/enrichment table
-    { "symbol": "air_temp_intake",       "rate": 1 },                         // IAT comp input (no TMAP on this ECU)
+    {
+      "symbol": "engine_speed_16bit",
+      "rate": 50
+    }, // X of the fueling tables (RPM)
+    {
+      "symbol": "load_mass_per_stroke",
+      "rate": 50
+    }, // Y of enrichment tables (mg/stk = val*4)
+    {
+      "symbol": "load_computed_alphaN",
+      "rate": 50
+    },
+    {
+      "symbol": "maf_flow_1",
+      "rate": 50
+    }, // Primary MAF — airflow basis of the fuel calc (mg/s = val*10)
+    {
+      "symbol": "sensor_adc_maf1",
+      "rate": 50
+    }, // Raw primary MAF sensor voltage (V = val*5/1023) — pre-transfer-function input to maf_flow_1;
+    {
+      "symbol": "load_source_is_alphaN",
+      "rate": 50
+    },
+    // pair with maf_flow_1 to separate a sensor/wiring fault from a wrong CAL_sensor_maf_scaling curve.
+    // (sensor_adc_maf2 is the secondary element if the two MAF flows disagree.)
+    {
+      "symbol": "coolant_temp",
+      "rate": 1
+    }, // Y of warmup/enrichment table
+    {
+      "symbol": "air_temp_intake",
+      "rate": 1
+    }, // IAT comp input (no TMAP on this ECU)
 
     // ── AFR target chain ─────────────────────────────────────────────────────────────────────────
-    { "symbol": "afr_target",            "rate": 20 },                        // Commanded AFR (u16 val/100; only AFR node on this firmware)
-    { "symbol": "afr_enrichment_from_ign_retard", "rate": 20 },               // Knock/retard PE contribution (AFR = val/100, subtracted)
+    {
+      "symbol": "afr_target",
+      "rate": 50
+    }, // Commanded AFR (u16 val/100; only AFR node on this firmware)
+    {
+      "symbol": "afr_enrichment_from_ign_retard",
+      "rate": 20
+    }, // Knock/retard PE contribution (AFR = val/100, subtracted)
 
+    {
+      "symbol": "tps_8bit",
+      "rate": 10
+    },
+    
     // ── Knock inputs ─────────────────────────────────────────────────────────────────────────────
-    { "symbol": "knock_ign_retard_sum", "rate": 10 },                       // Total knock retard, all cylinders (i16_angle_1/4deg)
-    { "symbol": "ign_comp_coolant",      "rate": 10 },                        // Coolant ignition comp (deg = val/4)
-    { "symbol": "ign_comp_rpm",          "rate": 10, "signed": true, "scale": 0.25, "unit": "deg" }, // RPM ignition comp (assumed i16 1/4-deg)
-    { "symbol": "ign_comp_iat",          "rate": 5 },                        // IAT ignition comp (i16_angle_1/4deg)
+    {
+      "symbol": "knock_ign_retard_sum",
+      "rate": 10
+    }, // Total knock retard, all cylinders (i16_angle_1/4deg)
+    {
+      "symbol": "ign_comp_coolant",
+      "rate": 10
+    }, // Coolant ignition comp (deg = val/4)
+    {
+      "symbol": "ign_comp_rpm",
+      "rate": 10,
+      "signed": true,
+      "scale": 0.25,
+      "unit": "deg"
+    }, // RPM ignition comp (assumed i16 1/4-deg)
+    {
+      "symbol": "ign_comp_iat",
+      "rate": 5
+    }, // IAT ignition comp (i16_angle_1/4deg)
 
     // ── Temp factors ─────────────────────────────────────────────────────────────────────────────
-    { "symbol": "inj_warmup_factor",     "rate": 5 },                         // Load/coolant enrichment factor (x val/64, floor 1.0) — CAL_inj_warmup_factor_{manual|ips}
-    { "symbol": "inj_comp_iat",          "rate": 5 },                         // Air-temp compensation factor (val/128) — CAL_inj_comp_iat
+    {
+      "symbol": "inj_warmup_factor",
+      "rate": 5
+    }, // Load/coolant enrichment factor (x val/64, floor 1.0) — CAL_inj_warmup_factor_{manual|ips}
+    {
+      "symbol": "inj_comp_iat",
+      "rate": 5
+    }, // Air-temp compensation factor (val/128) — CAL_inj_comp_iat
 
     // ── Flow conversion ──────────────────────────────────────────────────────────────────────────
-    { "symbol": "inj_efficiency",        "rate": 5 },                        // Efficiency lookup + test trim (u8_factor_1/200; NOT val/100 as on C0278)
-    { "symbol": "inj_flow_rate",         "rate": 5 },                         // Commanded injector flow (mg/s) — fixed-rail, no dP correction
-    { "symbol": "inj_bank_balance_ratio", "rate": 5 },                        // Bank balance (val/200; 100% = balanced)
-    { "symbol": "inj_fuel_mass_required", "rate": 10 },                       // Fuel mass demand per stroke (10 ug units)
-    { "symbol": "inj_fuel_mass_bank1",   "rate": 10 },                        // Fuel mass bank 1 (10 ug units)
-    { "symbol": "inj_fuel_mass_bank2",   "rate": 10 },                        // Fuel mass bank 2 (10 ug units)
+    {
+      "symbol": "inj_efficiency",
+      "rate": 5
+    }, // Efficiency lookup + test trim (u8_factor_1/200; NOT val/100 as on C0278)
+    {
+      "symbol": "inj_flow_rate",
+      "rate": 5
+    }, // Commanded injector flow (mg/s) — fixed-rail, no dP correction
+    {
+      "symbol": "inj_bank_balance_ratio",
+      "rate": 5
+    }, // Bank balance (val/200; 100% = balanced)
+    {
+      "symbol": "inj_fuel_mass_required",
+      "rate": 10
+    }, // Fuel mass demand per stroke (10 ug units)
+    {
+      "symbol": "inj_fuel_mass_bank1",
+      "rate": 10
+    }, // Fuel mass bank 1 (10 ug units)
+    {
+      "symbol": "inj_fuel_mass_bank2",
+      "rate": 10
+    }, // Fuel mass bank 2 (10 ug units)
 
     // ── Deadtime / supply (no fuel pressure sensor — delivery-side health) ───────────────────────
-    { "symbol": "inj_deadtime_base",     "rate": 10 },                        // Injector deadtime (us)
-    { "symbol": "sensor_adc_ecu_voltage", "rate": 10 },                       // Battery/ECU supply — drives deadtime (V = val*18/1023)
+    {
+      "symbol": "inj_deadtime_base",
+      "rate": 10
+    }, // Injector deadtime (us)
+    {
+      "symbol": "sensor_adc_ecu_voltage",
+      "rate": 10
+    }, // Battery/ECU supply — drives deadtime (V = val*18/1023)
 
     // ── Pulse width ──────────────────────────────────────────────────────────────────────────────
-    { "symbol": "inj_pw_bank1_pre_trim_us",  "rate": 20, "unit": "us" },      // Bank 1 pulse before STFT/LTFT
-    { "symbol": "inj_pw_bank2_pre_trim_us",  "rate": 20, "unit": "us" },      // Bank 2 pulse before STFT/LTFT
-    { "symbol": "inj_pw_bank1_post_trim_us", "rate": 20, "unit": "us" },      // Bank 1 pulse after STFT/LTFT
-    { "symbol": "inj_pw_bank2_post_trim_us", "rate": 20, "unit": "us" },      // Bank 2 pulse after STFT/LTFT
+    {
+      "symbol": "inj_pw_bank1_pre_trim_us",
+      "rate": 20,
+      "unit": "us"
+    }, // Bank 1 pulse before STFT/LTFT
+    {
+      "symbol": "inj_pw_bank2_pre_trim_us",
+      "rate": 20,
+      "unit": "us"
+    }, // Bank 2 pulse before STFT/LTFT
+    {
+      "symbol": "inj_pw_bank1_post_trim_us",
+      "rate": 20,
+      "unit": "us"
+    }, // Bank 1 pulse after STFT/LTFT
+    {
+      "symbol": "inj_pw_bank2_post_trim_us",
+      "rate": 20,
+      "unit": "us"
+    }, // Bank 2 pulse after STFT/LTFT
 
     // ── Duty cycle & headroom (replaces load_limit_from_inj) ─────────────────────────────────────
-    { "symbol": "inj_duty_bank1_pct",    "rate": 20 },                        // Injector duty bank 1 (%)
-    { "symbol": "inj_duty_bank2_pct",    "rate": 20 },                        // Injector duty bank 2 (%)
-    { "symbol": "inj_pw_max_available_us", "rate": 5 },                       // Max pulse window at current RPM (us) — capacity ceiling
+    {
+      "symbol": "inj_duty_bank1_pct",
+      "rate": 20
+    }, // Injector duty bank 1 (%)
+    {
+      "symbol": "inj_duty_bank2_pct",
+      "rate": 20
+    }, // Injector duty bank 2 (%)
+    {
+      "symbol": "inj_pw_max_available_us",
+      "rate": 5
+    }, // Max pulse window at current RPM (us) — capacity ceiling
 
     // ── Transient / correction filters ───────────────────────────────────────────────────────────
-    { "symbol": "inj_tip_adj_enrichment", "rate": 10 },                      // Tip-in enrichment adj (undefined4, raw) — nonzero = transient-contaminated sample
-    { "symbol": "inj_tip_adj_enleanment", "rate": 10 },                      // Tip-out enleanment adj (undefined4, raw) — nonzero = transient-contaminated sample
-    { "symbol": "load_alphaN_trim_factor", "rate": 1 },                      // Learned alpha-N airflow trim (u16_factor_1/100) — ECU's own correction on top of the MAF curve
+    {
+      "symbol": "inj_tip_adj_enrichment",
+      "rate": 10
+    }, // Tip-in enrichment adj (undefined4, raw) — nonzero = transient-contaminated sample
+    {
+      "symbol": "inj_tip_adj_enleanment",
+      "rate": 10
+    }, // Tip-out enleanment adj (undefined4, raw) — nonzero = transient-contaminated sample
+    {
+      "symbol": "load_alphaN_trim_factor",
+      "rate": 1
+    }, // Learned alpha-N airflow trim (u16_factor_1/100) — ECU's own correction on top of the MAF curve
 
     // ── Bank trims ───────────────────────────────────────────────────────────────────────────────
     // 16-bit internal trims, catalog-typed i16_factor_1/20. Enable if the O2 traces aren't enough.
     //{ "symbol": "stft_bank1",           "rate": 20 },                      // Short-term trim B1
     //{ "symbol": "stft_bank2",           "rate": 20 },                      // Short-term trim B2
-    { "symbol": "obd_ltft_bank_1",       "rate": 1, "scale": 0.78125, "offset": -100, "unit": "%" }, // Long-term trim B1 (assumed OBD A/1.28-100 encoding)
-    { "symbol": "obd_ltft_bank_2",       "rate": 1, "scale": 0.78125, "offset": -100, "unit": "%" }, // Long-term trim B2 (assumed OBD A/1.28-100 encoding)
+    {
+      "symbol": "obd_ltft_bank_1",
+      "rate": 1,
+      "scale": 0.78125,
+      "offset": -100,
+      "unit": "%"
+    }, // Long-term trim B1 (assumed OBD A/1.28-100 encoding)
+    {
+      "symbol": "obd_ltft_bank_2",
+      "rate": 1,
+      "scale": 0.78125,
+      "offset": -100,
+      "unit": "%"
+    }, // Long-term trim B2 (assumed OBD A/1.28-100 encoding)
 
     // ── O2 feedback ──────────────────────────────────────────────────────────────────────────────
-    { "symbol": "obd_ii_o2_sensor1_voltage", "rate": 20 },                    // Front O2 bank 1 - drives bank 1 STFT
-    { "symbol": "obd_ii_o2_sensor5_voltage", "rate": 20 },                    // Front O2 bank 2 - drives bank 2 STFT
+    {
+      "symbol": "obd_ii_o2_sensor1_voltage",
+      "rate": 5
+    }, // Front O2 bank 1 - drives bank 1 STFT
+    {
+      "symbol": "obd_ii_o2_sensor5_voltage",
+      "rate": 5
+    } // Front O2 bank 2 - drives bank 2 STFT
   ]
 }
