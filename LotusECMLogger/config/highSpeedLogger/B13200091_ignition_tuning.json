@@ -1,0 +1,107 @@
+{
+  // Ignition/knock tuning preset for the B13200091 ECU. Built around the per-cylinder view: what
+  // timing each cylinder actually got, how much knock retard it is carrying, how far over the knock
+  // threshold its last event peaked, and where the learned octane scaler has settled.
+  //
+  // Scalar channels reference symbols by name (address/size/scale/unit resolved from
+  // database/B13200091.csv). Per-cylinder values live in [6] arrays that the catalog hides from
+  // logging, so they are listed as explicit address channels at base + index*element_size:
+  //   obd_ii_ign_adv_per_cylinder  i16_angle_1/4[6]      @ 0x40001796  (2 B, deg = raw/4)
+  //   knock_ign_retard2            u8_angle_1/4deg[6]    @ 0x40001c28  (1 B, deg = raw/4)
+  //   knock_peak_over_threshold    uint8_t[6]            @ 0x40001c4c  (1 B, raw counts)
+  //   ign_knock_retard             u8_angle_1/4deg[6]    @ 0x40001c20  (1 B, deg = raw/4, learned)
+  //   LEA_octane_scaler            u16_factor_1/65536[6] @ 0x40002fa4  (2 B, % = raw*100/65536)
+  //   octane_scaler_short_term     u16_factor_1/65536[6] @ 0x400049c8  (2 B, % = raw*100/65536)
+  // Cylinder order is the array index (1-6), not the firing order.
+  //
+  // octane_scaler_current_min is typed `undefined2`; it is assumed to share the 1/65536 factor
+  // encoding of the two scaler arrays and carries an inline override to match — sanity-check it
+  // against the per-cylinder values before trusting the number.
+  //
+  // 5 rate groups (50/20/10/5/1 Hz), ~360 frames/s ≈ 9% of the 500 kbit/s bus. The 50 Hz group is
+  // the knock-event group: raising just those channels to 100 Hz doubles their resolution without
+  // adding an ECU group (still 5 frames), at ~16% bus load — worth it when hunting individual
+  // detonation events, unnecessary for steady-state timing sweeps.
+  "name": "Ignition Tuning (B13200091)",
+  "description": "Per-cylinder ignition advance, knock retard and knock peak, plus the timing chain (base/MBT/knock-safe/final), RPM/TPS/load/AFR target, engine torque, and per-cylinder octane scalers at 1 Hz.",
+  "ecuVersion": "B13200091",
+  "channels": [
+    // ── 50 Hz: axes + per-cylinder timing & knock ────────────────────────────────────────────────
+    { "symbol": "engine_speed_16bit",     "rate": 50 }, // X axis of the ignition maps (1 rpm/count)
+    { "symbol": "tps_16bit",              "rate": 50 }, // Throttle plate, high-res (%)
+    { "symbol": "load_mass_per_stroke",   "rate": 50 }, // Y axis of the ignition maps (mg/stroke = raw*4)
+    { "symbol": "afr_target",             "rate": 50 }, // Commanded AFR — mixture context for any timing call
+
+    // Ignition advance per cylinder — obd_ii_ign_adv_per_cylinder, i16_angle_1/4[6] @ 0x40001796
+    { "name": "Ign Target Cyl 1", "address": "0x40001796", "size": 2, "signed": true, "scale": 0.25, "unit": "deg", "defaultSelected": true, "rate": 50 },
+    { "name": "Ign Target Cyl 2", "address": "0x40001798", "size": 2, "signed": true, "scale": 0.25, "unit": "deg", "defaultSelected": true, "rate": 50 },
+    { "name": "Ign Target Cyl 3", "address": "0x4000179a", "size": 2, "signed": true, "scale": 0.25, "unit": "deg", "defaultSelected": true, "rate": 50 },
+    { "name": "Ign Target Cyl 4", "address": "0x4000179c", "size": 2, "signed": true, "scale": 0.25, "unit": "deg", "defaultSelected": true, "rate": 50 },
+    { "name": "Ign Target Cyl 5", "address": "0x4000179e", "size": 2, "signed": true, "scale": 0.25, "unit": "deg", "defaultSelected": true, "rate": 50 },
+    { "name": "Ign Target Cyl 6", "address": "0x400017a0", "size": 2, "signed": true, "scale": 0.25, "unit": "deg", "defaultSelected": true, "rate": 50 },
+
+    // Active knock retard per cylinder — knock_ign_retard2, u8_angle_1/4deg[6] @ 0x40001c28
+    { "name": "Knock Retard Cyl 1", "address": "0x40001c28", "size": 1, "scale": 0.25, "unit": "deg", "defaultSelected": true, "rate": 50 },
+    { "name": "Knock Retard Cyl 2", "address": "0x40001c29", "size": 1, "scale": 0.25, "unit": "deg", "defaultSelected": true, "rate": 50 },
+    { "name": "Knock Retard Cyl 3", "address": "0x40001c2a", "size": 1, "scale": 0.25, "unit": "deg", "defaultSelected": true, "rate": 50 },
+    { "name": "Knock Retard Cyl 4", "address": "0x40001c2b", "size": 1, "scale": 0.25, "unit": "deg", "defaultSelected": true, "rate": 50 },
+    { "name": "Knock Retard Cyl 5", "address": "0x40001c2c", "size": 1, "scale": 0.25, "unit": "deg", "defaultSelected": true, "rate": 50 },
+    { "name": "Knock Retard Cyl 6", "address": "0x40001c2d", "size": 1, "scale": 0.25, "unit": "deg", "defaultSelected": true, "rate": 50 },
+
+    // Knock detection magnitude per cylinder — knock_peak_over_threshold, uint8_t[6] @ 0x40001c4c.
+    // Raw counts above CAL_knock_peak_threshold; nonzero = a detected event on that cylinder, and it
+    // moves before the retard does. Pair with knock_sensor_b*_dc_bias to rule out a rising noise floor.
+    { "name": "Knock Peak Cyl 1", "address": "0x40001c4c", "size": 1, "unit": "raw", "defaultSelected": true, "rate": 50 },
+    { "name": "Knock Peak Cyl 2", "address": "0x40001c4d", "size": 1, "unit": "raw", "defaultSelected": true, "rate": 50 },
+    { "name": "Knock Peak Cyl 3", "address": "0x40001c4e", "size": 1, "unit": "raw", "defaultSelected": true, "rate": 50 },
+    { "name": "Knock Peak Cyl 4", "address": "0x40001c4f", "size": 1, "unit": "raw", "defaultSelected": true, "rate": 50 },
+    { "name": "Knock Peak Cyl 5", "address": "0x40001c50", "size": 1, "unit": "raw", "defaultSelected": true, "rate": 50 },
+    { "name": "Knock Peak Cyl 6", "address": "0x40001c51", "size": 1, "unit": "raw", "defaultSelected": true, "rate": 50 },
+
+    // ── 20 Hz: the timing chain, base → final ────────────────────────────────────────────────────
+    { "symbol": "ign_adv_target1",            "rate": 20 }, // Requested advance (pre-slew)
+    { "symbol": "ign_adv_final",              "rate": 20 }, // Final commanded advance after all comps
+    { "symbol": "ign_base",                   "rate": 20 }, // Straight off the timing map, before comps
+    { "symbol": "ign_adv_knock_safe",         "rate": 20 }, // Ceiling knock control allows
+    { "symbol": "ign_adv_delta_to_knock_safe","rate": 20 }, // Headroom: final vs that ceiling
+    { "symbol": "ign_mbt_modeled",            "rate": 20 }, // Modeled MBT — how much torque is on the table
+    { "symbol": "ign_comp_total",             "rate": 20 }, // Net trim away from ign_base
+    { "symbol": "knock_ign_retard_sum",       "rate": 20 }, // Total retard, all cylinders (i16, 1/4 deg)
+    { "symbol": "ign_retard_knock_avg",       "rate": 20 }, // Average retard across cylinders
+    { "symbol": "obd_ii_engine_torque",       "rate": 20 }, // ECU torque estimate (Nm)
+    { "symbol": "torque_reduction_factor_ign","rate": 20 }, // Torque-path spark cut authority (%)
+    { "symbol": "ign_comp_torque_reduction",  "rate": 20 }, // Retard demanded by torque limiting — separates
+                                                           // torque-management pull from knock pull
+    { "symbol": "afr_enrichment_from_ign_retard", "rate": 20 }, // Protective enrichment following retard
+
+    // ── 10 Hz: state & slow compensations ────────────────────────────────────────────────────────
+    { "symbol": "accel_pedal_pos",   "rate": 10 }, // Driver demand vs delivered throttle
+    { "symbol": "knock_sampling_active", "rate": 10 }, // 0 = detection windowed out; knock channels are stale
+    { "symbol": "ign_mode",          "rate": 10 }, // Which timing strategy is running
+    { "symbol": "ign_comp_coolant",  "rate": 10 }, // Coolant timing comp (deg)
+    { "symbol": "ign_comp_iat",      "rate": 10 }, // IAT timing comp (deg)
+    { "symbol": "ign_comp_rpm",      "rate": 10 }, // RPM timing comp (deg)
+
+    { "symbol": "coolant_temp",            "rate": 1 },
+    { "symbol": "air_temp_intake",         "rate": 1 }, // Charge-air heating — the usual cause of a moving knock limit
+
+    // ── 1 Hz: octane adaptation & learned knock retard ───────────────────────────────────────────
+ 
+    // Learned octane scaler per cylinder — LEA_octane_scaler, u16_factor_1/65536[6] @ 0x40002fa4
+    { "name": "Octane Scaler Cyl 1", "address": "0x40002fa4", "size": 2, "scale": 0.0015258789, "unit": "%", "defaultSelected": true, "rate": 1 },
+    { "name": "Octane Scaler Cyl 2", "address": "0x40002fa6", "size": 2, "scale": 0.0015258789, "unit": "%", "defaultSelected": true, "rate": 1 },
+    { "name": "Octane Scaler Cyl 3", "address": "0x40002fa8", "size": 2, "scale": 0.0015258789, "unit": "%", "defaultSelected": true, "rate": 1 },
+    { "name": "Octane Scaler Cyl 4", "address": "0x40002faa", "size": 2, "scale": 0.0015258789, "unit": "%", "defaultSelected": true, "rate": 1 },
+    { "name": "Octane Scaler Cyl 5", "address": "0x40002fac", "size": 2, "scale": 0.0015258789, "unit": "%", "defaultSelected": true, "rate": 1 },
+    { "name": "Octane Scaler Cyl 6", "address": "0x40002fae", "size": 2, "scale": 0.0015258789, "unit": "%", "defaultSelected": true, "rate": 1 },
+
+    // Learned knock retard per cylinder — ign_knock_retard, u8_angle_1/4deg[6] @ 0x40001c20.
+    // The persistent term; a cylinder stuck here is carrying retard from previous drives.
+    { "name": "Knock Retard Learned Cyl 1", "address": "0x40001c20", "size": 1, "scale": 0.25, "unit": "deg", "defaultSelected": true, "rate": 1 },
+    { "name": "Knock Retard Learned Cyl 2", "address": "0x40001c21", "size": 1, "scale": 0.25, "unit": "deg", "defaultSelected": true, "rate": 1 },
+    { "name": "Knock Retard Learned Cyl 3", "address": "0x40001c22", "size": 1, "scale": 0.25, "unit": "deg", "defaultSelected": true, "rate": 1 },
+    { "name": "Knock Retard Learned Cyl 4", "address": "0x40001c23", "size": 1, "scale": 0.25, "unit": "deg", "defaultSelected": true, "rate": 1 },
+    { "name": "Knock Retard Learned Cyl 5", "address": "0x40001c24", "size": 1, "scale": 0.25, "unit": "deg", "defaultSelected": true, "rate": 1 },
+    { "name": "Knock Retard Learned Cyl 6", "address": "0x40001c25", "size": 1, "scale": 0.25, "unit": "deg", "defaultSelected": true, "rate": 1 }
+  ]
+}
