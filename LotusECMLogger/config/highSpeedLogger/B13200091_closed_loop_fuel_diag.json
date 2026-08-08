@@ -1,0 +1,178 @@
+{
+  // Closed-loop fuel diagnostics for the B13200091 ECU. Narrow, purpose-built companion to
+  // B13200091_fuel_diagnostics.json: instead of the whole injection pipeline it traces only the
+  // load-model → closed-loop-trim path, so the fast channels can run at 50 Hz.
+  //
+  // What it answers:
+  //   - Which load model is the ECU actually running on right now (load_source_is_alphaN), and how
+  //     far apart are the two candidates (load_computed_maf vs load_computed_alphaN vs the value the
+  //     fuel calc actually consumed, load_selected_raw, vs the coarse table axis it indexes with,
+  //     load_mass_per_stroke)?
+  //   - Is the loop even closed? afr_target away from the stoich/closed-loop value means the ECU is
+  //     in open-loop enrichment and STFT/LTFT below are not being driven by the O2 sensors.
+  //   - Is a trim error a MAF metering problem or an alpha-N/throttle-model problem? Compare
+  //     sensor_adc_maf1 (raw sensor volts, pre-transfer-function) against maf_flow_1 (post
+  //     CAL_sensor_maf_scaling) and against load_alphaN_trim_factor (the ECU's learned alpha-N
+  //     correction).
+  //   - Are the O2 sensors switching, and are STFT/LTFT chasing them symmetrically per bank?
+  //   - Is the sample transient-contaminated? inj_tip_apply_adj / inj_tip_adj_enrichment nonzero
+  //     means tip-in enrichment is active and closed-loop error at that instant is meaningless.
+  //
+  // Scaling notes (derived from the catalog types unless overridden inline):
+  //   - load_selected_raw / load_computed_* are u32_load_mg/stroke → 1 mg/stroke per count, no
+  //     scaling; load_mass_per_stroke is the u8 copy at 4 mg/stroke per count.
+  //   - afr_target is u16_afr_1/100 → raw/100 AFR.
+  //   - stft_bank1/2 are i16_factor_1/20 and ltft_bank1/2 are i16_factor_1/10, so they display as
+  //     percent (x5 and x10 respectively). Sanity-check on a warm idle whether they center on 0
+  //     (delta trim) or 100 (multiplier) before reading absolute numbers off them.
+  //   - inj_tip_adj_enrichment is undefined4 → logged raw; use it as a nonzero/zero flag.
+  //   - The obd_* trim copies at the bottom are the 1-byte OBD Mode 01 encodings (A/1.28-100) and
+  //     are unchecked by default — enable them to cross-check the internal 16-bit trims above.
+  //
+  // 4 rate groups (50/20/5/1 Hz), 8 frames, ~280 frames/s ≈ 6% of the 500 kbit/s bus.
+  "name": "Closed-Loop Fuel Diag (B13200091)",
+  "description": "Load model selection (MAF vs alpha-N) and closed-loop response: both load calcs, the selected load and its mass-per-stroke table axis, MAF flow + raw sensor volts, AFR target, pre-cat O2 voltages, STFT/LTFT per bank, alpha-N trim and tip-in enrichment.",
+  "ecuVersion": "B13200091",
+  "channels": [
+    // ── 50 Hz: axes, load models, MAF, O2 and short-term trims ───────────────────────────────────
+    // Ordered to pack the ECU's 7-byte frames tightly (5 frames).
+    {
+      "symbol": "engine_speed_16bit",
+      "rate": 50
+    }, // RPM — X axis of every fueling table (u16, 1 rpm/count)
+    {
+      "symbol": "load_selected_raw",
+      "rate": 50
+    }, // THE load the fuel/ign calc ran on (mg/stroke) — equals one of the two calcs below
+    {
+      "symbol": "load_mass_per_stroke",
+      "rate": 50
+    }, // Same load as the 8-bit table axis (mg/stroke = raw*4) — Y of the fueling/enrichment maps.
+    // Coarse (4 mg/stroke steps) by design: it is what the map lookups actually index, so trim
+    // error that tracks a cell boundary shows up here and not in load_selected_raw.
+
+    {
+      "symbol": "load_computed_maf",
+      "rate": 50
+    }, // Load from the MAF path (mg/stroke)
+    {
+      "symbol": "maf_flow_1",
+      "rate": 50
+    }, // Primary MAF airflow after CAL_sensor_maf_scaling (mg/s = raw*10)
+    {
+      "symbol": "tps_8bit",
+      "rate": 50
+    }, // Throttle plate 0-100% — alpha-N input and tip-in context
+
+    {
+      "symbol": "load_computed_alphaN",
+      "rate": 50
+    }, // Load from the throttle+RPM model (mg/stroke)
+    {
+      "symbol": "sensor_adc_maf1",
+      "rate": 50
+    }, // Raw primary MAF volts (V = raw*5/1023) — flat/pegged here = sensor/wiring, not curve
+    {
+      "symbol": "load_source_is_alphaN",
+      "rate": 50
+    }, // 0 = running on MAF load, 1 = fell back to alpha-N. Watch for mid-log flips.
+
+    {
+      "symbol": "afr_target",
+      "rate": 50
+    }, // Commanded AFR (u16, raw/100) — closed-loop error is only meaningful where this sits at
+    // the stoich/closed-loop value; a dip into power enrichment drops the loop out entirely.
+    {
+      "symbol": "stft_bank1",
+      "rate": 50
+    }, // Short-term fuel trim bank 1 (i16_factor_1/20)
+    {
+      "symbol": "stft_bank2",
+      "rate": 50
+    }, // Short-term fuel trim bank 2 (i16_factor_1/20)
+    {
+      "symbol": "obd_ii_o2_sensor1_voltage",
+      "rate": 50
+    }, // Bank 1 pre-cat O2 (V = raw*5/1023) — the input driving stft_bank1
+    {
+      "symbol": "obd_ii_o2_sensor5_voltage",
+      "rate": 50
+    }, // Bank 2 pre-cat O2 (V = raw*5/1023) — the input driving stft_bank2
+
+    // ── 20 Hz: transient gate ────────────────────────────────────────────────────────────────────
+    {
+      "symbol": "inj_tip_adj_enrichment",
+      "rate": 20
+    }, // Tip-in enrichment adjustment (raw) — nonzero = discard this sample for trim analysis
+    {
+      "symbol": "inj_tip_apply_adj",
+      "rate": 20
+    }, // Flag: tip-in/out adjustment currently being applied
+
+    // ── 5 Hz: slow adaptations + knock ───────────────────────────────────────────────────────────
+    {
+      "symbol": "knock_ign_retard_sum",
+      "rate": 5
+    }, // Total knock retard, all cylinders (i16_angle_1/4deg). Second reason afr_target can leave
+    // the closed-loop value: retard-driven enrichment. Nonzero here explains a rich excursion
+    // that isn't tip-in.
+    {
+      "symbol": "ltft_bank1",
+      "rate": 5
+    }, // Long-term fuel trim bank 1 (i16_factor_1/10)
+    {
+      "symbol": "ltft_bank2",
+      "rate": 5
+    }, // Long-term fuel trim bank 2 (i16_factor_1/10)
+    {
+      "symbol": "load_alphaN_trim_factor",
+      "rate": 5
+    }, // Learned alpha-N airflow trim (u16_factor_1/100) — drift here shadows a MAF curve error
+    {
+      "symbol": "closedloop_activate_time",
+      "rate": 5
+    }, // Time the loop has been closed (ms = raw*5). Zero/resetting = open loop, so STFT is not
+    // being driven by the O2 sensors and neither trim means anything at that instant.
+    {
+      "symbol": "inj_comp_iat",
+      "rate": 5
+    }, // Air-temp fuel compensation factor (u8_factor_1/128 → 100% = unity). Must sit at unity
+    // before a trim reading is attributable to metering rather than to IAT enrichment.
+
+    // ── 1 Hz: OBD trim copies (cross-check, off by default) ──────────────────────────────────────
+    // Same trims as reported over OBD Mode 01 PIDs 06-09: 1 byte, A/1.28-100 → % about zero.
+    // Enable to confirm the 16-bit internal trims above are being scaled/centered correctly.
+    {
+      "symbol": "obd_ii_stft_b1",
+      "rate": 1,
+      "defaultSelected": false,
+      "scale": 0.78125,
+      "offset": -100,
+      "unit": "%"
+    },
+    {
+      "symbol": "obd_ii_stft_b2",
+      "rate": 1,
+      "defaultSelected": false,
+      "scale": 0.78125,
+      "offset": -100,
+      "unit": "%"
+    },
+    {
+      "symbol": "obd_ltft_bank_1",
+      "rate": 1,
+      "defaultSelected": false,
+      "scale": 0.78125,
+      "offset": -100,
+      "unit": "%"
+    },
+    {
+      "symbol": "obd_ltft_bank_2",
+      "rate": 1,
+      "defaultSelected": false,
+      "scale": 0.78125,
+      "offset": -100,
+      "unit": "%"
+    }
+  ]
+}
