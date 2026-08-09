@@ -17,9 +17,10 @@ namespace LotusECMLogger.Controls
         private void SetupListViewColumns()
         {
             dtcListView.Columns.Clear();
-            dtcListView.Columns.Add("Code", 120);
-            dtcListView.Columns.Add("Category", 160);
-            dtcListView.Columns.Add("Type", 100);
+            dtcListView.Columns.Add("Code", 80);
+            dtcListView.Columns.Add("Description", 520);
+            dtcListView.Columns.Add("Category", 110);
+            dtcListView.Columns.Add("Type", 90);
         }
 
         private async void readCodesButton_Click(object sender, EventArgs e)
@@ -57,9 +58,15 @@ namespace LotusECMLogger.Controls
 
         private void AddCodeRow(DiagnosticTroubleCode dtc, string type)
         {
+            string description = DtcDescriptionCatalog.TryGetDescription(dtc.Code) ?? "—";
+
             var item = new ListViewItem(dtc.Code);
+            item.SubItems.Add(description);
             item.SubItems.Add(dtc.Category.ToString());
             item.SubItems.Add(type);
+            // Descriptions with several alternate readings run past the column; the row tooltip is
+            // the only way to see the whole thing, since ListView has no per-subitem tooltip.
+            item.ToolTipText = $"{dtc.Code} — {description}";
             dtcListView.Items.Add(item);
         }
 
@@ -70,6 +77,9 @@ namespace LotusECMLogger.Controls
                 : $"{result.Stored.Count} stored, {result.Permanent.Count} permanent trouble code(s)";
             if (result.PermanentError != null)
                 text += " — permanent codes unavailable";
+            // Without this note a missing catalog just looks like a table full of unknown codes.
+            if (DtcDescriptionCatalog.Count == 0)
+                text += " — code descriptions unavailable";
             return text;
         }
 

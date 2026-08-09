@@ -82,6 +82,7 @@ namespace LotusECMLogger.Controls
             dtcListView.GridLines = true;
             dtcListView.Location = new Point(0, 60);
             dtcListView.Name = "dtcListView";
+            dtcListView.ShowItemToolTips = true;
             dtcListView.Size = new Size(600, 429);
             dtcListView.TabIndex = 2;
             dtcListView.UseCompatibleStateImageBehavior = false;

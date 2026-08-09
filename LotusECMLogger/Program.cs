@@ -1,4 +1,5 @@
 using System.Text;
+using LotusECMLogger.Services;
 
 namespace LotusECMLogger
 {
@@ -21,6 +22,10 @@ namespace LotusECMLogger
             // runtime tears the process down regardless — but they can at least leave a report.
             AppDomain.CurrentDomain.UnhandledException += (_, e) =>
                 ReportCrash(e.ExceptionObject as Exception, terminating: e.IsTerminating);
+
+            // Read the DTC description table up front so the Diagnostic Trouble Codes tab can label
+            // codes without touching disk mid-scan. A missing catalog only costs the labels.
+            DtcDescriptionCatalog.Preload();
 
             // To customize application configuration such as set high DPI settings or default font,
             // see https://aka.ms/applicationconfiguration.

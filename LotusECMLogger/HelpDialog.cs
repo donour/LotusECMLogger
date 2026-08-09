@@ -489,7 +489,7 @@ namespace LotusECMLogger
 
             AddSubheading("How to Use:");
             AddParagraph("1. Read Codes: Click 'Read Codes' to retrieve stored (Mode 03) and permanent (Mode 0A) trouble codes from the ECU.");
-            AddParagraph("2. View Details: Each code is displayed with its category and type (stored or permanent).");
+            AddParagraph("2. View Details: Each code is displayed with a plain-English description, its category, and its type (stored or permanent). Hover over a row to see the full description when it is wider than the column.");
             AddParagraph("3. Clear Codes: After addressing the underlying issues, click 'Clear Codes' to erase stored fault codes from the ECU memory.");
 
             AddSubheading("Understanding DTCs:");
@@ -498,6 +498,10 @@ namespace LotusECMLogger
             AddBulletPoint("C-codes: Chassis (ABS, steering)");
             AddBulletPoint("B-codes: Body (airbags, climate control)");
             AddBulletPoint("U-codes: Network communication");
+
+            AddSubheading("About the Descriptions:");
+            AddParagraph("Descriptions come from a table of about 3,000 codes shipped with the application (config\\obd_ii_code_descriptions.json), compiled from the LotusECU-T4e project's OBD code documentation. A code with no entry in that table shows a dash.");
+            AddParagraph("Some codes carry more than one description separated by ' | '. These are alternate readings taken from different manufacturers' code tables, and the source does not record which one a Lotus ECU means - treat them as candidates rather than facts, and confirm against Lotus service documentation before acting on an expensive one.");
 
             AddSubheading("Important Notes:");
             AddParagraph("Clearing codes does not fix the underlying problem - it only erases the stored fault memory. If the problem persists, codes will return after driving the vehicle.");
