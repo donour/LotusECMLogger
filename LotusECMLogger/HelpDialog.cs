@@ -271,6 +271,7 @@ namespace LotusECMLogger
 
             AddSubheading("Output Files:");
             AddParagraph("All loggers write their output beneath a single folder: Documents\\LotusECMLogger. Live Data logs are named LiveData_<timestamp>.csv, T6 RMA logs T6RMA_<timestamp>.csv, and high-speed logs HighSpeed_<timestamp>.csv. Live Tuning calibration files default to the LiveTuning subfolder. The folder is created automatically the first time a log is written.");
+            AddParagraph("Every log shares one CSV layout: a few '#' lines describing the session, then a header row of Timestamp, RelativeTime_ms, and one column per logged value. Timestamps are ISO 8601 to the microsecond and carry the UTC offset, so a log that spans a daylight-saving change stays unambiguous. Numbers always use a decimal point regardless of your Windows regional settings, and an empty cell means no value was available for that row. Columns holding raw ECU memory are written as hex (0x1F) rather than decimal.");
 
             AddParagraph("");
             AddParagraph("Some advanced, rarely-used operations live in the Tools menu rather than a tab:");
@@ -346,7 +347,7 @@ namespace LotusECMLogger
             AddBulletPoint("Dropped: Frames dropped because logging to disk fell behind. This should stay 0. If it turns red, the writer could not keep up - use a faster or local drive (avoid network/synced folders), or reduce the number of channels.");
 
             AddSubheading("Output Files:");
-            AddParagraph("Data is saved to CSV with columns: Timestamp (microsecond wall-clock), RelativeTime_ms (derived from the adapter's hardware timestamp for accurate inter-frame timing), Label, then one column per logged channel. Files are written to Documents\\LotusECMLogger by default (e.g., HighSpeed_20250210_143022.csv).");
+            AddParagraph("Data is saved to CSV with columns: Timestamp (ISO 8601 wall-clock, microsecond resolution), RelativeTime_ms (derived from the adapter's hardware timestamp for accurate inter-frame timing), Label, then one column per logged channel. A frame carries only its own group's channels, so the other columns repeat their most recent value. Files are written to Documents\\LotusECMLogger by default (e.g., HighSpeed_20250210_143022.csv).");
 
             AddSubheading("How It Differs from Live Data:");
             AddParagraph("Live Data uses OBD-II request/response (Mode 01/22) and works on any compatible ECU, but is limited by polling. High-Speed Logging streams internal channels at a fixed, hardware-timestamped rate and is far faster, but requires firmware that includes the channel-logger facility.");
@@ -750,7 +751,7 @@ namespace LotusECMLogger
             AddParagraph("1. Memory Address: Enter the hexadecimal address you want to monitor (e.g., 0x40000000). Valid RAM addresses are typically in the range 0x40000000-0x4000FFFF.");
             AddParagraph("2. Length: Specify the number of bytes to read (1-255).");
             AddParagraph("3. Polling Interval: Set how often to read the address in milliseconds (10-10000ms).");
-            AddParagraph("4. CSV Output File: Choose where to save the logged data. A timestamped default in Documents\\LotusECMLogger is provided (e.g., T6RMA_20250210_143022.csv).");
+            AddParagraph("4. CSV Output File: Choose where to save the logged data. A timestamped default in Documents\\LotusECMLogger is provided (e.g., T6RMA_20250210_143022.csv). Each row holds one Byte0..ByteN column per byte read, written as raw hex (0x1F); the address, length and interval are recorded in the '#' lines at the top of the file.");
             AddParagraph("5. Start Logging: Click 'Start Logging' to begin reading and recording the memory contents.");
             AddParagraph("6. Stop Logging: Click 'Stop Logging' when finished.");
 

@@ -1,5 +1,4 @@
-using System.Globalization;
-using System.Text;
+using LotusECMLogger.Services.Logging;
 using SAE.J2534;
 
 namespace LotusECMLogger.Services
@@ -320,7 +319,7 @@ namespace LotusECMLogger.Services
         /// </summary>
         private void TelemetryLoop(string? csvFilePath, CancellationToken token)
         {
-            StreamWriter? csv = null;
+            ISampleSink? sink = null;
             try
             {
                 using var session = J2534Session.Open();
@@ -329,15 +328,17 @@ namespace LotusECMLogger.Services
 
                 if (!string.IsNullOrWhiteSpace(csvFilePath))
                 {
-                    LoggerPaths.EnsureParentDirectory(csvFilePath);
-                    csv = new StreamWriter(csvFilePath, append: false);
-                    csv.WriteLine("Timestamp,LF,RF,LR,RR,VehicleSpeedRaw,VehicleSpeedKph,BrakeSwitch," +
-                                  "EspActive,AbsActive,TorqueRequest,EspWarning");
+                    var header = new SampleLogHeader("Lotus ABS/ESP Telemetry",
+                    [
+                        "Passive capture of the module's 0xA2/0xA4/0xA8 broadcasts; nothing is transmitted.",
+                        "One row per 0xA2 (front wheels) frame — the 100 Hz anchor of the three.",
+                        "Wheel/vehicle counts are raw; km/h assumes the stock 1.0 wheel multiplier.",
+                    ]);
+                    sink = new CsvSampleSink(csvFilePath, header, TelemetryCsvColumns);
                 }
 
                 var sample = new AbsTelemetrySample();
                 DateTime lastEvent = DateTime.MinValue;
-                int rowsSinceFlush = 0;
 
                 while (!token.IsCancellationRequested)
                 {
@@ -363,16 +364,9 @@ namespace LotusECMLogger.Services
 
                         updated = true;
 
-                        // One CSV row per front-wheel frame — the 100 Hz anchor of the three.
-                        if (csv is not null && id == AbsTelemetryDecoder.FrontWheelsCanId)
-                        {
-                            WriteTelemetryCsvRow(csv, sample);
-                            if (++rowsSinceFlush >= 100)
-                            {
-                                csv.Flush();
-                                rowsSinceFlush = 0;
-                            }
-                        }
+                        // One row per front-wheel frame — the 100 Hz anchor of the three.
+                        if (sink is not null && id == AbsTelemetryDecoder.FrontWheelsCanId)
+                            WriteTelemetrySample(sink, sample);
                     }
 
                     if (updated && (DateTime.UtcNow - lastEvent).TotalMilliseconds >= TelemetryEventIntervalMs)
@@ -389,31 +383,46 @@ namespace LotusECMLogger.Services
             }
             finally
             {
-                try { csv?.Flush(); csv?.Dispose(); } catch { /* closing a log must not mask the exit reason */ }
+                try { sink?.Dispose(); } catch { /* closing a log must not mask the exit reason */ }
             }
         }
 
-        private static void WriteTelemetryCsvRow(StreamWriter csv, AbsTelemetrySample s)
-        {
-            var row = new StringBuilder();
-            row.Append(s.Timestamp.ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture)).Append(',');
-            row.Append(Num(s.WheelLf)).Append(',');
-            row.Append(Num(s.WheelRf)).Append(',');
-            row.Append(Num(s.WheelLr)).Append(',');
-            row.Append(Num(s.WheelRr)).Append(',');
-            row.Append(Num(s.VehicleSpeedRaw)).Append(',');
-            row.Append(s.VehicleSpeedRaw is int raw
-                ? AbsTelemetrySample.ToKph(raw).ToString("F2", CultureInfo.InvariantCulture)
-                : "").Append(',');
-            row.Append(Num(s.BrakeSwitch)).Append(',');
-            row.Append(Flag(s.EspActive)).Append(',');
-            row.Append(Flag(s.AbsActive)).Append(',');
-            row.Append(Flag(s.TorqueRequest)).Append(',');
-            row.Append(Flag(s.EspWarning));
-            csv.WriteLine(row.ToString());
+        /// <summary>Columns of a telemetry log; the sink supplies Timestamp and RelativeTime_ms.</summary>
+        private static readonly SampleColumn[] TelemetryCsvColumns =
+        [
+            "LF", "RF", "LR", "RR", "VehicleSpeedRaw", "VehicleSpeedKph", "BrakeSwitch",
+            "EspActive", "AbsActive", "TorqueRequest", "EspWarning",
+        ];
 
-            static string Num(int? value) => value?.ToString(CultureInfo.InvariantCulture) ?? "";
-            static string Flag(bool? value) => value is null ? "" : value.Value ? "1" : "0";
+        /// <summary>
+        /// Writes one decoded sample. A field the module reported as unavailable is cleared rather
+        /// than set, so it lands as an empty cell instead of being read back as a genuine zero.
+        /// </summary>
+        private static void WriteTelemetrySample(ISampleSink sink, AbsTelemetrySample s)
+        {
+            SetOrClear("LF", s.WheelLf);
+            SetOrClear("RF", s.WheelRf);
+            SetOrClear("LR", s.WheelLr);
+            SetOrClear("RR", s.WheelRr);
+            SetOrClear("VehicleSpeedRaw", s.VehicleSpeedRaw);
+            SetOrClear("VehicleSpeedKph", s.VehicleSpeedRaw is int raw ? AbsTelemetrySample.ToKph(raw) : null);
+            SetOrClear("BrakeSwitch", s.BrakeSwitch);
+            SetOrClear("EspActive", Flag(s.EspActive));
+            SetOrClear("AbsActive", Flag(s.AbsActive));
+            SetOrClear("TorqueRequest", Flag(s.TorqueRequest));
+            SetOrClear("EspWarning", Flag(s.EspWarning));
+
+            sink.WriteRow(s.Timestamp);
+
+            void SetOrClear(string column, double? value)
+            {
+                if (value is double present)
+                    sink.Set(column, present);
+                else
+                    sink.Clear(column);
+            }
+
+            static double? Flag(bool? value) => value is null ? null : value.Value ? 1 : 0;
         }
 
         public (bool success, string errorMessage, AbsTelemetrySample result) ReadTelemetrySnapshot(int durationMs)

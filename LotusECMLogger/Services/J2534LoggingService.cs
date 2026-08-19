@@ -1,3 +1,4 @@
+using LotusECMLogger.Services.Logging;
 using SAE.J2534;
 using System.Collections.Concurrent;
 using System.Diagnostics;
@@ -30,7 +31,7 @@ namespace LotusECMLogger.Services
         /// stop signal and its wake-up in one, so there is no separate flag or wait handle that
         /// shutdown could dispose out from under a thread still parked on it.
         /// </summary>
-        private readonly BlockingCollection<List<LiveDataReading>> csvWriteQueue = new();
+        private readonly BlockingCollection<(DateTime Timestamp, List<LiveDataReading> Readings)> csvWriteQueue = new();
 
         /// <summary>
         /// Set once both workers have provably exited. Guards the disposal of everything they touch.
@@ -193,19 +194,40 @@ namespace LotusECMLogger.Services
         {
             try
             {
-                using var writer = new CSVWriter(outputFilename);
+                // Which readings a response yields depends on the PIDs the ECU actually answers, and
+                // one PID can produce several — so the columns are discovered from the opening rows
+                // rather than derived from the request configuration.
+                using var sink = new DiscoveringSampleSink(
+                    outputFilename, new SampleLogHeader("Lotus Live Data Log", DescribeConfiguration()));
 
                 // Blocks until a batch arrives, and ends only once CompleteAdding() has been called
                 // AND the queue is empty — so rows already queued at shutdown are still written.
-                foreach (var readings in csvWriteQueue.GetConsumingEnumerable())
+                foreach ((DateTime timestamp, List<LiveDataReading> readings) in csvWriteQueue.GetConsumingEnumerable())
                 {
-                    writer.WriteLine(readings);
+                    foreach (LiveDataReading reading in readings)
+                        sink.Set(reading.name, reading.value_f);
+
+                    sink.WriteRow(timestamp);
                 }
             }
             catch (Exception ex)
             {
                 OnExceptionOccurred(ex);
             }
+        }
+
+        /// <summary>Preamble lines naming the ECUs and requests this session polls.</summary>
+        private List<string> DescribeConfiguration()
+        {
+            List<string> notes = [];
+            foreach (var group in multiEcuConfig.ECUGroups)
+            {
+                notes.Add($"{group.ECU.Name} (0x{group.ECU.RequestId:X3}/0x{group.ECU.ResponseId:X3}): " +
+                          $"{group.Requests.Count} request(s)");
+                foreach (var request in group.Requests)
+                    notes.Add($"  {request.Name} (Mode 0x{request.Mode:X2})");
+            }
+            return notes;
         }
 
         private void RunLogger()
@@ -253,12 +275,9 @@ namespace LotusECMLogger.Services
 
                     if (readings.Count > 0)
                     {
-                        var tr = new LiveDataReading
-                        {
-                            name = "time (s)",
-                            value_f = DateTime.Now.TimeOfDay.TotalSeconds
-                        };
-                        readings.Add(tr);
+                        // Stamped here rather than on the writer thread, so the row carries the time
+                        // the ECU answered instead of the time the row reached the front of the queue.
+                        DateTime timestamp = DateTime.Now;
 
                         if (ui_update_counter++ % LogFileToUIRatio == 0)
                         {
@@ -266,7 +285,7 @@ namespace LotusECMLogger.Services
                         }
 
                         // Queue data for background CSV writing (non-blocking)
-                        QueueDataForCSVWriting(readings);
+                        QueueDataForCSVWriting(timestamp, readings);
                     }
                 }
             }
@@ -280,13 +299,14 @@ namespace LotusECMLogger.Services
         /// <summary>
         /// Queue data for background CSV writing (non-blocking operation)
         /// </summary>
+        /// <param name="timestamp">When the ECU answered</param>
         /// <param name="readings">Data to write to CSV</param>
-        private void QueueDataForCSVWriting(List<LiveDataReading> readings)
+        private void QueueDataForCSVWriting(DateTime timestamp, List<LiveDataReading> readings)
         {
             try
             {
                 // Create a copy to avoid shared memory issues between threads
-                csvWriteQueue.Add(new List<LiveDataReading>(readings));
+                csvWriteQueue.Add((timestamp, new List<LiveDataReading>(readings)));
             }
             catch (InvalidOperationException)
             {

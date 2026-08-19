@@ -11,6 +11,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CrpCli", "CrpCli\CrpCli.csp
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BinaryFileMonitor", "BinaryFileMonitor\BinaryFileMonitor.csproj", "{4E2A03C3-E067-436E-8551-B7EE8B893B6A}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LotusECMLogger.Tests", "LotusECMLogger.Tests\LotusECMLogger.Tests.csproj", "{226C0F95-7A42-478B-9BBF-B1D79A84443C}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -69,6 +71,18 @@ Global
 		{4E2A03C3-E067-436E-8551-B7EE8B893B6A}.Release|x86.Build.0 = Release|Any CPU
 		{4E2A03C3-E067-436E-8551-B7EE8B893B6A}.Release|x64.ActiveCfg = Release|Any CPU
 		{4E2A03C3-E067-436E-8551-B7EE8B893B6A}.Release|x64.Build.0 = Release|Any CPU
+		{226C0F95-7A42-478B-9BBF-B1D79A84443C}.Debug|Any CPU.ActiveCfg = Debug|x86
+		{226C0F95-7A42-478B-9BBF-B1D79A84443C}.Debug|Any CPU.Build.0 = Debug|x86
+		{226C0F95-7A42-478B-9BBF-B1D79A84443C}.Debug|x86.ActiveCfg = Debug|x86
+		{226C0F95-7A42-478B-9BBF-B1D79A84443C}.Debug|x86.Build.0 = Debug|x86
+		{226C0F95-7A42-478B-9BBF-B1D79A84443C}.Debug|x64.ActiveCfg = Debug|x86
+		{226C0F95-7A42-478B-9BBF-B1D79A84443C}.Debug|x64.Build.0 = Debug|x86
+		{226C0F95-7A42-478B-9BBF-B1D79A84443C}.Release|Any CPU.ActiveCfg = Release|x86
+		{226C0F95-7A42-478B-9BBF-B1D79A84443C}.Release|Any CPU.Build.0 = Release|x86
+		{226C0F95-7A42-478B-9BBF-B1D79A84443C}.Release|x86.ActiveCfg = Release|x86
+		{226C0F95-7A42-478B-9BBF-B1D79A84443C}.Release|x86.Build.0 = Release|x86
+		{226C0F95-7A42-478B-9BBF-B1D79A84443C}.Release|x64.ActiveCfg = Release|x86
+		{226C0F95-7A42-478B-9BBF-B1D79A84443C}.Release|x64.Build.0 = Release|x86
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

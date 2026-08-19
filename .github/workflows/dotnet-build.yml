@@ -28,6 +28,9 @@ jobs:
     - name: Build solution
       run: dotnet build LotusECMLogger.sln --configuration Release --no-restore /p:Platform=x86
 
+    - name: Run tests
+      run: dotnet test LotusECMLogger.sln --configuration Release --no-build /p:Platform=x86
+
     - name: Publish application
       run: dotnet publish LotusECMLogger/LotusECMLogger.csproj --configuration Release --output ./publish /p:Platform=x86 --no-restore
 

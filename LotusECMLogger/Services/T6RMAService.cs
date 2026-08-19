@@ -1,6 +1,6 @@
+using LotusECMLogger.Services.Logging;
 using SAE.J2534;
 using System.Diagnostics;
-using System.Text;
 
 namespace LotusECMLogger.Services
 {
@@ -120,8 +120,14 @@ namespace LotusECMLogger.Services
 		private uint? _currentAddress;
 		private byte _currentLength;
 		private int _intervalMs;
-		private string? _csvFilePath;
-		private StreamWriter? _csvWriter;
+		private ISampleSink? _sink;
+
+		/// <summary>
+		/// Column name per byte of the read, built once when a session starts. Naming them on every
+		/// row would allocate a string per byte at the polling rate.
+		/// </summary>
+		private string[] _byteColumns = [];
+
 		private readonly object _lock = new();
 
 		public event EventHandler<T6RMADataEventArgs>? DataReceived;
@@ -174,7 +180,6 @@ namespace LotusECMLogger.Services
 				_currentAddress = memoryAddress;
 				_currentLength = length;
 				_intervalMs = intervalMs;
-				_csvFilePath = csvFilePath;
 
 				try
 				{
@@ -182,7 +187,7 @@ namespace LotusECMLogger.Services
 					InitializeDevice();
 
 					// Initialize CSV file
-					InitializeCsvFile();
+					InitializeCsvFile(csvFilePath);
 
 					// Start logging thread
 					_isLogging = true;
@@ -249,31 +254,32 @@ namespace LotusECMLogger.Services
 			Debug.WriteLine("T6RMA: J2534 device initialized with CAN protocol at 500 kbaud");
 		}
 
-		private void InitializeCsvFile()
+		private void InitializeCsvFile(string csvFilePath)
 		{
 			try
 			{
-				LoggerPaths.EnsureParentDirectory(_csvFilePath!);
-				_csvWriter = new StreamWriter(_csvFilePath!, false, Encoding.UTF8);
+				// The address is fixed for the session, so it identifies the log in the preamble
+				// rather than repeating unchanged down a column of every row.
+				var header = new SampleLogHeader("T6 RMA Memory Logging Session",
+				[
+					$"Memory Address: 0x{_currentAddress:X8}",
+					$"Length: {_currentLength} bytes",
+					$"Interval: {_intervalMs}ms",
+				]);
 
-				// Write CSV header
-				_csvWriter.WriteLine($"# T6 RMA Memory Logging Session");
-				_csvWriter.WriteLine($"# Memory Address: 0x{_currentAddress:X8}");
-				_csvWriter.WriteLine($"# Length: {_currentLength} bytes");
-				_csvWriter.WriteLine($"# Interval: {_intervalMs}ms");
-				_csvWriter.WriteLine($"# Started: {DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}");
-
-				// Write column headers
-				var headers = new StringBuilder();
-				headers.Append("Timestamp,RelativeTime_ms,Address");
-				for (int i = 0; i < _currentLength; i++)
+				// Hex columns: these are raw memory bytes, so the bit pattern is the point — a
+				// decimal rendering would have to be converted back by hand to mean anything.
+				_byteColumns = new string[_currentLength];
+				var columns = new SampleColumn[_currentLength];
+				for (int i = 0; i < _byteColumns.Length; i++)
 				{
-					headers.Append($",Byte{i}");
+					_byteColumns[i] = $"Byte{i}";
+					columns[i] = SampleColumn.Hex(_byteColumns[i], digits: 2);
 				}
-				_csvWriter.WriteLine(headers.ToString());
-				_csvWriter.Flush();
 
-				Debug.WriteLine($"T6RMA: CSV file initialized: {_csvFilePath}");
+				_sink = new CsvSampleSink(csvFilePath, header, columns);
+
+				Debug.WriteLine($"T6RMA: CSV file initialized: {csvFilePath}");
 			}
 			catch (Exception ex)
 			{
@@ -310,7 +316,7 @@ namespace LotusECMLogger.Services
 							});
 
 							// Write to CSV
-							WriteCsvEntry(timestamp, relativeTimeMs, _currentAddress.Value, responseData);
+							WriteCsvEntry(timestamp, relativeTimeMs, responseData);
 						}
 						else
 						{
@@ -481,27 +487,24 @@ namespace LotusECMLogger.Services
 			return responseData;
 		}
 
-		private void WriteCsvEntry(DateTime timestamp, long relativeTimeMs, uint address, byte[] data)
+		private void WriteCsvEntry(DateTime timestamp, long relativeTimeMs, byte[] data)
 		{
-			if (_csvWriter == null)
+			if (_sink is not ISampleSink sink)
 			{
 				return;
 			}
 
 			try
 			{
-				var csv = new StringBuilder();
-				csv.Append($"{timestamp:yyyy-MM-dd HH:mm:ss.fff},");
-				csv.Append($"{relativeTimeMs},");
-				csv.Append($"0x{address:X8}");
-
-				foreach (byte b in data)
+				// A short reply leaves the remaining columns holding their previous value, which is
+				// what every other logger does when the ECU does not answer for a channel.
+				int count = Math.Min(data.Length, _byteColumns.Length);
+				for (int i = 0; i < count; i++)
 				{
-					csv.Append($",0x{b:X2}");
+					sink.Set(_byteColumns[i], data[i]);
 				}
 
-				_csvWriter.WriteLine(csv.ToString());
-				_csvWriter.Flush(); // Ensure data is written immediately
+				sink.WriteRow(timestamp, relativeTimeMs);
 			}
 			catch (Exception ex)
 			{
@@ -513,9 +516,9 @@ namespace LotusECMLogger.Services
 		{
 			try
 			{
-				_csvWriter?.Close();
-				_csvWriter?.Dispose();
-				_csvWriter = null;
+				_sink?.Dispose();
+				_sink = null;
+				_byteColumns = [];
 
 				// Disposing the session releases its channel, device, and API handle.
 				_session?.Dispose();

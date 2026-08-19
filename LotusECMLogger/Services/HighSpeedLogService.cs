@@ -1,8 +1,7 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
-using System.Globalization;
-using System.Text;
 using LotusECMLogger.Models;
+using LotusECMLogger.Services.Logging;
 using SAE.J2534;
 
 namespace LotusECMLogger.Services
@@ -48,7 +47,9 @@ namespace LotusECMLogger.Services
         private const byte ResponseMarker = 0xFF; // first payload byte of a command reply
         private const int AckTimeoutMs = 400;
         private const int StreamReadTimeoutMs = 100;
-        private const int CsvFlushEveryRows = 100;
+
+        /// <summary>Log column carrying the frame demux label, ahead of the channel columns.</summary>
+        private const string LabelColumn = "Label";
 
         // Hand-off buffer between the CAN-drain thread and the CSV-writer thread. Bounded so a disk
         // stall can't grow memory without limit: 1024 frames × (≤7-byte payload + small struct) is well
@@ -66,11 +67,7 @@ namespace LotusECMLogger.Services
         private byte _seq;
 
         private LoggingPlan? _plan;
-        private List<string> _columnNames = [];
-        private readonly Dictionary<string, double> _latest = new();
-        private StreamWriter? _csvWriter;
-        private string? _csvFilePath;
-        private int _csvRowsSinceFlush;
+        private ISampleSink? _sink;
 
         private BlockingCollection<StreamWorkItem>? _writeQueue;
         private long _droppedFrames;
@@ -123,21 +120,20 @@ namespace LotusECMLogger.Services
                 // Build (and validate) the ECU channel program before touching hardware.
                 _plan = HighSpeedLogPlanner.Plan(channels);
 
-                // CSV columns = selected channels in selection order (de-duplicated by name).
-                _columnNames = channels.Select(c => c.channel.Name).Distinct().ToList();
+                // Log columns = the frame label, then the selected channels in selection order
+                // (de-duplicated by name).
                 _pollAem = pollAemWideband;
+                List<string> columnNames = [LabelColumn, .. channels.Select(c => c.channel.Name).Distinct()];
                 if (_pollAem)
                 {
-                    _columnNames.Add(IHighSpeedLogService.AemLambdaChannelName);
-                    _columnNames.Add(IHighSpeedLogService.AemAfrChannelName);
+                    columnNames.Add(IHighSpeedLogService.AemLambdaChannelName);
+                    columnNames.Add(IHighSpeedLogService.AemAfrChannelName);
                 }
-                _latest.Clear();
-                _csvFilePath = csvFilePath;
 
                 try
                 {
                     InitializeDevice();
-                    InitializeCsvFile(channels);
+                    InitializeCsvFile(csvFilePath, channels, columnNames);
 
                     Interlocked.Exchange(ref _droppedFrames, 0);
                     _writeQueue = new BlockingCollection<StreamWorkItem>(MaxQueuedFrames);
@@ -158,7 +154,7 @@ namespace LotusECMLogger.Services
                     };
                     _loggingThread.Start();
 
-                    Debug.WriteLine($"HighSpeedLog: started, {_plan.Groups.Count} group(s), {_columnNames.Count} channel(s)");
+                    Debug.WriteLine($"HighSpeedLog: started, {_plan.Groups.Count} group(s), {columnNames.Count} column(s)");
                 }
                 catch (Exception ex)
                 {
@@ -283,24 +279,20 @@ namespace LotusECMLogger.Services
             Pattern = [0x00, 0x00, 0x07, 0xE9],
         };
 
-        private void InitializeCsvFile(IReadOnlyList<(HighSpeedChannel channel, int rateHz)> channels)
+        private void InitializeCsvFile(string csvFilePath,
+            IReadOnlyList<(HighSpeedChannel channel, int rateHz)> channels, IReadOnlyList<string> columns)
         {
-            LoggerPaths.EnsureParentDirectory(_csvFilePath!);
-            _csvWriter = new StreamWriter(_csvFilePath!, false, Encoding.UTF8) { AutoFlush = false };
-            _csvRowsSinceFlush = 0;
-
-            _csvWriter.WriteLine("# Lotus High-Speed CAN Channel Log");
-            _csvWriter.WriteLine($"# Started: {DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}");
+            List<string> notes = [];
             foreach (var (channel, rateHz) in channels)
-                _csvWriter.WriteLine($"# {channel.Name}: 0x{channel.Address:X8} size={channel.Size} {rateHz}Hz unit={channel.Unit}");
+                notes.Add($"{channel.Name}: 0x{channel.Address:X8} size={channel.Size} {rateHz}Hz unit={channel.Unit}");
             if (_pollAem)
-                _csvWriter.WriteLine($"# AEM UEGO: OBD Mode 01 PID 0x24 @ 0x7E1, polled every {AemPollIntervalMs}ms (last-value-hold columns)");
+                notes.Add($"AEM UEGO: OBD Mode 01 PID 0x24 @ 0x7E1, polled every {AemPollIntervalMs}ms (last-value-hold columns)");
 
-            var header = new StringBuilder("Timestamp,RelativeTime_ms,Label");
-            foreach (var name in _columnNames)
-                header.Append(',').Append(EscapeCsv(name));
-            _csvWriter.WriteLine(header.ToString());
-            _csvWriter.Flush();
+            // Every channel is a decoded measurement, so they are all plain decimal columns.
+            _sink = new CsvSampleSink(
+                csvFilePath,
+                new SampleLogHeader("Lotus High-Speed CAN Channel Log", notes),
+                columns.Select(SampleColumn.Number));
         }
 
         private void LoggingThreadProc()
@@ -476,10 +468,11 @@ namespace LotusECMLogger.Services
             }
         }
 
-        // Decode one frame's channels, write its CSV row, and raise DataReceived. Runs on the writer thread.
+        // Decode one frame's channels, write its log row, and raise DataReceived. Runs on the writer thread.
         private void ProcessFrame(in StreamWorkItem item)
         {
             ReadOnlySpan<byte> payload = item.Payload;
+            ISampleSink? sink = _sink;
 
             var readings = new List<HighSpeedReading>(item.Layout.Count);
             int offset = 0;
@@ -490,11 +483,15 @@ namespace LotusECMLogger.Services
                 int len = Math.Min(ch.Size, payload.Length - offset);
                 double value = ch.Decode(payload.Slice(offset, len));
                 readings.Add(new HighSpeedReading { Name = ch.Name, Value = value, Unit = ch.Unit });
-                _latest[ch.Name] = value;
+                sink?.Set(ch.Name, value);
                 offset += ch.Size;
             }
 
-            WriteCsvRow(item.Timestamp, item.ElapsedUs, item.Label);
+            // A frame carries only its own group's channels; the rest of the row is carried forward
+            // by the sink. The adapter's hardware timestamp times the row far more precisely than
+            // wall-clock, which cannot separate frames read together in one batch.
+            sink?.Set(LabelColumn, item.Label);
+            sink?.WriteRow(item.Timestamp, item.ElapsedUs / 1000.0);
 
             DataReceived?.Invoke(this, new HighSpeedSampleEventArgs
             {
@@ -518,8 +515,10 @@ namespace LotusECMLogger.Services
             // Same decode as LiveDataReading.ParseAemUegoResponse (offsets shifted: raw CAN keeps the PCI byte).
             double lambda = (2.0 / 65536.0) * ((p[3] << 8) | p[4]);
             double afr = lambda * 14.7;
-            _latest[IHighSpeedLogService.AemLambdaChannelName] = lambda;
-            _latest[IHighSpeedLogService.AemAfrChannelName] = afr;
+
+            ISampleSink? sink = _sink;
+            sink?.Set(IHighSpeedLogService.AemLambdaChannelName, lambda);
+            sink?.Set(IHighSpeedLogService.AemAfrChannelName, afr);
 
             DataReceived?.Invoke(this, new HighSpeedSampleEventArgs
             {
@@ -532,30 +531,6 @@ namespace LotusECMLogger.Services
                     new HighSpeedReading { Name = IHighSpeedLogService.AemAfrChannelName, Value = afr, Unit = "AFR" },
                 ],
             });
-        }
-
-        private void WriteCsvRow(DateTime timestamp, ulong elapsedUs, byte label)
-        {
-            if (_csvWriter == null)
-                return;
-
-            var sb = new StringBuilder();
-            sb.Append(timestamp.ToString("yyyy-MM-dd HH:mm:ss.ffffff", CultureInfo.InvariantCulture));
-            sb.Append(',').Append((elapsedUs / 1000.0).ToString("F3", CultureInfo.InvariantCulture));
-            sb.Append(',').Append(label);
-            foreach (var name in _columnNames)
-            {
-                sb.Append(',');
-                if (_latest.TryGetValue(name, out var v))
-                    sb.Append(v.ToString("G", CultureInfo.InvariantCulture));
-            }
-            _csvWriter.WriteLine(sb.ToString());
-
-            if (++_csvRowsSinceFlush >= CsvFlushEveryRows)
-            {
-                _csvWriter.Flush();
-                _csvRowsSinceFlush = 0;
-            }
         }
 
         /// <summary>Sends a command and waits for its matching ACK; throws on NAK or timeout.</summary>
@@ -623,9 +598,8 @@ namespace LotusECMLogger.Services
         {
             try
             {
-                _csvWriter?.Flush();
-                _csvWriter?.Dispose();
-                _csvWriter = null;
+                _sink?.Dispose();
+                _sink = null;
 
                 _writeQueue?.Dispose();
                 _writeQueue = null;
@@ -642,8 +616,5 @@ namespace LotusECMLogger.Services
                 Debug.WriteLine($"HighSpeedLog: cleanup error: {ex.Message}");
             }
         }
-
-        private static string EscapeCsv(string s)
-            => s.Contains(',') || s.Contains('"') ? $"\"{s.Replace("\"", "\"\"")}\"" : s;
     }
 }
