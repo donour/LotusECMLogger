@@ -15,8 +15,20 @@ namespace LotusECMLogger.Services
                 var iso = new Iso15765Service(channel);
                 var stored = iso.ReadDtcs(OBDIIMode.ShowStoredDiagnosticTroubleCodes);
 
-                // Permanent codes survive a Mode 04 clear. Not every firmware answers
-                // service 0x0A, so a failed read degrades to a note instead of an error.
+                // Pending and permanent codes each degrade to a note instead of an error:
+                // not every firmware answers services 0x07 and 0x0A, and the stored codes
+                // are still worth showing.
+                IReadOnlyList<DiagnosticTroubleCode> pending = [];
+                string? pendingError = null;
+                try
+                {
+                    pending = iso.ReadDtcs(OBDIIMode.ShowPendingDiagnosticTroubleCodes);
+                }
+                catch (IOException ex)
+                {
+                    pendingError = ex.Message;
+                }
+
                 IReadOnlyList<DiagnosticTroubleCode> permanent = [];
                 string? permanentError = null;
                 try
@@ -31,7 +43,9 @@ namespace LotusECMLogger.Services
                 return (true, "", new DtcReadResult
                 {
                     Stored = stored,
+                    Pending = pending,
                     Permanent = permanent,
+                    PendingError = pendingError,
                     PermanentError = permanentError,
                 });
             }

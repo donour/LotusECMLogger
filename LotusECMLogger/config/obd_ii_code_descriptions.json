@@ -1768,6 +1768,7 @@
   "P1102": "Fuel pump #2 relay or circuit open",
   "P1103": "Fuel pump #2 relay or circuit shorted",
   "P1105": "Barometric Pressure Circuit Malfunction",
+  "P1104": "Electronic Throttle Control (ETB) actuator fault",
   "P1106": "Barometric Pressure Circuit Range/Performance Problem",
   "P1107": "MAP Sensor AD too low | Barometric Pressure Circuit Low Input",
   "P1108": "Barometric Pressure Circuit High Input | MAP Sensor AD too high",

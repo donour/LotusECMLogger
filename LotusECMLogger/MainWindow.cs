@@ -138,6 +138,8 @@ namespace LotusECMLogger
 
                 vehicleInfoControl.IsLoggerActive = isLogging;
 
+                dtcControl.IsLoggerActive = isLogging;
+
                 var rmaControl = t6RmaTab.Controls.OfType<T6RMAControl>().FirstOrDefault();
                 if (rmaControl != null)
                     rmaControl.IsLoggerActive = isLogging;
