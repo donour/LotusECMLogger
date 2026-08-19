@@ -28,8 +28,12 @@ jobs:
     - name: Build solution
       run: dotnet build LotusECMLogger.sln --configuration Release --no-restore /p:Platform=x86
 
+    # Tests run as AnyCPU: the hosted runner only carries the x64 .NET runtime, so an x86
+    # testhost cannot start (hostfxr.dll fails to load with ERROR_BAD_EXE_FORMAT). The
+    # tests are pure managed logic, so bitness does not affect what they verify; the
+    # shipped binaries stay x86.
     - name: Run tests
-      run: dotnet test LotusECMLogger.sln --configuration Release --no-build /p:Platform=x86
+      run: dotnet test LotusECMLogger.Tests --configuration Release
 
     - name: Publish application
       run: dotnet publish LotusECMLogger/LotusECMLogger.csproj --configuration Release --output ./publish /p:Platform=x86 --no-restore
