@@ -217,6 +217,38 @@ namespace LotusECMLogger.Services
             return codes;
         }
 
+        /// <summary>
+        /// Service 0x02: requests one freeze frame PID. Returns the full raw response buffer
+        /// on success, or the negative response code when the ECU rejects the request; both
+        /// are null when the ECU does not answer.
+        /// </summary>
+        public (byte[]? response, byte? nrc) ReadFreezeFrameRaw(byte pid, byte frame = 0x00)
+        {
+            _channel.SendMessage(BuildModeMessage(OBDIIMode.ShowFreezeFrameData, pid, frame));
+
+            for (int retry = 0; retry < 10; retry++)
+            {
+                var response = _channel.ReadMessages(1, 250);
+                if (response.Messages.Length == 0)
+                    continue;
+
+                // Skip echoes of our own transmit and TX confirmation frames.
+                var data = response.Messages[0].Data;
+                if (data.Length < 7 || data[2] != 0x07 || data[3] != 0xE8)
+                    continue;
+
+                // Positive response: 0x42 <pid> <frame> <data...>
+                if (data[4] == 0x42 && data[5] == pid && data[6] == frame)
+                    return (data, null);
+
+                // Negative response: 0x7F 0x02 <NRC>
+                if (data[4] == 0x7F && data[5] == (byte)OBDIIMode.ShowFreezeFrameData)
+                    return (null, data[6]);
+            }
+
+            return (null, null);
+        }
+
         public List<int> GetSupportedPIDs(OBDIIMode mode)
         {
             if (mode == OBDIIMode.RequestVehicleInformation)
@@ -299,14 +331,14 @@ namespace LotusECMLogger.Services
             }
         }
 
-        private static byte[] BuildModeMessage(OBDIIMode mode, byte pid)
+        private static byte[] BuildModeMessage(OBDIIMode mode, byte pid, byte trailing = 0x00)
         {
-            // Use Lotus ECM header
+            // Use Lotus ECM header. The trailing byte is the frame number for Mode 02.
             var message = new byte[ECM_HEADER.Length + 3];
             Array.Copy(ECM_HEADER, message, ECM_HEADER.Length);
             message[ECM_HEADER.Length] = (byte)mode;
             message[ECM_HEADER.Length + 1] = pid;
-            message[ECM_HEADER.Length + 2] = 0x00;
+            message[ECM_HEADER.Length + 2] = trailing;
             return message;
         }
 

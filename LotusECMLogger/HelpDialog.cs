@@ -491,7 +491,8 @@ namespace LotusECMLogger
             AddSubheading("How to Use:");
             AddParagraph("1. Read Codes: Click 'Read Codes' to retrieve stored (Mode 03) and permanent (Mode 0A) trouble codes from the ECU.");
             AddParagraph("2. View Details: Each code is displayed with a plain-English description, its category, and its type (stored or permanent). Hover over a row to see the full description when it is wider than the column.");
-            AddParagraph("3. Clear Codes: After addressing the underlying issues, click 'Clear Codes' to erase stored fault codes from the ECU memory.");
+            AddParagraph("3. Read Freeze Frame: Click 'Read Freeze Frame' to retrieve the sensor snapshot (Mode 02) the ECU captured at the moment a trouble code set - the triggering code plus engine parameters such as RPM, coolant temperature, and fuel trims. Parameters the application cannot decode are shown as raw bytes.");
+            AddParagraph("4. Clear Codes: After addressing the underlying issues, click 'Clear Codes' to erase stored fault codes from the ECU memory.");
 
             AddSubheading("Understanding DTCs:");
             AddParagraph("Diagnostic trouble codes are alphanumeric codes that identify specific faults detected by the ECU. They follow a standard format:");

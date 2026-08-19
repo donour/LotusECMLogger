@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using LotusECMLogger.Services;
 
 namespace LotusECMLogger.Controls
@@ -5,13 +6,51 @@ namespace LotusECMLogger.Controls
     public partial class DTCControl : UserControl
     {
         private readonly IDtcService dtcService = new J2534DtcService();
+        private readonly IFreezeFrameService freezeFrameService = new J2534FreezeFrameService();
+
+        private bool isLoggerActive;
+        private bool isBusy;
 
         public DTCControl()
         {
             InitializeComponent();
             SetupListViewColumns();
+            SetupFreezeFrameColumns();
             GuiIcons.ApplyToButton(readCodesButton, GuiIcons.Read);
+            GuiIcons.ApplyToButton(readFreezeFrameButton, GuiIcons.Snapshots);
             GuiIcons.ApplyToButton(clearCodesButton, GuiIcons.Clear);
+        }
+
+        /// <summary>
+        /// True while the main logger is running. Every DTC operation opens its own J2534
+        /// session, which cannot coexist with active logging, so the actions are disabled
+        /// meanwhile.
+        /// </summary>
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        public bool IsLoggerActive
+        {
+            get => isLoggerActive;
+            set
+            {
+                isLoggerActive = value;
+                UpdateUIState();
+            }
+        }
+
+        // The J2534 device is exclusive, so a running operation disables every button,
+        // not just its own.
+        private void UpdateUIState()
+        {
+            bool enabled = !isLoggerActive && !isBusy;
+            readCodesButton.Enabled = enabled;
+            readFreezeFrameButton.Enabled = enabled;
+            clearCodesButton.Enabled = enabled;
+        }
+
+        private void SetBusy(bool busy)
+        {
+            isBusy = busy;
+            UpdateUIState();
         }
 
         private void SetupListViewColumns()
@@ -23,9 +62,17 @@ namespace LotusECMLogger.Controls
             dtcListView.Columns.Add("Type", 90);
         }
 
+        private void SetupFreezeFrameColumns()
+        {
+            freezeFrameListView.Columns.Clear();
+            freezeFrameListView.Columns.Add("Parameter", 180);
+            freezeFrameListView.Columns.Add("Value", 280);
+            freezeFrameListView.Columns.Add("Raw Data", 140);
+        }
+
         private async void readCodesButton_Click(object sender, EventArgs e)
         {
-            readCodesButton.Enabled = false;
+            SetBusy(true);
             readCodesButton.Text = "Reading...";
             statusLabel.Text = "Reading trouble codes...";
             dtcListView.Items.Clear();
@@ -51,7 +98,7 @@ namespace LotusECMLogger.Controls
             }
             finally
             {
-                readCodesButton.Enabled = true;
+                SetBusy(false);
                 readCodesButton.Text = "Read Codes";
             }
         }
@@ -83,6 +130,69 @@ namespace LotusECMLogger.Controls
             return text;
         }
 
+        private async void readFreezeFrameButton_Click(object sender, EventArgs e)
+        {
+            SetBusy(true);
+            readFreezeFrameButton.Text = "Reading...";
+            statusLabel.Text = "Reading freeze frame...";
+            freezeFrameListView.Items.Clear();
+
+            try
+            {
+                var (success, errorMessage, result) = await Task.Run(() => freezeFrameService.ReadFreezeFrame());
+
+                if (!success)
+                {
+                    statusLabel.Text = "Error reading freeze frame";
+                    MessageBox.Show($"Failed to read freeze frame: {errorMessage}", "Read Error",
+                        MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
+
+                if (!result.FrameStored)
+                {
+                    statusLabel.Text = "No freeze frame stored";
+                    return;
+                }
+
+                PopulateFreezeFrame(result);
+            }
+            finally
+            {
+                SetBusy(false);
+                readFreezeFrameButton.Text = "Read Freeze Frame";
+            }
+        }
+
+        private void PopulateFreezeFrame(FreezeFrameResult result)
+        {
+            if (result.TriggeringDtc is DiagnosticTroubleCode dtc)
+            {
+                string description = DtcDescriptionCatalog.TryGetDescription(dtc.Code) ?? "—";
+                var dtcItem = new ListViewItem("Triggering DTC");
+                dtcItem.SubItems.Add($"{dtc.Code} — {description}");
+                dtcItem.SubItems.Add($"{dtc.Raw >> 8:X2} {dtc.Raw & 0xFF:X2}");
+                dtcItem.ToolTipText = $"{dtc.Code} — {description}";
+                freezeFrameListView.Items.Add(dtcItem);
+            }
+
+            foreach (var entry in result.Entries)
+            {
+                var item = new ListViewItem(entry.Name);
+                item.SubItems.Add(entry.Value ?? "—");
+                item.SubItems.Add(entry.RawHex);
+                if (!entry.IsDecoded)
+                    item.ForeColor = SystemColors.GrayText;
+                item.ToolTipText = $"{entry.Name}: {entry.Value ?? entry.RawHex}";
+                freezeFrameListView.Items.Add(item);
+            }
+
+            string status = $"Freeze frame: {result.TriggeringDtc?.Code} — {result.Entries.Count} parameter(s)";
+            if (result.Warnings.Count > 0)
+                status += $" — {result.Warnings.Count} PID(s) unavailable";
+            statusLabel.Text = status;
+        }
+
         private async void clearCodesButton_Click(object sender, EventArgs e)
         {
             var result = MessageBox.Show(
@@ -98,7 +208,7 @@ namespace LotusECMLogger.Controls
             if (result != DialogResult.Yes)
                 return;
 
-            clearCodesButton.Enabled = false;
+            SetBusy(true);
             clearCodesButton.Text = "Clearing...";
             statusLabel.Text = "Clearing trouble codes...";
 
@@ -115,11 +225,12 @@ namespace LotusECMLogger.Controls
                 }
 
                 dtcListView.Items.Clear();
+                freezeFrameListView.Items.Clear();
                 statusLabel.Text = "Codes cleared — read again to check for permanent codes";
             }
             finally
             {
-                clearCodesButton.Enabled = true;
+                SetBusy(false);
                 clearCodesButton.Text = "Clear Codes";
             }
         }
