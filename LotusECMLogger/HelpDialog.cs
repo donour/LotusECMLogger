@@ -489,8 +489,8 @@ namespace LotusECMLogger
             AddParagraph("The Diagnostic Trouble Codes (DTC) tab provides functionality for reading and clearing diagnostic trouble codes from the ECU. This feature helps you diagnose issues and monitor fault codes stored in your vehicle's engine management system.");
 
             AddSubheading("How to Use:");
-            AddParagraph("1. Read Codes: Click 'Read Codes' to retrieve stored (Mode 03) and permanent (Mode 0A) trouble codes from the ECU.");
-            AddParagraph("2. View Details: Each code is displayed with a plain-English description, its category, and its type (stored or permanent). Hover over a row to see the full description when it is wider than the column.");
+            AddParagraph("1. Read Codes: Click 'Read Codes' to retrieve stored (Mode 03), pending (Mode 07), and permanent (Mode 0A) trouble codes from the ECU.");
+            AddParagraph("2. View Details: Each code is displayed with a plain-English description, its category, and its type (stored, pending, or permanent). Hover over a row to see the full description when it is wider than the column.");
             AddParagraph("3. Read Freeze Frame: Click 'Read Freeze Frame' to retrieve the sensor snapshot (Mode 02) the ECU captured at the moment a trouble code set - the triggering code plus engine parameters such as RPM, coolant temperature, and fuel trims. Parameters the application cannot decode are shown as raw bytes.");
             AddParagraph("4. Clear Codes: After addressing the underlying issues, click 'Clear Codes' to erase stored fault codes from the ECU memory.");
 
@@ -508,6 +508,7 @@ namespace LotusECMLogger
             AddSubheading("Important Notes:");
             AddParagraph("Clearing codes does not fix the underlying problem - it only erases the stored fault memory. If the problem persists, codes will return after driving the vehicle.");
             AddParagraph("Clearing codes (OBD-II Mode 04) also erases freeze frame data and resets readiness monitors to 'not ready'. Record any freeze frame information you need before clearing.");
+            AddParagraph("Pending codes are faults the ECU has detected but not yet confirmed. They mature into stored codes if the fault recurs, or clear on their own after fault-free drive cycles - a pending code that keeps disappearing points to an intermittent problem.");
             AddParagraph("Permanent codes cannot be cleared with 'Clear Codes'. The ECU erases them on its own once the fault stays absent for the required drive cycles.");
             AddParagraph("Some codes may require multiple drive cycles to reset monitoring readiness flags.");
         }

@@ -91,6 +91,8 @@ namespace LotusECMLogger.Controls
 
                 foreach (var dtc in result.Stored)
                     AddCodeRow(dtc, "Stored");
+                foreach (var dtc in result.Pending)
+                    AddCodeRow(dtc, "Pending");
                 foreach (var dtc in result.Permanent)
                     AddCodeRow(dtc, "Permanent");
 
@@ -119,9 +121,11 @@ namespace LotusECMLogger.Controls
 
         private static string BuildReadStatus(DtcReadResult result)
         {
-            string text = result.Stored.Count == 0 && result.Permanent.Count == 0
+            string text = result.Stored.Count == 0 && result.Pending.Count == 0 && result.Permanent.Count == 0
                 ? "No trouble codes"
-                : $"{result.Stored.Count} stored, {result.Permanent.Count} permanent trouble code(s)";
+                : $"{result.Stored.Count} stored, {result.Pending.Count} pending, {result.Permanent.Count} permanent trouble code(s)";
+            if (result.PendingError != null)
+                text += " — pending codes unavailable";
             if (result.PermanentError != null)
                 text += " — permanent codes unavailable";
             // Without this note a missing catalog just looks like a table full of unknown codes.

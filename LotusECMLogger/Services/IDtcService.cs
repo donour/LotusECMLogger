@@ -50,14 +50,25 @@ namespace LotusECMLogger.Services
 
     /// <summary>
     /// The codes returned by one <see cref="IDtcService.ReadCodes"/> pass: stored (confirmed)
-    /// codes from service 0x03 and permanent codes from service 0x0A.
+    /// codes from service 0x03, pending codes from service 0x07, and permanent codes from
+    /// service 0x0A.
     /// </summary>
     public sealed record DtcReadResult
     {
         public IReadOnlyList<DiagnosticTroubleCode> Stored { get; init; } = [];
 
+        /// <summary>Pending codes: faults detected this or last drive cycle that have not yet
+        /// confirmed (matured) into stored codes.</summary>
+        public IReadOnlyList<DiagnosticTroubleCode> Pending { get; init; } = [];
+
         /// <summary>Permanent codes survive a Mode 04 clear and cannot be erased on request.</summary>
         public IReadOnlyList<DiagnosticTroubleCode> Permanent { get; init; } = [];
+
+        /// <summary>
+        /// Non-null when the pending-code read failed (e.g. the firmware does not answer
+        /// service 0x07); <see cref="Pending"/> is empty in that case.
+        /// </summary>
+        public string? PendingError { get; init; }
 
         /// <summary>
         /// Non-null when the permanent-code read failed (e.g. the firmware does not answer
@@ -69,7 +80,8 @@ namespace LotusECMLogger.Services
     public interface IDtcService
     {
         /// <summary>
-        /// Reads stored (service 0x03) and permanent (service 0x0A) diagnostic trouble codes.
+        /// Reads stored (service 0x03), pending (service 0x07), and permanent (service 0x0A)
+        /// diagnostic trouble codes.
         /// </summary>
         /// <returns>
         /// Success flag, an error message when unsuccessful, and the codes read (empty lists
