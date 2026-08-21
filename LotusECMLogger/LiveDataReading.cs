@@ -382,12 +382,15 @@ namespace LotusECMLogger
                             case 0x11: // throttle position
                                 if (data.Length > idx + 1)
                                 {
-                                    // TODO: 77 is the max value that i have seen but it might not be portable
-                                    int throttlePosition = data[idx + 1] * 100/77;
+                                    // J1979: A * 100 / 255 %. The ECU applies no scaling of its own --
+                                    // obd_ii_mode01_processing packs a single byte from get_tps(), which
+                                    // is adc_dma_dest[0x30] >> 6 off the 14-bit TPS-A channel. Mode 22
+                                    // TPSActual (0x0245) reports that same channel as >> 4 over 1024, so
+                                    // the two describe one full scale and must agree.
                                     LiveDataReading reading = new()
                                     {
                                         name = "Throttle Position",
-                                        value_f = throttlePosition * 100 / 255, // convert to percentage
+                                        value_f = data[idx + 1] * 100.0 / 255.0,
                                     };
                                     results.Add(reading);
                                 }
@@ -662,29 +665,22 @@ namespace LotusECMLogger
                                 }                                    
                                 break;
 
+                            // Learned octane scaler. Unlike the misfire counters above, these PIDs
+                            // are not permuted: the firmware packs LEA_octane_scaler[0..5] in PID
+                            // order, and that array is cylinder-indexed. See OctaneScaler.
                             case 0x18:
-                                cyl_num = 1;
-                                goto case 0x4E;
                             case 0x19:
-                                cyl_num = 3;
-                                goto case 0x4E;
                             case 0x1A:
-                                cyl_num = 4;
-                                goto case 0x4E;
                             case 0x1B:
-                                cyl_num = 2;
-                                goto case 0x4E;
                             case 0x4D:
-                                cyl_num = 5;
-                                goto case 0x4E;
                             case 0x4E:
                                 if (data.Length > idx + 3)
                                 {
-                                    int octaneRating = ((data[idx + 2] << 8) | data[idx+3]);
+                                    int octaneRating = (data[idx + 2] << 8) | data[idx + 3];
                                     LiveDataReading reading = new()
                                     {
-                                        name = $"OctaneRatingCylinder{cyl_num}",
-                                        value_f = octaneRating * 100.0/65536,
+                                        name = $"OctaneRatingCylinder{OctaneScaler.CylinderByPid[data[idx + 1]]}",
+                                        value_f = OctaneScaler.ToPercent(octaneRating),
                                     };
                                     results.Add(reading);
                                 }

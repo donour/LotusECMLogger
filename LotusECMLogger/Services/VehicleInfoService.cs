@@ -253,18 +253,9 @@ namespace LotusECMLogger.Services
         private static List<VehicleParameterReading> QueryOctaneScalers(J2534Channel channel)
         {
             var results = new List<VehicleParameterReading>();
-            var scalerPIDs = new (string Name, byte Pid)[]
+            foreach (var (pid, cylinder) in OctaneScaler.CylinderByPid)
             {
-                ("Octane Scaler Cyl 1", 0x18),
-                ("Octane Scaler Cyl 2", 0x19),
-                ("Octane Scaler Cyl 3", 0x1A),
-                ("Octane Scaler Cyl 4", 0x1B),
-                ("Octane Scaler Cyl 5", 0x4D),
-                ("Octane Scaler Cyl 6", 0x4E),
-            };
-
-            foreach (var (name, pid) in scalerPIDs)
-            {
+                string name = $"Octane Scaler Cyl {cylinder}";
                 try
                 {
                     byte[] request = [0x00, 0x00, 0x07, 0xE0, 0x22, 0x02, pid];
@@ -280,7 +271,7 @@ namespace LotusECMLogger.Services
                                 data[4] == 0x62 && data[5] == 0x02 && data[6] == pid)
                             {
                                 int rawValue = (data[7] << 8) | data[8];
-                                double percent = rawValue / 65535.0 * 100.0;
+                                double percent = OctaneScaler.ToPercent(rawValue);
                                 results.Add(new VehicleParameterReading
                                 {
                                     Name = name,
