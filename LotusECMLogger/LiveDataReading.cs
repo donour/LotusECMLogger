@@ -253,7 +253,7 @@ namespace LotusECMLogger
                                     float longTermFuelTrimBank1 = data[idx + 1] / 1.28f - 100.0f; // convert to percentage
                                     LiveDataReading reading = new()
                                     {
-                                        name = "Lont Term Fuel Trim Bank 1",
+                                        name = "Long Term Fuel Trim Bank 1",
                                         value_f = longTermFuelTrimBank1,
                                     };
                                     results.Add(reading);
@@ -279,7 +279,7 @@ namespace LotusECMLogger
                                     float longTermFuelTrimBank2 = data[idx + 1] / 1.28f - 100.0f; // convert to percentage
                                     LiveDataReading reading = new()
                                     {
-                                        name = "Lont Term Fuel Trim Bank 2",
+                                        name = "Long Term Fuel Trim Bank 2",
                                         value_f = longTermFuelTrimBank2,
                                     };
                                     results.Add(reading);
@@ -292,9 +292,10 @@ namespace LotusECMLogger
                                     float fuel_pressure_bar = data[idx + 1] * 3f / 100f;
                                     LiveDataReading reading = new()
                                     {
-                                        name = "FuellPressure(bar)",
+                                        name = "FuelPressure(bar)",
                                         value_f = fuel_pressure_bar
                                     };
+                                    results.Add(reading);
                                 }
                                 idx += 2;
                                 break;
@@ -318,7 +319,7 @@ namespace LotusECMLogger
                                     LiveDataReading reading = new()
                                     {
                                         name = "Engine Speed",
-                                        value_f = engineSpeed / 4,
+                                        value_f = engineSpeed / 4.0,
                                     };
                                     results.Add(reading);
                                 }
@@ -436,7 +437,7 @@ namespace LotusECMLogger
                             case 0x29:
                                 if (data.Length > idx + 4)
                                 {
-                                    proccessO2Sensor(data, results, idx, 9);
+                                    proccessO2Sensor(data, results, idx, 6);
                                 }
 
                                 idx += 5;
@@ -485,8 +486,12 @@ namespace LotusECMLogger
                                 break;
 
                             default:
-                                Debug.WriteLine($"Unknown OBD Mode01: {data[idx]:X2}");
-                                idx++;
+                                // The PID's width is unknown, so where the next PID starts is unknowable.
+                                // Advancing by a guess walks the cursor into this PID's payload, where a data
+                                // byte can be mistaken for a PID and decoded into a plausible-looking reading.
+                                // Stop instead: losing the rest of the frame is recoverable, inventing is not.
+                                Debug.WriteLine($"Unknown OBD Mode01: {data[idx]:X2} - stopping frame decode");
+                                idx = data.Length;
                                 break;
                         }
                     }
@@ -510,8 +515,12 @@ namespace LotusECMLogger
                                 idx += 5;
                                 break;
                             default:
-                                Debug.WriteLine($"Unknown OBD Mode09: {data[idx]:X2}");
-                                idx++;
+                                // The PID's width is unknown, so where the next PID starts is unknowable.
+                                // Advancing by a guess walks the cursor into this PID's payload, where a data
+                                // byte can be mistaken for a PID and decoded into a plausible-looking reading.
+                                // Stop instead: losing the rest of the frame is recoverable, inventing is not.
+                                Debug.WriteLine($"Unknown OBD Mode09: {data[idx]:X2} - stopping frame decode");
+                                idx = data.Length;
                                 break;
                         }
                     }
@@ -522,9 +531,9 @@ namespace LotusECMLogger
                         switch (data[idx + 1])
                         {
                             case 2: // purge DC
-                                if (data.Length > idx + 1)
+                                if (data.Length > idx + 2)
                                 {
-                                    int purgeDC = data[idx + 1] * 100 / 255; 
+                                    int purgeDC = data[idx + 2] * 100 / 255;
                                     LiveDataReading reading = new()
                                     {
                                         name = "PurgeDutyCycle",
@@ -729,7 +738,7 @@ namespace LotusECMLogger
                                 }
                                 break;
                             case 0x6A: // engine torque
-                                if (data.Length > idx + 2)
+                                if (data.Length > idx + 3)
                                 {
                                     byte[] bytes = [data[idx + 3], data[idx + 2]];
                                     int torque = BitConverter.ToInt16(bytes, 0);
@@ -742,7 +751,7 @@ namespace LotusECMLogger
                                 }
                                 break;
                             case 0x08: // VVTi B1 intake position
-                                if (data.Length > idx + 2)
+                                if (data.Length > idx + 3)
                                 {
                                     byte[] bytes = [data[idx + 3], data[idx + 2]];
                                     int vvti_b1i = BitConverter.ToInt16(bytes, 0);
@@ -755,7 +764,7 @@ namespace LotusECMLogger
                                 }
                                 break;
                             case 0x4B: // VVTi B2 intake position
-                                if (data.Length > idx + 2)
+                                if (data.Length > idx + 3)
                                 {
                                     byte[] bytes = [data[idx + 3], data[idx + 2]];
                                     int vvti_b2i = BitConverter.ToInt16(bytes, 0);
@@ -768,7 +777,7 @@ namespace LotusECMLogger
                                 }
                                 break;
                             case 0x50: // VVTI B1 exhaust position
-                                if (data.Length > idx + 2)
+                                if (data.Length > idx + 3)
                                 {
                                     byte[] bytes = [data[idx + 3], data[idx + 2]];
                                     int vvti_b1e = BitConverter.ToInt16(bytes, 0);
@@ -781,7 +790,7 @@ namespace LotusECMLogger
                                 }
                                 break;
                             case 0x51: // VVTI B2 exhaust position
-                                if (data.Length > idx + 2)
+                                if (data.Length > idx + 3)
                                 {
                                     byte[] bytes = [data[idx + 3], data[idx + 2]];
                                     int vvti_b2e = BitConverter.ToInt16(bytes, 0);
@@ -794,7 +803,7 @@ namespace LotusECMLogger
                                 }
                                 break;
                             case 0xC7:
-                                if (data.Length > idx + 1)
+                                if (data.Length > idx + 2)
                                 {
                                     int transTemp = data[idx + 2] * 5 / 8 - 40;
                                     LiveDataReading reading = new()
@@ -806,7 +815,7 @@ namespace LotusECMLogger
                                 }
                                 break;
                             case 0xC9:
-                                if (data.Length > idx + 1)
+                                if (data.Length > idx + 2)
                                 {
                                     int dc = data[idx + 2] * 100/255;
                                     LiveDataReading reading = new()

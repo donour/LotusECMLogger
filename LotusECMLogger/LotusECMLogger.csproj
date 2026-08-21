@@ -31,6 +31,13 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- The OBD decoders (LiveDataReading and friends) are internal to the app but are pure
+         functions over response buffers, and the multi-PID cursor they drive can only be
+         exercised by calling them directly. -->
+    <InternalsVisibleTo Include="LotusECMLogger.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- Hand-authored rather than added through the VS "User Control" template, so the designer
          association is declared explicitly instead of relying on auto-detection. -->
     <Compile Update="Controls\AbsControl.cs">
