@@ -4,13 +4,13 @@ namespace LotusECMLogger
 {
     /// <summary>
     /// Unpacks a T6 .CRP flash container into its constituent chunks so its
-    /// contents can be inspected. This is the inverse of <see cref="CptToCrpConverter"/>
+    /// contents can be inspected. This is the inverse of <see cref="CrpCreator"/>
     /// and implements the CRP08 format (chunk table, TOC, CAN config header and
     /// XTEA-CBC encrypted ECU data) for Lotus T6 ECUs.
     /// </summary>
     public class CrpUnpacker
     {
-        // T6 XTEA decryption key (matches CptToCrpConverter)
+        // T6 XTEA decryption key (matches CrpCreator's T6 variant key)
         private static readonly uint[] T6_KEY = { 0x340D2EB9, 0xC41A93EE, 0x73FAFED5, 0x47C80F57 };
 
         private const int ENTRY_NAME_SIZE = 128;
@@ -312,7 +312,7 @@ namespace LotusECMLogger
         }
 
         /// <summary>
-        /// XTEA decryption in CBC mode (inverse of CptToCrpConverter's XteaEncryptCBC).
+        /// XTEA decryption in CBC mode (inverse of CrpCreator's XteaEncryptCBC).
         /// </summary>
         private static void XteaDecryptCBC(byte[] input, byte[] output, uint[] key)
         {

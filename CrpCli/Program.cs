@@ -99,7 +99,11 @@ namespace CrpCli
             try
             {
                 Console.WriteLine("Converting...");
-                bool success = CptToCrpConverter.Convert(cptFilePath, crpFilePath);
+                // "convert" is the single-calibration T6 shorthand for "create".
+                bool success = CrpCreator.Create(
+                    crpFilePath: crpFilePath,
+                    ecuType: CrpCreator.EcuType.T6,
+                    calFilePath: cptFilePath);
 
                 if (success)
                 {

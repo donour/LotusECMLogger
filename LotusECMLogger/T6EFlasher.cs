@@ -337,7 +337,10 @@ namespace LotusECMLogger
                     tempCrpFile = Path.Combine(cptDirectory, $"{cptFileName}_converted.crp");
 
                     // Convert CPT to CRP
-                    bool conversionSuccess = CptToCrpConverter.Convert(fileToFlash, tempCrpFile);
+                    bool conversionSuccess = CrpCreator.Create(
+                        crpFilePath: tempCrpFile,
+                        ecuType: CrpCreator.EcuType.T6,
+                        calFilePath: fileToFlash);
 
                     if (!conversionSuccess)
                     {

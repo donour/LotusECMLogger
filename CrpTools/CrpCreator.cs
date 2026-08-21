@@ -5,10 +5,9 @@ namespace LotusECMLogger
 {
     /// <summary>
     /// Creates a .CRP flash container from a calibration (calrom) file and/or a
-    /// firmware (prog) file. This is the general, multi-chunk counterpart to
-    /// <see cref="CptToCrpConverter"/> (which only packs a single T6 calrom) and the
-    /// inverse of <see cref="CrpUnpacker"/>. It implements the CRP08 format and
-    /// supports the ECU variants defined in the reference crp08.py.
+    /// firmware (prog) file. This is the inverse of <see cref="CrpUnpacker"/>. It
+    /// implements the CRP08 format and supports the ECU variants defined in the
+    /// reference crp08.py.
     /// </summary>
     public class CrpCreator
     {
@@ -337,7 +336,7 @@ namespace LotusECMLogger
         }
 
         /// <summary>
-        /// XTEA encryption in CBC mode (identical to CptToCrpConverter's implementation).
+        /// XTEA encryption in CBC mode (the inverse of CrpUnpacker's XteaDecryptCBC).
         /// </summary>
         private static void XteaEncryptCBC(byte[] input, byte[] output, uint[] key)
         {
