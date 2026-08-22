@@ -1,4 +1,4 @@
-{
+﻿{
   "name": "Lotus Diagnostic Configuration",
   "description": "Comprehensive diagnostic parameters for troubleshooting and analysis",
   "ecmHeader": [0, 0, 7, 224],
@@ -6,8 +6,15 @@
     {
       "type": "Mode01",
       "name": "Standard Diagnostics",
-      "pids": [12, 17, 67, 5, 14, 11, 13, 15, 33, 49],
-      "description": "RPM, throttle, load, coolant temp, timing, MAP, speed, air temp, distance with MIL, DTCs cleared",
+      "pids": [12, 17, 67, 5, 14, 11],
+      "description": "RPM, throttle, load, coolant temp, timing, MAP",
+      "category": "Standard OBD-II"
+    },
+    {
+      "type": "Mode01",
+      "name": "Standard Diagnostics 2",
+      "pids": [13, 15, 33, 49],
+      "description": "Speed, air temp, distance with MIL, distance since DTCs cleared. Split from the request above: SAE J1979 allows at most 6 PIDs per Mode 01 request.",
       "category": "Standard OBD-II"
     },
     {

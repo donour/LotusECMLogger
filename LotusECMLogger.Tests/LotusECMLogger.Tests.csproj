@@ -23,6 +23,14 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- The configuration tests read the real shipped configs through the same discovery path the
+         app uses, so they have to sit under config\obdLogger in the test output too. -->
+    <None Include="..\LotusECMLogger\config\obdLogger\*.json"
+          Link="config\obdLogger\%(Filename)%(Extension)"
+          CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Using Include="Xunit" />
   </ItemGroup>
 
