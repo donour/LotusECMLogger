@@ -1,4 +1,4 @@
-﻿using System.ComponentModel;
+﻿using System.Collections.Frozen;
 using System.Diagnostics;
 
 namespace LotusECMLogger
@@ -160,860 +160,35 @@ namespace LotusECMLogger
         }
 
 
-        private static void proccessO2Sensor(byte[] data, List<LiveDataReading> results, int idx, int sensorNum)
-        {
-            int A = data[idx + 1];
-            int B = data[idx + 2];
-            int C = data[idx + 3];
-            int D = data[idx + 4];
-            double lambda = (2.0 / 65536.0) * ((A << 8) | B);
-            double voltage = (8.0 / 65536.0) * ((C << 8) | D);
-            LiveDataReading lambdaReading = new()
-            {
-                name = "O2SensorLambda"+sensorNum,
-                value_f = lambda,
-            };
-            results.Add(lambdaReading);
-            LiveDataReading voltageReading = new()
-            {
-                name = "O2SensorVoltage"+sensorNum,
-                value_f = voltage,
-            };
-            results.Add(voltageReading);
-        }
-
-
         /// <summary>
-        /// Decode a Mode 0x22 fuel-learn zone trim (single offset-128 byte) into a percentage.
-        /// 0x80 = 0% (neutral), each count ≈ 0.391%.
-        /// </summary>
-        private static void AddFuelLearnZone(byte[] data, List<LiveDataReading> results, int idx, string name)
-        {
-            if (data.Length > idx + 2)
-            {
-                double correctionPct = (sbyte)(data[idx + 2] - 0x80) * 500.0 / 128 / 10;
-                results.Add(new LiveDataReading
-                {
-                    name = name,
-                    value_f = correctionPct,
-                });
-            }
-        }
-
-        /// <summary>
-        /// Parse standard OBD-II response (Mode 01, 09, 22)
+        /// Parse a standard OBD-II response (Mode 01, 09 or 22) using the PID tables in
+        /// <see cref="ObdPidDecoders"/>.
         /// </summary>
         private static List<LiveDataReading> ParseStandardObdResponse(byte[] data, ECUDefinition? ecu, bool prefixWithEcuName)
         {
             List<LiveDataReading> results = [];
-            string prefix = (prefixWithEcuName && ecu != null) ? $"{ecu.Name}:" : "";
-            string? ecuSource = ecu?.Name;
             int obd_mode = data[4] - 0x40;
-            int idx = 5;
-
-            int cyl_num = 6;
-            int bank_num = 2;
 
             switch (obd_mode)
             {
                 case 0x01:
-                    while (idx < data.Length)
-                    {
-                        switch (data[idx])
-                        {
-                            case 0x05: // coolant temperature
-                                if (data.Length > idx + 1)
-                                {
-                                    int coolantTemp = data[idx + 1] - 40; // convert to Celsius
-                                    LiveDataReading reading = new()
-                                    {
-                                        name = "Coolant Temperature",
-                                        value_f = coolantTemp,
-                                    };
-                                    results.Add(reading);
-                                }
-                                idx += 2;
-                                break;
-                            case 0x06: // short term fuel trim bank 1
-                                if (data.Length > idx + 1)
-                                {
-                                    float shortTermFuelTrimBank1 = data[idx + 1] / 1.28f - 100.0f; // convert to percentage
-                                    LiveDataReading reading = new()
-                                    {
-                                        name = "Short Term Fuel Trim Bank 1",
-                                        value_f = shortTermFuelTrimBank1,
-                                    };
-                                    results.Add(reading);
-                                }
-                                idx += 2;
-                                break;
-                            case 0x07: // long term fuel trim bank 1
-                                if (data.Length > idx + 1)
-                                {
-                                    float longTermFuelTrimBank1 = data[idx + 1] / 1.28f - 100.0f; // convert to percentage
-                                    LiveDataReading reading = new()
-                                    {
-                                        name = "Long Term Fuel Trim Bank 1",
-                                        value_f = longTermFuelTrimBank1,
-                                    };
-                                    results.Add(reading);
-                                }
-                                idx += 2;
-                                break;
-                            case 0x08: // short term fuel trim bank 2
-                                if (data.Length > idx + 1)
-                                {
-                                    float shortTermFuelTrimBank2 = data[idx + 1] / 1.28f - 100.0f; // convert to percentage
-                                    LiveDataReading reading = new()
-                                    {
-                                        name = "Short Term Fuel Trim Bank 2",
-                                        value_f = shortTermFuelTrimBank2,
-                                    };
-                                    results.Add(reading);
-                                }
-                                idx += 2;
-                                break;
-                            case 0x09: // long term fuel trim bank 2
-                                if (data.Length > idx + 1)
-                                {
-                                    float longTermFuelTrimBank2 = data[idx + 1] / 1.28f - 100.0f; // convert to percentage
-                                    LiveDataReading reading = new()
-                                    {
-                                        name = "Long Term Fuel Trim Bank 2",
-                                        value_f = longTermFuelTrimBank2,
-                                    };
-                                    results.Add(reading);
-                                }
-                                idx += 2;
-                                break;
-                            case 0x0A:
-                                if (data.Length > idx + 1)
-                                {
-                                    float fuel_pressure_bar = data[idx + 1] * 3f / 100f;
-                                    LiveDataReading reading = new()
-                                    {
-                                        name = "FuelPressure(bar)",
-                                        value_f = fuel_pressure_bar
-                                    };
-                                    results.Add(reading);
-                                }
-                                idx += 2;
-                                break;
-                            case 0x0B: // intake manifold absolute pressure
-                                if (data.Length > idx + 1)
-                                {
-                                    int intakePressure = data[idx + 1]; // kPa
-                                    LiveDataReading reading = new()
-                                    {
-                                        name = "Intake Manifold Pressure",
-                                        value_f = intakePressure,
-                                    };
-                                    results.Add(reading);
-                                }
-                                idx += 2;
-                                break;
-                            case 0x0C: // engine speed
-                                if (data.Length > idx + 2)
-                                {
-                                    int engineSpeed = (data[idx + 1] << 8) | data[idx + 2];
-                                    LiveDataReading reading = new()
-                                    {
-                                        name = "Engine Speed",
-                                        value_f = engineSpeed / 4.0,
-                                    };
-                                    results.Add(reading);
-                                }
-                                idx += 3;
-                                break;
-                            case 0x0D: // vehicle speed
-                                if (data.Length > idx + 1)
-                                {
-                                    // convert data[idx+1] to an unsigned 8-bit integer
-                                    int vehicleSpeed = data[idx + 1];
-                                    LiveDataReading reading = new()
-                                    {
-                                        name = "Vehicle Speed",
-                                        value_f = vehicleSpeed,
-                                    };
-                                    results.Add(reading);
-                                }
-                                idx += 2;
-                                break;
-                            case 0x0E: // timing advance
-                                if (data.Length > idx + 1)
-                                {
-                                    // convert data[idx+1] to an unsigned 8-bit integer
-                                    float timingAdvance = data[idx + 1] / 2.0f - 64.0f; // convert to degrees BTDC
-                                    LiveDataReading reading = new()
-                                    {
-                                        name = "Timing Advance",
-                                        value_f = timingAdvance,
-                                    };
-                                    results.Add(reading);
-                                }
-                                idx += 2;
-                                break;
-                            case 0x0F: // intake air temperature (IAT)
-                                if (data.Length > idx + 1)
-                                {
-                                    int iat = data[idx + 1] - 40; // OBD-II: A - 40
-                                    LiveDataReading reading = new()
-                                    {
-                                        name = "Intake Air Temperature",
-                                        value_f = iat,
-                                    };
-                                    results.Add(reading);
-                                }
-                                idx += 2;
-                                break;
-                            case 0x10: // MAF
-                                if (data.Length > idx + 2)
-                                {
-                                    float maf_gps = ((data[idx + 1] << 8) + data[idx + 2]) / 100.0f;
-                                    LiveDataReading reading = new()
-                                    {
-                                        name = "maf (g/s)",
-                                        value_f = maf_gps,
-                                    };
-                                    results.Add(reading);
-                                }
-                                idx += 3;
-                                break;                                 
-                            case 0x11: // throttle position
-                                if (data.Length > idx + 1)
-                                {
-                                    // J1979: A * 100 / 255 %. The ECU applies no scaling of its own --
-                                    // obd_ii_mode01_processing packs a single byte from get_tps(), which
-                                    // is adc_dma_dest[0x30] >> 6 off the 14-bit TPS-A channel. Mode 22
-                                    // TPSActual (0x0245) reports that same channel as >> 4 over 1024, so
-                                    // the two describe one full scale and must agree.
-                                    LiveDataReading reading = new()
-                                    {
-                                        name = "Throttle Position",
-                                        value_f = data[idx + 1] * 100.0 / 255.0,
-                                    };
-                                    results.Add(reading);
-                                }
-                                idx += 2;
-                                break;
-
-                            case 0x24:// oxygen sensor 1 (bank 1, sensor 1) ABCD => (AB lambda) and (CD voltage)
-                                if (data.Length > idx + 4)
-                                {
-                                    proccessO2Sensor(data, results, idx,1);
-                                }
-
-                                idx += 5;
-                                break;
-                            case 0x25:
-                                if (data.Length > idx + 4)
-                                {
-                                    proccessO2Sensor(data, results, idx, 2);
-                                }
-
-                                idx += 5;
-                                break;
-                            case 0x26:
-                                if (data.Length > idx + 4)
-                                {
-                                    proccessO2Sensor(data, results, idx, 3);
-                                }
-
-                                idx += 5;
-                                break;
-                            case 0x27:
-                                if (data.Length > idx + 4)
-                                {
-                                    proccessO2Sensor(data, results, idx, 4);
-                                }
-
-                                idx += 5;
-                                break;
-                            case 0x28:
-                                if (data.Length > idx + 4)
-                                {
-                                    proccessO2Sensor(data, results, idx, 5);
-                                }
-
-                                idx += 5;
-                                break;
-                            case 0x29:
-                                if (data.Length > idx + 4)
-                                {
-                                    proccessO2Sensor(data, results, idx, 6);
-                                }
-
-                                idx += 5;
-                                break;
-
-                            case 0x43: // absolute load value
-                                if (data.Length > idx + 2)
-                                {
-                                    int absoluteLoad = ((data[idx + 1] << 8) | data[idx + 2]) * 100 / 255; // convert to percentage
-                                    LiveDataReading reading = new()
-                                    {
-                                        name = "Absolute Load",
-                                        value_f = absoluteLoad,
-                                    };
-                                    results.Add(reading);
-                                }
-                                idx += 3;
-                                break;
-                            case 0x44: // commanded equivalence ratio (air-fuel)
-                                if (data.Length > idx + 2)
-                                {
-                                    int A = data[idx + 1];
-                                    int B = data[idx + 2];
-                                    double eqRatio = ((A << 8) | B) / 32768.0;
-                                    LiveDataReading reading = new()
-                                    {
-                                        name = "Commanded Equivalence Ratio",
-                                        value_f = eqRatio,
-                                    };
-                                    results.Add(reading);
-                                }
-                                idx += 3;
-                                break;
-                            case 0x46: // ambient air temperature
-                                if (data.Length > idx + 1)
-                                {
-                                    int ambientTemp = data[idx + 1] - 40; // convert to Celsius
-                                    LiveDataReading reading = new()
-                                    {
-                                        name = "Ambient Air Temperature",
-                                        value_f = ambientTemp,
-                                    };
-                                    results.Add(reading);
-                                }
-                                idx += 2;
-                                break;
-
-                            default:
-                                // The PID's width is unknown, so where the next PID starts is unknowable.
-                                // Advancing by a guess walks the cursor into this PID's payload, where a data
-                                // byte can be mistaken for a PID and decoded into a plausible-looking reading.
-                                // Stop instead: losing the rest of the frame is recoverable, inventing is not.
-                                Debug.WriteLine($"Unknown OBD Mode01: {data[idx]:X2} - stopping frame decode");
-                                idx = data.Length;
-                                break;
-                        }
-                    }
+                    DecodePidSequence(data, results, ObdPidDecoders.Mode01,
+                        ObdPidDecoders.Mode01StandardWidths, "Mode01");
                     break;
-                case 0x09: // request vehicle info
-                    while (idx < data.Length)
-                    {
-                        switch (data[idx])
-                        {
-                            case 0: //supported pids 01-20
-                                if (data.Length > idx + 4)
-                                {
-                                    uint supportedPIDs = (uint)((data[idx + 1] << 24) | (data[idx + 2] << 16) | (data[idx + 3] << 8) | data[idx + 4]);
-                                    LiveDataReading reading = new()
-                                    {
-                                        name = "SupportedPIDs_01_20",
-                                        value_l = supportedPIDs,
-                                    };
-                                    results.Add(reading);
-                                }
-                                idx += 5;
-                                break;
-                            default:
-                                // The PID's width is unknown, so where the next PID starts is unknowable.
-                                // Advancing by a guess walks the cursor into this PID's payload, where a data
-                                // byte can be mistaken for a PID and decoded into a plausible-looking reading.
-                                // Stop instead: losing the rest of the frame is recoverable, inventing is not.
-                                Debug.WriteLine($"Unknown OBD Mode09: {data[idx]:X2} - stopping frame decode");
-                                idx = data.Length;
-                                break;
-                        }
-                    }
+                case 0x09:
+                    DecodePidSequence(data, results, ObdPidDecoders.Mode09, null, "Mode09");
                     break;
                 case 0x22:
-                    if (data[idx] == 0x02)
-                    {
-                        switch (data[idx + 1])
-                        {
-                            case 2: // purge DC
-                                if (data.Length > idx + 2)
-                                {
-                                    int purgeDC = data[idx + 2] * 100 / 255;
-                                    LiveDataReading reading = new()
-                                    {
-                                        name = "PurgeDutyCycle",
-                                        value_f = purgeDC,
-                                    };
-                                    results.Add(reading);
-                                }
-                                break;
-                            case 5: // inj pulse time (b1)
-                                bank_num = 1;
-                                goto case 0x17;
-                            case 0x17:
-                                if (data.Length > idx + 4)
-                                {
-                                    int injPulseTimeB1 = (data[idx + 2] << 16) | (data[idx + 3] << 8) | data[idx + 4];
-                                    LiveDataReading reading = new()
-                                    {
-                                        name = $"InjectorPulseTimeBank{bank_num}(us)",
-                                        value_f = injPulseTimeB1,
-                                    };
-                                    results.Add(reading);
-                                }
-                                break;
-                            case 0x2A: // load
-                                if (data.Length > idx + 2)
-                                {
-                                    float load = data[idx + 2];
-                                    LiveDataReading reading = new()
-                                    {
-                                        name = "load_pct",
-                                        value_f = load,
-                                    };
-                                    results.Add(reading);
-                                }
-                                break;
-                            case 0x13: // afr target
-                                if (data.Length > idx + 2)
-                                {
-                                    int fuelRate = data[idx + 2];
-                                    LiveDataReading reading = new()
-                                    {
-                                        name = "AFR Target",
-                                        value_f = fuelRate * 0.01, // %
-                                    };
-                                    results.Add(reading);
-                                }
-                                break;
-                            case 0x31: //knock spark retard
-                                if (data.Length > idx + 5)
-                                {
-                                    double cyl1Retard = data[idx + 2] / 4.0;
-                                    double cyl2Retard = data[idx + 3] / 4.0;
-                                    double cyl3Retard = data[idx + 4] / 4.0;
-                                    double cyl4Retard = data[idx + 5] / 4.0;
-                                    LiveDataReading reading1 = new()
-                                    {
-                                        name = "KnockSparkRetardCylinder 1",
-                                        value_f = cyl1Retard
-                                    };
-                                    results.Add(reading1);
-                                    LiveDataReading reading2 = new()
-                                    {
-                                        name = "KnockSparkRetardCylinder 2",
-                                        value_f = cyl2Retard
-                                    };
-                                    results.Add(reading2);
-                                    LiveDataReading reading3 = new()
-                                    {
-                                        name = "KnockSparkRetardCylinder 3",
-                                        value_f = cyl3Retard
-                                    };
-                                    results.Add(reading3);
-                                    LiveDataReading reading4 = new()
-                                    {
-                                        name = "KnockSparkRetardCylinder 4",
-                                        value_f = cyl4Retard
-                                    };
-                                    results.Add(reading4);
-                                }
-                                break;
-                            case 0x56:
-                                if (data.Length > idx + 3)
-                                {
-                                    double cyl5Retard = data[idx + 2] / 4.0;
-                                    double cyl6Retard = data[idx + 3] / 4.0;
-                                    LiveDataReading reading5 = new()
-                                    {
-                                        name = "KnockSparkRetardCylinder 5",
-                                        value_f = cyl5Retard
-                                    };
-                                    results.Add(reading5);
-                                    LiveDataReading reading6 = new()
-                                    {
-                                        name = "KnockSparkRetardCylinder 6",
-                                        value_f = cyl6Retard
-                                    };
-                                    results.Add(reading6);
-                                }
-                                break;
-
-                            case 0x34:
-                                cyl_num = 1;
-                                goto case 0x58;
-                            case 0x35:
-                                cyl_num = 3;
-                                goto case 0x58;
-                            case 0x36:
-                                cyl_num = 4;
-                                goto case 0x58;
-                            case 0x37: 
-                                cyl_num = 2;
-                                goto case 0x58;
-                            case 0x57:
-                                cyl_num = 5;
-                                goto case 0x58;
-                            case 0x58: 
-                                if (data.Length > idx + 3)
-                                {
-                                    int misfire = (data[idx + 2] << 8) | data[idx + 3];
-                                    LiveDataReading reading = new()
-                                    {
-                                        name = $"MisfireCylinder{cyl_num}",
-                                        value_f = misfire,
-                                    };
-                                    results.Add(reading);
-                                }                                    
-                                break;
-
-                            // Learned octane scaler. Unlike the misfire counters above, these PIDs
-                            // are not permuted: the firmware packs LEA_octane_scaler[0..5] in PID
-                            // order, and that array is cylinder-indexed. See OctaneScaler.
-                            case 0x18:
-                            case 0x19:
-                            case 0x1A:
-                            case 0x1B:
-                            case 0x4D:
-                            case 0x4E:
-                                if (data.Length > idx + 3)
-                                {
-                                    int octaneRating = (data[idx + 2] << 8) | data[idx + 3];
-                                    LiveDataReading reading = new()
-                                    {
-                                        name = $"OctaneRatingCylinder{OctaneScaler.CylinderByPid[data[idx + 1]]}",
-                                        value_f = OctaneScaler.ToPercent(octaneRating),
-                                    };
-                                    results.Add(reading);
-                                }
-                                break;
-                            case 0x3B: 
-                                if (data.Length > idx + 3)
-                                {
-                                    int tps = (data[idx + 2] << 8) | data[idx + 3];
-                                    LiveDataReading reading = new()
-                                    {
-                                        name = "TPSTarget",
-                                        value_f = tps * 100.0 / 1024, // convert to percentage
-                                    };
-                                    results.Add(reading);
-                                }
-                                break;
-                            case 0x45: //TPS
-                                if (data.Length > idx + 3)
-                                {
-                                    int tps = (data[idx + 2] << 8) | data[idx + 3];
-                                    LiveDataReading reading = new()
-                                    {
-                                        name = "TPSActual",
-                                        value_f = tps * 100.0 / 1024, // convert to percentage
-                                    };
-                                    results.Add(reading);
-                                }
-                                break;
-                            case 0x46: //accel pedal position
-                                if (data.Length > idx + 3)
-                                {
-                                    int pedal = (data[idx + 2] << 8) | data[idx + 3];
-                                    LiveDataReading reading = new()
-                                    {
-                                        name = "AcceleratorPedalPosition",
-                                        value_f = pedal * 100.0 / 1024, // convert to percentage
-                                    };
-                                    results.Add(reading);
-                                }
-                                break;
-                            case 0x72: // manifold temperature
-                                if (data.Length > idx + 2)
-                                {
-                                    int manifoldTemp = data[idx + 2] * 5 / 8 - 40;
-                                    LiveDataReading reading = new()
-                                    {
-                                        name = "ManifoldTempC",
-                                        value_f = manifoldTemp,
-                                    };
-                                    results.Add(reading);
-                                }
-                                break;
-                            case 0x6A: // engine torque
-                                if (data.Length > idx + 3)
-                                {
-                                    byte[] bytes = [data[idx + 3], data[idx + 2]];
-                                    int torque = BitConverter.ToInt16(bytes, 0);
-                                    LiveDataReading reading = new()
-                                    {
-                                        name = "TorqueNM",
-                                        value_f = torque,
-                                    };
-                                    results.Add(reading);
-                                }
-                                break;
-                            case 0x08: // VVTi B1 intake position
-                                if (data.Length > idx + 3)
-                                {
-                                    byte[] bytes = [data[idx + 3], data[idx + 2]];
-                                    int vvti_b1i = BitConverter.ToInt16(bytes, 0);
-                                    LiveDataReading reading = new()
-                                    {
-                                        name = "VVTI B1 intake (deg)",
-                                        value_f = vvti_b1i / 4.0,
-                                    };
-                                    results.Add(reading);
-                                }
-                                break;
-                            case 0x4B: // VVTi B2 intake position
-                                if (data.Length > idx + 3)
-                                {
-                                    byte[] bytes = [data[idx + 3], data[idx + 2]];
-                                    int vvti_b2i = BitConverter.ToInt16(bytes, 0);
-                                    LiveDataReading reading = new()
-                                    {
-                                        name = "VVTI B2 intake (deg)",
-                                        value_f = vvti_b2i / 4.0,
-                                    };
-                                    results.Add(reading);
-                                }
-                                break;
-                            case 0x50: // VVTI B1 exhaust position
-                                if (data.Length > idx + 3)
-                                {
-                                    byte[] bytes = [data[idx + 3], data[idx + 2]];
-                                    int vvti_b1e = BitConverter.ToInt16(bytes, 0);
-                                    LiveDataReading reading = new()
-                                    {
-                                        name = "VVTI B1 exhaust (deg)",
-                                        value_f = vvti_b1e / 4.0,
-                                    };
-                                    results.Add(reading);
-                                }
-                                break;
-                            case 0x51: // VVTI B2 exhaust position
-                                if (data.Length > idx + 3)
-                                {
-                                    byte[] bytes = [data[idx + 3], data[idx + 2]];
-                                    int vvti_b2e = BitConverter.ToInt16(bytes, 0);
-                                    LiveDataReading reading = new()
-                                    {
-                                        name = "VVTI B2 exhaust (deg)",
-                                        value_f = vvti_b2e / 4.0,
-                                    };
-                                    results.Add(reading);
-                                }
-                                break;
-                            case 0xC7:
-                                if (data.Length > idx + 2)
-                                {
-                                    int transTemp = data[idx + 2] * 5 / 8 - 40;
-                                    LiveDataReading reading = new()
-                                    {
-                                        name = "TransFluidTempC",
-                                        value_f = transTemp,
-                                    };
-                                    results.Add(reading);
-                                }
-                                break;
-                            case 0xC9:
-                                if (data.Length > idx + 2)
-                                {
-                                    int dc = data[idx + 2] * 100/255;
-                                    LiveDataReading reading = new()
-                                    {
-                                        name = "ChargecoolerDutycycle",
-                                        value_f = dc,
-                                    };
-                                    results.Add(reading);
-                                }
-                                break;
-                            // Regional fuel-learn zone trims (offset-128 byte, ~0.391% per count)
-                            case 0x48: // zone 2 (mid airflow), bank 1
-                                AddFuelLearnZone(data, results, idx, "FuelLearnZone2Bank1");
-                                break;
-                            case 0x49: // zone 3 (high airflow), bank 1
-                                AddFuelLearnZone(data, results, idx, "FuelLearnZone3Bank1");
-                                break;
-                            case 0x5A: // zone 2 (mid airflow), bank 2
-                                AddFuelLearnZone(data, results, idx, "FuelLearnZone2Bank2");
-                                break;
-                            case 0x5B: // zone 3 (high airflow), bank 2
-                                AddFuelLearnZone(data, results, idx, "FuelLearnZone3Bank2");
-                                break;
-                            case 0x2E: // idle additive trim, bank 1 (i16, microseconds)
-                                if (data.Length > idx + 3)
-                                {
-                                    short leanTimeB1 = (short)((data[idx + 2] << 8) | data[idx + 3]);
-                                    results.Add(new LiveDataReading
-                                    {
-                                        name = "FuelLearnLeanTimeBank1(us)",
-                                        value_f = leanTimeB1,
-                                    });
-                                }
-                                break;
-                            case 0x55: // idle additive trim, bank 2 (i16, microseconds)
-                                if (data.Length > idx + 3)
-                                {
-                                    short leanTimeB2 = (short)((data[idx + 2] << 8) | data[idx + 3]);
-                                    results.Add(new LiveDataReading
-                                    {
-                                        name = "FuelLearnLeanTimeBank2(us)",
-                                        value_f = leanTimeB2,
-                                    });
-                                }
-                                break;
-                            case 0x3A: // learn dwell/update timer (u16)
-                                if (data.Length > idx + 3)
-                                {
-                                    int fuelLearnTimer = (data[idx + 2] << 8) | data[idx + 3];
-                                    results.Add(new LiveDataReading
-                                    {
-                                        name = "FuelLearnTimer",
-                                        value_f = fuelLearnTimer,
-                                    });
-                                }
-                                break;
-                            default:
-                                Debug.WriteLine($"Unknown OBD-II mode 22 submode: {data[idx + 1]:X2}");
-                                break;
-                        }
-                    }
-                    /*
-                     * 
-                     * TODO
-                     *  New Mode $22 PIDs Added (WIDEBAND option)
-
-  Both PIDs read from the wb_bank1/wb_bank2 structs in RAM (each 20 bytes, 4-byte aligned):
-
-  Offset  Size  Type               Description
-    0     u16   state              0–2000 = calibrating, 2001 = ready, 2002 = NB mode
-    4     u32   sampleA            accumulated ADC at cal point 1 (1.667V)
-    8     u32   sampleB            accumulated ADC at cal point 2 (3.333V)
-   12     u16   wb_slope           calibration slope, u16 factor (4096 = 1.0×)
-   14     i16   wb_offset          calibration intercept, signed ADC counts
-   16     u16   wb_corr_adc        corrected live ADC value (0–1023 → 0–5V)
-   18     u16   wb_ht_th           heater current threshold, mA
-
-  ---
-  PID $0403 — Bank 1 WB Calibration Parameters
-
-  Request: 7E0: 03 22 04 03
-
-  CAN response (0x7E8, ISO-TP single frame):
-
-  Byte  Value     Description
-    0   0x07      ISO-TP: Single Frame, 7 payload bytes
-    1   0x62      UDS positive response (0x40 | 0x22)
-    2   0x04      PID high byte
-    3   0x03      PID low byte
-    4   slope_MSB  wb_bank1.wb_slope [11:8] — calibration slope
-    5   slope_LSB  wb_bank1.wb_slope [7:0]
-    6   offset_MSB wb_bank1.wb_offset [15:8] — calibration offset (signed)
-    7   offset_LSB wb_bank1.wb_offset [7:0]
-
-  Fits in a single 8-byte CAN frame with no padding needed.
-
-  Decoding the values:
-
-  wb_slope (u16, units: 1/4096 factor) — The scale factor that maps raw ADC to a linearized value. Computed at
-  calibration time (~10s after ECU-on) as:
-
-  slope = (WB_CAL_B − WB_CAL_A) × 2^21 / (mean_sampleB − mean_sampleA)
-        = 341 × 2097152 / (avg B samples − avg A samples)
-
-  wb_offset (i16, signed ADC counts) — The additive intercept:
-
-  offset = WB_CAL_A − (mean_sampleA × slope / 2^21)
-         = 341 − (avg A samples × slope / 2097152)
-
-  The live correction applied every main loop:
-  corrected = (raw_adc >> 4) * slope >> 12 + offset
-
-  A nominal sensor with no ADC error gives slope ≈ 4096 and offset ≈ 0.
-
-  ---
-  PID $0404 — Bank 2 WB Calibration Parameters
-
-  Identical frame structure, sourced from wb_bank2 instead of wb_bank1:
-
-  Byte  Value     Description
-    0   0x07
-    1   0x62
-    2   0x04
-    3   0x04
-    4–5           wb_bank2.wb_slope (u16, big-endian)
-    6–7           wb_bank2.wb_offset (i16, big-endian, signed)
-
-  ---
-  Mode $01 PIDs $24/$25 — Live Wideband Lambda (WIDEBAND option)
-
-  These use OBD-II standard PID format for Wide Range O2 Sensor. The corrected ADC (wb_corr_adc) drives both fields:
-
-  AB (equivalence ratio):
-  AB = 0.68 × (1 + adc/1023) × 32768
-     = adc × 22304 / 1024 + 22282
-
-  At adc=0   (0V, ~10 AFR):  AB ≈ 22282 → λ = 22282/32768 ≈ 0.680
-  At adc=512 (2.5V, ~15 AFR): AB ≈ 33419 → λ = 33419/32768 ≈ 1.020
-  At adc=1023 (5V, ~20 AFR):  AB ≈ 44563 → λ = 44563/32768 ≈ 1.360
-
-  CD (sensor voltage):
-  CD = adc / 1023 × 5 × 8192
-     = adc × 20500 / 512
-
-  At adc=0:    CD = 0     → 0.000 V
-  At adc=1023: CD ≈ 40961 → 5.000 V
-
-  CAN frame for PID $24 (Bank 1):
-  0x7E8: 07 41 24 [AB_hi] [AB_lo] [CD_hi] [CD_lo] [00]
-
-  ---
-  Calibration State Machine
-
-  Before wb_slope/wb_offset are valid, wb_state < 2001. During this period:
-  - wb_corr_adc = 0 (no live OBD reading meaningful)
-  - The narrow-band simulation feeds NB_STOI (stoichiometric) to prevent closed-loop disruption
-  - PIDs $0403/$0404 will show slope=0, offset=0 until calibration completes (~10s after power-on)
-
-  If wb_state = 2002, the controller fell back to NB mode (calibration voltages weren't detected), meaning a standard
-  narrow-band sensor was wired — the slope/offset still show 0.
-
-                    */
-                    if (data[idx] == 0x04)
-                    {
-                        switch (data[idx + 1])
-                        {
-                            case 0x3: // PID 0x0403 — Bank 1 WB Calibration Parameters
-                                bank_num = 1;
-                                goto case 0x4;
-                            case 0x4: // PID 0x0404 — Bank 2 WB Calibration Parameters
-                                if (data.Length > idx + 5)
-                                {
-                                    // slope: u16, 4096 = 1.0x scale factor
-                                    ushort wbSlope = (ushort)((data[idx + 2] << 8) | data[idx + 3]);
-                                    // offset: i16, signed ADC counts intercept
-                                    short wbOffset = (short)((data[idx + 4] << 8) | data[idx + 5]);
-                                    results.Add(new LiveDataReading
-                                    {
-                                        name = $"WBCalSlope{bank_num}",
-                                        value_f = wbSlope,
-                                    });
-                                    results.Add(new LiveDataReading
-                                    {
-                                        name = $"WBCalOffset{bank_num}",
-                                        value_f = wbOffset,
-                                    });
-                                }
-                                break;
-                            default:
-                                Debug.WriteLine($"Unknown OBD-II mode 22 submode: {data[idx + 1]:X2}");
-                                break;
-                        }
-                    }
-
+                    DecodeMode22(data, results);
                     break;
                 default:
                     Debug.WriteLine($"Unknown OBD-II mode: {obd_mode:X2}");
                     break;
-
             }
 
             // Apply prefix and ecuSource to all readings if in multi-ECU mode
+            string prefix = (prefixWithEcuName && ecu != null) ? $"{ecu.Name}:" : "";
+            string? ecuSource = ecu?.Name;
             if (prefixWithEcuName || ecuSource != null)
             {
                 foreach (var reading in results)
@@ -1027,6 +202,72 @@ namespace LotusECMLogger
             }
 
             return results;
+        }
+
+        /// <summary>
+        /// Walks a single-byte-PID response -- [header][SID][pid][payload][pid][payload]... --
+        /// decoding each PID and stepping the cursor by that PID's declared width.
+        /// </summary>
+        /// <remarks>
+        /// Decoding stops at the first PID whose width is unknown. Where the next PID begins cannot be
+        /// worked out without it, and guessing walks the cursor into the current PID's payload, where a
+        /// data byte that happens to equal a PID number decodes into a reading the ECU never sent.
+        /// <paramref name="skipWidths"/> keeps that outcome rare: it carries widths for standard PIDs
+        /// this decoder does not interpret, so those are stepped over instead of ending the frame.
+        /// </remarks>
+        private static void DecodePidSequence(
+            byte[] data,
+            List<LiveDataReading> results,
+            FrozenDictionary<byte, ObdPidDecoders.PidDecoder> decoders,
+            FrozenDictionary<byte, byte>? skipWidths,
+            string modeName)
+        {
+            int idx = 5;
+            while (idx < data.Length)
+            {
+                byte pid = data[idx];
+
+                if (decoders.TryGetValue(pid, out ObdPidDecoders.PidDecoder? decoder))
+                {
+                    // A truncated payload ends the frame: the bytes for the PIDs behind it are not
+                    // there either, so there is nothing further to locate.
+                    if (data.Length < idx + 1 + decoder.Width)
+                        return;
+
+                    decoder.Decode(data.AsSpan(idx + 1, decoder.Width), results);
+                    idx += 1 + decoder.Width;
+                }
+                else if (skipWidths is not null && skipWidths.TryGetValue(pid, out byte width))
+                {
+                    idx += 1 + width;
+                }
+                else
+                {
+                    Debug.WriteLine($"Unknown OBD {modeName}: {pid:X2} - stopping frame decode");
+                    return;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Decodes a Mode 22 response. Its PID is two bytes and one response carries one PID, so
+        /// unlike Mode 01 there is no cursor to walk.
+        /// </summary>
+        private static void DecodeMode22(byte[] data, List<LiveDataReading> results)
+        {
+            const int idx = 5;
+            if (data.Length < idx + 2)
+                return;
+
+            ushort pid = (ushort)((data[idx] << 8) | data[idx + 1]);
+            if (!ObdPidDecoders.Mode22.TryGetValue(pid, out ObdPidDecoders.PidDecoder? decoder))
+            {
+                Debug.WriteLine($"Unknown OBD-II mode 22 PID: {pid:X4}");
+                return;
+            }
+
+            if (data.Length >= idx + 2 + decoder.Width)
+                decoder.Decode(data.AsSpan(idx + 2, decoder.Width), results);
         }
     }
 }

@@ -314,6 +314,33 @@ namespace LotusECMLogger.Tests
         }
 
         /// <summary>
+        /// The vehicle information reader does its own Mode 22 request/response handling and decodes
+        /// the payload through <see cref="ObdPidDecoders.DecodeMode22Payload"/>, while the logger
+        /// parses whole response buffers. Both must land on the same table entry for every PID, or
+        /// the two views of the car drift apart the way they did over the octane cylinder order.
+        /// </summary>
+        [Fact]
+        public void Mode22_PayloadDecode_MatchesFullResponseDecodeForEveryPid()
+        {
+            byte[] sample = [0xA0, 0x3C, 0x12, 0x34];
+            Assert.NotEmpty(ObdPidDecoders.Mode22);
+
+            foreach (var (pid, decoder) in ObdPidDecoders.Mode22)
+            {
+                byte[] payload = sample[..decoder.Width];
+
+                var viaPayload = ObdPidDecoders.DecodeMode22Payload(pid, payload);
+                var viaResponse = LiveDataReading.ParseCanResponse(
+                    Mode22((byte)(pid >> 8), (byte)pid, payload));
+
+                Assert.Equal(
+                    viaResponse.Select(r => (r.name, r.value_f)),
+                    viaPayload.Select(r => (r.name, r.value_f)));
+                Assert.NotEmpty(viaPayload);
+            }
+        }
+
+        /// <summary>
         /// Pins the mapping both readers now share, so the two cannot drift apart again.
         /// </summary>
         [Fact]
@@ -448,19 +475,40 @@ namespace LotusECMLogger.Tests
         }
 
         /// <summary>
-        /// A PID the decoder does not know has no known width, so the only safe move is to stop.
-        /// Advancing a guessed single byte lands the cursor inside that PID's payload, where a data
-        /// byte that happens to equal a real PID number is decoded into a reading that was never
-        /// transmitted.
+        /// A standard PID this decoder does not interpret still has a known payload width, so it is
+        /// stepped over and the PIDs behind it survive. lotus-diagnostic.json requests two such PIDs
+        /// (0x21 and 0x31), and before the width table they cost every reading that followed.
         /// </summary>
         [Fact]
-        public void Mode01_UnknownPid_StopsDecodingInsteadOfGuessingItsWidth()
+        public void Mode01_UndecodedButStandardPid_IsSteppedOverByItsKnownWidth()
         {
-            // 0x21 is not decoded. Its payload here is 0x0C 0x05 - which, if the cursor advanced
-            // into it, reads as an Engine Speed PID followed by a plausible rpm value.
+            // 0x21 (distance with MIL on) is two bytes and is not decoded. Its payload is chosen to
+            // look like a PID, so a cursor stepping the wrong distance would decode something.
+            var readings = LiveDataReading.ParseCanResponse(Mode01(
+                0x05, 0x7B,          // coolant 83 degC
+                0x21, 0x0C, 0x05,    // undecoded, but two bytes wide
+                0x0D, 0x5A));        // reached only if 0x21 was stepped over correctly
+
+            Assert.Equal(
+                new[] { "Coolant Temperature", "Vehicle Speed" },
+                readings.Select(r => r.name));
+            Assert.Equal(83, readings[0].value_f, 4);
+            Assert.Equal(90, readings[1].value_f, 4);
+        }
+
+        /// <summary>
+        /// A PID in neither table has no knowable width, so the only safe move is to stop. Advancing
+        /// a guessed single byte lands the cursor inside that PID's payload, where a data byte that
+        /// happens to equal a real PID number decodes into a reading that was never transmitted.
+        /// </summary>
+        [Fact]
+        public void Mode01_UnrecognisedPid_StopsDecodingInsteadOfGuessingItsWidth()
+        {
+            // 0xFE is neither decoded nor a standard J1979 PID. Its payload would read as an Engine
+            // Speed PID followed by a plausible rpm value if the cursor advanced into it.
             var readings = LiveDataReading.ParseCanResponse(Mode01(
                 0x05, 0x7B,          // coolant 83 degC, decoded before the unknown PID
-                0x21, 0x0C, 0x05,    // unknown PID whose payload looks like a PID
+                0xFE, 0x0C, 0x05,    // unrecognised PID whose payload looks like a PID
                 0x0D, 0x5A));        // unreachable once decoding stops
 
             AssertReading(Assert.Single(readings), "Coolant Temperature", 83);

@@ -53,9 +53,7 @@ namespace LotusECMLogger.Services
                 }
             }
 
-            readings.AddRange(QueryOctaneScalers(channel));
-
-            readings.AddRange(QueryFuelLearnState(channel));
+            readings.AddRange(QueryLearnedValues(channel));
 
             return readings;
         }
@@ -250,110 +248,67 @@ namespace LotusECMLogger.Services
             return null;
         }
 
-        private static List<VehicleParameterReading> QueryOctaneScalers(J2534Channel channel)
+        /// <summary>
+        /// Learned Mode 22 values shown on the vehicle information tab. Only the label, unit and
+        /// rounding live here: the PID's payload width and how its bytes become a number both come
+        /// from <see cref="ObdPidDecoders.Mode22"/>, so this view and the live-data log cannot
+        /// disagree about what a PID means. They did once -- over the octane cylinder order.
+        /// </summary>
+        private static IEnumerable<(byte PidLow, string Name, string Unit, int Decimals)> LearnedValueChannels()
+        {
+            foreach (var (pid, cylinder) in OctaneScaler.CylinderByPid)
+                yield return (pid, $"Octane Scaler Cyl {cylinder}", "%", 1);
+
+            yield return (0x48, "Fuel Learn Zone 2 Bank 1", "%", 1);
+            yield return (0x49, "Fuel Learn Zone 3 Bank 1", "%", 1);
+            yield return (0x5A, "Fuel Learn Zone 2 Bank 2", "%", 1);
+            yield return (0x5B, "Fuel Learn Zone 3 Bank 2", "%", 1);
+
+            // Idle additive trims: microseconds added to injector pulse width.
+            yield return (0x2E, "Fuel Learn Lean Time Bank 1", "us", 0);
+            yield return (0x55, "Fuel Learn Lean Time Bank 2", "us", 0);
+
+            yield return (0x3A, "Fuel Learn Timer", "", 0);
+        }
+
+        /// <summary>Reads the learned octane scalers and regional fuel-learn state.</summary>
+        private static List<VehicleParameterReading> QueryLearnedValues(J2534Channel channel)
         {
             var results = new List<VehicleParameterReading>();
-            foreach (var (pid, cylinder) in OctaneScaler.CylinderByPid)
-            {
-                string name = $"Octane Scaler Cyl {cylinder}";
-                try
-                {
-                    byte[] request = [0x00, 0x00, 0x07, 0xE0, 0x22, 0x02, pid];
-                    channel.SendMessage(request);
 
-                    for (int i = 0; i < 10; i++)
-                    {
-                        var response = channel.ReadMessages(1, 250);
-                        if (response.Messages.Length > 0)
-                        {
-                            var data = response.Messages[0].Data;
-                            if (data.Length >= 9 &&
-                                data[4] == 0x62 && data[5] == 0x02 && data[6] == pid)
-                            {
-                                int rawValue = (data[7] << 8) | data[8];
-                                double percent = OctaneScaler.ToPercent(rawValue);
-                                results.Add(new VehicleParameterReading
-                                {
-                                    Name = name,
-                                    Value = Math.Round(percent, 1).ToString(),
-                                    Unit = "%"
-                                });
-                                break;
-                            }
-                        }
-                    }
-                }
-                catch (Exception ex)
+            foreach (var (pidLow, name, unit, decimals) in LearnedValueChannels())
+            {
+                if (ReadMode22Value(channel, pidLow) is double value)
                 {
-                    Debug.WriteLine($"Failed to read {name}: {ex.Message}");
+                    results.Add(new VehicleParameterReading
+                    {
+                        Name = name,
+                        Value = Math.Round(value, decimals).ToString(),
+                        Unit = unit,
+                    });
                 }
             }
+
             return results;
         }
 
-        // Reads the regional fuel-learn state via Mode 0x22 DIDs and returns a one-shot snapshot.
-        private static List<VehicleParameterReading> QueryFuelLearnState(J2534Channel channel)
+        /// <summary>
+        /// Reads one Mode 22 PID and decodes it with the same table the live-data logger uses. The
+        /// payload width comes from that table too, so it is stated once rather than restated here.
+        /// Null when the ECU does not answer or the PID has no shared decoder.
+        /// </summary>
+        private static double? ReadMode22Value(J2534Channel channel, byte pidLow)
         {
-            var results = new List<VehicleParameterReading>();
+            ushort pid = (ushort)(0x0200 | pidLow);
+            if (!ObdPidDecoders.Mode22.TryGetValue(pid, out var decoder))
+                return null;
 
-            // Zone trims: single offset-128 byte, 0x80 = 0%, ~0.391% per count.
-            var zonePIDs = new (string Name, byte Pid)[]
-            {
-                ("Fuel Learn Zone 2 Bank 1", 0x48),
-                ("Fuel Learn Zone 3 Bank 1", 0x49),
-                ("Fuel Learn Zone 2 Bank 2", 0x5A),
-                ("Fuel Learn Zone 3 Bank 2", 0x5B),
-            };
-            foreach (var (name, pid) in zonePIDs)
-            {
-                var bytes = ReadMode22Payload(channel, pid, 1);
-                if (bytes != null)
-                {
-                    double correctionPct = (sbyte)(bytes[0] - 0x80) * 500.0 / 128 / 10;
-                    results.Add(new VehicleParameterReading
-                    {
-                        Name = name,
-                        Value = Math.Round(correctionPct, 1).ToString(),
-                        Unit = "%"
-                    });
-                }
-            }
+            byte[]? payload = ReadMode22Payload(channel, pidLow, decoder.Width);
+            if (payload == null)
+                return null;
 
-            // Idle additive trims: signed 16-bit, microseconds added to injector pulse width.
-            var leanTimePIDs = new (string Name, byte Pid)[]
-            {
-                ("Fuel Learn Lean Time Bank 1", 0x2E),
-                ("Fuel Learn Lean Time Bank 2", 0x55),
-            };
-            foreach (var (name, pid) in leanTimePIDs)
-            {
-                var bytes = ReadMode22Payload(channel, pid, 2);
-                if (bytes != null)
-                {
-                    short leanTime = (short)((bytes[0] << 8) | bytes[1]);
-                    results.Add(new VehicleParameterReading
-                    {
-                        Name = name,
-                        Value = leanTime.ToString(),
-                        Unit = "us"
-                    });
-                }
-            }
-
-            // Learn dwell/update timer: unsigned 16-bit.
-            var timerBytes = ReadMode22Payload(channel, 0x3A, 2);
-            if (timerBytes != null)
-            {
-                int fuelLearnTimer = (timerBytes[0] << 8) | timerBytes[1];
-                results.Add(new VehicleParameterReading
-                {
-                    Name = "Fuel Learn Timer",
-                    Value = fuelLearnTimer.ToString(),
-                    Unit = ""
-                });
-            }
-
-            return results;
+            var readings = ObdPidDecoders.DecodeMode22Payload(pid, payload);
+            return readings.Count == 1 ? readings[0].value_f : null;
         }
     }
 }
