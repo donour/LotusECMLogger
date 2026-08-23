@@ -43,6 +43,7 @@ namespace LotusECMLogger
             mainTabControl = new TabControl();
             vehicleInfoTab = new TabPage();
             vehicleInfoControl = new LotusECMLogger.Controls.VehicleInfoControl();
+            performanceHistoryTab = new TabPage();
             loggingTab = new TabPage();
             loggingModesTabControl = new TabControl();
             highSpeedLogTab = new TabPage();
@@ -159,6 +160,7 @@ namespace LotusECMLogger
             // mainTabControl
             // 
             mainTabControl.Controls.Add(vehicleInfoTab);
+            mainTabControl.Controls.Add(performanceHistoryTab);
             mainTabControl.Controls.Add(loggingTab);
             mainTabControl.Controls.Add(codingDataTab);
             mainTabControl.Controls.Add(dtcTab);
@@ -192,6 +194,16 @@ namespace LotusECMLogger
             vehicleInfoControl.Name = "vehicleInfoControl";
             vehicleInfoControl.Size = new Size(992, 613);
             vehicleInfoControl.TabIndex = 0;
+            //
+            // performanceHistoryTab
+            //
+            performanceHistoryTab.Location = new Point(4, 64);
+            performanceHistoryTab.Margin = new Padding(4);
+            performanceHistoryTab.Name = "performanceHistoryTab";
+            performanceHistoryTab.Size = new Size(992, 613);
+            performanceHistoryTab.TabIndex = 8;
+            performanceHistoryTab.Text = "Performance History";
+            performanceHistoryTab.UseVisualStyleBackColor = true;
             //
             // loggingTab
             //
@@ -409,6 +421,7 @@ namespace LotusECMLogger
         private TabPage codingDataTab;
         private TabPage vehicleInfoTab;
         private LotusECMLogger.Controls.VehicleInfoControl vehicleInfoControl;
+        private TabPage performanceHistoryTab;
         private TabPage dtcTab;
         private LotusECMLogger.Controls.DTCControl dtcControl;
         private TabPage t6RmaTab;
