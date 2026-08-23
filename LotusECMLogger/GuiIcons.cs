@@ -14,6 +14,7 @@ internal static class GuiIcons
 
     // Tab glyphs
     public const string VehicleInfo  = ""; // Info circle
+    public const string PerformanceHistory = ""; // History
     public const string LiveData     = ""; // RenderBarChart
     public const string EcuCoding    = ""; // Settings gear
     public const string Dtc          = ""; // AlertSolid

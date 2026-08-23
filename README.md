@@ -6,6 +6,7 @@ With LotusECMLogger, you can log not only generic OBD-II parameters, but also Lo
 
 - **Supports OBD-II Mode 01**: Standard parameters like RPM, speed, coolant temperature, etc.
 - **Supports OBD-II Mode 22**: Manufacturer-specific channels, including advanced Lotus data.
+- **Performance history**: Read the Evora ECU's persistent usage histograms, standing-start results, top speeds/RPM, and retained low-oil/lateral-G events.
 - **Capture Lotus-specific data**: Log unique parameters such as variable cam control, knock control, and more.
 - **High-speed channel logging**: Stream internal ECU channels over CAN at up to 100 Hz per channel — far faster than OBD-II polling — with optional AEM X-Series wideband integration.
 - **ECU configuration & diagnostics**: Read and modify ECU coding, read and clear trouble codes (including permanent codes), program the VIN, and reset learned/adaptive data.
@@ -44,6 +45,11 @@ The tab also hosts three operations:
 - **Set VIN** — Opens a dialog that programs a new VIN using OBD-II Mode 0x3B. The Lotus firmware only allows positions 4–17 to be rewritten (the `SCC` WMI is fixed), validates the entry as you type, and requires the engine to be off; the result is verified by reading the VIN back after programming.
 - **Dyno Mode** — Enables the ECU's diagnostic override (OBD-II Mode 0x2F), which inhibits fault reactions triggered by external systems such as ABS. This is useful on a chassis dyno, where driven and undriven wheels turning at different speeds would otherwise raise faults and trigger torque intervention. Dyno mode is not persistent — it clears when the vehicle is powered off, and there is no explicit disable command, so cycle the ignition to return to normal operation. Only enable it on a dyno or during controlled testing: suppressing ABS-related faults on the road removes safety interventions.
 - **Adaptations Reset** — Performs an OBD-II Mode 0x11 reset to clear adaptive learning values (octane scalers, knock retard, alpha-N load trim, torque-to-throttle scaling, per-bank fuel trim, and idle learning), which may be necessary after certain repairs or modifications.
+
+### Performance History
+The Performance History tab reads the persistent statistics published by Evora engine firmware through Mode 22 PIDs 0x0300–0x0361. Its **Overview** shows total engine runtime, recorded distance where the firmware provides it, standing-start counts and fastest/latest 0–100 and 0–160 km/h results. **Usage** presents the ECU's time-at-throttle, RPM, road-speed, coolant-temperature, and lateral-acceleration histograms. **Events** combines the five highest RPM and road-speed records with the three retained low-oil-pressure and high-lateral-G events, including the speed, RPM, peak lateral acceleration, and engine-runtime timestamp stored with each event.
+
+The exact layout differs between the analysed B13200091 (S1), C132E0271 (Evora 400), C132E0278 (GT430), and E132E0288 (late Evora GT) firmware. The reader selects a profile from the calibration/program identifier so that PID 0x033A/0x0341 is interpreted as distance or the sixth lateral-G bucket as appropriate. Histogram thresholds are calibration constants that are not transmitted in the 0x03xx data, so the UI labels them as ordered ECU bands rather than assuming one calibration's boundaries apply to every car.
 
 ### Logging
 All logging tools live under a single Logging tab, with sub-tabs for each logging mode. Every logger writes its CSV output beneath one folder — `Documents\LotusECMLogger` — with per-mode file names (`HighSpeed_<timestamp>.csv`, `LiveData_<timestamp>.csv`, `T6RMA_<timestamp>.csv`).

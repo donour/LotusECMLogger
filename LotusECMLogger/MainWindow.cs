@@ -12,6 +12,7 @@ namespace LotusECMLogger
         private System.ComponentModel.IContainer? components = null;
 
         private OBDLoggerControl? obdLoggerControl;
+        private PerformanceHistoryControl? performanceHistoryControl;
 
         public MainWindow()
         {
@@ -40,6 +41,22 @@ namespace LotusECMLogger
             catch (Exception ex)
             {
                 MessageBox.Show($"Failed to initialize Logger tab: {ex.Message}", "Startup Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+
+            // Add the persistent Mode 22 performance-history reader.
+            try
+            {
+                performanceHistoryControl = new PerformanceHistoryControl
+                {
+                    Dock = DockStyle.Fill,
+                    IsLoggerActive = false
+                };
+                performanceHistoryTab.Controls.Add(performanceHistoryControl);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Failed to initialize Performance History tab: {ex.Message}", "Startup Error",
                     MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
 
@@ -138,6 +155,9 @@ namespace LotusECMLogger
 
                 vehicleInfoControl.IsLoggerActive = isLogging;
 
+                if (performanceHistoryControl != null)
+                    performanceHistoryControl.IsLoggerActive = isLogging;
+
                 dtcControl.IsLoggerActive = isLogging;
 
                 var rmaControl = t6RmaTab.Controls.OfType<T6RMAControl>().FirstOrDefault();
@@ -224,6 +244,7 @@ namespace LotusECMLogger
 
             var mainIcons = GuiIcons.BuildImageList(20, tabColor,
                 GuiIcons.VehicleInfo,
+                GuiIcons.PerformanceHistory,
                 GuiIcons.LiveData,
                 GuiIcons.EcuCoding,
                 GuiIcons.Dtc,
@@ -235,13 +256,14 @@ namespace LotusECMLogger
             mainIcons.Images.Add(GuiIcons.RenderBrakeRotor(20, tabColor));
 
             mainTabControl.ImageList = mainIcons;
-            vehicleInfoTab.ImageIndex = 0;
-            loggingTab.ImageIndex     = 1;
-            codingDataTab.ImageIndex  = 2;
-            dtcTab.ImageIndex         = 3;
-            liveTuningTab.ImageIndex  = 4;
-            snapshotsTab.ImageIndex   = 5;
-            absTab.ImageIndex         = 6;
+            vehicleInfoTab.ImageIndex       = 0;
+            performanceHistoryTab.ImageIndex = 1;
+            loggingTab.ImageIndex           = 2;
+            codingDataTab.ImageIndex        = 3;
+            dtcTab.ImageIndex               = 4;
+            liveTuningTab.ImageIndex        = 5;
+            snapshotsTab.ImageIndex         = 6;
+            absTab.ImageIndex               = 7;
 
             var loggingModeIcons = GuiIcons.BuildImageList(20, tabColor,
                 GuiIcons.HighSpeedLog,
