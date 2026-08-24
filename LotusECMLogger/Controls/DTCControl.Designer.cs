@@ -28,6 +28,10 @@ namespace LotusECMLogger.Controls
         /// </summary>
         private void InitializeComponent()
         {
+            dtcTabControl = new TabControl();
+            standardTab = new TabPage();
+            mode13Tab = new TabPage();
+            mode13Control = new Mode13Control();
             topPanel = new Panel();
             readCodesButton = new Button();
             readFreezeFrameButton = new Button();
@@ -36,12 +40,58 @@ namespace LotusECMLogger.Controls
             resultsSplit = new SplitContainer();
             dtcListView = new ListView();
             freezeFrameListView = new ListView();
+            dtcTabControl.SuspendLayout();
+            standardTab.SuspendLayout();
+            mode13Tab.SuspendLayout();
             topPanel.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)resultsSplit).BeginInit();
             resultsSplit.Panel1.SuspendLayout();
             resultsSplit.Panel2.SuspendLayout();
             resultsSplit.SuspendLayout();
             SuspendLayout();
+            //
+            // dtcTabControl
+            //
+            dtcTabControl.Controls.Add(standardTab);
+            dtcTabControl.Controls.Add(mode13Tab);
+            dtcTabControl.Dock = DockStyle.Fill;
+            dtcTabControl.Location = new Point(0, 0);
+            dtcTabControl.Name = "dtcTabControl";
+            dtcTabControl.SelectedIndex = 0;
+            dtcTabControl.Size = new Size(600, 489);
+            dtcTabControl.TabIndex = 0;
+            //
+            // standardTab
+            //
+            standardTab.Controls.Add(resultsSplit);
+            standardTab.Controls.Add(topPanel);
+            standardTab.Location = new Point(4, 24);
+            standardTab.Name = "standardTab";
+            standardTab.Padding = new Padding(3);
+            standardTab.Size = new Size(592, 461);
+            standardTab.TabIndex = 0;
+            standardTab.Text = "Standard OBD-II";
+            standardTab.UseVisualStyleBackColor = true;
+            //
+            // mode13Tab
+            //
+            mode13Tab.Controls.Add(mode13Control);
+            mode13Tab.Location = new Point(4, 24);
+            mode13Tab.Name = "mode13Tab";
+            mode13Tab.Padding = new Padding(3);
+            mode13Tab.Size = new Size(592, 461);
+            mode13Tab.TabIndex = 1;
+            mode13Tab.Text = "Mode 0x13 (All Codes)";
+            mode13Tab.UseVisualStyleBackColor = true;
+            //
+            // mode13Control
+            //
+            mode13Control.Dock = DockStyle.Fill;
+            mode13Control.Location = new Point(3, 3);
+            mode13Control.Margin = new Padding(3, 2, 3, 2);
+            mode13Control.Name = "mode13Control";
+            mode13Control.Size = new Size(586, 455);
+            mode13Control.TabIndex = 0;
             //
             // topPanel
             //
@@ -141,11 +191,13 @@ namespace LotusECMLogger.Controls
             //
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
-            Controls.Add(resultsSplit);
-            Controls.Add(topPanel);
+            Controls.Add(dtcTabControl);
             Margin = new Padding(3, 2, 3, 2);
             Name = "DTCControl";
             Size = new Size(600, 489);
+            dtcTabControl.ResumeLayout(false);
+            standardTab.ResumeLayout(false);
+            mode13Tab.ResumeLayout(false);
             topPanel.ResumeLayout(false);
             topPanel.PerformLayout();
             resultsSplit.Panel1.ResumeLayout(false);
@@ -157,6 +209,10 @@ namespace LotusECMLogger.Controls
 
         #endregion
 
+        private TabControl dtcTabControl;
+        private TabPage standardTab;
+        private TabPage mode13Tab;
+        private Mode13Control mode13Control;
         private Panel topPanel;
         private Button readCodesButton;
         private Button readFreezeFrameButton;

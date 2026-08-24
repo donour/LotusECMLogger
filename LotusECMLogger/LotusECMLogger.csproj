@@ -46,6 +46,12 @@
     <Compile Update="Controls\AbsControl.Designer.cs">
       <DependentUpon>AbsControl.cs</DependentUpon>
     </Compile>
+    <Compile Update="Controls\Mode13Control.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Update="Controls\Mode13Control.Designer.cs">
+      <DependentUpon>Mode13Control.cs</DependentUpon>
+    </Compile>
   </ItemGroup>
 
   <ItemGroup>
@@ -71,6 +77,9 @@
     </EmbeddedResource>
     <EmbeddedResource Update="Controls\DTCControl.resx">
       <DependentUpon>DTCControl.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Update="Controls\Mode13Control.resx">
+      <DependentUpon>Mode13Control.cs</DependentUpon>
     </EmbeddedResource>
   </ItemGroup>
 

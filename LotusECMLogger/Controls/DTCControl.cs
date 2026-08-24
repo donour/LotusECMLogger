@@ -16,9 +16,21 @@ namespace LotusECMLogger.Controls
             InitializeComponent();
             SetupListViewColumns();
             SetupFreezeFrameColumns();
+            ApplyTabIcons();
             GuiIcons.ApplyToButton(readCodesButton, GuiIcons.Read);
             GuiIcons.ApplyToButton(readFreezeFrameButton, GuiIcons.Snapshots);
             GuiIcons.ApplyToButton(clearCodesButton, GuiIcons.Clear);
+        }
+
+        // Matches how MainWindow decorates its own tab strips; this one is nested inside the
+        // control, so it is out of that method's reach.
+        private void ApplyTabIcons()
+        {
+            dtcTabControl.ImageList = GuiIcons.BuildImageList(20, SystemColors.ControlText,
+                GuiIcons.Dtc,
+                GuiIcons.Read);
+            standardTab.ImageIndex = 0;
+            mode13Tab.ImageIndex = 1;
         }
 
         /// <summary>
@@ -33,6 +45,8 @@ namespace LotusECMLogger.Controls
             set
             {
                 isLoggerActive = value;
+                // The Mode 0x13 tab opens its own session too, so it shares the same lockout.
+                mode13Control.IsLoggerActive = value;
                 UpdateUIState();
             }
         }
