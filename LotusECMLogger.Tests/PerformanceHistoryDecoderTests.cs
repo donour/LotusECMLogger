@@ -40,7 +40,7 @@ namespace LotusECMLogger.Tests
                 [0x0342] = [5],
                 [0x0343] = [80],
                 [0x0344] = U16(7_000),
-                [0x0345] = I16(-12),
+                [0x0345] = I16(-120),
                 [0x0346] = U32(100),
                 [0x0361] = [3],
             };
@@ -54,6 +54,7 @@ namespace LotusECMLogger.Tests
 
             PerformanceUsageBucket throttle = Assert.Single(result.Usage);
             Assert.Equal("Throttle position", throttle.Category);
+            Assert.Equal("0.0 % < value ≤ 1.6 %", throttle.Range);
             Assert.Equal(TimeSpan.FromSeconds(2.5), throttle.Duration);
 
             PerformanceHistoryEvent topRpm = Assert.Single(result.Events, x => x.Category == "Highest engine speed");
@@ -74,6 +75,25 @@ namespace LotusECMLogger.Tests
         }
 
         [Fact]
+        public void Decode_HighGEvent_UsesHundredthsOfG()
+        {
+            var payloads = new Dictionary<ushort, byte[]>
+            {
+                [0x0351] = [8],
+                [0x0352] = [101],
+                [0x0353] = U16(6_200),
+                [0x0354] = I16(127),
+                [0x0355] = U32(50),
+            };
+
+            PerformanceHistoryEvent highG = Assert.Single(
+                PerformanceHistoryDecoder.Decode("E132E0288", payloads).Events);
+
+            Assert.Equal("High lateral-G", highG.Category);
+            Assert.Equal(1.27, highG.ContextValue);
+        }
+
+        [Fact]
         public void Decode_S2DistanceAndSixthLateralBand_UseVariantSpecificPids()
         {
             var payloads = new Dictionary<ushort, byte[]>
@@ -88,6 +108,7 @@ namespace LotusECMLogger.Tests
             PerformanceUsageBucket sixth = Assert.Single(result.Usage);
             Assert.Equal("Lateral acceleration", sixth.Category);
             Assert.Equal("ECU band 6", sixth.Band);
+            Assert.Equal("1.40 g ≤ value < 2.00 g", sixth.Range);
             Assert.Equal(TimeSpan.FromSeconds(9), sixth.Duration);
         }
 

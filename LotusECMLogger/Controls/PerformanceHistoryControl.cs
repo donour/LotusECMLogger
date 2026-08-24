@@ -92,9 +92,10 @@ namespace LotusECMLogger.Controls
 
         private void SetupUsageTab(TabPage tab)
         {
-            usageView.Columns.Add("Category", 190);
-            usageView.Columns.Add("ECU range", 150);
-            usageView.Columns.Add("Time", 150);
+            usageView.Columns.Add("Category", 180);
+            usageView.Columns.Add("Band", 105);
+            usageView.Columns.Add("ECU range value", 270);
+            usageView.Columns.Add("Time", 140);
             usageView.Columns.Add("Share", 90);
             usageView.Columns.Add("Raw 100 ms samples", 160);
             usageView.Columns.Add("PID", 90);
@@ -185,6 +186,7 @@ namespace LotusECMLogger.Controls
                         string share = total == 0 ? "—" : $"{bucket.Samples * 100.0 / total:F1}%";
                         var item = new ListViewItem(bucket.Category);
                         item.SubItems.Add(bucket.Band);
+                        item.SubItems.Add(bucket.Range);
                         item.SubItems.Add(FormatDuration(bucket.Duration));
                         item.SubItems.Add(share);
                         item.SubItems.Add(bucket.Samples.ToString("N0"));
@@ -231,6 +233,7 @@ namespace LotusECMLogger.Controls
         private static string FormatValue(double value, string unit)
         {
             string number = unit is "rpm" or "km/h" ? value.ToString("N0", CultureInfo.CurrentCulture)
+                : unit.StartsWith("g", StringComparison.Ordinal) ? value.ToString("0.00", CultureInfo.CurrentCulture)
                 : value.ToString("0.0", CultureInfo.CurrentCulture);
             return string.IsNullOrEmpty(unit) ? number : $"{number} {unit}";
         }
