@@ -38,13 +38,30 @@ namespace LotusECMLogger.Services
     /// <summary>
     /// Pure decoder for the persistent performance statistics published by Evora engine firmware.
     /// The firmware updates all time counters from its 10 Hz performance task, so one count is
-    /// 100 ms. The histogram thresholds themselves are calibration data and are not included in
-    /// the 0x03xx responses; the UI therefore identifies their ordered ECU bands rather than
-    /// inventing boundaries that can differ between calibrations.
+    /// 100 ms. Histogram thresholds are calibration data rather than part of the 0x03xx responses;
+    /// the range labels below come from the constants in each analysed Evora firmware image.
     /// </summary>
     internal static class PerformanceHistoryDecoder
     {
         private const double TickSeconds = 0.1;
+
+        // These boundaries are the calibration constants used by perf_stats_update in all four
+        // analysed Evora programs. The inequalities mirror the firmware comparisons exactly.
+        private static readonly string[] ThrottleRanges = BuildRanges(
+            [0, 4, 38, 64, 89, 127, 166, 204, 255],
+            raw => $"{raw * 100.0 / 255.0:F1} %", lowerInclusive: false);
+        private static readonly string[] EngineSpeedRanges = BuildRanges(
+            [500, 1500, 2500, 3500, 4500, 5500, 6500, 7000, 12000],
+            raw => $"{raw:N0} rpm", lowerInclusive: false);
+        private static readonly string[] VehicleSpeedRanges = BuildRanges(
+            [0, 30, 60, 90, 120, 150, 180, 210, 255],
+            raw => $"{raw} km/h", lowerInclusive: false);
+        private static readonly string[] CoolantTemperatureRanges = BuildRanges(
+            [232, 240, 248, 254, 255],
+            raw => $"{raw * 5.0 / 8.0 - 40.0:F1} °C", lowerInclusive: false);
+        private static readonly string[] LateralAccelerationRanges = BuildRanges(
+            [0, 60, 80, 100, 120, 140, 200],
+            raw => $"{raw / 100.0:F2} g", lowerInclusive: true);
 
         internal static IReadOnlySet<ushort> DecodeSupportedPids(ushort pagePid, ReadOnlySpan<byte> bitmap)
         {
@@ -70,13 +87,15 @@ namespace LotusECMLogger.Services
             PerformanceHistoryProfile profile = PerformanceHistoryProfile.Resolve(calibrationId);
             var usage = new List<PerformanceUsageBucket>();
 
-            AddUsage(usage, payloads, "Throttle position", 0x0301, 8);
-            AddUsage(usage, payloads, "Engine speed", 0x0309, 8);
-            AddUsage(usage, payloads, "Vehicle speed", 0x0311, 8);
-            AddUsage(usage, payloads, "Coolant temperature", 0x031A, 4);
-            AddUsage(usage, payloads, "Lateral acceleration", 0x033B, Math.Min(5, profile.LateralAccelerationBands));
+            AddUsage(usage, payloads, "Throttle position", 0x0301, ThrottleRanges);
+            AddUsage(usage, payloads, "Engine speed", 0x0309, EngineSpeedRanges);
+            AddUsage(usage, payloads, "Vehicle speed", 0x0311, VehicleSpeedRanges);
+            AddUsage(usage, payloads, "Coolant temperature", 0x031A, CoolantTemperatureRanges);
+            AddUsage(usage, payloads, "Lateral acceleration", 0x033B,
+                LateralAccelerationRanges[..Math.Min(5, profile.LateralAccelerationBands)]);
             if (profile.LateralAccelerationBands == 6)
-                AddUsageBucket(usage, payloads, "Lateral acceleration", 6, 0x0341);
+                AddUsageBucket(usage, payloads, "Lateral acceleration", 6,
+                    LateralAccelerationRanges[5], 0x0341);
 
             var events = new List<PerformanceHistoryEvent>();
             AddTopRpmEvents(events, payloads);
@@ -93,7 +112,7 @@ namespace LotusECMLogger.Services
 
             var notes = new List<string>
             {
-                "Usage bands are ordered from lowest to highest; their thresholds are ECU calibration values and are not transmitted by Mode 22.",
+                "Usage ranges are ECU calibration constants verified in the analysed Evora firmwares; the boundaries are not transmitted by Mode 22.",
                 "Times and event timestamps are engine-runtime values recorded in 100 ms increments, not wall-clock dates.",
             };
             if (profile.Kind == PerformanceHistoryVariant.EvoraS1)
@@ -124,10 +143,10 @@ namespace LotusECMLogger.Services
             IReadOnlyDictionary<ushort, byte[]> payloads,
             string category,
             ushort firstPid,
-            int count)
+            IReadOnlyList<string> ranges)
         {
-            for (int i = 0; i < count; i++)
-                AddUsageBucket(target, payloads, category, i + 1, (ushort)(firstPid + i));
+            for (int i = 0; i < ranges.Count; i++)
+                AddUsageBucket(target, payloads, category, i + 1, ranges[i], (ushort)(firstPid + i));
         }
 
         private static void AddUsageBucket(
@@ -135,6 +154,7 @@ namespace LotusECMLogger.Services
             IReadOnlyDictionary<ushort, byte[]> payloads,
             string category,
             int band,
+            string range,
             ushort pid)
         {
             if (ReadU32(payloads, pid) is not uint samples)
@@ -144,6 +164,7 @@ namespace LotusECMLogger.Services
             {
                 Category = category,
                 Band = $"ECU band {band}",
+                Range = range,
                 Pid = pid,
                 Samples = samples,
             });
@@ -222,11 +243,27 @@ namespace LotusECMLogger.Services
                     Unit = "s",
                     VehicleSpeedKph = speed,
                     EngineSpeedRpm = rpm,
-                    ContextValue = peakG / 10.0,
+                    // The recorder starts a high-G event at raw 101, which is 1.01 g. Although
+                    // older Ghidra projects named this type "1/10g", the stored CAN/yaw value is
+                    // actually hundredths of g.
+                    ContextValue = peakG / 100.0,
                     ContextUnit = "g peak lateral",
                     EngineRuntime = runtime,
                 });
             }
+        }
+
+        private static string[] BuildRanges(
+            int[] thresholds,
+            Func<int, string> format,
+            bool lowerInclusive)
+        {
+            var ranges = new string[thresholds.Length - 1];
+            string lowerOperator = lowerInclusive ? "≤" : "<";
+            string upperOperator = lowerInclusive ? "<" : "≤";
+            for (int i = 0; i < ranges.Length; i++)
+                ranges[i] = $"{format(thresholds[i])} {lowerOperator} value {upperOperator} {format(thresholds[i + 1])}";
+            return ranges;
         }
 
         private static double? ReadStandingStart(IReadOnlyDictionary<ushort, byte[]> payloads, ushort pid)

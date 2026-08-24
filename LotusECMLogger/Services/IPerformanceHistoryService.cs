@@ -5,6 +5,7 @@ namespace LotusECMLogger.Services
     {
         public required string Category { get; init; }
         public required string Band { get; init; }
+        public required string Range { get; init; }
         public required ushort Pid { get; init; }
         public required uint Samples { get; init; }
         public TimeSpan Duration => TimeSpan.FromMilliseconds(Samples * 100.0);
