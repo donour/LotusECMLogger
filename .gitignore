@@ -306,9 +306,6 @@ _Pvt_Extensions
 .paket/paket.exe
 paket-files/
 
-# FAKE - F# Make
-.fake/
-
 # CodeRush personal settings
 .cr/personal
 
@@ -364,3 +361,6 @@ FodyWeavers.xsd
 
 # Claude local files
 .claude/
+
+# local reference docs
+references/
