@@ -45,14 +45,14 @@ namespace LotusECMLogger.Controls
 
             var header = new Panel { Dock = DockStyle.Top, Height = 56 };
             readButton.Location = new Point(12, 12);
-            readButton.Size = new Size(184, 32);
+            readButton.AutoSize = true;
             readButton.Text = "Read Performance History";
             readButton.UseVisualStyleBackColor = true;
             readButton.Click += ReadButton_Click;
             GuiIcons.ApplyToButton(readButton, GuiIcons.Read);
 
             statusLabel.AutoEllipsis = true;
-            statusLabel.Location = new Point(208, 17);
+            statusLabel.Location = new Point(readButton.Location.X + readButton.PreferredSize.Width + 12, 17);
             statusLabel.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             statusLabel.Size = new Size(700, 24);
             statusLabel.Text = "Connect to the vehicle and read the persistent ECU history.";
