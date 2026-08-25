@@ -50,10 +50,54 @@ namespace LotusECMLogger.Controls
 
 			InitializeComponent();
 
+			// Every button reads "Download"; the group box titles say which region, so the three
+			// buttons stay the same width instead of being sized by their labels.
+			GuiIcons.ApplyToButton(downloadLearnedDataButton, GuiIcons.Download);
+			GuiIcons.ApplyToButton(downloadCalibrationButton, GuiIcons.Download);
+			GuiIcons.ApplyToButton(downloadProgramButton, GuiIcons.Download);
+
+			// The unlock requirement is the same for all three regions, so one notice sits at the
+			// top of the tab rather than being repeated in every region description.
+			WrapLabelToContainer(unlockNoticeLabel);
+			WrapLabelToContainer(learnedDataInfoLabel);
+			WrapLabelToContainer(calibrationInfoLabel);
+			WrapLabelToContainer(programInfoLabel);
+
 			ecuVariantComboBox.Items.AddRange(EcuVariantOptions);
 			ecuVariantComboBox.SelectedItem = EcuVariantOptions[^1]; // T6 / T6e: this app's primary target
 
 			Dock = DockStyle.Fill;
+		}
+
+		/// <summary>
+		/// Pins a wrapping label's width to its container, so that the auto-sizing group box
+		/// around it grows by a line when the text wraps.
+		/// </summary>
+		/// <remarks>
+		/// An auto-sizing container measures its children before it constrains their width, so a
+		/// plain AutoSize label always measures as a single line no matter how narrow the tab gets.
+		/// The group box would then size itself to that one line and clip the download button row
+		/// underneath as soon as the text actually wrapped — which the longest of the three
+		/// descriptions (Program) did well before the window got narrow. Giving the label an
+		/// explicit maximum width makes its measured height the wrapped height, which the row,
+		/// the table and the group box all then account for.
+		/// </remarks>
+		private static void WrapLabelToContainer(Label label)
+		{
+			Control container = label.Parent!;
+
+			void Update(object? sender, EventArgs e)
+			{
+				int width = container.ClientSize.Width - container.Padding.Horizontal - label.Margin.Horizontal;
+
+				// Only on a real change: MaximumSize triggers another layout pass, and the width it
+				// is derived from never depends on the label's own height, so this settles.
+				if (width > 0 && label.MaximumSize.Width != width)
+					label.MaximumSize = new Size(width, 0);
+			}
+
+			container.SizeChanged += Update;
+			Update(container, EventArgs.Empty);
 		}
 
 		private async void DownloadLearnedDataButton_Click(object? sender, EventArgs e)

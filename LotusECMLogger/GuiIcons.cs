@@ -40,6 +40,7 @@ internal static class GuiIcons
     public const string Clear    = ""; // Clear
     public const string OpenFile = ""; // OpenFile (browse)
     public const string Connect  = ""; // Ethernet (test connection)
+    public const string Download = Read; // Download (E896)
     public const string DynoMode = ""; // SpeedHigh (dyno mode)
 
     /// <summary>

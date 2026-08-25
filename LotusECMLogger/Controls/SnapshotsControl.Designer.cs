@@ -28,6 +28,7 @@ namespace LotusECMLogger.Controls
         /// </summary>
         private void InitializeComponent()
         {
+            unlockNoticeLabel = new Label();
             ecuVariantGroupBox = new GroupBox();
             ecuVariantPanel = new FlowLayoutPanel();
             ecuVariantLabel = new Label();
@@ -69,6 +70,8 @@ namespace LotusECMLogger.Controls
             // learnedDataGroupBox
             //
             learnedDataGroupBox.Controls.Add(learnedDataLayout);
+            learnedDataGroupBox.AutoSize = true;
+            learnedDataGroupBox.AutoSizeMode = AutoSizeMode.GrowAndShrink;
             learnedDataGroupBox.Dock = DockStyle.Top;
             learnedDataGroupBox.Location = new Point(14, 300);
             learnedDataGroupBox.Margin = new Padding(4, 5, 4, 5);
@@ -85,7 +88,9 @@ namespace LotusECMLogger.Controls
             learnedDataLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
             learnedDataLayout.Controls.Add(learnedDataInfoLabel, 0, 0);
             learnedDataLayout.Controls.Add(learnedDataButtonPanel, 0, 1);
-            learnedDataLayout.Dock = DockStyle.Fill;
+            learnedDataLayout.AutoSize = true;
+            learnedDataLayout.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+            learnedDataLayout.Dock = DockStyle.Top;
             learnedDataLayout.Location = new Point(14, 41);
             learnedDataLayout.Margin = new Padding(4, 5, 4, 5);
             learnedDataLayout.Name = "learnedDataLayout";
@@ -105,7 +110,7 @@ namespace LotusECMLogger.Controls
             learnedDataInfoLabel.Name = "learnedDataInfoLabel";
             learnedDataInfoLabel.Size = new Size(600, 20);
             learnedDataInfoLabel.TabIndex = 0;
-            learnedDataInfoLabel.Text = "Downloads the ECU's persisted adaptive fuel/idle/knock trims (flash) to a .bin file. Requires an unlocked ECU.";
+            learnedDataInfoLabel.Text = "Downloads the ECU's persisted adaptive fuel/idle/knock trims (flash) to a .bin file.";
             //
             // learnedDataButtonPanel
             //
@@ -123,13 +128,14 @@ namespace LotusECMLogger.Controls
             //
             // downloadLearnedDataButton
             //
+            downloadLearnedDataButton.AccessibleName = "Download Learned Data";
             downloadLearnedDataButton.AutoSize = true;
             downloadLearnedDataButton.Location = new Point(4, 3);
             downloadLearnedDataButton.Margin = new Padding(4, 3, 4, 3);
             downloadLearnedDataButton.Name = "downloadLearnedDataButton";
             downloadLearnedDataButton.Size = new Size(220, 35);
             downloadLearnedDataButton.TabIndex = 0;
-            downloadLearnedDataButton.Text = "Download Learned Data...";
+            downloadLearnedDataButton.Text = "Download";
             downloadLearnedDataButton.UseVisualStyleBackColor = true;
             downloadLearnedDataButton.Click += DownloadLearnedDataButton_Click;
             //
@@ -155,6 +161,8 @@ namespace LotusECMLogger.Controls
             // calibrationGroupBox
             //
             calibrationGroupBox.Controls.Add(calibrationLayout);
+            calibrationGroupBox.AutoSize = true;
+            calibrationGroupBox.AutoSizeMode = AutoSizeMode.GrowAndShrink;
             calibrationGroupBox.Dock = DockStyle.Top;
             calibrationGroupBox.Location = new Point(14, 150);
             calibrationGroupBox.Margin = new Padding(4, 5, 4, 5);
@@ -171,7 +179,9 @@ namespace LotusECMLogger.Controls
             calibrationLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
             calibrationLayout.Controls.Add(calibrationInfoLabel, 0, 0);
             calibrationLayout.Controls.Add(calibrationButtonPanel, 0, 1);
-            calibrationLayout.Dock = DockStyle.Fill;
+            calibrationLayout.AutoSize = true;
+            calibrationLayout.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+            calibrationLayout.Dock = DockStyle.Top;
             calibrationLayout.Location = new Point(14, 41);
             calibrationLayout.Margin = new Padding(4, 5, 4, 5);
             calibrationLayout.Name = "calibrationLayout";
@@ -191,7 +201,7 @@ namespace LotusECMLogger.Controls
             calibrationInfoLabel.Name = "calibrationInfoLabel";
             calibrationInfoLabel.Size = new Size(600, 20);
             calibrationInfoLabel.TabIndex = 0;
-            calibrationInfoLabel.Text = "Downloads the ECU's active calibration (fuel/ignition maps, limiters, etc., flash) to a .bin file. Requires an unlocked ECU.";
+            calibrationInfoLabel.Text = "Downloads the ECU's active calibration (fuel/ignition maps, limiters, etc., flash) to a .bin file.";
             //
             // calibrationButtonPanel
             //
@@ -209,13 +219,14 @@ namespace LotusECMLogger.Controls
             //
             // downloadCalibrationButton
             //
+            downloadCalibrationButton.AccessibleName = "Download Calibration";
             downloadCalibrationButton.AutoSize = true;
             downloadCalibrationButton.Location = new Point(4, 3);
             downloadCalibrationButton.Margin = new Padding(4, 3, 4, 3);
             downloadCalibrationButton.Name = "downloadCalibrationButton";
             downloadCalibrationButton.Size = new Size(220, 35);
             downloadCalibrationButton.TabIndex = 0;
-            downloadCalibrationButton.Text = "Download Calibration...";
+            downloadCalibrationButton.Text = "Download";
             downloadCalibrationButton.UseVisualStyleBackColor = true;
             downloadCalibrationButton.Click += DownloadCalibrationButton_Click;
             //
@@ -241,6 +252,8 @@ namespace LotusECMLogger.Controls
             // programGroupBox
             //
             programGroupBox.Controls.Add(programLayout);
+            programGroupBox.AutoSize = true;
+            programGroupBox.AutoSizeMode = AutoSizeMode.GrowAndShrink;
             programGroupBox.Dock = DockStyle.Top;
             programGroupBox.Location = new Point(14, 17);
             programGroupBox.Margin = new Padding(4, 5, 4, 5);
@@ -257,7 +270,9 @@ namespace LotusECMLogger.Controls
             programLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
             programLayout.Controls.Add(programInfoLabel, 0, 0);
             programLayout.Controls.Add(programButtonPanel, 0, 1);
-            programLayout.Dock = DockStyle.Fill;
+            programLayout.AutoSize = true;
+            programLayout.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+            programLayout.Dock = DockStyle.Top;
             programLayout.Location = new Point(14, 41);
             programLayout.Margin = new Padding(4, 5, 4, 5);
             programLayout.Name = "programLayout";
@@ -277,7 +292,7 @@ namespace LotusECMLogger.Controls
             programInfoLabel.Name = "programInfoLabel";
             programInfoLabel.Size = new Size(600, 20);
             programInfoLabel.TabIndex = 0;
-            programInfoLabel.Text = "Downloads the ECU's compiled firmware (program, flash) to a .bin file. Largest region — may take several minutes. Requires an unlocked ECU.";
+            programInfoLabel.Text = "Downloads the ECU's compiled firmware (program, flash) to a .bin file. Largest region — may take several minutes.";
             //
             // programButtonPanel
             //
@@ -295,13 +310,14 @@ namespace LotusECMLogger.Controls
             //
             // downloadProgramButton
             //
+            downloadProgramButton.AccessibleName = "Download Program";
             downloadProgramButton.AutoSize = true;
             downloadProgramButton.Location = new Point(4, 3);
             downloadProgramButton.Margin = new Padding(4, 3, 4, 3);
             downloadProgramButton.Name = "downloadProgramButton";
             downloadProgramButton.Size = new Size(220, 35);
             downloadProgramButton.TabIndex = 0;
-            downloadProgramButton.Text = "Download Program...";
+            downloadProgramButton.Text = "Download";
             downloadProgramButton.UseVisualStyleBackColor = true;
             downloadProgramButton.Click += DownloadProgramButton_Click;
             //
@@ -369,6 +385,20 @@ namespace LotusECMLogger.Controls
             ecuVariantComboBox.Size = new Size(180, 33);
             ecuVariantComboBox.TabIndex = 1;
             //
+            // unlockNoticeLabel
+            //
+            unlockNoticeLabel.AutoSize = true;
+            unlockNoticeLabel.Dock = DockStyle.Top;
+            unlockNoticeLabel.Font = new Font(SystemFonts.DefaultFont.FontFamily, 8f);
+            unlockNoticeLabel.Location = new Point(14, 17);
+            unlockNoticeLabel.Margin = new Padding(4, 0, 4, 0);
+            unlockNoticeLabel.Name = "unlockNoticeLabel";
+            unlockNoticeLabel.Padding = new Padding(4, 0, 4, 12);
+            unlockNoticeLabel.Size = new Size(600, 32);
+            unlockNoticeLabel.TabIndex = 4;
+            unlockNoticeLabel.Text = "All downloads on this tab require an unlocked ECU.";
+            unlockNoticeLabel.TextAlign = ContentAlignment.TopLeft;
+            //
             // SnapshotsControl
             //
             AutoScaleDimensions = new SizeF(10F, 25F);
@@ -378,6 +408,7 @@ namespace LotusECMLogger.Controls
             Controls.Add(calibrationGroupBox);
             Controls.Add(learnedDataGroupBox);
             Controls.Add(ecuVariantGroupBox);
+            Controls.Add(unlockNoticeLabel);
             Margin = new Padding(4, 5, 4, 5);
             Name = "SnapshotsControl";
             Padding = new Padding(14, 17, 14, 17);
@@ -409,6 +440,7 @@ namespace LotusECMLogger.Controls
 
         #endregion
 
+        private Label unlockNoticeLabel;
         private GroupBox ecuVariantGroupBox;
         private FlowLayoutPanel ecuVariantPanel;
         private Label ecuVariantLabel;
