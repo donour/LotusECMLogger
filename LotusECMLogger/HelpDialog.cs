@@ -82,7 +82,8 @@ namespace LotusECMLogger
             features.Nodes.Add("ecucoding", "ECU Coding");
             features.Nodes.Add("setvin", "Set VIN");
             features.Nodes.Add("dynomode", "Dyno Mode");
-            features.Nodes.Add("dtc", "Diagnostic Trouble Codes");
+            var dtc = features.Nodes.Add("dtc", "Diagnostic Trouble Codes");
+            dtc.Nodes.Add("mode13", "Mode 0x13 - All Codes");
             features.Nodes.Add("learneddata", "Learned Data Reset");
 
             // ABS/ESP is a separate module with four distinct procedure groups, so it gets an
@@ -138,6 +139,9 @@ namespace LotusECMLogger
                     break;
                 case "dtc":
                     ShowDtcHelp();
+                    break;
+                case "mode13":
+                    ShowMode13Help();
                     break;
                 case "learneddata":
                     ShowLearnedDataHelp();
@@ -229,7 +233,7 @@ namespace LotusECMLogger
             AddBulletPoint("Extended Vehicle Information: Retrieve VIN, ECU details, and calibration data.");
             AddBulletPoint("Set VIN: Program a new VIN to the ECU using OBD-II Mode 0x3B.");
             AddBulletPoint("Dyno Mode: Enable the ECU's diagnostic override to inhibit faults from external systems (such as ABS) during dyno runs.");
-            AddBulletPoint("Diagnostic Trouble Codes: Read and clear DTCs from the ECU.");
+            AddBulletPoint("Diagnostic Trouble Codes: Read and clear DTCs from the ECU, including the Lotus-only Mode 0x13 service that returns current, confirmed, and (on Series 1 Evoras) TPMS codes in a single request.");
             AddBulletPoint("Learned Data Reset: Clear adaptive learning values from the ECU.");
             AddBulletPoint("ABS/ESP Diagnostics: Read fault codes, identification, and live internal state from the Bosch ESP8 ABS module; log all four wheel speeds at 100 Hz; and run the pump/valve routines used for brake bleeding.");
             AddBulletPoint("T6 RMA Logging: Advanced memory address logging for development.");
@@ -264,7 +268,7 @@ namespace LotusECMLogger
             AddBulletPoint("Live Data - Real-time parameter logging, with a Logging Config sub-tab for editing OBD configurations");
             AddBulletPoint("High-Speed Log - High-rate CAN channel logging (requires firmware with the channel-logger facility)");
             AddBulletPoint("ECU Coding - Modify ECU configuration");
-            AddBulletPoint("Diagnostic Trouble Codes - Read and clear fault codes");
+            AddBulletPoint("Diagnostic Trouble Codes - Read and clear fault codes, with a Mode 0x13 sub-tab that reads every code the ECU holds (including TPMS on Series 1 Evoras) in one request");
             AddBulletPoint("T6 RMA Logging - Advanced memory logging");
             AddBulletPoint("Live Tuning - Real-time calibration editing on unlocked ECUs");
             AddBulletPoint("ABS - Diagnostics for the ABS/ESP module, which is a separate computer from the engine ECU with its own fault memory (Evora; see the ABS/ESP Diagnostics topic)");
@@ -488,6 +492,8 @@ namespace LotusECMLogger
 
             AddParagraph("The Diagnostic Trouble Codes (DTC) tab provides functionality for reading and clearing diagnostic trouble codes from the ECU. This feature helps you diagnose issues and monitor fault codes stored in your vehicle's engine management system.");
 
+            AddParagraph("The tab has two sub-tabs. 'Standard OBD-II' - described below - uses the standard, universal OBD-II diagnostic services and is where clearing codes and reading freeze frames live. 'Mode 0x13 (All Codes)' uses a Lotus-only service that returns every code the ECU holds - including TPMS faults on Series 1 Evoras - in a single request; it has its own help topic.");
+
             AddSubheading("How to Use:");
             AddParagraph("1. Read Codes: Click 'Read Codes' to retrieve stored (Mode 03), pending (Mode 07), and permanent (Mode 0A) trouble codes from the ECU.");
             AddParagraph("2. View Details: Each code is displayed with a plain-English description, its category, and its type (stored, pending, or permanent). Hover over a row to see the full description when it is wider than the column.");
@@ -511,6 +517,46 @@ namespace LotusECMLogger
             AddParagraph("Pending codes are faults the ECU has detected but not yet confirmed. They mature into stored codes if the fault recurs, or clear on their own after fault-free drive cycles - a pending code that keeps disappearing points to an intermittent problem.");
             AddParagraph("Permanent codes cannot be cleared with 'Clear Codes'. The ECU erases them on its own once the fault stays absent for the required drive cycles.");
             AddParagraph("Some codes may require multiple drive cycles to reset monitoring readiness flags.");
+        }
+
+        private void ShowMode13Help()
+        {
+            AddHeading("Mode 0x13 - All Codes");
+
+            AddParagraph("The 'Mode 0x13 (All Codes)' sub-tab reads fault codes through service 0x13, a Lotus / EFI Technology extension that is not part of the OBD-II standard. Where the standard services each return one category of code, Mode 0x13 returns three at once in a single request: the ECU's current faults, its confirmed faults, and - on cars where the engine ECU manages the tyre pressure system - the TPMS module's faults, which the standard services do not expose at all.");
+
+            AddSubheading("Why You Would Use It:");
+            AddBulletPoint("It is the fastest complete picture of what the ECU knows: one request instead of three, and it needs no drive cycle for a fault to appear.");
+            AddBulletPoint("It shows current faults - conditions failing right now - which may not yet have matured into stored or even pending codes on the Standard OBD-II sub-tab.");
+            AddBulletPoint("On a Series 1 Evora it is the only way in this application to see TPMS fault codes. Series 2 cars do not report TPMS through the engine ECU at all - see below.");
+            AddBulletPoint("It is a useful cross-check: a code here that is absent from the standard read tells you the fault is live but not yet confirmed.");
+
+            AddSubheading("How to Use:");
+            AddParagraph("1. Read All Codes: Click 'Read All Codes' to send one Mode 0x13 request and list everything that comes back. Each code is shown with the same plain-English description used by the Standard OBD-II sub-tab, its category, and its raw hexadecimal value.");
+            AddParagraph("2. Request: Leave this on 'Report all - 03 13 FF 00'. The ECU accepts a second, older form ('Bare service - 01 13') that returns exactly the same data; it is offered only for testing against firmware that behaves unexpectedly.");
+            AddParagraph("3. Raw response: The bytes the ECU actually returned, starting with the 0x53 response code. Because this service is undocumented outside the firmware, keeping the raw bytes with any report makes a surprising result verifiable.");
+
+            AddSubheading("Reading the Results:");
+            AddParagraph("The response is a flat list of codes with no markers separating the three groups, so there is deliberately no 'Type' column here - the ECU does not say whether a given code came from the current set, the confirmed set, or the TPMS module. Use the Standard OBD-II sub-tab when you need to know whether a code is stored, pending, or permanent.");
+            AddParagraph("A fault present in more than one group is transmitted more than once. Repeats are collapsed into a single row, and the status line reports how many were collapsed - that count is normal and is not a sign of a problem.");
+
+            AddSubheading("TPMS Codes - Series 1 Evoras Only:");
+            AddParagraph("Whether TPMS faults appear in this list depends on which car you have. On Series 1 (S1) Evoras the engine ECU manages the tyre pressure monitoring system: when it receives a Mode 0x13 request it interrogates the TPMS module over the vehicle CAN bus, waits briefly for the reply, and merges those codes into its own response. That is what puts TPMS faults in this list.");
+            AddParagraph("Series 2 (S2) Evoras moved TPMS out of the engine ECU. The ECU neither manages the system nor holds its fault codes, so a Mode 0x13 read on an S2 car returns the ECU's own current and confirmed codes and nothing else. Reading TPMS faults on an S2 requires talking to the TPMS module directly over CAN, which this application does not do. An S2 car showing no TPMS codes here is behaving normally - it is not evidence that the tyre pressure system is healthy.");
+            AddParagraph("Even on an S1 the merge is best-effort: the ECU waits only about 40 ms for the TPMS module, and if the reply does not arrive in that window the response comes back without TPMS entries and nothing marks them as missing.");
+
+            AddSubheading("Limitations:");
+            AddBulletPoint("Read-only. There is no Mode 0x13 clear - use 'Clear Codes' on the Standard OBD-II sub-tab, which clears the ECU's stored and pending codes.");
+            AddBulletPoint("The response is capped at 63 codes. A car with more faults than that will have the excess silently dropped.");
+            AddBulletPoint("TPMS codes are included only on Series 1 Evoras, and only when the TPMS module answers the ECU in time - see the section above.");
+            AddBulletPoint("This is not a standard service. Non-Lotus ECUs, and Lotus ECUs from other generations, will either reject the request or stay silent - both are reported as a read error, not as 'no codes'.");
+
+            AddSubheading("Requirements:");
+            AddBulletPoint("Ignition ON, engine running or not.");
+            AddBulletPoint("Logging stopped: the read needs the J2534 device to itself, so the button is disabled while a logging session is running.");
+
+            AddSubheading("Vehicle Coverage:");
+            AddParagraph("The protocol was reverse-engineered from Evora firmware B13200091 and is present across the T6e family, including calibrations E132E0288, C132E0278, and C132E0271. Attempting the read on an ECU without the service is harmless - it simply does not answer.");
         }
 
         private void ShowLearnedDataHelp()

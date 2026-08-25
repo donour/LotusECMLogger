@@ -15,7 +15,13 @@ namespace LotusECMLogger.Services
         ControlOperationOfOnBoardSystems = 0x08,
         RequestVehicleInformation = 0x09,
         PermanentDiagnosticTroubleCodes = 0x0A,
-        ResetLearnedValues = 0x11
+        ResetLearnedValues = 0x11,
+
+        /// <summary>
+        /// Lotus / EFI Technology proprietary service: returns the current, confirmed and TPMS
+        /// DTC sets as one flat list. Not part of SAE J1979 — see T6-mode13-programming.md.
+        /// </summary>
+        ReadAllDiagnosticTroubleCodes = 0x13
     }
 
 
@@ -215,6 +221,60 @@ namespace LotusECMLogger.Services
             }
 
             return codes;
+        }
+
+        /// <summary>
+        /// Service 0x13 (Lotus proprietary): asks the ECU for its current, confirmed and TPMS
+        /// codes as a single flat list, and returns the raw positive response buffer
+        /// ([hdr4] 0x53 &lt;code pairs...&gt;). Responses longer than seven payload bytes arrive
+        /// reassembled: the J2534 ISO15765 layer sends the flow-control frame the transfer
+        /// stalls without.
+        /// </summary>
+        /// <param name="form">Which of the two accepted request forms to send.</param>
+        /// <exception cref="IOException">The ECU rejected the request or did not answer.</exception>
+        public byte[] ReadAllDtcsMode13(Mode13RequestForm form = Mode13RequestForm.ReportAll)
+        {
+            _channel.SendMessage(BuildMode13Request(form));
+
+            // On a TPMS-equipped car the ECU interrogates the TPMS module before answering,
+            // which can push the first response frame out to ~40 ms — past the 50 ms OBD-II
+            // default, hence the deliberately generous read window here.
+            for (int retry = 0; retry < 10; retry++)
+            {
+                var response = _channel.ReadMessages(1, 250);
+                if (response.Messages.Length == 0)
+                    continue;
+
+                // Skip echoes of our own transmit, TX confirmations and first-frame indications.
+                var data = response.Messages[0].Data;
+                if (data.Length < 5 || data[2] != 0x07 || data[3] != 0xE8)
+                    continue;
+
+                if (data[4] == Mode13Decoder.PositiveSid)
+                    return data;
+
+                // Negative response: 0x7F 0x13 <NRC> — firmware without the service.
+                if (data.Length >= 7 && data[4] == 0x7F &&
+                    data[5] == (byte)OBDIIMode.ReadAllDiagnosticTroubleCodes)
+                    throw new IOException($"ECU rejected the Mode 0x13 request (NRC 0x{data[6]:X2}).");
+            }
+
+            throw new IOException("No response from ECU for the Mode 0x13 request.");
+        }
+
+        // Form A is the bare service byte; Form B adds the 0xFF00 "report all" sub-function.
+        // Both fit in one frame, which matters: the firmware reads the eight receive-buffer
+        // bytes directly and reassembles no multi-frame request.
+        private static byte[] BuildMode13Request(Mode13RequestForm form)
+        {
+            byte[] payload = form == Mode13RequestForm.BareService
+                ? [(byte)OBDIIMode.ReadAllDiagnosticTroubleCodes]
+                : [(byte)OBDIIMode.ReadAllDiagnosticTroubleCodes, 0xFF, 0x00];
+
+            var request = new byte[ECM_HEADER.Length + payload.Length];
+            Array.Copy(ECM_HEADER, request, ECM_HEADER.Length);
+            Array.Copy(payload, 0, request, ECM_HEADER.Length, payload.Length);
+            return request;
         }
 
         /// <summary>
