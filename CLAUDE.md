@@ -80,13 +80,14 @@ ECU coding service:
 
 ### UI Components
 
-#### MainWindow - 6 Tabs
+#### MainWindow - Top-Level Tabs
 1. **Vehicle Information**: VIN, calibration ID, CVN (hex), octane scalers per cylinder; includes Learned Data Reset button (OBD Mode 0x11)
-2. **Live Data**: Sub-tabs — High-Speed Log, OBD-II Logging (Logger + Logging Config), and T6 RMA Logging (direct ECU RAM read/log via RMA protocol)
-3. **ECU Coding**: Vehicle configuration bit field editor
-4. **Diagnostic Trouble Codes**: Two sub-tabs — *Standard OBD-II* reads stored (Mode 03), pending (Mode 07), and permanent (Mode 0A) codes, reads the freeze frame (Mode 02) captured when a code set (triggering DTC plus decoded parameters, raw hex for undecoded PIDs), and clears codes and freeze frames (Mode 04) with confirmation; *Mode 0x13 (All Codes)* uses the Lotus proprietary service 0x13 to pull the current, confirmed, and TPMS code sets in one round-trip (see `T6-mode13-programming.md`). Both label codes from the same `config\obd_ii_code_descriptions.json` catalog
-5. **T6 Live Tuning**: Real-time calibration editing via .CPT file monitoring
-6. **Snapshots**: One-shot binary downloads of ECU flash regions (Learned Data, Calibration, Program) via the T6 RMA read protocol; an ECU Version selector (T4e, K4, T4, T6/T6e) picks which generation's memory map to use, since each lays out flash differently; shares its `IT6RMAService` instance with the T6 RMA Logging tab
+2.**Performance History**: Variant-aware Evora Mode 22 0x03xx reader with Overview, Usage, and Events subtabs  
+3. **Live Data**: Sub-tabs — High-Speed Log, OBD-II Logging (Logger + Logging Config), and T6 RMA Logging (direct ECU RAM read/log via RMA protocol)
+4. **ECU Coding**: Vehicle configuration bit field editor
+5. **Diagnostic Trouble Codes**: Read stored (Mode 03), pending (Mode 07), and permanent (Mode 0A) codes; read the freeze frame (Mode 02) captured when a code set — triggering DTC plus decoded parameters, raw hex for undecoded PIDs; clear codes and freeze frames (Mode 04) with confirmation
+6. **T6 Live Tuning**: Real-time calibration editing via .CPT file monitoring
+7. **Snapshots**: One-shot binary downloads of ECU flash regions (Learned Data, Calibration, Program) via the T6 RMA read protocol; an ECU Version selector (T4e, K4, T4, T6/T6e) picks which generation's memory map to use, since each lays out flash differently; shares its `IT6RMAService` instance with the T6 RMA Logging tab
 
 #### EcuCodingControl (250+ lines)
 ECU coding editor:
