@@ -1,0 +1,100 @@
+{
+  // Throttle-targeting diagnostics preset for the C132E0278 (GT430) ECU. Built to chase an
+  // oscillating throttle actuator target: it traces the whole request->limit->smoothing chain so the
+  // oscillation can be attributed to a specific stage.
+  //
+  // Signal chain (throttle_command_update, ~100 Hz / 10 ms task):
+  //   accel_pedal_latched -> tps_requested_scaled_by_limit (<<2) [+ revlimit_tps_max clamp]
+  //     + idle_tps_requested                                  = tps_request_before_limits
+  //   -> min(torque_limit_tps_target, tps_target_from_torque_limit, tps_max_during_warmup,
+  //          lfb_tps_max, misfire clamp)                       = tps_target_post_limits_u16
+  //   -> rate-limited smoothing (incr/decr step per tps_smooth_step_timer tick)
+  //                                                 = obd_ii_commanded_throttle_actuator
+  //
+  // How to read a log:
+  //   * If tps_request_before_limits is flat but tps_target_post_limits_u16 oscillates, a *limiter*
+  //     is hunting -> look at torque_limit_source_flags, tps_torque_limit_applied and the Tier-3 PI.
+  //   * If tps_target_post_limits_u16 is flat but obd_ii_commanded_throttle_actuator oscillates, the
+  //     *smoother* is limit-cycling -> tps_smoothing_step_flags toggling UP/DOWN every step with
+  //     tps_smooth_incr_step / tpssmooth_decrement too coarse for tps_smooth_error.
+  //   * If both oscillate together, the torque-limit PI is the usual culprit: tps_correction_integral
+  //     winding against tps_correction_proportional on torque_limit_load_error (measured load vs
+  //     load_limit_from_torque_limit), with torque_limit_flags_pi bit2 showing the rate limiter
+  //     saturating each cycle.
+  //
+  // SCALING NOTE — several catalog types are wrong on this path and are overridden inline. The
+  // firmware carries most throttle quantities in 1/4095 counts, but the Ghidra export types a number
+  // of them u16_factor_1/1023 (which would display 4x high and make the targets non-comparable).
+  // Verified against the decompile: tps_request_before_limits, tps_target_post_limits_u16,
+  // tps_target_from_torque_limit, tps_max_during_warmup, idle_tps_requested and lfb_tps_max are all
+  // 1/4095 -> scale 0.02442 (=100/4095), unit %. tps_requested_scaled_by_limit and revlimit_tps_max
+  // really are 1/1023 (the code shifts them <<2 before use) and keep the catalog scale.
+  //
+  // Rates: 100 Hz — the 10 ms command chain + smoothing internals + rpm; 50 Hz — torque-limit PI;
+  //  20 Hz — the slow ceilings; 10 Hz — load estimation and vehicle context.
+  // Packs to 4 ECU groups / 15 frames (~700 frames/s, ~17% of the 500 kbit/s bus). If the stream
+  // reports overflow, drop Tier 3 to 20 Hz first.
+  "name": "GT430 Throttle Targeting (C132E0278)",
+  "description": "Throttle target oscillation: pedal->request->torque/rev/warmup limits->smoothing, plus the torque-limit PI controller and load estimation.",
+  "ecuVersion": "C132E0278",
+  "channels": [
+    // ── Tier 1: the command chain @ 100 Hz ───────────────────────────────────────────────────────
+    // Ordered so each frame samples a coherent slice: frame 1 = driver request side, frame 2 =
+    // final target + limiter state, frames 3-4 = smoothing internals.
+    { "symbol": "engine_speed_16bit",                 "rate": 10 },                                    // Axis; does rpm lead or lag the target?
+    { "symbol": "accel_pedal_latched",                "rate": 10 },                                    // Driver input (val/1023) — flat here + oscillating target = ECU-side
+    { "symbol": "tps_request_before_limits",          "rate": 100, "scale": 0.02442, "unit": "%" },     // Pedal + idle, pre-limiter (catalog says 1/1023; actually 1/4095)
+    { "symbol": "torque_limit_source_flags",          "rate": 100, "unit": "flags" },                   // Which limiter owns the throttle: &0x3f any, &0x10 hard override, &0x02 raise-to-limit
+    { "symbol": "tps_target_post_limits_u16",         "rate": 100, "scale": 0.02442, "unit": "%" },     // Target after ALL clamps, before smoothing (1/4095, not 1/1023)
+    { "symbol": "obd_ii_commanded_throttle_actuator", "rate": 100 },                                    // Final smoothed command sent to the actuator (val/4095)
+    { "symbol": "tps_torque_limit_applied",           "rate": 100 },                                    // Torque limit actually clamped the target this pass (0/1)
+    { "symbol": "tps_smoothing_step_flags",           "rate": 100, "unit": "flags" },                   // 0 none, 1 STEP_UP, 2 STEP_DOWN — alternating 1/2 = smoother limit cycle
+    { "symbol": "revlimit_throttle_clamp_active",     "rate": 100 },                                    // Rev-limit clamp forced the request down to revlimit_tps_max (0/1)
+
+    // ── Tier 2: smoothing internals @ 100 Hz ─────────────────────────────────────────────────────
+    { "symbol": "tps_smooth_error",                   "rate": 100 },                                    // |target - commanded| >> 4, the axis of the incr/decr tables (val/255)
+    { "symbol": "tps_smooth_incr_step",               "rate": 100 },                                    // Max opening step this tick (val/4095) — CAL_tpssmooth_increment_{tour|sport|parking|rpm}
+    { "symbol": "tpssmooth_decrement",                "rate": 100 },                                    // Max closing step this tick (val/4095) — CAL_tpssmooth_decrement_by_{delta|rpm} x gear comp
+    { "symbol": "tps_smooth_step_timer",              "rate": 100 },                                    // Counts down to the next smoothing step; reload = CAL_tpssmooth_step_timer (ms = val*10)
+
+    // ── Tier 3: torque-limit PI controller @ 50 Hz ───────────────────────────────────────────────
+    // calc_tps_for_torque_limit: torque_limit -> load ceiling -> feedforward tps, then a P+I trim on
+    // (load ceiling - measured load), then a rate limiter and first-order filter.
+    { "symbol": "torque_limit",                       "rate": 50 },                                     // min(CAL_torque_limit_by_rpm[gear][rpm], CAL_torque_limit_by_coolant) — 2 Nm resolution
+    { "symbol": "torque_limit_cooldown_timer",        "rate": 50, "unit": "counts" },                   // Blocks tps_torque_limit_applied latching until it hits 0
+    { "symbol": "load_limit_from_torque_limit",       "rate": 50 },                                     // torque_limit through CAL_torque_torque_to_load, clamped 2047 (mg/stroke)
+    { "symbol": "load_measured_maf_filtered",         "rate": 50 },                                     // The PI's feedback term (mg/stroke), clamped 2047
+    { "symbol": "torque_limit_load_error",            "rate": 50, "signed": true },                     // ceiling - measured (mg/stroke); SIGNED despite the u16 catalog type
+    { "symbol": "torque_limit_flags_pi",              "rate": 50, "unit": "flags" },                    // bit1 (0x02) integral clamped to its window, bit2 (0x04) output rate-limited
+    { "symbol": "tps_correction_proportional",        "rate": 50, "signed": true, "scale": 0.02442, "unit": "%" }, // P term, limited by CAL_torque_proportional_limit_{positive|negative}
+    { "symbol": "tps_correction_integral",            "rate": 50, "signed": true, "scale": 0.02442, "unit": "%" }, // I term; updated only every CAL integral period — a slow winder here drives slow oscillation
+    { "symbol": "tps_feedforward_from_load_limit",    "rate": 50 },                                     // Open-loop tps for the load ceiling (val/4095) — the PI baseline
+    { "symbol": "tps_torque_limit_pi_target",         "rate": 50, "signed": true },                     // FF + P + I, pre-filter (val/4095); can go briefly negative before the >=0 clamp
+    { "symbol": "tps_torque_filtered_scaled_x1024",   "rate": 50, "signed": true, "scale": 0.0000238477, "unit": "%" }, // Filter state, 1/4095 x 1024; CAL_torque_limit_tps_rate_limit caps its slew
+    { "symbol": "tps_target_from_torque_limit",       "rate": 50, "scale": 0.02442, "unit": "%" },      // Filter output = the torque-limit throttle target (1/4095, not 1/1023)
+
+    // ── Tier 4: the slow ceilings @ 20 Hz ────────────────────────────────────────────────────────
+    { "symbol": "tps_requested_scaled_by_limit",      "rate": 20 },                                     // Pedal mapped through the drive-mode curve (val/1023; code shifts <<2)
+    { "symbol": "idle_tps_requested",                 "rate": 20, "scale": 0.02442, "unit": "%" },      // Idle-control adder (1/4095 — it sums directly with the 1/4095 request)
+    { "symbol": "tps_max_during_warmup",              "rate": 20, "scale": 0.02442, "unit": "%" },      // Warmup ceiling, refreshed each 100 ticks (1/4095, not 1/1023)
+    { "symbol": "revlimit_tps_max",                   "rate": 20 },                                     // Rev-limit ceiling applied to the pedal request (val/1023)
+    { "symbol": "lfb_tps_max",                        "rate": 20, "scale": 0.02442, "unit": "%" },      // Limp/fallback ceiling; 0xfff when inactive (1/4095)
+    { "symbol": "misfire_condition_flags",            "rate": 20, "unit": "flags" },                    // &0x800 hard tps clamp, &0x60 soft clamp — misfire-driven throttle cuts
+
+    // ── Tier 5: load estimation @ 10 Hz ──────────────────────────────────────────────────────────
+    // The PI feedback comes from here; a noisy or switching load estimate shows up as target hunting.
+    { "symbol": "load_source_is_alphaN",              "rate": 10 },                                     // Estimator in use — toggling under load is itself an oscillation source
+    { "symbol": "load_selected_raw",                  "rate": 10 },                                     // Selected load (mg/stroke)
+    { "symbol": "load_maf_vs_alphaN_difference",      "rate": 10 },                                     // Disagreement between the two estimators (mg/stroke)
+    { "symbol": "load_measured_maf",                  "rate": 10 },                                     // MAF-derived load (mg/stroke)
+    { "symbol": "maf_flow",                           "rate": 10 },                                     // Raw MAF (mg/s = val*10)
+    { "symbol": "load_computed_alphaN",               "rate": 10 },                                     // Alpha-N load (mg/stroke)
+    { "symbol": "load_density_compensated",           "rate": 10 },                                     // Density-corrected load, the X axis of CAL_load_to_tps_mapping
+    { "symbol": "tps_from_load_lea",                  "rate": 10, "scale": 1.0, "unit": "%" },          // LEA_torque_torque_to_tps_scaling multiplier on the load->tps map (100 = 1.00x)
+
+    // ── Tier 6: vehicle context @ 10 Hz ──────────────────────────────────────────────────────────
+    { "symbol": "coolant_temp",                       "rate": 1 },                                     // Y axis of CAL_torque_limit_by_coolant and the warmup ceiling
+    { "symbol": "car_current_gear",                   "rate": 1 },                                     // X axis of CAL_torque_limit_by_rpm and the decrement gear comp
+    { "symbol": "car_speed_u8",                       "rate": 1 },                                     // Vehicle speed (km/h)
+  ]
+}
