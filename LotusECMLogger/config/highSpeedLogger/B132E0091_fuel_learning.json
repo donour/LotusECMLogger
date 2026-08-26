@@ -1,0 +1,382 @@
+{
+  // Fuel-learning / adaptation trace for the 2011 Evora NA (Fed) ECU.
+  //
+  // Companion to B13200091_closed_loop_fuel_diag.json. That preset answers "is the loop closed and
+  // what is it reacting to right now"; this one answers "what is the ECU keeping from that
+  // reaction" — the filtered STFT a learn step is taken from, the LTFT pair and the zone they are
+  // being learned into, and the LEA_* cells and injector offsets they eventually settle into.
+  //
+  // Three tiers, by what each channel is for:
+  //   Tier 1 (20 Hz) — the measurement itself. maf_flow_1 is the X axis: the learn zones are
+  //     defined on airflow (see CAL_inj_fuel_learn_zone_2_maf_min/max), so every trim value here is
+  //     read against it. stft -> stft_filtered -> ltft is the correction chain in order, and the
+  //     pre-trim vs OBD-reported pulse widths bracket what the chain actually bought.
+  //   Tier 2 (5 Hz) — operating point and validity. Where the engine was, and whether the loop was
+  //     in a state where anything it learned counts.
+  //   Tier 3 (1 Hz) — adaptation state and gating. The stored cells themselves, plus the conditions
+  //     that inhibit or corrupt a learn step.
+  //
+  // Scaling notes (all derived from the catalog types; nothing is overridden inline):
+  //   - stft_bank1/2 and stft_filtered_bank1/2 are i16_percent_1/20 -> raw*0.05 %; ltft_bank1/2 are
+  //     i16_percent_1/10 -> raw*0.1 %. Sanity-check on a warm idle whether they centre on 0 (delta)
+  //     or 100 (multiplier) before reading absolute numbers off them.
+  //   - LEA_fuel_learn_zone_* are u8_percent_100/256-50 -> raw*0.390625 - 50, i.e. +/-50% about
+  //     zero with 128 = no correction.
+  //   - obd_ii_ltft_bank_1/2 are u8_percent_100/128-100 -> raw*0.78125 - 100, the 1-byte OBD Mode 01
+  //     encoding. They are the cross-check on the 16-bit ltft_bank1/2 above: if the two disagree in
+  //     sign or centre, the internal pair is being read with the wrong convention.
+  //   - tps_16bit is u16_factor_1/1023, normalized, so it displays 0-100%.
+  //   - evap_purge_duty is typed uint8_t in the catalog, so it logs raw counts, not %. If it is a
+  //     0-255 duty, scale by 100/255 once that is confirmed against a known purge command.
+  //
+  // cl_status_bank2 is given as an explicit address because it is still DAT_40001b22 in the Ghidra
+  // export; it is the u16 twin of cl_status_bank1 at 0x40001b20 (bit 0x2 = closed loop). Explicit
+  // addresses are NOT checked at load time, and they also default to *unselected* — hence the
+  // explicit "defaultSelected": true. If the catalog is re-exported with the symbol named, replace
+  // the address entry with a symbol ref.
+  //
+  // Channels below the three tiers are carried over from the previous revision of this preset and
+  // left unchecked: they cost no bandwidth until ticked, and several are worth one click when a
+  // specific question comes up (see the notes on that block).
+  //
+  // 3 rate groups (20/5/1 Hz), 14 frames, 144 frames/s ~= 3% of the 500 kbit/s bus — room to tick
+  // most of the optional block, or to lift Tier 1 to 50 Hz (240 frames/s ~= 5%), without crowding
+  // other traffic.
+  "name": "Fuel Learning / Adaptation (B132E0091)",
+  "description": "Fuel adaptation trace on a MAF X-axis: STFT -> filtered STFT -> LTFT correction chain, pre-trim and OBD-reported injector pulse widths, the active fuel learning zone, and the LEA learned cells and injector dead-time offsets they settle into, with closed-loop status and purge/enrichment gating.",
+  "ecuVersion": "B13200091",
+  "channels": [
+    // ══ TIER 1 — 20 Hz — the measurement itself ═════════════════════════════════════════════════
+    // Ordered to pack the ECU's 7-byte frames tightly (6 frames). Adjacency here is a packing
+    // artefact, not a grouping claim.
+    {
+      "symbol": "maf_flow_1",
+      "rate": 20
+    }, // X-AXIS. Primary MAF airflow after CAL_sensor_maf_scaling (mg/s = raw*10). The learn zones
+    // are bounded on this value, so it decides which cell a sample belongs to.
+    {
+      "symbol": "sensor_adc_maf1",
+      "rate": 20
+    }, // Raw primary MAF volts (V = raw*5/1023), pre-transfer-function. Paired with maf_flow_1 above
+    // this separates the two failure modes the learned cells otherwise blur together: volts flat or
+    // pegged = sensor/wiring, volts clean but flow wrong = the CAL_sensor_maf_scaling curve, which
+    // is what the LEA_* cells will spend the log trying to correct for.
+    {
+      "symbol": "fuel_learning_zone",
+      "rate": 20
+    }, // Which zone the ECU is currently learning into. Read every LEA_* cell in Tier 3 against
+    // this: a cell only moves while its own zone is selected.
+    {
+      "symbol": "inj_pw_bank1_pre_trim_us",
+      "rate": 20
+    }, // REQUIRED. Bank 1 commanded pulse width BEFORE trim (us) — the open-loop baseline the
+    // correction chain is measured against.
+
+    {
+      "symbol": "afr_target",
+      "rate": 20
+    }, // Commanded AFR (u16, raw/100). Trim is only meaningful where this sits at the closed-loop
+    // value; a dip into power enrichment drops the loop out entirely.
+    {
+      "symbol": "inj_pw_bank2_pre_trim_us",
+      "rate": 20
+    }, // Bank 2 commanded pulse width BEFORE trim (us)
+
+    {
+      "symbol": "stft_bank1",
+      "rate": 20
+    }, // Short-term fuel trim bank 1 (raw*0.05 %) — raw, switching-ripple included
+    {
+      "symbol": "obd_ii_injector_pulse_time_bank1_us",
+      "rate": 20
+    }, // Bank 1 delivered pulse width as reported over OBD (us). Against the pre-trim value above,
+    // the difference is what STFT+LTFT+dead-time actually bought.
+
+    {
+      "symbol": "stft_bank2",
+      "rate": 20
+    }, // Short-term fuel trim bank 2 (raw*0.05 %)
+    {
+      "symbol": "obd_ii_injector_pulse_time_bank2_us",
+      "rate": 20
+    }, // Bank 2 delivered pulse width as reported over OBD (us)
+
+    {
+      "symbol": "stft_filtered_bank1",
+      "rate": 20
+    }, // Filtered STFT bank 1 (raw*0.05 %) — should trail stft_bank1 with the ripple removed. This,
+    // not the raw STFT, is what a learn step is taken from.
+    {
+      "symbol": "stft_filtered_bank2",
+      "rate": 20
+    }, // Filtered STFT bank 2 (raw*0.05 %)
+    {
+      "symbol": "ltft_bank1",
+      "rate": 20
+    }, // Long-term fuel trim bank 1 (raw*0.1 %) — the running total the filtered STFT is folded into
+
+    {
+      "symbol": "ltft_bank2",
+      "rate": 20
+    }, // Long-term fuel trim bank 2 (raw*0.1 %)
+
+    // ══ TIER 2 — 5 Hz — operating point and validity ════════════════════════════════════════════
+    // Where the engine was, and whether the loop was in a state where what it learned counts.
+    // Packed into 4 frames.
+    {
+      "symbol": "engine_speed_16bit",
+      "rate": 5
+    }, // RPM (u16, 1 rpm/count)
+    {
+      "symbol": "load_mass_per_stroke",
+      "rate": 5
+    }, // Load as the 8-bit table axis (mg/stroke = raw*4). Coarse by design: it is what the map
+    // lookups actually index, so an error that tracks a cell boundary shows up here.
+    {
+      "symbol": "load_mass_per_stroke_raw",
+      "rate": 5
+    }, // Full-precision load (u32, raw counts) — shows where inside a cell the sample sat
+
+    {
+      "symbol": "manifold_pressure_calculated",
+      "rate": 5
+    }, // MAP (mbar) — independent load reference; divergence from the MAF path is a metering clue
+    {
+      "symbol": "tps_16bit",
+      "rate": 5
+    }, // Throttle plate, high resolution (u16_factor_1/1023 -> 0-100%)
+    {
+      "symbol": "inj_fuel_mass_required",
+      "rate": 5
+    }, // Fuel mass the calc asked for (u16_mass_10ug -> raw*10 ug) — the target the PW derives from
+    {
+      "symbol": "coolant_temp",
+      "rate": 5
+    }, // Coolant temperature (°C = raw*5/8 - 40). Learning is inhibited until fully warm.
+
+    {
+      "symbol": "cl_status_bank1",
+      "rate": 5
+    }, // Closed-loop status bank 1 (u16, raw). Bit 0x2 = closed loop. With that bit clear, every
+    // trim channel in Tier 1 is frozen or meaningless.
+    {
+      "name": "cl_status_bank2",
+      "address": "0x40001b22",
+      "size": 2,
+      "signed": false,
+      "scale": 1.0,
+      "unit": "raw",
+      "defaultSelected": true,
+      "rate": 5
+    }, // Unnamed (DAT_40001b22) — bank-2 equivalent of cl_status_bank1, same 0x2 = CL bit.
+    {
+      "symbol": "cl_state_flags_bank1",
+      "rate": 5
+    }, // Closed-loop state flags bank 1 (u16, raw) — the finer gating behind the status word
+    {
+      "symbol": "temp_engine_air",
+      "rate": 5
+    }, // Intake air temperature (°C = raw*5/8 - 40) — drives the IAT fuel compensation
+
+    {
+      "symbol": "cl_state_flags_bank2",
+      "rate": 5
+    }, // Closed-loop state flags bank 2 (u16, raw)
+    {
+      "symbol": "obd_ii_o2_sensor1_voltage",
+      "rate": 5
+    }, // Bank 1 pre-cat O2 (V = raw*5/1023) — the input driving bank 1's trims
+    {
+      "symbol": "obd_ii_o2_sensor5_voltage",
+      "rate": 5
+    }, // Bank 2 pre-cat O2 (V = raw*5/1023) — the input driving bank 2's trims
+
+    // ══ TIER 3 — 1 Hz — adaptation state and gating ═════════════════════════════════════════════
+    // The stored cells, and the conditions that inhibit or corrupt a learn step. Packed into
+    // 4 frames.
+    {
+      "symbol": "engine_state_failure_flags",
+      "rate": 1
+    }, // Engine failure flags (u32, raw) — nonzero means a fault is latched and the adaptation path
+    // may be suspended for the rest of the log
+    {
+      "symbol": "obd_ii_atmospheric_baro",
+      "rate": 1
+    }, // Barometric pressure (mbar) — altitude shifts the whole air model and thus the trims
+    {
+      "symbol": "fuel_level",
+      "rate": 1
+    }, // Fuel level (L) — a sudden step marks a refuel, i.e. a possible fuel-quality change
+
+    {
+      "symbol": "LEA_fuel_learn_zone_2_bank1",
+      "rate": 1
+    }, // Learned fuel cell, zone 2 bank 1 (raw*0.390625 - 50 %, 128 = no correction)
+    {
+      "symbol": "LEA_fuel_learn_zone_2_bank2",
+      "rate": 1
+    }, // Learned fuel cell, zone 2 bank 2
+    {
+      "symbol": "LEA_fuel_learn_zone_3_bank1",
+      "rate": 1
+    }, // Learned fuel cell, zone 3 bank 1
+    {
+      "symbol": "LEA_fuel_learn_zone_3_bank2",
+      "rate": 1
+    }, // Learned fuel cell, zone 3 bank 2
+    {
+      "symbol": "obd_ii_ltft_bank_1",
+      "rate": 1
+    }, // LTFT bank 1 as reported over OBD (raw*0.78125 - 100 %) — cross-check on ltft_bank1
+    {
+      "symbol": "obd_ii_ltft_bank_2",
+      "rate": 1
+    }, // LTFT bank 2 as reported over OBD (raw*0.78125 - 100 %)
+    {
+      "symbol": "evap_purge_duty",
+      "rate": 1
+    }, // MUST. Purge valve duty (raw counts, see scaling note). Nonzero means purge vapour is in
+    // the mixture, so any trim movement at that instant is not a metering measurement — this is the
+    // single most common way a fuel-learning log gets silently poisoned.
+
+    {
+      "symbol": "LEA_inj_offset_learn_idle_bank1",
+      "rate": 1
+    }, // Learned injector offset at idle, bank 1 (i16, us) — added to inj_deadtime_base. A drift
+    // that lands entirely in these offset terms is a small-pulse-width / injector-characterization
+    // problem, not a metering problem.
+    {
+      "symbol": "LEA_inj_offset_learn_idle_bank2",
+      "rate": 1
+    }, // Learned injector offset at idle, bank 2 (i16, us)
+    {
+      "symbol": "LEA_inj_offset_learn_off_idle_bank1",
+      "rate": 1
+    }, // Learned injector offset off idle, bank 1 (i16, us)
+    {
+      "symbol": "fuel_power_enrich_flags",
+      "rate": 1
+    }, // Power-enrichment flags — nonzero means open-loop enrichment, so nothing is being learned
+
+    {
+      "symbol": "LEA_inj_offset_learn_off_idle_bank2",
+      "rate": 1
+    }, // Learned injector offset off idle, bank 2 (i16, us)
+    {
+      "symbol": "inj_deadtime_base",
+      "rate": 1
+    }, // Base injector dead time (u16, us) before the learned LEA_inj_offset_* is added
+    {
+      "symbol": "ign_idle_base_flags",
+      "rate": 1
+    }, // Idle-controller state flags — idle vs off-idle decides which offset pair is being learned
+    {
+      "symbol": "ign_idle_base_variant",
+      "rate": 1
+    }, // Idle base variant selector — context for the flags above
+
+    // ══ Optional — carried over, unchecked ══════════════════════════════════════════════════════
+    // Not part of the three tiers above and not logged unless ticked. Rates are suggestions.
+    //   - The post-trim pulse widths make the trim effect exact rather than inferred: post - pre is
+    //     the correction in microseconds, without going through the OBD-reported copy.
+    //   - The obd_ii_fuel_trim_*_time_* pair are the per-zone qualifying dwell accumulators
+    //     (ms = raw*100). Tick these when the question is "why has this zone never learned" — a
+    //     zone whose timer never advances will never take a step no matter how long you drive.
+    //   - The P0171/P0172 debounce counters climb toward CAL_obd_P017x_ltft_limit; tick them when
+    //     the question is "how close is this to setting a code".
+    //   - fuel_learn_step_timer_bank1/2 are still DAT_* in the export, so they are explicit
+    //     addresses logged as raw counts. The named u8 timer at 0x40001b63
+    //     (stft_increment_timer_bank2) is u8_time_100ms, so these are probably 100 ms ticks too —
+    //     confirm against wall-clock before converting.
+    {
+      "symbol": "inj_pw_bank1_post_trim_us",
+      "rate": 20,
+      "defaultSelected": false
+    }, // Bank 1 pulse width AFTER trim (us)
+    {
+      "symbol": "inj_pw_bank2_post_trim_us",
+      "rate": 20,
+      "defaultSelected": false
+    }, // Bank 2 pulse width AFTER trim (us)
+    {
+      "symbol": "maf_flow_2",
+      "rate": 20,
+      "defaultSelected": false
+    }, // Secondary MAF airflow (mg/s = raw*10) — cross-check against the maf_flow_1 X axis
+    {
+      "symbol": "obd_ii_o2_sensor2_voltage",
+      "rate": 5,
+      "defaultSelected": false
+    }, // Bank 1 post-cat O2 (V = raw*5/1023) — should be lazy; activity here shadows a cat problem
+    {
+      "symbol": "obd_ii_o2_sensor6_voltage",
+      "rate": 5,
+      "defaultSelected": false
+    }, // Bank 2 post-cat O2 (V = raw*5/1023)
+    {
+      "symbol": "obd_ii_fuel_trim_idle_time_bank1",
+      "rate": 1,
+      "defaultSelected": false
+    }, // Idle-zone qualifying dwell, bank 1 (ms = raw*100)
+    {
+      "symbol": "obd_ii_fuel_trim_offidle_time_bank1",
+      "rate": 1,
+      "defaultSelected": false
+    }, // Off-idle-zone qualifying dwell, bank 1 (ms = raw*100)
+    {
+      "symbol": "obd_ii_fuel_trim_zone3_time_bank1",
+      "rate": 1,
+      "defaultSelected": false
+    }, // Zone-3 qualifying dwell, bank 1 (ms = raw*100)
+    {
+      "symbol": "obd_ii_fuel_trim_idle_time_bank2",
+      "rate": 1,
+      "defaultSelected": false
+    }, // Idle-zone qualifying dwell, bank 2 (ms = raw*100)
+    {
+      "symbol": "obd_ii_fuel_trim_offidle_time_bank2",
+      "rate": 1,
+      "defaultSelected": false
+    }, // Off-idle-zone qualifying dwell, bank 2 (ms = raw*100)
+    {
+      "symbol": "obd_ii_fuel_trim_zone3_time_bank2",
+      "rate": 1,
+      "defaultSelected": false
+    }, // Zone-3 qualifying dwell, bank 2 (ms = raw*100)
+    {
+      "symbol": "obd_ii_P0171_debounce_counter",
+      "rate": 1,
+      "defaultSelected": false
+    }, // System-too-lean debounce, toward CAL_obd_P0171_ltft_limit
+    {
+      "symbol": "obd_ii_P0172_debounce_counter",
+      "rate": 1,
+      "defaultSelected": false
+    }, // System-too-rich debounce, toward CAL_obd_P0172_ltft_limit
+    {
+      "name": "fuel_learn_step_timer_bank1",
+      "address": "0x40001b60",
+      "size": 1,
+      "signed": false,
+      "scale": 1.0,
+      "unit": "raw",
+      "rate": 1,
+      "defaultSelected": false
+    }, // Unnamed (DAT_40001b60), raw counts — see note above
+    {
+      "name": "fuel_learn_step_timer_bank2",
+      "address": "0x40001b61",
+      "size": 1,
+      "signed": false,
+      "scale": 1.0,
+      "unit": "raw",
+      "rate": 1,
+      "defaultSelected": false
+    }, // Unnamed (DAT_40001b61), raw counts — see note above
+    {
+      "symbol": "car_speed_u8",
+      "rate": 1,
+      "defaultSelected": false
+    }  // Vehicle speed (km/h) — separates stationary idle learning from cruise-zone learning
+  ]
+}
