@@ -157,22 +157,6 @@
       "scale": 0.78125,
       "offset": -100,
       "unit": "%"
-    },
-    {
-      "symbol": "obd_ltft_bank_1",
-      "rate": 1,
-      "defaultSelected": false,
-      "scale": 0.78125,
-      "offset": -100,
-      "unit": "%"
-    },
-    {
-      "symbol": "obd_ltft_bank_2",
-      "rate": 1,
-      "defaultSelected": false,
-      "scale": 0.78125,
-      "offset": -100,
-      "unit": "%"
     }
   ]
 }
