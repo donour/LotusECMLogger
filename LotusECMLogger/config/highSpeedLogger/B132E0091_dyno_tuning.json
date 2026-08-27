@@ -1,0 +1,406 @@
+{
+  // Dyno power-run preset for the B13200091 ECU. Built for a stationary dyno pull: per-cylinder
+  // ignition/knock at full resolution, the fault/limiter channels that can silently cap a power
+  // number (misfire, torque reduction, rev limit), the MAF-vs-Alpha-N load cross-check, VVT tracking,
+  // and closed-loop fuel trims — everything needed to explain a dip or a flat spot on the graph.
+  //
+  // Per-cylinder [6] symbols are hidden from logging by the catalog (arrays aren't loggable as a
+  // single channel), so they are expanded to one explicit address channel per cylinder, base +
+  // index*element_size, following the convention in B13200091_ignition_tuning.json:
+  //   knock_retard_per_cyl              short[6]         @ 0x400059f4 (2 B signed, raw counts)
+  //   obd_ii_ign_adv_per_cylinder       i16_angle_1/4[6] @ 0x40001796 (2 B signed, deg = raw/4)
+  //   ign_knock_retard                  u8_angle_1/4deg[6] @ 0x40001c20 (1 B, deg = raw/4, learned/persistent)
+  //   ign_knock_retard_octane_margin    u8_angle_1/4deg[6] @ 0x40001c28 (1 B, deg = raw/4, active/instantaneous)
+  // Cylinder order is the array index (1-6), not the firing order.
+  //
+  // No symbol named "torque_reduction_applied" exists in the B13200091 catalog. The closest direct
+  // signal for "is the ECU actively pulling torque back right now" is torque_limit_active_cyl_cut_count
+  // (nonzero = cylinders are being cut) — used in its place below.
+  //
+  // engine_speed_3 is the coarse 8-bit RPM copy (u8_rspeed_125/4+500rpm -> +500 rpm offset, ~31 rpm
+  // resolution); it's included alongside the precise engine_speed_16bit only because it was asked for
+  // explicitly — prefer engine_speed_16bit for anything actually read off the trace.
+  //
+  // Single 50 Hz tier for everything that moves during a pull (49 channels, ~86 B/sample-set ~= 4.3
+  // kB/s), plus 20 Hz for VVT tracking (9 channels) and 10 Hz for slow context (6 channels). Rough
+  // payload-only estimate, ignoring ISO-TP/CAN framing overhead: ~4.7 kB/s raw ~= 38 kbit/s, single-
+  // digit percent of the 500 kbit/s bus before overhead -- comparable presets in this folder run
+  // ~9-16% once framing is counted, so expect this one on the higher end of that range. Configure with
+  // the engine off per this folder's README, then use Test Connection before a real pull.
+  "name": "Dyno Power Tuning (B132E0091)",
+  "description": "Dyno power-run trace: per-cylinder ignition advance and knock (active + learned), misfire/torque-reduction/rev-limit channels, MAF-vs-Alpha-N load, throttle, AFR target, closed-loop fuel trims, and VVT tracking.",
+  "ecuVersion": "B13200091",
+  "channels": [
+    // ── 50 Hz ─────────────────────────────────────────────────────────────────────────────────────
+    {
+      "symbol": "engine_speed_16bit",
+      "rate": 50
+    }, // RPM, precise (1 rpm/count) -- primary X axis
+    // Knock-driven timing retard per cylinder -- knock_retard_per_cyl, short[6] @ 0x400059f4
+    {
+      "name": "Knock Retard Per Cyl 1",
+      "address": "0x400059f4",
+      "size": 2,
+      "signed": true,
+      "unit": "raw",
+      "defaultSelected": true,
+      "rate": 50
+    },
+    {
+      "name": "Knock Retard Per Cyl 2",
+      "address": "0x400059f6",
+      "size": 2,
+      "signed": true,
+      "unit": "raw",
+      "defaultSelected": true,
+      "rate": 50
+    },
+    {
+      "name": "Knock Retard Per Cyl 3",
+      "address": "0x400059f8",
+      "size": 2,
+      "signed": true,
+      "unit": "raw",
+      "defaultSelected": true,
+      "rate": 50
+    },
+    {
+      "name": "Knock Retard Per Cyl 4",
+      "address": "0x400059fa",
+      "size": 2,
+      "signed": true,
+      "unit": "raw",
+      "defaultSelected": true,
+      "rate": 50
+    },
+    {
+      "name": "Knock Retard Per Cyl 5",
+      "address": "0x400059fc",
+      "size": 2,
+      "signed": true,
+      "unit": "raw",
+      "defaultSelected": true,
+      "rate": 50
+    },
+    {
+      "name": "Knock Retard Per Cyl 6",
+      "address": "0x400059fe",
+      "size": 2,
+      "signed": true,
+      "unit": "raw",
+      "defaultSelected": true,
+      "rate": 50
+    },
+
+    {
+      "symbol": "knock_ign_retard_sum",
+      "rate": 50
+    }, // Total knock retard, all cylinders (deg = raw/4)
+
+    // Ignition advance per cylinder -- obd_ii_ign_adv_per_cylinder, i16_angle_1/4[6] @ 0x40001796
+    {
+      "name": "Ign Adv Cyl 1",
+      "address": "0x40001796",
+      "size": 2,
+      "signed": true,
+      "scale": 0.25,
+      "unit": "deg",
+      "defaultSelected": true,
+      "rate": 50
+    },
+    {
+      "name": "Ign Adv Cyl 2",
+      "address": "0x40001798",
+      "size": 2,
+      "signed": true,
+      "scale": 0.25,
+      "unit": "deg",
+      "defaultSelected": true,
+      "rate": 50
+    },
+    {
+      "name": "Ign Adv Cyl 3",
+      "address": "0x4000179a",
+      "size": 2,
+      "signed": true,
+      "scale": 0.25,
+      "unit": "deg",
+      "defaultSelected": true,
+      "rate": 50
+    },
+    {
+      "name": "Ign Adv Cyl 4",
+      "address": "0x4000179c",
+      "size": 2,
+      "signed": true,
+      "scale": 0.25,
+      "unit": "deg",
+      "defaultSelected": true,
+      "rate": 50
+    },
+    {
+      "name": "Ign Adv Cyl 5",
+      "address": "0x4000179e",
+      "size": 2,
+      "signed": true,
+      "scale": 0.25,
+      "unit": "deg",
+      "defaultSelected": true,
+      "rate": 50
+    },
+    {
+      "name": "Ign Adv Cyl 6",
+      "address": "0x400017a0",
+      "size": 2,
+      "signed": true,
+      "scale": 0.25,
+      "unit": "deg",
+      "defaultSelected": true,
+      "rate": 50
+    },
+
+    // Learned (persistent) knock retard per cylinder -- ign_knock_retard, u8_angle_1/4deg[6] @ 0x40001c20
+    {
+      "name": "Knock Retard Learned Cyl 1",
+      "address": "0x40001c20",
+      "size": 1,
+      "scale": 0.25,
+      "unit": "deg",
+      "defaultSelected": true,
+      "rate": 5
+    },
+    {
+      "name": "Knock Retard Learned Cyl 2",
+      "address": "0x40001c21",
+      "size": 1,
+      "scale": 0.25,
+      "unit": "deg",
+      "defaultSelected": true,
+      "rate": 5
+    },
+    {
+      "name": "Knock Retard Learned Cyl 3",
+      "address": "0x40001c22",
+      "size": 1,
+      "scale": 0.25,
+      "unit": "deg",
+      "defaultSelected": true,
+      "rate": 5
+    },
+    {
+      "name": "Knock Retard Learned Cyl 4",
+      "address": "0x40001c23",
+      "size": 1,
+      "scale": 0.25,
+      "unit": "deg",
+      "defaultSelected": true,
+      "rate": 5
+    },
+    {
+      "name": "Knock Retard Learned Cyl 5",
+      "address": "0x40001c24",
+      "size": 1,
+      "scale": 0.25,
+      "unit": "deg",
+      "defaultSelected": true,
+      "rate": 5
+    },
+    {
+      "name": "Knock Retard Learned Cyl 6",
+      "address": "0x40001c25",
+      "size": 1,
+      "scale": 0.25,
+      "unit": "deg",
+      "defaultSelected": true,
+      "rate": 5
+    },
+
+    // Active (instantaneous) knock retard per cylinder -- ign_knock_retard_octane_margin, u8_angle_1/4deg[6] @ 0x40001c28
+    {
+      "name": "Knock Retard Active Cyl 1",
+      "address": "0x40001c28",
+      "size": 1,
+      "scale": 0.25,
+      "unit": "deg",
+      "defaultSelected": true,
+      "rate": 50
+    },
+    {
+      "name": "Knock Retard Active Cyl 2",
+      "address": "0x40001c29",
+      "size": 1,
+      "scale": 0.25,
+      "unit": "deg",
+      "defaultSelected": true,
+      "rate": 50
+    },
+    {
+      "name": "Knock Retard Active Cyl 3",
+      "address": "0x40001c2a",
+      "size": 1,
+      "scale": 0.25,
+      "unit": "deg",
+      "defaultSelected": true,
+      "rate": 50
+    },
+    {
+      "name": "Knock Retard Active Cyl 4",
+      "address": "0x40001c2b",
+      "size": 1,
+      "scale": 0.25,
+      "unit": "deg",
+      "defaultSelected": true,
+      "rate": 50
+    },
+    {
+      "name": "Knock Retard Active Cyl 5",
+      "address": "0x40001c2c",
+      "size": 1,
+      "scale": 0.25,
+      "unit": "deg",
+      "defaultSelected": true,
+      "rate": 50
+    },
+    {
+      "name": "Knock Retard Active Cyl 6",
+      "address": "0x40001c2d",
+      "size": 1,
+      "scale": 0.25,
+      "unit": "deg",
+      "defaultSelected": true,
+      "rate": 50
+    },
+
+    {
+      "symbol": "torque_limit_active_cyl_cut_count",
+      "name": "torque_reduction_applied",
+      "rate": 50
+    }, // Substitute for "torque_reduction_applied" (no such symbol) -- nonzero = cylinders actively being cut
+    {
+      "symbol": "torque_limit_source_flags",
+      "rate": 50
+    }, // Which torque limiter(s) are asserting a limit
+    {
+      "symbol": "revlimit_soft_rpm",
+      "rate": 50
+    }, // Soft rev-limit RPM -- where limiter intervention begins
+
+    {
+      "symbol": "maf_flow_1",
+      "rate": 50
+    }, // Primary MAF airflow (mg/s = raw*10)
+    {
+      "symbol": "load_computed_maf",
+      "rate": 50
+    }, // Load from MAF (mg/stroke)
+    {
+      "symbol": "load_computed_alphaN",
+      "rate": 50
+    }, // Load from throttle+RPM (mg/stroke)
+    {
+      "symbol": "load_maf_vs_alphaN_difference",
+      "rate": 50
+    }, // Disagreement between the two load paths
+    {
+      "symbol": "load_mass_per_stroke",
+      "rate": 50
+    }, // Load as the map axis (mg/stroke = raw*4)
+
+    {
+      "symbol": "tps_16bit",
+      "rate": 50
+    }, // Throttle, high resolution (0-100%)
+    {
+      "symbol": "tps_rate_current",
+      "rate": 50
+    }, // Rate of throttle change
+
+    {
+      "symbol": "afr_target",
+      "rate": 50
+    }, // Commanded AFR (raw/100)
+    {
+      "symbol": "stft_bank1",
+      "rate": 10
+    }, // Short-term fuel trim bank 1 (raw*0.05 %)
+    {
+      "symbol": "stft_bank2",
+      "rate": 10
+    }, // Short-term fuel trim bank 2 (raw*0.05 %)
+
+    // ── 20 Hz -- VVT tracking ─────────────────────────────────────────────────────────────────────
+    {
+      "symbol": "vvt_exhaust_advance",
+      "rate": 10
+    },
+    {
+      "symbol": "obd_ii_vvt_exhaust_target",
+      "rate": 10
+    },
+    {
+      "symbol": "obd_ii_vvt_exhaust_position_bank1",
+      "rate": 10
+    },
+    {
+      "symbol": "obd_ii_vvt_exhaust_position_bank2",
+      "rate": 10
+    },
+    {
+      "symbol": "obd_ii_vvt_exhaust_error_bank1",
+      "rate": 10
+    },
+    {
+      "symbol": "obd_ii_vvt_exhaust_error_bank2",
+      "rate": 10
+    },
+    {
+      "symbol": "vvt_intake_adv_net",
+      "rate": 10
+    },
+    {
+      "symbol": "obd_ii_vvt_inlet_position_bank1",
+      "rate": 10
+    },
+    {
+      "symbol": "obd_ii_vvt_inlet_target_position",
+      "rate": 10
+    },
+
+    {
+      "symbol": "ltft_rate_bank1",
+      "rate": 1
+    }, // LTFT rate of change bank 1 (raw)
+    {
+      "symbol": "ltft_rate_bank2",
+      "rate": 1
+    }, // LTFT rate of change bank 2 (raw)
+    {
+      "symbol": "obd_ii_atmospheric_baro",
+      "rate": 1
+    },
+    {
+      "symbol": "coolant_temp",
+      "rate": 1
+    },
+    {
+      "symbol": "temp_engine_air",
+      "rate": 11
+    },
+    {
+      "symbol": "engine_operating_state_flags",
+      "rate": 10
+    },
+    {
+      "symbol": "torque_net_engine_combustion",
+      "rate": 10
+    }, // Current net engine combustion torque (Nm)
+    {
+      "symbol": "misfire_condition_flags",
+      "rate": 1
+    }, // Misfire condition flags (raw, u32)
+    {
+      "symbol": "failed_ignition_cyl_count",
+      "rate": 1
+    } // Count of cylinders with failed ignition
+  ]
+}

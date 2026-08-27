@@ -551,7 +551,7 @@
 "idle_tps_requested","40001c0c","Data Label","u16_factor_1/1023","Idle throttle position requested. Log to diagnose idle quality\, hunting\, and stalls. (0-1; raw/1023)"
 "knock_ign_retard_hold_counter_per_cyl","40001c18","Data Label","byte[6]","Knock ignition retard hold counter per cylinder. Log spark advance to confirm the timing strategy and headroom to knock."
 "ign_knock_retard","40001c20","Data Label","u8_angle_1/4deg[6]","Learned value: ignition knock retard. A value the ECU learns over time -- log it to track adaptation and spot a developing fault. (deg; raw/4)"
-"knock_ign_retard2","40001c28","Data Label","u8_angle_1/4deg[6]","Per-cylinder knock retard (secondary term). Log to see knock activity by cylinder."
+"ign_knock_retard_octane_margin","40001c28","Data Label","u8_angle_1/4deg[6]","Per-cylinder knock retard (secondary term). Log to see knock activity by cylinder."
 "knock_ign_retard_sum","40001c2e","Data Label","i16_angle_1/4deg","Knock ignition retard2 sum. Log spark advance to confirm the timing strategy and headroom to knock."
 "knock_flags","40001c30","Data Label","undefined1",""
 "knock_sampling_window_offset","40001c31","Data Label","undefined1",""
