@@ -59,6 +59,12 @@ namespace LotusECMLogger.Services
         const string AemLambdaChannelName = "AEM Lambda";
         const string AemAfrChannelName = "AEM AFR";
 
+        /// <summary>Column/reading names used when ZT-3 CAN broadcast logging is enabled.</summary>
+        const string Zt3LambdaChannelName = "ZT-3 Lambda (16-bit)";
+        const string Zt3LambdaCoarseChannelName = "ZT-3 Lambda (8-bit)";
+        const string Zt3AfrChannelName = "ZT-3 AFR";
+        const string Zt3OxygenSensorStatusChannelName = "ZT-3 O2 Status";
+
         /// <summary>Fired (off the UI thread) for each decoded log frame.</summary>
         event EventHandler<HighSpeedSampleEventArgs>? DataReceived;
 
@@ -80,11 +86,13 @@ namespace LotusECMLogger.Services
         /// active or the selection cannot be packed into the ECU's capacity.
         /// When <paramref name="pollAemWideband"/> is true, an AEM X-Series wideband (OBDII variant,
         /// e.g. 30-0334) is also polled on the same bus — Mode 01 PID 0x24 to 0x7E1 — and its
-        /// lambda/AFR are merged into the CSV as extra last-value-hold columns. A missing/silent AEM
-        /// does not fail the session; the columns simply stay empty.
+        /// lambda/AFR are merged into the CSV as extra last-value-hold columns. When
+        /// <paramref name="listenZt3Wideband"/> is true, Zeitronix Zt-3 broadcasts on standard CAN ID
+        /// 0x05A are decoded into high- and low-resolution lambda, AFR, and raw oxygen-sensor status
+        /// columns. A missing/silent wideband does not fail the session; its columns simply stay empty.
         /// </summary>
         void StartLogging(IReadOnlyList<(HighSpeedChannel channel, int rateHz)> channels, string csvFilePath,
-            bool pollAemWideband = false);
+            bool pollAemWideband = false, bool listenZt3Wideband = false);
 
         /// <summary>Stops the ECU stream, ends the session, and closes the CSV file.</summary>
         void StopLogging();
