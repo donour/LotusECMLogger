@@ -88,11 +88,16 @@ ID `0x05A` at 500 kbit/s. It adds four last-value-hold columns to each ECU strea
 | `ZT-3 AFR` | byte 3 | unsigned × 0.1 |
 | `ZT-3 O2 Status` | byte 7 | raw status code |
 
-For a sample setup, select **GT430 + ZT-3 Wideband Sample (C132E0278)**. The preset checks **ZT-3
-CAN** automatically and logs engine speed, load, throttle/pedal, commanded AFR, MAP and IAT alongside
-the ZT-3 values. For a different ECU, choose its normal preset and check **ZT-3 CAN** manually. The
-controller must share the adapter's 500 kbit/s CAN bus; if no valid broadcast arrives, the ZT-3 columns
-remain empty and ECU logging continues.
+Two sample setups are included:
+
+- **GT430 + ZT-3 Wideband Sample (C132E0278)** for the GT430 ECU.
+- **S1 / NA + ZT-3 Wideband Sample (B132E0091)** for the S1 naturally aspirated car (resolved through
+  the repository's `B13200091` symbol catalog).
+
+Both presets check **ZT-3 CAN** automatically and log engine speed, load, throttle/pedal, commanded AFR,
+MAP and IAT alongside the ZT-3 values. For a different ECU, choose its normal preset and check **ZT-3
+CAN** manually. The controller must share the adapter's 500 kbit/s CAN bus; if no valid broadcast
+arrives, the ZT-3 columns remain empty and ECU logging continues.
 
 ## Safety
 
