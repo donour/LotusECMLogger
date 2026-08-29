@@ -124,6 +124,7 @@ namespace LotusECMLogger.Controls
             }
 
             currentEcuVersion = preset.EcuVersion;
+            zt3ToggleButton.Checked = preset.Zt3Wideband;
             foreach (var ch in preset.Channels)
                 AddChannelRow(ch);
 
@@ -301,8 +302,10 @@ namespace LotusECMLogger.Controls
                 droppedValueLabel.ForeColor = SystemColors.ControlText;
                 aemValueLabel.Text = aemToggleButton.Checked ? "polling…" : "—";
                 aemValueLabel.ForeColor = SystemColors.ControlText;
+                zt3ValueLabel.Text = zt3ToggleButton.Checked ? "listening…" : "—";
+                zt3ValueLabel.ForeColor = SystemColors.ControlText;
 
-                service.StartLogging(selected, csvPath, aemToggleButton.Checked);
+                service.StartLogging(selected, csvPath, aemToggleButton.Checked, zt3ToggleButton.Checked);
 
                 statusValueLabel.Text = "Logging…";
                 statusValueLabel.ForeColor = Color.Green;
@@ -457,6 +460,16 @@ namespace LotusECMLogger.Controls
                 aemValueLabel.ForeColor = Color.Green;
             }
 
+            if (latestValues.TryGetValue(IHighSpeedLogService.Zt3LambdaChannelName, out var zt3Lambda))
+            {
+                string afrText = latestValues.TryGetValue(IHighSpeedLogService.Zt3AfrChannelName, out var zt3Afr)
+                    ? $"  ({zt3Afr.value:F1} AFR)" : "";
+                string statusText = latestValues.TryGetValue(IHighSpeedLogService.Zt3OxygenSensorStatusChannelName, out var status)
+                    ? $"  status {status.value:F0}" : "";
+                zt3ValueLabel.Text = $"λ {zt3Lambda.value:F3}{afrText}{statusText}";
+                zt3ValueLabel.ForeColor = Color.Green;
+            }
+
             long dropped = service.DroppedFrames;
             droppedValueLabel.Text = dropped.ToString();
             droppedValueLabel.ForeColor = dropped > 0 ? Color.Red : SystemColors.ControlText;
@@ -485,6 +498,7 @@ namespace LotusECMLogger.Controls
             csvPathTextBox.Enabled = configurable;
             browseCsvButton.Enabled = configurable;
             aemToggleButton.Enabled = configurable;
+            zt3ToggleButton.Enabled = configurable;
 
             // The grid stays enabled while logging so its live values can be scrolled, selected and
             // copied — a disabled control takes no wheel or scrollbar input. What actually has to be

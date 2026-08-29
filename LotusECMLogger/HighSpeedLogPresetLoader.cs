@@ -14,6 +14,9 @@ namespace LotusECMLogger
         /// <summary>ECU/firmware label; also names the symbol catalog used to resolve <c>symbol</c> refs.</summary>
         public string EcuVersion { get; set; } = string.Empty;
 
+        /// <summary>Enable the passive Zeitronix Zt-3 CAN broadcast source when this preset is selected.</summary>
+        public bool Zt3Wideband { get; set; }
+
         public List<HighSpeedChannelJson> Channels { get; set; } = [];
     }
 
@@ -45,6 +48,7 @@ namespace LotusECMLogger
         public string Name { get; init; } = string.Empty;
         public string Description { get; init; } = string.Empty;
         public string EcuVersion { get; init; } = string.Empty;
+        public bool Zt3Wideband { get; init; }
         public List<HighSpeedChannel> Channels { get; init; } = [];
 
         /// <summary>Non-fatal issues encountered while resolving the preset (e.g. unknown symbols).</summary>
@@ -129,6 +133,7 @@ namespace LotusECMLogger
                 Name = string.IsNullOrWhiteSpace(json.Name) ? Path.GetFileNameWithoutExtension(filePath) : json.Name,
                 Description = json.Description,
                 EcuVersion = ecuVersion,
+                Zt3Wideband = json.Zt3Wideband,
                 Channels = channels,
                 Warnings = warnings,
             };

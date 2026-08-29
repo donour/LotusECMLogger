@@ -47,6 +47,7 @@ the `ecuVersion`). These CSVs live in the project and are build-copied to the ou
   "name": "GT430 Sample (C132E0278)",
   "description": "…",
   "ecuVersion": "C132E0278",          // selects database/C132E0278.csv
+  "zt3Wideband": true,                 // optional: listen for ZT-3 broadcasts on CAN ID 0x05A
   "channels": [
     // Symbol reference — address/size/scale/offset/unit resolved from the catalog:
     { "symbol": "engine_speed_3", "rate": 100 },
@@ -74,6 +75,29 @@ the `ecuVersion`). These CSVs live in the project and are build-copied to the ou
   addresses.
 - Files are JSONC (comments and trailing commas allowed) and are copied to the app output directory,
   so no rebuild is needed to add or edit a preset.
+
+## Zeitronix Zt-3 CAN wideband
+
+The optional **ZT-3 CAN** source listens passively for the controller's 8-byte broadcast on standard CAN
+ID `0x05A` at 500 kbit/s. It adds four last-value-hold columns to each ECU stream row:
+
+| Column | Payload | Decode |
+|---|---|---|
+| `ZT-3 Lambda (16-bit)` | bytes 0–1, big-endian | unsigned × 0.001 |
+| `ZT-3 Lambda (8-bit)` | byte 2 | unsigned × 0.01 |
+| `ZT-3 AFR` | byte 3 | unsigned × 0.1 |
+| `ZT-3 O2 Status` | byte 7 | raw status code |
+
+Two sample setups are included:
+
+- **GT430 + ZT-3 Wideband Sample (C132E0278)** for the GT430 ECU.
+- **S1 / NA + ZT-3 Wideband Sample (B132E0091)** for the S1 naturally aspirated car (resolved through
+  the repository's `B13200091` symbol catalog).
+
+Both presets check **ZT-3 CAN** automatically and log engine speed, load, throttle/pedal, commanded AFR,
+MAP and IAT alongside the ZT-3 values. For a different ECU, choose its normal preset and check **ZT-3
+CAN** manually. The controller must share the adapter's 500 kbit/s CAN bus; if no valid broadcast
+arrives, the ZT-3 columns remain empty and ECU logging continues.
 
 ## Safety
 

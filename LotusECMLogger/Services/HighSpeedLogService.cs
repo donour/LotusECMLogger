@@ -34,6 +34,10 @@ namespace LotusECMLogger.Services
         private const uint AemResponseCanId = 0x7E9;
         private const int AemPollIntervalMs = 50; // 20 Hz nominal
 
+        // Zeitronix Zt-3 broadcasts an 8-byte payload at 500 kbit/s on standard CAN ID 0x05A. Unlike
+        // the AEM OBDII gauge this source is passive: enabling it only adds a receive filter.
+        private const uint Zt3ResponseCanId = Zt3WidebandDecoder.CanId;
+
         // Command opcodes.
         private const byte CmdOpenSession = 0x01;
         private const byte CmdInitGroup = 0x14;
@@ -72,6 +76,7 @@ namespace LotusECMLogger.Services
         private BlockingCollection<StreamWorkItem>? _writeQueue;
         private long _droppedFrames;
         private bool _pollAem;
+        private bool _listenZt3;
 
         public event EventHandler<HighSpeedSampleEventArgs>? DataReceived;
         public event EventHandler<string>? ErrorOccurred;
@@ -91,9 +96,16 @@ namespace LotusECMLogger.Services
         /// One CAN stream frame handed from the drain thread to the writer thread. The payload bytes are
         /// copied out of the J2534 buffer so they stay valid across the thread boundary.
         /// </summary>
+        private enum SampleSource
+        {
+            Ecu,
+            Aem,
+            Zt3,
+        }
+
         private readonly struct StreamWorkItem(
             byte[] payload, IReadOnlyList<HighSpeedChannel> layout, DateTime timestamp, ulong elapsedUs, byte label, bool overflow,
-            bool isAemSample = false)
+            SampleSource source = SampleSource.Ecu)
         {
             public byte[] Payload { get; } = payload;
             public IReadOnlyList<HighSpeedChannel> Layout { get; } = layout;
@@ -101,13 +113,11 @@ namespace LotusECMLogger.Services
             public ulong ElapsedUs { get; } = elapsedUs;
             public byte Label { get; } = label;
             public bool Overflow { get; } = overflow;
-
-            /// <summary>True for a polled AEM wideband reply (0x7E9) rather than a 0x351 stream frame.</summary>
-            public bool IsAemSample { get; } = isAemSample;
+            public SampleSource Source { get; } = source;
         }
 
         public void StartLogging(IReadOnlyList<(HighSpeedChannel channel, int rateHz)> channels, string csvFilePath,
-            bool pollAemWideband = false)
+            bool pollAemWideband = false, bool listenZt3Wideband = false)
         {
             lock (_lock)
             {
@@ -123,11 +133,19 @@ namespace LotusECMLogger.Services
                 // Log columns = the frame label, then the selected channels in selection order
                 // (de-duplicated by name).
                 _pollAem = pollAemWideband;
+                _listenZt3 = listenZt3Wideband;
                 List<string> columnNames = [LabelColumn, .. channels.Select(c => c.channel.Name).Distinct()];
                 if (_pollAem)
                 {
                     columnNames.Add(IHighSpeedLogService.AemLambdaChannelName);
                     columnNames.Add(IHighSpeedLogService.AemAfrChannelName);
+                }
+                if (_listenZt3)
+                {
+                    columnNames.Add(IHighSpeedLogService.Zt3LambdaChannelName);
+                    columnNames.Add(IHighSpeedLogService.Zt3LambdaCoarseChannelName);
+                    columnNames.Add(IHighSpeedLogService.Zt3AfrChannelName);
+                    columnNames.Add(IHighSpeedLogService.Zt3OxygenSensorStatusChannelName);
                 }
 
                 try
@@ -261,6 +279,8 @@ namespace LotusECMLogger.Services
             _channel.StartMessageFilter(StreamPassFilter()).ThrowIfError();
             if (_pollAem)
                 _channel.StartMessageFilter(AemPassFilter()).ThrowIfError();
+            if (_listenZt3)
+                _channel.StartMessageFilter(Zt3PassFilter()).ThrowIfError();
         }
 
         /// <summary>PASS filter that admits only 0x351 (the stream + command responses).</summary>
@@ -279,6 +299,14 @@ namespace LotusECMLogger.Services
             Pattern = [0x00, 0x00, 0x07, 0xE9],
         };
 
+        /// <summary>PASS filter that admits standard CAN ID 0x05A (ZT-3 broadcasts).</summary>
+        private static MessageFilter Zt3PassFilter() => new()
+        {
+            FilterType = Filter.PASS_FILTER,
+            Mask = [0x00, 0x00, 0x07, 0xFF],
+            Pattern = [0x00, 0x00, 0x00, 0x5A],
+        };
+
         private void InitializeCsvFile(string csvFilePath,
             IReadOnlyList<(HighSpeedChannel channel, int rateHz)> channels, IReadOnlyList<string> columns)
         {
@@ -287,6 +315,8 @@ namespace LotusECMLogger.Services
                 notes.Add($"{channel.Name}: 0x{channel.Address:X8} size={channel.Size} {rateHz}Hz unit={channel.Unit}");
             if (_pollAem)
                 notes.Add($"AEM UEGO: OBD Mode 01 PID 0x24 @ 0x7E1, polled every {AemPollIntervalMs}ms (last-value-hold columns)");
+            if (_listenZt3)
+                notes.Add("Zeitronix Zt-3: 8-byte broadcast @ CAN ID 0x05A, 500 kbit/s (last-value-hold columns; O2 status is raw)");
 
             // Every channel is a decoded measurement, so they are all plain decimal columns.
             _sink = new CsvSampleSink(
@@ -324,10 +354,18 @@ namespace LotusECMLogger.Services
             {
                 foreach (var item in _writeQueue!.GetConsumingEnumerable())
                 {
-                    if (item.IsAemSample)
-                        ProcessAemSample(in item);
-                    else
-                        ProcessFrame(in item);
+                    switch (item.Source)
+                    {
+                        case SampleSource.Aem:
+                            ProcessAemSample(in item);
+                            break;
+                        case SampleSource.Zt3:
+                            ProcessZt3Sample(in item);
+                            break;
+                        default:
+                            ProcessFrame(in item);
+                            break;
+                    }
                 }
             }
             catch (Exception ex)
@@ -403,7 +441,7 @@ namespace LotusECMLogger.Services
                         continue; // stray command response during streaming
 
                     // Advance the hardware-timestamp clock for every admitted frame (handles rollover).
-                    // Stream and AEM frames share the adapter's counter, so one clock serves both.
+                    // ECU and wideband frames share the adapter's counter, so one clock serves all.
                     uint raw = msg.Timestamp;
                     if (!haveAnchor)
                     {
@@ -424,7 +462,12 @@ namespace LotusECMLogger.Services
                     {
                         // AEM OBD reply: hand the raw payload (PCI onward) to the writer for decode.
                         item = new StreamWorkItem(msg.Data.AsSpan(4).ToArray(), [],
-                            timestamp, elapsedUs, 0, false, isAemSample: true);
+                            timestamp, elapsedUs, 0, false, SampleSource.Aem);
+                    }
+                    else if (canId == Zt3ResponseCanId)
+                    {
+                        item = new StreamWorkItem(msg.Data.AsSpan(4).ToArray(), [],
+                            timestamp, elapsedUs, 0, false, SampleSource.Zt3);
                     }
                     else
                     {
@@ -529,6 +572,35 @@ namespace LotusECMLogger.Services
                 [
                     new HighSpeedReading { Name = IHighSpeedLogService.AemLambdaChannelName, Value = lambda, Unit = "λ" },
                     new HighSpeedReading { Name = IHighSpeedLogService.AemAfrChannelName, Value = afr, Unit = "AFR" },
+                ],
+            });
+        }
+
+        // Decode one passive Zt-3 broadcast and fold all supplied signals into the last-value-hold map.
+        // The oxygen-sensor status byte is intentionally kept raw because its value mapping is controller
+        // documentation-specific. Like AEM samples, broadcasts do not create standalone CSV rows.
+        private void ProcessZt3Sample(in StreamWorkItem item)
+        {
+            if (!Zt3WidebandDecoder.TryDecode(item.Payload, out var sample))
+                return;
+
+            ISampleSink? sink = _sink;
+            sink?.Set(IHighSpeedLogService.Zt3LambdaChannelName, sample.Lambda);
+            sink?.Set(IHighSpeedLogService.Zt3LambdaCoarseChannelName, sample.LambdaCoarse);
+            sink?.Set(IHighSpeedLogService.Zt3AfrChannelName, sample.Afr);
+            sink?.Set(IHighSpeedLogService.Zt3OxygenSensorStatusChannelName, sample.OxygenSensorStatus);
+
+            DataReceived?.Invoke(this, new HighSpeedSampleEventArgs
+            {
+                Timestamp = item.Timestamp,
+                Label = item.Label,
+                Overflow = false,
+                Readings =
+                [
+                    new HighSpeedReading { Name = IHighSpeedLogService.Zt3LambdaChannelName, Value = sample.Lambda, Unit = "λ" },
+                    new HighSpeedReading { Name = IHighSpeedLogService.Zt3LambdaCoarseChannelName, Value = sample.LambdaCoarse, Unit = "λ" },
+                    new HighSpeedReading { Name = IHighSpeedLogService.Zt3AfrChannelName, Value = sample.Afr, Unit = "AFR" },
+                    new HighSpeedReading { Name = IHighSpeedLogService.Zt3OxygenSensorStatusChannelName, Value = sample.OxygenSensorStatus, Unit = "raw" },
                 ],
             });
         }
