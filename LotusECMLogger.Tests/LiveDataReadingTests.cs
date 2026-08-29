@@ -514,6 +514,16 @@ namespace LotusECMLogger.Tests
             AssertReading(Assert.Single(readings), "Coolant Temperature", 83);
         }
 
+        [Fact]
+        public void Mode01_UnknownFirstPid_ProducesNoReadings()
+        {
+            // The unknown PID's payload looks like PID 0x0C followed by a plausible RPM.
+            // With no earlier PID, the fail-closed behavior must still return an empty batch.
+            var readings = LiveDataReading.ParseCanResponse(Mode01(0x21, 0x0C, 0x1A, 0xF8));
+
+            Assert.Empty(readings);
+        }
+
         /// <summary>
         /// These decoders read a second payload byte, so a reply carrying only one must be skipped.
         /// Their guards used to admit it and then index past the end of the buffer, and the
