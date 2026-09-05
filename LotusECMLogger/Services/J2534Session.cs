@@ -20,16 +20,27 @@ namespace LotusECMLogger.Services
     {
         private readonly J2534Device _device;
         private readonly List<J2534Channel> _channels = new();
+        private readonly J2534DeviceLease lease;
+        private bool disposed;
 
-        private J2534Session(J2534Device device) => _device = device;
+        private J2534Session(J2534Device device, J2534DeviceLease lease)
+        {
+            _device = device;
+            this.lease = lease;
+        }
 
         /// <summary>Loads the first registered J2534 API and opens its first device.</summary>
         public static J2534Session Open()
         {
-            string dllFileName = J2534APIFactory.DiscoverAPIs().First().FileName;
-            // Cached, process-wide instance owned by the factory — must not be disposed here.
-            J2534API api = J2534APIFactory.LoadAPI(dllFileName).Unwrap();
-            return new J2534Session(api.OpenDevice("").Unwrap());
+            var lease = J2534DeviceLease.Acquire();
+            try
+            {
+                string dllFileName = J2534APIFactory.DiscoverAPIs().First().FileName;
+                // The factory owns the cached API; this scope owns only the device and channels.
+                J2534API api = J2534APIFactory.LoadAPI(dllFileName).Unwrap();
+                return new J2534Session(api.OpenDevice("").Unwrap(), lease);
+            }
+            catch { lease.Dispose(); throw; }
         }
 
         /// <summary>Opens a channel owned by this session (disposed when the session is).</summary>
@@ -48,10 +59,22 @@ namespace LotusECMLogger.Services
 
         public void Dispose()
         {
-            foreach (J2534Channel channel in _channels)
-                channel.Dispose();
-            _channels.Clear();
-            _device.Dispose();
+            if (disposed) return;
+            disposed = true;
+            try
+            {
+                try
+                {
+                    foreach (J2534Channel channel in _channels)
+                        channel.Dispose();
+                }
+                finally
+                {
+                    _channels.Clear();
+                    _device.Dispose();
+                }
+            }
+            finally { lease.Dispose(); }
         }
     }
 }

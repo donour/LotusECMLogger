@@ -198,6 +198,15 @@ namespace LotusECMLogger
         /// </summary>
         private void MainWindow_FormClosing(object? sender, FormClosingEventArgs e)
         {
+            // Keep the process and result UI alive until the pump runner has attempted cleanup.
+            // The operator can review that result and close again once the operation returns.
+            var absControl = absTab.Controls.OfType<AbsControl>().FirstOrDefault();
+            if (absControl?.DeferCloseForPumpCleanup() == true)
+            {
+                e.Cancel = true;
+                mainTabControl.SelectedTab = absTab;
+                return;
+            }
             // Stop the logger before the form closes
             obdLoggerControl?.StopLogger();
         }

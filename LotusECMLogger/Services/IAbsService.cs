@@ -18,8 +18,8 @@ namespace LotusECMLogger.Services
     }
 
     /// <summary>
-    /// Live internal state sampled from the module's RAM via ReadMemoryByAddress (guide §5):
-    /// road-surface mu, EDC accumulators, valve positions and brake pressures.
+    /// Verified diagnostic live-data record04, including raw replies and bounded OEM conversions.
+    /// This is not an arbitrary RAM read or a view of the later learned controller speed.
     /// </summary>
     public sealed record AbsLiveStateResult
     {
@@ -121,35 +121,45 @@ namespace LotusECMLogger.Services
         }
     }
 
-    /// <summary>Progress update while a pump/valve actuation routine runs.</summary>
+    /// <summary>Progress update while a pump test runs.</summary>
     public sealed record AbsRoutineProgress
     {
-        /// <summary>Human-readable phase, e.g. "Bleed circulation (0x03)".</summary>
+        /// <summary>Human-readable phase, e.g. "Sending pump OFF".</summary>
         public string Phase { get; init; } = "";
 
         /// <summary>Seconds elapsed / total for the current phase.</summary>
         public double ElapsedSeconds { get; init; }
         public double TotalSeconds { get; init; }
 
-        /// <summary>Latest per-wheel status from RequestRoutineResults (0x33), and the monitored RAM values.</summary>
+        /// <summary>Optional report rows for the current phase.</summary>
         public IReadOnlyList<AbsReportRow> Rows { get; init; } = [];
     }
 
-    /// <summary>Outcome of an actuation routine (or the full bleed sequence).</summary>
+    /// <summary>Outcome of an actuation request, including independent cleanup acknowledgements.</summary>
     public sealed record AbsRoutineResult
     {
         public IReadOnlyList<AbsReportRow> Rows { get; init; } = [];
+        public IReadOnlyList<AbsDiagnosticExchange> Exchanges { get; init; } = [];
+        public bool Cancelled { get; init; }
+        public bool ActivationAttempted { get; init; }
+        /// <summary>ON may have been accepted, requiring cleanup. False after a correlated refusal.</summary>
+        public bool CleanupRequired { get; init; }
+        /// <summary>The OFF command's executor reported completion; this is not physical motor feedback.</summary>
+        public bool OffCommandCompleted { get; init; }
+        /// <summary>Stop was acknowledged with matching replies; deferred cleanup may still be pending.</summary>
+        public bool StopConfirmed { get; init; }
+        public bool SessionRestored { get; init; }
 
-        /// <summary>True if every routine started, ran, and was stopped cleanly.</summary>
+        /// <summary>The requested test and all cleanup commands completed without reported errors;
+        /// this is not confirmation of physical motor state or deferred stop processing.</summary>
         public bool Completed { get; init; }
 
         public static readonly AbsRoutineResult Empty = new();
     }
 
     /// <summary>
-    /// Whether the module's documented actuation preconditions are satisfied, judged from the
-    /// passive telemetry broadcasts (guide §9). The module enforces these itself with NRC 0x22, but
-    /// the guide is explicit that a client should not rely on that alone.
+    /// Legacy actuation result shape. Current broadcast interpretation cannot establish these
+    /// preconditions, so the implementation always returns an unavailable result.
     /// </summary>
     public sealed record AbsPreconditionCheck
     {
@@ -181,35 +191,31 @@ namespace LotusECMLogger.Services
         }
     }
 
-    /// <summary>
-    /// Diagnostic client for the Bosch ESP8 ABS/ESP module, implementing the operations in
-    /// <c>DIAGNOSTICS_PROGRAMMING_GUIDE.md</c>: passive telemetry (§4), live memory reads (§5),
-    /// coding and identification reads (§6/§7), fault codes (§8), and pump/valve actuation (§9).
-    /// No persistent-state write (variant recoding 0x3B, memory write 0x3D, DTC clear 0x14) is
-    /// implemented — those are deliberately out of scope for this client.
+    /// <summary>Primary ABS diagnostic reads, raw captures and provisional passive broadcasts.
+    /// Includes a bounded OEM pump test. Persistent writes, firmware programming and unverified valve routines are not provided.
     /// </summary>
     public interface IAbsService
     {
         // ── §7 / §6 — identification and coding ──────────────────────────────────────
 
-        /// <summary>
-        /// Reads the module's identification and configuration records: enters the module's
-        /// diagnostic session, scans ReadEcuIdentification (1A 80-9F, labelled where known) and the
-        /// ReadDataByLocalId coding records (21 00-FF), and returns those that hold data.
-        /// Read-only; needs no SecurityAccess on this firmware (confirmed on a real car).
-        /// </summary>
+        /// <summary>Legacy display adapter for the bounded baseline read.</summary>
         (bool success, string errorMessage, AbsModuleInfo result) ReadModuleInfo(IProgress<string>? progress);
 
-        // ── §5 — live internal state ─────────────────────────────────────────────────
+        /// <summary>Requests session 89, five known 1A records, coding 2101, Process 21BF and live 2104.
+        /// Preserves complete replies and individual failures; never scans or unlocks.</summary>
+        (bool success, string errorMessage, AbsDiagnosticBaseline result) ReadBaseline(IProgress<string>? progress);
 
-        /// <summary>
-        /// Reads the documented live-state RAM locations (mu estimate, EDC accumulators, valve
-        /// positions, brake pressures, variant coding byte) via ReadMemoryByAddress (0x23), decoding
-        /// each to its documented type. Unlocks first with SecurityAccess level 1, since the guide
-        /// lists this service as requiring it; rows the module refuses are reported individually
-        /// rather than failing the whole read. Read-only.
-        /// </summary>
+        /// <summary>Captures a baseline and displays its diagnostic04 sample with firmware-reference gating.</summary>
         (bool success, string errorMessage, AbsLiveStateResult result) ReadLiveState(IProgress<string>? progress);
+
+        /// <summary>Raised on the worker thread after every poll has been appended to the capture.</summary>
+        event EventHandler<AbsDiagnosticSample>? DiagnosticSampleReceived;
+        /// <summary>Raised after the device closes. Empty text means normal completion; otherwise describes failure.</summary>
+        event EventHandler<string>? DiagnosticMonitorError;
+        bool IsMonitoringDiagnostics { get; }
+        /// <summary>Captures a fresh baseline, then polls 2104 and flushes each response/failure to a new JSONL file.</summary>
+        void StartDiagnosticMonitor(string captureFilePath, int intervalMs, string notes);
+        void StopDiagnosticMonitor();
 
         // ── §8 — fault codes ─────────────────────────────────────────────────────────
 
@@ -228,59 +234,43 @@ namespace LotusECMLogger.Services
         /// </summary>
         event EventHandler<AbsTelemetrySample>? TelemetryReceived;
 
-        /// <summary>Fired when the telemetry monitor fails; monitoring is stopped first.</summary>
+        /// <summary>Fired after the monitor closes. Empty text means normal completion; otherwise describes failure.</summary>
         event EventHandler<string>? TelemetryError;
 
         bool IsMonitoringTelemetry { get; }
 
         /// <summary>
-        /// Starts passively decoding the module's 100 Hz broadcasts (0xA2/0xA4/0xA8) — wheel speeds,
-        /// vehicle speed, brake switch and ESP/ABS status. Transmits nothing and needs no session, so
-        /// it is safe while driving. Samples are logged to <paramref name="csvFilePath"/> when given.
+        /// Captures broadcasts 0xA2/0xA4/0xA8 with provisional raw-count/status decoding.
+        /// Physical scales and packing are not validated. Transmits nothing. Samples are logged to <paramref name="csvFilePath"/> when given.
         /// </summary>
         void StartTelemetryMonitor(string? csvFilePath);
 
         void StopTelemetryMonitor();
 
         /// <summary>
-        /// Listens for <paramref name="durationMs"/> and returns one merged telemetry sample. Used for
-        /// a one-shot reading and for the actuation precondition check.
+        /// Listens for <paramref name="durationMs"/> and returns one merged provisional telemetry sample.
         /// </summary>
         (bool success, string errorMessage, AbsTelemetrySample result) ReadTelemetrySnapshot(int durationMs);
 
-        // ── §9 — pump / valve actuation ──────────────────────────────────────────────
+        /// <summary>Runs the verified OEM MRA pump command for a requested 1–5 seconds, then sends
+        /// explicit OFF/stop commands. Operator confirmation is not a measured precondition.
+        /// Raw exchanges are journaled to a new file, including cleanup after cancellation.</summary>
+        (bool success, string errorMessage, AbsRoutineResult result) RunPumpCycle(int seconds,
+            bool operatorConfirmed, string captureFilePath, IProgress<AbsRoutineProgress>? progress,
+            CancellationToken cancellationToken);
 
-        /// <summary>
-        /// Checks the documented actuation preconditions (stationary, brake released, no active
-        /// intervention) from passive telemetry. Read-only.
-        /// </summary>
+        // Legacy generic actuation APIs remain unavailable; use the narrow pump test above.
         (bool success, string errorMessage, AbsPreconditionCheck result) CheckActuationPreconditions();
-
-        /// <summary>
-        /// Runs one hydraulic actuation routine (StartRoutineByLocalId 0x31) for
-        /// <paramref name="seconds"/>, polling per-wheel status (0x33) and the valve/pressure RAM
-        /// locations while it runs, then stopping it (0x32) and returning to the default session.
-        /// The stop and session restore always run, including on cancellation or error.
-        ///
-        /// This drives the pump motor and solenoid valves and moves brake fluid — stationary,
-        /// engine-off use only. The caller is responsible for obtaining the operator's confirmation.
-        /// </summary>
         (bool success, string errorMessage, AbsRoutineResult result) RunRoutine(
             byte routineType, int seconds, IProgress<AbsRoutineProgress>? progress, CancellationToken cancellationToken);
-
-        /// <summary>
-        /// Runs the guide's three-phase brake-bleeding sequence: circulate (0x03), pressure hold
-        /// (0x02), then quick valve cycle (0x01). Same safety envelope as <see cref="RunRoutine"/>.
-        /// </summary>
         (bool success, string errorMessage, AbsRoutineResult result) RunBleedSequence(
             IProgress<AbsRoutineProgress>? progress, CancellationToken cancellationToken);
 
-        // ── Addressing discovery tools ───────────────────────────────────────────────
+        // ── Connection and passive observation tools ─────────────────────────────────
 
         /// <summary>
-        /// Sends harmless requests to candidate diagnostic ids and reports which responders answer.
-        /// Used to discover the module's CAN addressing when a read times out. Changes no session or
-        /// module state, so this is a pure reachability check.
+        /// Sends TesterPresent (3E) and identification read (1A85) on the known 6F4/6F5 address pair.
+        /// Reports raw replies and failures. Does not scan addresses, unlock or change sessions.
         /// </summary>
         (bool success, string errorMessage, AbsProbeResult result) ProbeConnection();
 
