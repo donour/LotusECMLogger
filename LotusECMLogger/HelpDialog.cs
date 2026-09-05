@@ -86,13 +86,12 @@ namespace LotusECMLogger
             dtc.Nodes.Add("mode13", "Mode 0x13 - All Codes");
             features.Nodes.Add("learneddata", "Learned Data Reset");
 
-            // ABS/ESP is a separate module with four distinct procedure groups, so it gets an
-            // overview page plus one page per sub-tab rather than a single long topic.
+            // ABS/ESP has an overview page plus one page per sub-tab.
             var abs = features.Nodes.Add("absdiag", "ABS/ESP Diagnostics");
-            abs.Nodes.Add("absmodule", "ABS Module Info & Faults");
-            abs.Nodes.Add("abslivestate", "ABS Live Internal State");
-            abs.Nodes.Add("abstelemetry", "ABS Wheel Speed Telemetry");
-            abs.Nodes.Add("absactuation", "ABS Pump & Valve Routines");
+            abs.Nodes.Add("absmodule", "ABS Module & Faults");
+            abs.Nodes.Add("abslivestate", "ABS Live Data & Captures");
+            abs.Nodes.Add("abstelemetry", "ABS Passive Broadcasts");
+            abs.Nodes.Add("absactuation", "ABS Pump Test");
 
             features.Nodes.Add("t6rma", "T6 RMA Logging");
             features.Nodes.Add("livetuning", "T6 Live Tuning");
@@ -235,7 +234,7 @@ namespace LotusECMLogger
             AddBulletPoint("Dyno Mode: Enable the ECU's diagnostic override to inhibit faults from external systems (such as ABS) during dyno runs.");
             AddBulletPoint("Diagnostic Trouble Codes: Read and clear DTCs from the ECU, including the Lotus-only Mode 0x13 service that returns current, confirmed, and (on Series 1 Evoras) TPMS codes in a single request.");
             AddBulletPoint("Learned Data Reset: Clear adaptive learning values from the ECU.");
-            AddBulletPoint("ABS/ESP Diagnostics: Read fault codes, identification, and live internal state from the Bosch ESP8 ABS module; log all four wheel speeds at 100 Hz; and run the pump/valve routines used for brake bleeding.");
+            AddBulletPoint("ABS/ESP Diagnostics: Read ABS faults and a diagnostic baseline, capture diagnostic live data with raw replies and timestamps, and review or export saved captures offline. Includes the traced OEM pump-motor test; passive broadcast decoding is provisional and generic valve routines remain unavailable.");
             AddBulletPoint("T6 RMA Logging: Advanced memory address logging for development.");
             AddBulletPoint("T6 Live Tuning: Edit calibration values in ECU RAM in real time by monitoring a calibration file on disk, or upload a whole calibration into RAM in one operation (requires an unlocked ECU).");
             AddBulletPoint("T6E Calibration Flasher: Flash calibration files to the ECU.");
@@ -597,193 +596,106 @@ namespace LotusECMLogger
         {
             AddHeading("ABS/ESP Diagnostics");
 
-            AddParagraph("The ABS tab talks to the Bosch ESP8 ABS/ESP module - the brake and stability controller. This is a completely separate computer from the engine ECU that the rest of the application works with: it has its own fault memory, its own configuration, its own internal state, and it controls the hydraulic pump and solenoid valves in the ABS modulator.");
+            AddParagraph("The ABS tab works with the Bosch ABS/ESP controller, which has separate identification, coding and fault memory from the engine ECU. It provides a bounded diagnostic read workflow and saves the original replies for later comparison.");
 
-            AddParagraph("Because it is a different module from a different supplier, it speaks a different diagnostic language (KWP2000) on different CAN addresses than the engine ECU. None of the engine tabs can see ABS data, and nothing on this tab affects the engine ECU.");
+            AddSubheading("Sub-Tabs:");
+            AddBulletPoint("Module & Faults - Test the diagnostic connection, read ABS fault codes, read a baseline and save it as JSON.");
+            AddBulletPoint("Live Data & Captures - Read one diagnostic live-data record, capture a timed sequence, or open saved data and export it to CSV without connecting to the vehicle.");
+            AddBulletPoint("Passive Broadcasts - Listen to selected CAN broadcasts and optionally save their raw frames and provisional interpretations.");
+            AddBulletPoint("Pump Test - Runs a short OEM pump-motor relay test with explicit OFF and stop cleanup. Generic valve and bleeding routines remain unavailable.");
 
-            AddSubheading("What You Can Do Here:");
-            AddBulletPoint("Module Info & Faults - Read ABS fault codes, the module's part numbers and serial, and its configuration records. Start here when the ABS or ESP warning lamp is on.");
-            AddBulletPoint("Live Internal State - Read the controller's internal working values: its road-grip estimate, brake torque-vectoring pressures, valve positions, and hydraulic pressures.");
-            AddBulletPoint("Wheel Speed Telemetry - Watch all four wheel speeds, vehicle speed, the brake switch, and the ESP/ABS intervention flags live at 100 Hz, with optional CSV logging.");
-            AddBulletPoint("Pump & Valve Routines - Drive the ABS pump and valves for brake bleeding and hydraulic testing.");
+            AddSubheading("Supported Interpretation:");
+            AddParagraph("The diagnostic live-data decoder is tied to the BB68638_V0201 firmware reference. It requires the reported build and part records to match that reference before displaying scaled channels or reference-specific stored-profile candidates. Unknown or mismatched identification leaves the raw replies available. Matching reported identification does not prove that the installed firmware has the stock image hash, identify the active RAM calibration profile, or validate the vehicle's physical calibration.");
 
-            AddSubheading("Read-Only vs. Active Operations:");
-            AddParagraph("Three of the four sub-tabs are strictly read-only - they ask the module questions and display the answers. The fourth, Pump & Valve Routines, physically operates the hydraulic unit and moves brake fluid. It is clearly marked, requires confirmation, and checks that the car is stationary before it will run.");
+            AddSubheading("Connection and Device Use:");
+            AddBulletPoint("For vehicle reads, connect a registered J2534 adapter to OBD-II and switch the ignition on.");
+            AddBulletPoint("Stop engine logging and other device operations first. Diagnostic captures and passive monitoring each reserve the adapter until stopped.");
+            AddBulletPoint("Open Capture and Export CSV work with saved files and do not require an adapter or access the vehicle.");
 
-            AddParagraph("No operation on this tab changes anything the module stores permanently. There is deliberately no way to recode the module's variant configuration, write to its memory, or clear its fault codes from this application. Fault codes must be cleared with a tester that supports it, and only after the underlying fault is fixed.");
+            AddSubheading("Scope:");
+            AddParagraph("Enabled diagnostic operations use fixed requests on CAN IDs 0x6F4 and 0x6F5. Diagnostic reads transmit session setup and read requests; Pump Test also transmits the traced relay commands. The passive monitor and Sniff Bus only listen. The ABS tab does not recode the module, write persistent memory, clear ABS faults or flash firmware.");
 
-            AddSubheading("Wheel Speeds Without Any Risk:");
-            AddParagraph("The Wheel Speed Telemetry sub-tab is worth knowing about even if you never use the rest. The ABS module continuously broadcasts wheel speeds on the CAN bus whether anyone is listening or not, so reading them involves transmitting nothing at all. That makes it completely safe to run while driving, and it is the best way to capture per-wheel data for diagnosing a wheel speed sensor, checking for a dragging brake, or logging a track session.");
-
-            AddSubheading("Connection Requirements:");
-            AddBulletPoint("The same J2534 device and OBD-II connection used by every other tab.");
-            AddBulletPoint("Ignition ON. With the ignition off the module is asleep and will not answer or broadcast anything.");
-            AddBulletPoint("Logging stopped. Every ABS operation needs the J2534 device to itself, so the buttons are disabled while a logging session is running.");
-
-            AddSubheading("Vehicle Coverage:");
-            AddParagraph("This support was developed against the Bosch ESP8.1 module fitted to the Lotus Evora (Bosch part number 0265951336, Lotus part number B132J0142). Other Lotus models use different ABS modules. The reads are harmless to attempt on any car - an unsupported module simply does not answer - but the decoded values and the actuation routines are specific to this module and should not be trusted elsewhere.");
-
-            AddSubheading("Where Results Are Saved:");
-            AddParagraph("Results are shown in the grid and also written to Documents\\LotusECMLogger\\abs-diagnostics.txt, overwritten on each run. The grid cannot be copy-pasted, so use that file when you want to save or share results. Telemetry logs and bus sniffs are written to their own files, described in their respective topics.");
+            AddSubheading("Saving Results:");
+            AddParagraph("Use Save Baseline JSON for a baseline and Start Capture for a sequence of live-data replies. These files preserve raw requests, replies, failures, host timestamps and notes. Choose a new file name for each baseline, capture and CSV export; existing files are preserved. The default folder is Documents\\LotusECMLogger.");
+            AddParagraph("The auxiliary abs-diagnostics.txt report in that folder is overwritten by later diagnostic reports. Save a baseline or capture when you need a durable record.");
         }
 
         private void ShowAbsModuleHelp()
         {
-            AddHeading("ABS Module Info & Faults");
+            AddHeading("ABS Module & Faults");
 
-            AddParagraph("The first ABS sub-tab covers identification and fault reading, plus two tools for diagnosing the CAN connection to the module itself. All four operations are read-only.");
+            AddSubheading("Read DTCs:");
+            AddParagraph("Reads the ABS controller's fault memory and shows the returned codes and raw response. These faults are separate from engine ECU faults. Use module-specific service information to interpret the codes; this button does not clear them.");
 
-            AddSubheading("Read DTCs - ABS Fault Codes:");
-            AddParagraph("Reads the fault codes stored in the ABS module's own fault memory. This is the single most useful button on the tab and the first thing to try when a warning lamp appears.");
-            AddParagraph("Why you would use it: the ABS and ESP warning lamps tell you something is wrong but not what. The engine ECU's Diagnostic Trouble Codes tab cannot see ABS faults - they live in a different module. This reads them directly. Typical causes are a failed wheel speed sensor, a damaged sensor harness, a low brake fluid level, or a steering angle or yaw sensor fault.");
-            AddParagraph("Each stored code is listed with its status byte expanded into readable flags - whether the fault is currently failing, whether it is confirmed or merely pending, whether it has failed since the memory was last cleared, and whether it is the one commanding the warning lamp. That last flag matters when several codes are stored: it tells you which one is actually lighting the dash.");
-            AddParagraph("Codes are shown as raw hexadecimal values, for example 'DTC 0xC150'. No P/C/B/U letter is shown because the letter convention this particular firmware uses has not been confirmed, and printing a plausible-looking but wrong code would be worse than printing none. Look up the raw value in Lotus or Bosch service documentation for this module.");
-            AddParagraph("This read needs no session setup and no security unlock - the module answers immediately - so it is quick and safe to run at any time with the car stationary and the ignition on.");
+            AddSubheading("Read Baseline:");
+            AddParagraph("Runs a fixed sequence of diagnostic session setup, identification, coding, process-state and live-data requests. This is a bounded list of known records, not an identification sweep or memory scan. Each request's reply or failure is retained, so a partial baseline still records what happened.");
+            AddParagraph("The baseline displays the raw identification records and decoded OEM coding and process-state fields. Any listed profile candidates describe the stored coding table for the matching firmware reference, not proof of the active RAM profile. Ambiguous and unknown values retain their raw representation.");
+            AddParagraph("Click Read Baseline again when you need a fresh record. Save Baseline JSON saves the most recent baseline obtained by this button, including its original capture time; saving alone does not reread the module.");
 
-            AddSubheading("Read Info - Identification and Configuration:");
-            AddParagraph("Reads the module's identity and its configuration records: serial number, the Lotus part number, the Bosch part number, and the configuration/coding bytes that tell the module which car it is fitted to.");
-            AddParagraph("Why you would use it: to confirm which ABS module is actually installed before ordering a replacement, to check that a secondhand or replacement module matches your car, or to record your configuration before any work that might disturb it. It is also the fastest way to prove the diagnostic connection to the ABS is working end to end.");
-            AddParagraph("The scan sweeps the module's identification and configuration record numbers and reports every one that returns data, so nothing is missed even where the published record numbering turned out not to match this firmware. Records are labelled where they have been identified and shown by record number where they have not.");
-            AddParagraph("Single-byte configuration records are additionally decoded into their individual settings - axle and brake configuration, engine type, tyre size, market region, and ESP calibration selection. Treat that decode as a starting point rather than fact: the bit assignments are inferred from Bosch conventions and known differences between Evora variants, not confirmed from the firmware. The raw byte is always displayed alongside so you can interpret it yourself.");
+            AddSubheading("Save Baseline JSON:");
+            AddParagraph("Enter Notes on Live Data & Captures, then return here and click Save Baseline JSON. Useful notes include fitted tire specifications, pressures, vehicle load and independently measured reference values. Choose a new JSON file name. The saved baseline includes raw exchanges, failures and notes and can be reopened with Open Capture.");
 
-            AddSubheading("Test Connection - Diagnostic Reachability:");
-            AddParagraph("Sends harmless requests to the ABS and to other known addresses, and reports which modules answer. Nothing it sends changes any module's state.");
-            AddParagraph("Why you would use it: when a read times out and you need to know whether the problem is the ABS module, the CAN bus, or the adapter. The report distinguishes the cases for you:");
-            AddBulletPoint("If the bus shows no traffic at all, the adapter or the OBD connection is at fault, or the ignition is off.");
-            AddBulletPoint("If the bus is alive and the engine ECU answers but the ABS does not, the bus and adapter are fine and the problem is specific to the ABS module or its diagnostic addressing.");
-            AddBulletPoint("If the ABS telemetry line shows the module broadcasting, the ABS is powered and running even when it refuses diagnostic requests - which points at the addressing rather than at a dead module.");
-            AddParagraph("The test finishes with a sweep across the standard diagnostic address range, reporting any module that answers. That is how the addresses this application uses for the ABS were originally narrowed down.");
+            AddSubheading("Test Connection:");
+            AddParagraph("Tests only the OEM ABS diagnostic route: requests use CAN ID 0x6F4 and replies use 0x6F5. It sends two bounded requests, Tester Present (3E) and the build record (1A 85), and reports replies or failures. It does not sweep addresses or test the engine ECU. A timeout alone cannot distinguish module state, wiring, adapter configuration or unsupported firmware.");
 
-            AddSubheading("Sniff Bus - Passive Address Discovery:");
-            AddParagraph("Listens to the CAN bus for 40 seconds and transmits absolutely nothing. It first spends five seconds learning which addresses are broadcasting normally, then logs every frame that appears on any address that was not part of that background traffic.");
-            AddParagraph("Why you would use it: to discover how another diagnostic tool talks to a module. Run it, and while it is capturing, use a commercial scan tool to read the ABS. The tool's conversation with the module stands out because those addresses are only active while it is talking. This is how the Evora's ABS diagnostic addresses were found after the published standard addresses turned out to be wrong.");
-            AddParagraph("This is a developer and advanced-diagnostics tool. If you are only reading faults on a supported car you will never need it. Results are written to Documents\\LotusECMLogger\\abs-sniff.txt with a timestamped frame-by-frame log.");
+            AddSubheading("Sniff Bus:");
+            AddParagraph("Listens without transmitting: first it records background CAN IDs for five seconds, then it logs frames on IDs absent from that background for up to 40 seconds. This can help record a separate diagnostic tester's traffic, but is not a complete recording of every bus frame.");
+            AddParagraph("The timestamped frame log is written to Documents\\LotusECMLogger\\abs-sniff.txt. This is an optional investigation tool, separate from the fixed baseline and live-data capture workflow.");
         }
 
         private void ShowAbsLiveStateHelp()
         {
-            AddHeading("ABS Live Internal State");
+            AddHeading("ABS Live Data & Captures");
 
-            AddParagraph("This sub-tab reads the ABS controller's internal working variables directly out of its memory - the values the stability control algorithms are computing right now. It is a read-only operation, but it reaches much deeper into the module than fault codes do.");
+            AddParagraph("This sub-tab reads diagnostic record 21 04, whose positive reply begins 61 04. It does not read arbitrary RAM or perform a security unlock. Read Live Data obtains fresh baseline identification and displays one sample; Start Capture obtains a fresh baseline for a saved sequence.");
 
-            AddParagraph("Click 'Read Live State' to take a snapshot. The application opens a diagnostic session, performs the module's security unlock, then reads each documented memory location and decodes it.");
+            AddSubheading("Channels and Raw Evidence:");
+            AddParagraph("With matching BB68638_V0201 identification, the decoder displays four wheel speeds, yaw rate, pressure, longitudinal acceleration, brake-light-switch voltage and battery voltage. Rows retain raw values and report invalid or unexpected encodings. A wheel's unavailable sentinel is distinct from a zero reading, and zero alone does not establish that the vehicle is stationary.");
+            AddParagraph("If the reference identity is unknown, a reply is malformed or a request fails, the raw exchange and explanation remain visible. A failed sample does not reuse the previous sample's values. The decoded units come from the traced diagnostic format; sign orientation, physical accuracy and tire calibration still require independent vehicle measurements.");
 
-            AddSubheading("What Gets Read:");
-            AddBulletPoint("Road-surface grip estimate (mu) - The controller's live estimate of available tyre grip, from roughly 0.2 on ice to around 1.0 on dry tarmac. This single number drives much of the ABS and ESP behaviour, so seeing it is the clearest window into why the system is intervening as it does.");
-            AddBulletPoint("EDC accumulators (left and right) - Brake torque-vectoring pressures. Electronic differential control brakes an individual inside wheel to help the car rotate. These values show how much brake pressure is being applied to each side for that purpose.");
-            AddBulletPoint("Front and rear valve positions - The current state of the hydraulic solenoid valves, decoded into readable states: release (open), apply, apply-init, or hold (closed).");
-            AddBulletPoint("Brake pressures, four channels - Hydraulic pressure in each brake circuit. Values below roughly 99 counts indicate an unpressurized circuit, which is flagged in the display.");
-            AddBulletPoint("Variant coding byte - The module's vehicle configuration, decoded into its individual settings.");
+            AddSubheading("Capture a Sequence:");
+            AddParagraph("1. Stop other adapter operations and enter Notes describing tires, pressures, load and any reference measurements. Notes are saved with the capture.");
+            AddParagraph("2. Set Interval (ms), from 100 to 5000; the default is 200. This is the requested polling interval, not a guaranteed sample rate. Request latency and scheduling affect the actual spacing.");
+            AddParagraph("3. Click Start Capture and choose a new JSONL file. The application records a fresh baseline, then repeatedly requests 21 04 and saves each raw reply or failure.");
+            AddParagraph("4. Click Stop and wait for the capture to finish releasing the adapter. Open Capture then lets you inspect or export the saved sequence.");
+            AddParagraph("Capture timestamps and elapsed times are recorded by the host when exchanges finish. They are not ECU sample times or proof that channels were sampled simultaneously. The saved baseline belongs to that capture; an earlier baseline from another operation is not substituted.");
 
-            AddSubheading("Why You Would Use It:");
-            AddBulletPoint("Diagnosing an ABS or ESP system that intervenes when it should not, or fails to intervene when it should. The grip estimate and intervention pressures show what the controller believes is happening.");
-            AddBulletPoint("Confirming that the hydraulic unit responds during a bleed or a pressure test. The valve positions and pressures react in real time, which is the difference between assuming a routine worked and seeing that it did.");
-            AddBulletPoint("Investigating brake torque vectoring behaviour, particularly on cars where it interacts with a driver-selectable drive mode.");
-            AddBulletPoint("Reading the variant coding to confirm the module is configured for the right model variant.");
-
-            AddSubheading("Reading the Results:");
-            AddParagraph("Each row shows the decoded value, the memory address it came from, and the raw bytes returned. The raw bytes are always displayed so you can verify the interpretation yourself rather than trusting the decode blindly.");
-            AddParagraph("Rows the module refuses to answer are reported individually as 'unavailable' with the reason, rather than failing the whole read. A partial result is still useful, and seeing exactly which locations were refused is itself diagnostic information.");
-            AddParagraph("The summary row at the bottom reports how many locations were read successfully and which memory addressing format the module accepted.");
-
-            AddSubheading("About the Security Unlock:");
-            AddParagraph("Reading module memory requires a security unlock, which the application performs automatically using the module's published challenge-response algorithm. The unlock grants read access only. No operation in this application uses it to write anything, and the result of the unlock attempt is reported in the first rows of the results so you can see whether it succeeded.");
-
-            AddSubheading("Accuracy Caveats:");
-            AddParagraph("These memory locations and their interpretations come from firmware reverse engineering and have not all been confirmed against a running module. Two specific items are known to be uncertain:");
-            AddBulletPoint("The mapping of the four pressure channels and two valve positions to specific wheels is inferred, not confirmed. To establish it yourself, run a single-wheel routine from the Pump & Valve sub-tab and watch which channel responds.");
-            AddBulletPoint("The memory addressing format the module expects was documented ambiguously. The application tries the known candidates automatically and reports which one worked, so no configuration is needed either way.");
-            AddParagraph("Treat the values as informative rather than authoritative, and sanity-check anything you intend to act on. This is a snapshot, not a continuous log - for continuous per-wheel data use the Wheel Speed Telemetry sub-tab instead.");
+            AddSubheading("Review and Export Offline:");
+            AddParagraph("Click Open Capture... to load a saved baseline JSON or capture JSONL. This operation reads only the file and works without a connected adapter. The application reconstructs interpretation from the saved raw exchanges and rechecks the reference identity.");
+            AddParagraph("For a sequence, use Sample to select an entry. View Baseline shows its identification and coding evidence; View Sample returns to the selected sample. A baseline-only file has no sequence to step through.");
+            AddParagraph("Click Export CSV... to export the opened document to a new file. The export includes the current Notes text, raw exchanges, timestamps, failure details and decoded rows where supported. Editing notes does not change the saved source file. The exported samples and baseline belong to the opened capture.");
         }
 
         private void ShowAbsTelemetryHelp()
         {
-            AddHeading("ABS Wheel Speed Telemetry");
+            AddHeading("ABS Passive Broadcasts");
 
-            AddParagraph("The ABS module continuously broadcasts wheel speeds and status information on the CAN bus at 100 Hz, for the instrument cluster and engine ECU to use. This sub-tab decodes those broadcasts.");
-
-            AddParagraph("The important consequence: reading this data requires transmitting nothing at all. The application only listens. There is no session to open, no security unlock, and no request that could confuse the module - so unlike almost every other diagnostic function in this application, this one is completely safe to run while driving.");
-
-            AddSubheading("What Is Displayed:");
-            AddBulletPoint("All four individual wheel speeds - left front, right front, left rear, right rear - each shown in km/h with the raw sensor count alongside.");
-            AddBulletPoint("Vehicle speed as the ABS module calculates it, which is not simply one wheel's speed.");
-            AddBulletPoint("Brake switch state - released, pressed, or faulty.");
-            AddBulletPoint("ESP active - the stability control is currently intervening.");
-            AddBulletPoint("ABS active - an anti-lock cycle is in progress.");
-            AddBulletPoint("Torque reduction requested - the ABS is asking the engine to cut torque, used in the sportier drive modes.");
-            AddBulletPoint("ESP warning lamp state.");
-            AddBulletPoint("Frame counters and checksum verification for both wheel-speed messages, which confirm the data is arriving intact.");
-
-            AddSubheading("Why You Would Use It:");
-            AddBulletPoint("Diagnosing a wheel speed sensor fault. A failing sensor shows as a wheel reading zero, reading erratically, or dropping out at speed while the other three track together. This is far more direct than inferring it from a fault code.");
-            AddBulletPoint("Finding a dragging brake or a binding wheel bearing. Coast in neutral and watch for one wheel consistently trailing the others.");
-            AddBulletPoint("Verifying tyre or wheel changes. Different rolling circumferences show up as a consistent percentage offset between axles.");
-            AddBulletPoint("Track and dyno logging. Per-wheel speed data records wheelspin, lockup, and exactly when ABS or ESP intervened - information the engine ECU's own logging cannot provide.");
-            AddBulletPoint("Confirming the car is genuinely stationary before running an actuation routine.");
+            AddParagraph("This monitor listens to CAN broadcasts without diagnostic requests. It retains frames on 0x0A2, 0x0A4 and 0x0A8 and displays raw counts plus provisional wheel, vehicle-speed and status interpretations. The broadcast layout, physical scale, flags and checksum interpretations remain unverified.");
 
             AddSubheading("How to Use:");
-            AddParagraph("1. Leave 'Log to CSV' ticked if you want a recording. A timestamped file is created in Documents\\LotusECMLogger automatically - existing logs are never overwritten.");
-            AddParagraph("2. Click 'Start Monitor'. Values begin updating immediately if the ignition is on.");
-            AddParagraph("3. Click 'Stop' when finished.");
-            AddParagraph("The display updates about ten times a second, which is comfortable to read, while the CSV log captures the full broadcast rate for later analysis. The CSV contains one row per wheel-speed frame with all four wheel speeds, vehicle speed in both raw counts and km/h, the brake switch, and the intervention flags.");
+            AddParagraph("1. Stop other operations using the adapter. Leave Log to CSV selected if you want a recording.");
+            AddParagraph("2. Click Start Monitor. The display updates when supported frames arrive; the status line shows the CSV path when logging is enabled.");
+            AddParagraph("3. Click Stop and wait for the monitor to release the adapter before starting another device operation.");
 
-            AddSubheading("About the Speed Values:");
-            AddParagraph("The raw counts are exactly what the module transmits. Converting them to km/h requires a wheel-size multiplier that lives in the engine ECU, not the ABS, so the displayed km/h assumes the stock value. If your car has non-standard wheel or tyre sizes the absolute km/h figures will be proportionally off, but the raw counts and all wheel-to-wheel comparisons remain exact - and comparison is what most diagnosis actually depends on.");
-            AddParagraph("A wheel showing '-' rather than a speed means the module is reporting that sensor's reading as unavailable, which is itself a strong indication of a sensor or wiring fault.");
-
-            AddSubheading("Note:");
-            AddParagraph("While the monitor is running it holds the J2534 device, so the other ABS operations are disabled until you stop it. If the monitor stops on its own with an error, the device connection was lost - check the adapter and the OBD connection.");
+            AddSubheading("Reading the Results:");
+            AddParagraph("Wheel and vehicle-speed entries are shown as raw counts, not verified km/h. Missing data and decoder-invalid values are marked separately from present counts. Status labels and checksum results are provisional and do not establish whether ABS or ESP is actually intervening.");
+            AddParagraph("The CSV retains raw frame payloads and provisional fields. A row is written for each recognized frame, and fields from other frames may carry forward their last received value. A row therefore does not represent a simultaneous four-wheel measurement. Host receipt times and display updates do not establish a physical 100 Hz sampling rate.");
+            AddParagraph("Use diagnostic Live Data & Captures for the firmware-specific 61 04 decoder and baseline evidence. Passive broadcast logs are a separate CSV format and cannot be opened as diagnostic JSON or JSONL captures.");
         }
 
         private void ShowAbsActuationHelp()
         {
-            AddHeading("ABS Pump & Valve Routines");
+            AddHeading("ABS Pump Test");
 
-            AddParagraph("This sub-tab commands the ABS module to run its hydraulic pump motor and cycle its solenoid valves. Unlike every other ABS function, this one physically operates the braking system and moves brake fluid.");
-
-            AddParagraph("WARNING: These routines actuate the brake hydraulics. Run them only with the vehicle stationary and safely secured, the ignition on and the engine off, and the brake pedal released. Never run them on a moving vehicle. The module refuses to run them when it detects unsafe conditions, but do not rely on that alone.");
-
-            AddSubheading("Why These Routines Exist:");
-            AddParagraph("The ABS modulator contains chambers and passages that ordinary pedal-pumping cannot reach, because the valves that isolate them are closed during normal braking. Air trapped in the ABS unit therefore survives a conventional bleed and produces a soft or inconsistent pedal that no amount of bleeding at the calipers will fix. These routines open those valves and run the pump to circulate fluid through the parts of the system that are otherwise sealed off.");
-            AddParagraph("You need this after any work that lets air into the ABS unit: replacing the modulator itself, opening a brake line upstream of it, or running the reservoir dry. For a routine caliper or pad service, a conventional bleed is sufficient and this is unnecessary.");
-
-            AddSubheading("Available Routines:");
-            AddBulletPoint("Full bleed sequence (3 phases) - The complete procedure, and the right choice for actual brake bleeding. It runs circulation, then a pressure hold, then a quick valve cycle, in the documented order and durations.");
-            AddBulletPoint("Bleed circulation (0x03) - Opens the valves and runs the pump to circulate fluid. This is the phase that actually moves air out of the modulator.");
-            AddBulletPoint("Pressure hold test (0x02) - Closes the valves and runs the pump to build and hold pressure. Used as a leak test and to check pedal feel; pressure that will not hold indicates a leak or a valve that is not sealing.");
-            AddBulletPoint("Quick valve cycle (0x01) - Rapidly cycles the valves. Dislodges remaining bubbles, and lets you hear each valve click, which confirms the solenoids are working.");
-            AddBulletPoint("Per-wheel cycle (0x05) - Cycles one wheel circuit at a time. Use this to isolate a single sticking valve, and to establish which pressure channel corresponds to which wheel.");
-            AddBulletPoint("Full system test (0x10) - Exercises all wheels in sequence as a comprehensive hydraulic check.");
-
-            AddSubheading("Preconditions:");
-            AddParagraph("The module refuses to actuate unless the vehicle is stationary, the ignition is on with the engine off, the brake pedal is released, and no ABS or ESP intervention is active. Click 'Check Preconditions' to verify the observable ones before you start - it reads the module's own broadcast data and reports each condition individually, so a refusal tells you exactly which one is not met.");
-            AddParagraph("The ignition-on-engine-off condition cannot be observed from ABS data and must be confirmed by you. The check reports it as such rather than silently assuming it.");
-            AddParagraph("The same check runs automatically before any routine starts. If a condition is not met the routine is refused with a clear explanation and nothing is sent to the module.");
-
-            AddSubheading("Brake Bleeding Procedure:");
-            AddParagraph("1. Attach a pressure bleeder at about 2 bar and open all four bleed nipples.");
-            AddParagraph("2. Confirm the vehicle is stationary and secure, ignition on, engine off, brake pedal released.");
-            AddParagraph("3. Select 'Full bleed sequence (3 phases)' and click 'Run'.");
-            AddParagraph("4. Read the confirmation dialog and confirm each listed condition.");
-            AddParagraph("5. Watch the live status while it runs. The valve positions and brake pressures update continuously, so you can confirm the hydraulic unit is genuinely responding rather than assuming it.");
-            AddParagraph("6. Close the nipples when the sequence completes, and check the reservoir level.");
-            AddParagraph("Keep the reservoir topped up throughout. The pump moves a significant volume of fluid and drawing the reservoir empty introduces air into the master cylinder - undoing the entire job and creating more work than you started with.");
-
-            AddSubheading("Monitoring While a Routine Runs:");
-            AddParagraph("The grid updates about twice a second with per-wheel routine status from the module, plus live valve positions and brake pressures. This tells you whether the routine is actually doing anything:");
-            AddBulletPoint("During bleed circulation the valves should read release (open).");
-            AddBulletPoint("During the pressure hold test the valves should read hold (closed) and the pressure readings should rise.");
-            AddBulletPoint("Valve positions that never change, or pressures that never move, indicate the hydraulic unit is not responding - worth investigating before you conclude the bleed was successful.");
-
-            AddSubheading("Stopping Safely:");
-            AddParagraph("Click 'Stop' at any time to end a routine early. The application always sends the stop command and returns the module to its normal state before finishing, including when a routine is cancelled, fails partway, or errors. This matters: a routine left running can strand the hydraulic unit with its valves in an intermediate position until the next power cycle, which can leave the brakes feeling wrong.");
-            AddParagraph("If a routine reports that it did not complete, read the reported reason. The most common cause is the module refusing on preconditions - typically the brake pedal being pressed, or the car not being fully stationary.");
-
-            AddSubheading("Important Notes:");
-            AddBulletPoint("Always road-test carefully after any ABS bleeding work, starting with a firm pedal check at a standstill before moving, then low-speed braking in a safe area.");
-            AddBulletPoint("These routines have been implemented from firmware documentation. Verify the pedal is firm and the brakes behave normally before driving the car anywhere.");
-            AddBulletPoint("If the pedal is soft after a bleed, repeat the sequence. Air in the ABS modulator often takes more than one cycle to clear completely.");
-            AddBulletPoint("If you are unsure about any part of this procedure, have the brakes bled by a qualified technician. Brakes are not a system to experiment on.");
+            AddParagraph("This is the OEM Bosch pump-motor relay test for matching BB68638 V0201 reported identity. Its command path has been traced through the OEM client and stock firmware. Vehicle and adapter behavior still needs validation. It is separate from a brake-bleeding procedure or a valve cycle.");
+            AddSubheading("Run and Stop:");
+            AddParagraph("Stop other logging. With the vehicle stationary, engine off and ignition on, affirm the operator checkbox. Select a requested duration of 1–5 seconds (default two), then Run Pump Test. These are new client restrictions; the duration is a host timing target, not an OEM thermal rating or a guaranteed motor-on time.");
+            AddParagraph("Before activation the logger checks fresh firmware identity, requires the tester session to be accepted and reads diagnostic wheel data. Any nonzero, fault or missing wheel value prevents the test. A zero reading can be below the reporting threshold and does not replace your stationary-vehicle check.");
+            AddParagraph("Stop cancels the normal test and starts cleanup. The operation retains the adapter until cleanup finishes. Closing the main window during a test requests cancellation and keeps the window open for the result; review it and close again. A new ABS_Pump JSONL file saves raw requests, replies and errors; Open Capture can review or export it offline.");
+            AddSubheading("What the Result Means:");
+            AddParagraph("Routine completion after ON leaves the relay request latched. The logger therefore sends explicit OFF and stop commands on completion, cancellation and an uncertain start reply. OFF-command completion and stop acceptance are reported separately. A stop reply can precede deferred cleanup, and none of these replies measures physical motor motion.");
+            AddParagraph("If cleanup is unconfirmed, turn ignition off and check the actual unit. A lost connection or closing the application is not proof that the motor stopped. Host timeouts cannot guarantee shutdown if the driver blocks or the unit cannot be reached.");
+            AddParagraph("The test does not unlock security, alter coding or disable OEM overheat, relay-shutdown or speed-monitoring protections. The separately documented guided bleed procedure and generic valve tests are not provided here.");
         }
 
         private void ShowT6RmaHelp()
@@ -1012,24 +924,30 @@ namespace LotusECMLogger
 
             AddSubheading("ABS/ESP Issues:");
 
-            AddParagraph("Problem: 'No response from ABS module (timeout)'");
-            AddBulletPoint("Ensure the ignition is ON - with it off the ABS module is asleep and answers nothing");
-            AddBulletPoint("Stop any active logging session; ABS operations need the J2534 device to themselves");
-            AddBulletPoint("Stop the ABS telemetry monitor if it is running - it also holds the device");
-            AddBulletPoint("Run 'Test Connection' on the ABS tab. If the engine ECU answers but the ABS does not, the bus and adapter are fine and the problem is specific to the ABS module");
-            AddBulletPoint("Check whether 'ABS telemetry' shows as broadcasting in the Test Connection results. If it does, the module is powered and running, and the issue is with diagnostic addressing rather than a dead module");
-            AddBulletPoint("ABS support targets the Bosch ESP8 module fitted to the Evora. Other Lotus models use different ABS modules that will not answer these requests");
+            AddParagraph("Problem: No reply from the ABS module");
+            AddBulletPoint("Check ignition, the registered J2534 driver and the OBD-II connection");
+            AddBulletPoint("Stop engine logging, diagnostic capture and passive monitoring before another ABS operation; wait for the adapter to be released");
+            AddBulletPoint("Use Test Connection to inspect the two bounded requests on 0x6F4/0x6F5. It does not scan other addresses or test the engine ECU");
+            AddBulletPoint("Keep the raw reply or timeout details. A failed request does not by itself identify the cause or prove that the module is absent");
 
-            AddParagraph("Problem: An actuation routine is refused");
-            AddBulletPoint("Click 'Check Preconditions' - it reports each condition separately so you can see which one is not met");
-            AddBulletPoint("The most common causes are the brake pedal being pressed or the vehicle not being fully stationary");
-            AddBulletPoint("The engine must be OFF with the ignition ON; the module refuses to actuate with the engine running");
-            AddBulletPoint("If no telemetry is seen at all, the module is asleep - switch the ignition on");
+            AddParagraph("Problem: Live data is unverified or unavailable");
+            AddBulletPoint("Check the baseline's build and part replies. Scaled live data requires both to match the BB68638_V0201 reference; unknown identification preserves raw data without applying those scales");
+            AddBulletPoint("Check the raw 21 04 exchange and its failure or decode explanation. Malformed replies and unavailable wheel values are retained rather than replaced with zero");
+            AddBulletPoint("The diagnostic workflow does not try alternate RAM formats, a security unlock or a programming session");
 
-            AddParagraph("Problem: Live State rows show 'unavailable'");
-            AddBulletPoint("Check the SecurityAccess row near the top of the results - memory reads require the unlock to have succeeded");
-            AddBulletPoint("Individual locations may be refused by the module while others succeed; this is reported per row and a partial result is still usable");
-            AddBulletPoint("The reason for each refusal is shown in the Detail column - 'conditionsNotCorrect' points at vehicle state, 'securityAccessDenied' at the unlock");
+            AddParagraph("Problem: A capture stopped or the adapter remains busy");
+            AddBulletPoint("Read the reported communication or file error. Wait for Stop to finish before starting another device operation");
+            AddBulletPoint("Use Open Capture to inspect the saved raw exchanges. Capture failures remain part of the record; a new run requires a new file name");
+
+            AddParagraph("Problem: Saved data or an export differs from the current display");
+            AddBulletPoint("Read Baseline obtains fresh module data; Save Baseline JSON saves that read with its original timestamp and the supplied notes");
+            AddBulletPoint("Export CSV exports the document opened with Open Capture, including its saved baseline and notes. Reopen the intended capture before exporting");
+            AddBulletPoint("Use JSON baselines or JSONL diagnostic captures for offline review. Passive broadcast CSV files use a different format");
+
+            AddParagraph("Problem: Pump Test is unavailable or activation was refused");
+            AddBulletPoint("Stop other adapter operations and affirm the stationary vehicle, engine off and ignition on checkbox. Activation also requires matching BB68638 V0201 identity and a fresh, valid zero reading for every wheel");
+            AddBulletPoint("Read the result and raw journal for the failed check. Generic valve tests and the separate guided brake-bleeding procedure remain unavailable");
+            AddBulletPoint("If an attempted test reports unconfirmed OFF or stop acknowledgement, turn ignition off and check the actual unit. A completed diagnostic routine is not physical motor feedback");
 
             AddSubheading("Live Tuning Issues:");
 

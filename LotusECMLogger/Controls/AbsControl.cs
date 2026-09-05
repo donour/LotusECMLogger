@@ -3,83 +3,98 @@ using LotusECMLogger.Services;
 
 namespace LotusECMLogger.Controls
 {
-    /// <summary>
-    /// Diagnostics UI for the Bosch ESP8 ABS/ESP module, covering the operations in
-    /// <c>DIAGNOSTICS_PROGRAMMING_GUIDE.md</c>:
-    ///
-    /// <list type="bullet">
-    /// <item>Module &amp; Faults — identification/coding records, fault codes, and the addressing
-    /// discovery tools (probe / passive sniff).</item>
-    /// <item>Live State — the module's internal RAM state (mu, EDC accumulators, valve positions,
-    /// brake pressures) via ReadMemoryByAddress.</item>
-    /// <item>Telemetry — passive decoding of the 100 Hz wheel-speed / status broadcasts.</item>
-    /// <item>Pump &amp; Valves — hydraulic actuation routines for brake bleeding and testing.</item>
-    /// </list>
-    ///
-    /// Everything except the actuation tab is read-only. No service that alters persistent module
-    /// state (variant recoding, memory write, DTC clear) is offered.
-    /// </summary>
+    /// <summary>ABS diagnostics, capture, offline review and the bounded OEM pump motor test.</summary>
     public partial class AbsControl : UserControl
     {
-        /// <summary>
-        /// Null only under the Windows Forms designer, which builds the control through the
-        /// parameterless constructor. Use <see cref="Service"/> from anything a user can trigger.
-        /// </summary>
         private readonly IAbsService? absService;
-
+        private readonly CancellationTokenSource lifetimeCts = new();
+        private CancellationTokenSource? pumpCts;
         private bool isLoggerActive;
-        private CancellationTokenSource? routineCts;
+        private bool operationBusy;
+        private bool stoppingDiagnostics;
+        private bool stoppingTelemetry;
+        private volatile bool shuttingDown;
+        private volatile int monitorGeneration;
+        private AbsDiagnosticBaseline? latestBaseline;
+        private AbsDiagnosticCaptureDocument? reviewedCapture;
+        private string? reviewedCapturePath;
+        private string? diagnosticCapturePath;
+        private bool changingReview;
+        private bool reviewingBaseline;
 
-        /// <summary>
-        /// Design-time constructor: lays out the control and nothing else. It must not create or
-        /// touch an <see cref="IAbsService"/> — that would open a J2534 device inside Visual Studio.
-        /// </summary>
+        // The designer must never create a service or open a J2534 device.
         public AbsControl()
         {
             InitializeComponent();
-            PopulateRoutines();
-
+            actuationProgressLabel.Text = "Confirm the operator conditions before running the pump test.";
             GuiIcons.ApplyToButton(readInfoButton, GuiIcons.Dtc);
             GuiIcons.ApplyToButton(moduleInfoButton, GuiIcons.VehicleInfo);
             GuiIcons.ApplyToButton(testConnectionButton, GuiIcons.Connect);
             GuiIcons.ApplyToButton(sniffBusButton, GuiIcons.LiveData);
             GuiIcons.ApplyToButton(readLiveStateButton, GuiIcons.Read);
+            GuiIcons.ApplyToButton(startDiagnosticButton, GuiIcons.Play);
+            GuiIcons.ApplyToButton(stopDiagnosticButton, GuiIcons.Stop);
             GuiIcons.ApplyToButton(startTelemetryButton, GuiIcons.Play);
             GuiIcons.ApplyToButton(stopTelemetryButton, GuiIcons.Stop);
-            GuiIcons.ApplyToButton(checkPreconditionsButton, GuiIcons.Connect);
             GuiIcons.ApplyToButton(runRoutineButton, GuiIcons.Play);
             GuiIcons.ApplyToButton(stopRoutineButton, GuiIcons.Stop);
+            UpdateUIState();
         }
 
         public AbsControl(IAbsService absService) : this()
         {
             this.absService = absService ?? throw new ArgumentNullException(nameof(absService));
-            this.absService.TelemetryReceived += OnTelemetryReceived;
-            this.absService.TelemetryError += OnTelemetryError;
+            absService.TelemetryReceived += OnTelemetryReceived;
+            absService.TelemetryError += OnTelemetryError;
+            absService.DiagnosticSampleReceived += OnDiagnosticSampleReceived;
+            absService.DiagnosticMonitorError += OnDiagnosticMonitorError;
+            UpdateUIState();
         }
 
-        /// <summary>The ABS service backing every operation. Never reached at design time.</summary>
         private IAbsService Service => absService
-            ?? throw new InvalidOperationException("AbsControl was created without an IAbsService.");
+            ?? throw new InvalidOperationException("No ABS service is available.");
 
-        /// <summary>False at design time, where there is no service to monitor with.</summary>
+        /// <summary>Shared service used by the guarded ABS firmware dialog.</summary>
+        public IAbsService ServiceForOperations => Service;
         private bool IsMonitoringTelemetry => absService?.IsMonitoringTelemetry == true;
+        private bool IsMonitoringDiagnostics => absService?.IsMonitoringDiagnostics == true;
+        private bool IsClosing => shuttingDown || IsDisposed || Disposing;
+        private bool DeviceAvailable => !IsClosing && absService is not null && !operationBusy &&
+            !isLoggerActive && !IsMonitoringTelemetry && !IsMonitoringDiagnostics;
+        private bool FilesAvailable => !IsClosing && !operationBusy &&
+            !IsMonitoringTelemetry && !IsMonitoringDiagnostics;
 
         partial void DisposeManaged()
         {
-            routineCts?.Cancel();
-            if (absService is null)
-                return;
-
-            absService.TelemetryReceived -= OnTelemetryReceived;
-            absService.TelemetryError -= OnTelemetryError;
-            (absService as IDisposable)?.Dispose();
+            if (shuttingDown) return;
+            shuttingDown = true;
+            monitorGeneration++;
+            lifetimeCts.Cancel();
+            if (absService is not null)
+            {
+                absService.TelemetryReceived -= OnTelemetryReceived;
+                absService.TelemetryError -= OnTelemetryError;
+                absService.DiagnosticSampleReceived -= OnDiagnosticSampleReceived;
+                absService.DiagnosticMonitorError -= OnDiagnosticMonitorError;
+                // Driver shutdown can outlive its join timeout. Let the service retain its
+                // device lease until cleanup finishes without blocking form destruction.
+                var service = absService;
+                _ = Task.Run(() =>
+                {
+                    if (service is IDisposable disposable)
+                    {
+                        try { disposable.Dispose(); } catch { }
+                    }
+                    else
+                    {
+                        try { service.StopDiagnosticMonitor(); } catch { }
+                        try { service.StopTelemetryMonitor(); } catch { }
+                    }
+                });
+            }
+            lifetimeCts.Dispose();
         }
 
-        /// <summary>
-        /// True while the main logger is running. Every ABS operation opens its own J2534 session,
-        /// which cannot coexist with active logging, so the actions are disabled meanwhile.
-        /// </summary>
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public bool IsLoggerActive
         {
@@ -88,84 +103,90 @@ namespace LotusECMLogger.Controls
             {
                 isLoggerActive = value;
                 UpdateUIState();
+                if (value && !operationBusy && !IsMonitoringDiagnostics && !IsMonitoringTelemetry)
+                    statusLabel.Text = "Stop the main logger before starting ABS diagnostics.";
             }
         }
 
-        /// <summary>Selectable actuation routines, plus the guide's full 3-phase bleeding sequence.</summary>
-        private sealed record RoutineChoice(byte? Type, string Label, int DefaultSeconds, string Description)
+        /// <summary>Keep ordinary form closure pending while a pump operation finishes its shutdown attempts.</summary>
+        public bool DeferCloseForPumpCleanup()
         {
-            /// <summary>The bleed sequence runs its own fixed phase durations, so it has no routine type.</summary>
-            public bool IsBleedSequence => Type is null;
-
-            public override string ToString() => Label;
-        }
-
-        private void PopulateRoutines()
-        {
-            routineComboBox.Items.Clear();
-            routineComboBox.Items.Add(new RoutineChoice(null, "Full bleed sequence (3 phases)",
-                AbsProtocol.BleedSequence.Sum(p => p.Seconds),
-                "Runs bleed circulation (30 s), pressure hold (10 s), then a quick valve cycle (5 s)."));
-
-            foreach (var routine in AbsProtocol.Routines)
-                routineComboBox.Items.Add(new RoutineChoice(routine.Type,
-                    $"{routine.Name} (0x{routine.Type:X2})", routine.DefaultSeconds, routine.Description));
-
-            routineComboBox.SelectedIndex = 0;
-        }
-
-        private RoutineChoice? SelectedRoutine => routineComboBox.SelectedItem as RoutineChoice;
-
-        private void routineComboBox_SelectedIndexChanged(object sender, EventArgs e)
-        {
-            if (SelectedRoutine is not RoutineChoice choice)
-                return;
-
-            // The bleed sequence's phase durations are fixed by the guide, so the duration box only
-            // applies to a single routine.
-            durationNumeric.Enabled = !choice.IsBleedSequence;
-            durationNumeric.Value = Math.Clamp(choice.DefaultSeconds,
-                (int)durationNumeric.Minimum, (int)durationNumeric.Maximum);
-            actuationProgressLabel.Text = choice.Description;
-        }
-
-        // ── Shared UI state ─────────────────────────────────────────────────────────────
-
-        /// <summary>
-        /// Every action opens its own J2534 session and none may overlap, so they are enabled and
-        /// disabled together. Telemetry monitoring holds the device, so it disables the rest too.
-        /// </summary>
-        private void SetActionsEnabled(bool enabled)
-        {
-            bool on = enabled && !isLoggerActive && !IsMonitoringTelemetry;
-
-            testConnectionButton.Enabled = on;
-            readInfoButton.Enabled = on;
-            moduleInfoButton.Enabled = on;
-            sniffBusButton.Enabled = on;
-            readLiveStateButton.Enabled = on;
-            checkPreconditionsButton.Enabled = on;
-            runRoutineButton.Enabled = on;
-            routineComboBox.Enabled = on;
-            durationNumeric.Enabled = on && SelectedRoutine?.IsBleedSequence == false;
-
-            // The telemetry monitor is the one action that stays available while it owns the device.
-            startTelemetryButton.Enabled = enabled && !isLoggerActive && !IsMonitoringTelemetry;
-            stopTelemetryButton.Enabled = IsMonitoringTelemetry;
-            logTelemetryCheckBox.Enabled = !IsMonitoringTelemetry;
+            if (pumpCts is not { } cancellation) return false;
+            cancellation.Cancel();
+            if (!IsClosing)
+            {
+                absTabs.SelectedTab = actuationTab;
+                const string message = "Close paused while OFF, stop and default-session attempts finish. Review the result, then close again.";
+                actuationProgressLabel.Text = message;
+                statusLabel.Text = message;
+            }
+            return true;
         }
 
         private void UpdateUIState()
         {
-            SetActionsEnabled(true);
-            if (isLoggerActive)
-                statusLabel.Text = "Stop logging to use the ABS module.";
+            if (IsClosing) return;
+            bool available = DeviceAvailable;
+            testConnectionButton.Enabled = available;
+            readInfoButton.Enabled = available;
+            moduleInfoButton.Enabled = available;
+            sniffBusButton.Enabled = available;
+            readLiveStateButton.Enabled = available;
+            startTelemetryButton.Enabled = available;
+            startDiagnosticButton.Enabled = available;
+            stopTelemetryButton.Enabled = !operationBusy && IsMonitoringTelemetry && !stoppingTelemetry;
+            stopDiagnosticButton.Enabled = !operationBusy && IsMonitoringDiagnostics && !stoppingDiagnostics;
+            logTelemetryCheckBox.Enabled = available;
+            diagnosticIntervalNumeric.Enabled = available;
+            captureNotesTextBox.ReadOnly = operationBusy || IsMonitoringDiagnostics;
+            saveBaselineButton.Enabled = FilesAvailable && latestBaseline is not null;
+            openCaptureButton.Enabled = FilesAvailable;
+            exportCaptureButton.Enabled = FilesAvailable && reviewedCapture is not null;
+            reviewBaselineButton.Enabled = FilesAvailable && reviewedCapture?.Baseline is not null;
+            reviewSampleNumeric.Enabled = FilesAvailable && reviewedCapture?.Samples.Count > 0;
+
+            pumpOperatorCheckBox.Enabled = available;
+            runRoutineButton.Enabled = available && pumpOperatorCheckBox.Checked;
+            // Cancellation does not end device ownership. Keep Stop available until the runner returns.
+            stopRoutineButton.Enabled = pumpCts is not null;
+            durationNumeric.Enabled = available;
         }
 
-        // The results grids can't be copied out of the window, so mirror every run to a text file
-        // (overwritten each time) for out-of-band review. Best-effort — never fails the operation.
+        private bool BeginOperation(bool deviceOperation, string status)
+        {
+            if (deviceOperation ? !DeviceAvailable : !FilesAvailable) return false;
+            operationBusy = true;
+            UpdateUIState();
+            statusLabel.Text = status;
+            return true;
+        }
+
+        private void EndOperation()
+        {
+            operationBusy = false;
+            UpdateUIState();
+        }
+
+        private void PostToUi(Action action)
+        {
+            if (IsClosing || !IsHandleCreated) return;
+            try
+            {
+                if (InvokeRequired)
+                    BeginInvoke((Action)(() => { if (!IsClosing) action(); }));
+                else action();
+            }
+            catch (InvalidOperationException) { } // Handle destruction races with queued updates.
+        }
+
+        private IProgress<string> StatusProgress() => new Progress<string>(text =>
+        {
+            if (!IsClosing && operationBusy) statusLabel.Text = text;
+        });
+
         private static readonly string DiagnosticsLogPath =
             Path.Combine(LoggerPaths.OutputDirectory, "abs-diagnostics.txt");
+        private const string SavedToLog = "saved to Documents\\LotusECMLogger\\abs-diagnostics.txt";
 
         private static void WriteDiagnosticsLog(string title, IEnumerable<AbsReportRow> rows)
         {
@@ -173,411 +194,575 @@ namespace LotusECMLogger.Controls
             {
                 LoggerPaths.EnsureParentDirectory(DiagnosticsLogPath);
                 var lines = new List<string> { $"# {title} — {DateTime.Now:yyyy-MM-dd HH:mm:ss}" };
-                foreach (var row in rows)
-                    lines.Add($"{row.Field}\t{row.Value}\t{row.Detail}");
-                File.WriteAllText(DiagnosticsLogPath, string.Join(Environment.NewLine, lines) + Environment.NewLine);
+                lines.AddRange(rows.Select(row => $"{row.Field}\t{row.Value}\t{row.Detail}"));
+                File.WriteAllLines(DiagnosticsLogPath, lines);
             }
-            catch
-            {
-                // Diagnostics logging is best-effort; ignore file/IO errors.
-            }
+            catch { } // Auxiliary text output must not hide a diagnostic result.
         }
 
         private static void Populate(ListView list, IEnumerable<AbsReportRow> rows)
         {
             list.BeginUpdate();
-            list.Items.Clear();
-            foreach (var row in rows)
+            try
             {
-                var item = new ListViewItem(row.Field);
-                item.SubItems.Add(row.Value);
-                item.SubItems.Add(row.Detail);
-                list.Items.Add(item);
+                list.Items.Clear();
+                foreach (var row in rows)
+                {
+                    var item = new ListViewItem(row.Field);
+                    item.SubItems.Add(row.Value);
+                    item.SubItems.Add(row.Detail);
+                    list.Items.Add(item);
+                }
             }
-            list.EndUpdate();
+            finally { list.EndUpdate(); }
         }
 
-        /// <summary>
-        /// Runs an ABS operation on a worker thread with the action buttons disabled, shows its rows,
-        /// and mirrors them to the diagnostics log. Returns false when the operation reported failure.
-        /// </summary>
-        private async Task<bool> RunOperation(
-            Button button, string busyText, string busyStatus, string title, ListView target,
+        private async Task<bool> RunOperation(Button button, string busyText, string busyStatus,
+            string title, ListView target,
             Func<(bool success, string errorMessage, IReadOnlyList<AbsReportRow> rows)> operation,
             string successStatus)
         {
-            if (isLoggerActive)
-                return false;
-
+            if (!BeginOperation(true, busyStatus)) return false;
             string originalText = button.Text;
-            SetActionsEnabled(false);
             button.Text = busyText;
-            statusLabel.Text = busyStatus;
             target.Items.Clear();
-
             try
             {
-                var (success, errorMessage, rows) = await Task.Run(operation);
-
-                if (!success && rows.Count == 0)
-                {
-                    statusLabel.Text = $"{title} failed — saved to abs-diagnostics.txt";
-                    WriteDiagnosticsLog($"{title} FAILED", [new AbsReportRow("Error", errorMessage)]);
-                    MessageBox.Show($"{title} failed:\n\n{errorMessage}", "ABS",
-                        MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    return false;
-                }
-
+                var (success, error, rows) = await Task.Run(operation, lifetimeCts.Token);
+                if (IsClosing) return false;
                 Populate(target, rows);
-                WriteDiagnosticsLog(success ? title : $"{title} FAILED", rows);
-
-                // A failure that still produced rows (e.g. refused preconditions) shows them and
-                // explains itself in the status line rather than hiding the detail behind a dialog.
-                statusLabel.Text = success
-                    ? successStatus
-                    : $"{title}: {errorMessage}";
+                WriteDiagnosticsLog(success ? title : $"{title} FAILED",
+                    rows.Count == 0 && !success ? [new AbsReportRow("Error", error)] : rows);
+                statusLabel.Text = success ? successStatus : $"{title}: {error}";
+                if (!success && rows.Count == 0) ShowError(title, error);
                 return success;
+            }
+            catch (OperationCanceledException) when (IsClosing) { return false; }
+            catch (Exception ex)
+            {
+                if (!IsClosing) ShowError(title, ex.Message);
+                return false;
             }
             finally
             {
-                button.Text = originalText;
-                SetActionsEnabled(true);
+                if (!IsClosing) button.Text = originalText;
+                EndOperation();
             }
         }
 
-        private const string SavedToLog = "saved to Documents\\LotusECMLogger\\abs-diagnostics.txt";
-
-        // ── Module & faults ─────────────────────────────────────────────────────────────
+        private void ShowError(string title, string message)
+        {
+            statusLabel.Text = $"{title}: {message}";
+            MessageBox.Show(this, message, title, MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
 
         private async void testConnectionButton_Click(object sender, EventArgs e) =>
             await RunOperation(testConnectionButton, "Testing...", "Probing ABS addressing...",
-                "ABS connection test", infoListView,
-                () =>
+                "ABS connection test", infoListView, () =>
                 {
-                    var (success, error, result) = Service.ProbeConnection();
-                    return (success, error, result.Rows);
-                },
-                $"Probe complete — {SavedToLog}");
+                    var (ok, error, result) = Service.ProbeConnection();
+                    return (ok, error, result.Rows);
+                }, $"Probe complete — {SavedToLog}");
 
         private async void readInfoButton_Click(object sender, EventArgs e) =>
             await RunOperation(readInfoButton, "Reading...", "Reading ABS trouble codes...",
-                "ABS DTC read", infoListView,
-                () =>
+                "ABS DTC read", infoListView, () =>
                 {
-                    var (success, error, result) = Service.ReadDtcs();
-                    return (success, error, result.Rows);
-                },
-                $"ABS trouble codes read — {SavedToLog}");
+                    var (ok, error, result) = Service.ReadDtcs();
+                    return (ok, error, result.Rows);
+                }, $"ABS trouble codes read — {SavedToLog}");
 
         private async void moduleInfoButton_Click(object sender, EventArgs e)
         {
-            var progress = new Progress<string>(s => statusLabel.Text = s);
-            await RunOperation(moduleInfoButton, "Reading...", "Reading ABS module info...",
-                "ABS module info read", infoListView,
-                () =>
+            AbsDiagnosticBaseline? baseline = null;
+            var progress = StatusProgress();
+            await RunOperation(moduleInfoButton, "Reading...", "Reading ABS baseline...",
+                "ABS baseline", infoListView, () =>
                 {
-                    var (success, error, result) = Service.ReadModuleInfo(progress);
-                    return (success, error, result.Fields);
-                },
-                $"ABS module info read — {SavedToLog}");
+                    var (ok, error, result) = Service.ReadBaseline(progress);
+                    baseline = result;
+                    return (ok, error, result.Rows);
+                }, "ABS baseline read. Save Baseline preserves the raw exchanges and notes.");
+            if (!IsClosing && baseline is not null)
+            {
+                latestBaseline = baseline; // Partial reads retain their raw exchanges and errors too.
+                UpdateUIState();
+            }
         }
-
-        // ── Live state (§5) ─────────────────────────────────────────────────────────────
 
         private async void readLiveStateButton_Click(object sender, EventArgs e)
         {
-            var progress = new Progress<string>(s => statusLabel.Text = s);
-            await RunOperation(readLiveStateButton, "Reading...", "Reading ABS live state...",
-                "ABS live state read", liveStateListView,
-                () =>
+            if (!DeviceAvailable) return;
+            ClearOfflineReview();
+            captureStatusLabel.Text = "Reading one diagnostic live-data sample...";
+            var progress = StatusProgress();
+            await RunOperation(readLiveStateButton, "Reading...", "Reading diagnostic live data (61 04)...",
+                "ABS diagnostic live data", liveStateListView, () =>
                 {
-                    var (success, error, result) = Service.ReadLiveState(progress);
-                    return (success, error, result.Rows);
-                },
-                $"ABS live state read — {SavedToLog}");
+                    var (ok, error, result) = Service.ReadLiveState(progress);
+                    return (ok, error, result.Rows);
+                }, $"Diagnostic live data read — {SavedToLog}");
+            if (!IsClosing) captureStatusLabel.Text = "Diagnostic live-data read finished. Start Capture to save a sequence.";
         }
 
-        // ── Passive telemetry (§4) ──────────────────────────────────────────────────────
-
-        private void startTelemetryButton_Click(object sender, EventArgs e)
+        private void ClearOfflineReview()
         {
-            if (isLoggerActive || IsMonitoringTelemetry)
-                return;
+            reviewedCapture = null;
+            reviewedCapturePath = null;
+            reviewingBaseline = false;
+            reviewBaselineButton.Text = "View Baseline";
+            reviewCountLabel.Text = "No saved capture open";
+            changingReview = true;
+            try { reviewSampleNumeric.Value = 1; reviewSampleNumeric.Maximum = 1; }
+            finally { changingReview = false; }
+            UpdateUIState();
+        }
 
-            string? csvPath = null;
-            if (logTelemetryCheckBox.Checked)
-                csvPath = LoggerPaths.UniquePath(LoggerPaths.TimestampedCsvPath("ABS_Telemetry"));
+        private static void RequireNewFile(string path)
+        {
+            if (File.Exists(path))
+                throw new IOException("Choose a new file name. Existing captures, baselines and exports are preserved.");
+        }
 
+        private static SaveFileDialog SaveDialog(string title, string prefix, string extension, string filter)
+        {
+            string path = LoggerPaths.UniquePath(LoggerPaths.TimestampedPath(prefix, extension));
+            LoggerPaths.EnsureParentDirectory(path);
+            return new SaveFileDialog
+            {
+                Title = title, InitialDirectory = LoggerPaths.OutputDirectory,
+                FileName = Path.GetFileName(path), DefaultExt = extension,
+                Filter = filter, AddExtension = true, OverwritePrompt = false,
+            };
+        }
+
+        private async void saveBaselineButton_Click(object sender, EventArgs e)
+        {
+            if (!FilesAvailable || latestBaseline is not { } baseline) return;
             try
             {
-                Service.StartTelemetryMonitor(csvPath);
-                telemetryListView.Items.Clear();
-                statusLabel.Text = csvPath is null
-                    ? "Monitoring ABS broadcasts (0x0A2 / 0x0A4 / 0x0A8)…"
-                    : $"Monitoring ABS broadcasts — logging to {csvPath}";
+                using var dialog = SaveDialog("Save ABS baseline", "ABS_Baseline", "json", "ABS baseline (*.json)|*.json");
+                if (dialog.ShowDialog(this) != DialogResult.OK) return;
+                RequireNewFile(dialog.FileName);
+                if (!BeginOperation(false, "Saving ABS baseline...")) return;
+                string notes = captureNotesTextBox.Text;
+                try
+                {
+                    await Task.Run(() => AbsDiagnosticCaptureFile.SaveBaseline(dialog.FileName, baseline, notes), lifetimeCts.Token);
+                    if (!IsClosing) statusLabel.Text = $"Baseline saved: {dialog.FileName}";
+                }
+                finally { EndOperation(); }
+            }
+            catch (OperationCanceledException) when (IsClosing) { }
+            catch (Exception ex) { if (!IsClosing) ShowError("Save ABS baseline", ex.Message); }
+        }
+
+        private async void startDiagnosticButton_Click(object sender, EventArgs e)
+        {
+            if (!DeviceAvailable) return;
+            try
+            {
+                using var dialog = SaveDialog("Save a new ABS diagnostic capture", "ABS_Diagnostics", "jsonl",
+                    "ABS diagnostic capture (*.jsonl)|*.jsonl");
+                if (dialog.ShowDialog(this) != DialogResult.OK) return;
+                RequireNewFile(dialog.FileName);
+                if (!BeginOperation(true, "Starting diagnostic capture...")) return;
+                ClearOfflineReview();
+                int interval = (int)diagnosticIntervalNumeric.Value;
+                string notes = captureNotesTextBox.Text;
+                diagnosticCapturePath = dialog.FileName;
+                stoppingDiagnostics = false;
+                monitorGeneration++;
+                liveStateListView.Items.Clear();
+                try
+                {
+                    await Task.Run(() => Service.StartDiagnosticMonitor(dialog.FileName, interval, notes), lifetimeCts.Token);
+                    if (!IsClosing && IsMonitoringDiagnostics)
+                    {
+                        captureStatusLabel.Text = $"Capturing every {interval} ms: {diagnosticCapturePath}";
+                        statusLabel.Text = "Diagnostic capture started. Raw exchanges are saved as they arrive.";
+                    }
+                }
+                finally { EndOperation(); }
+            }
+            catch (OperationCanceledException) when (IsClosing) { }
+            catch (Exception ex) { if (!IsClosing) ShowError("Start ABS capture", ex.Message); }
+        }
+
+        private async void stopDiagnosticButton_Click(object sender, EventArgs e)
+        {
+            if (operationBusy || stoppingDiagnostics || !IsMonitoringDiagnostics || IsClosing) return;
+            operationBusy = true;
+            stoppingDiagnostics = true;
+            monitorGeneration++;
+            UpdateUIState();
+            statusLabel.Text = "Stopping diagnostic capture...";
+            try
+            {
+                await Task.Run(Service.StopDiagnosticMonitor);
+                if (!IsClosing)
+                {
+                    stoppingDiagnostics = IsMonitoringDiagnostics;
+                    captureStatusLabel.Text = stoppingDiagnostics
+                        ? $"Stopping capture; waiting for the driver: {diagnosticCapturePath}"
+                        : $"Capture stopped: {diagnosticCapturePath}";
+                    statusLabel.Text = stoppingDiagnostics
+                        ? "Stopping diagnostic capture; waiting for the driver to release the device."
+                        : "Capture stopped. Open Capture to review or export the saved data.";
+                }
             }
             catch (Exception ex)
             {
-                statusLabel.Text = "Could not start telemetry monitor";
-                MessageBox.Show($"Could not start the ABS telemetry monitor:\n\n{ex.Message}",
-                    "ABS Telemetry", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                stoppingDiagnostics = false;
+                if (!IsClosing) ShowError("Stop ABS capture", ex.Message);
             }
-
-            SetActionsEnabled(true);
+            finally { EndOperation(); }
         }
 
-        private void stopTelemetryButton_Click(object sender, EventArgs e)
+        private void OnDiagnosticSampleReceived(object? sender, AbsDiagnosticSample sample)
         {
-            Service.StopTelemetryMonitor();
-            statusLabel.Text = "Telemetry monitor stopped.";
-            SetActionsEnabled(true);
+            int generation = monitorGeneration;
+            PostToUi(() =>
+            {
+                if (generation != monitorGeneration || !IsMonitoringDiagnostics || stoppingDiagnostics) return;
+                Populate(liveStateListView, sample.Rows);
+                captureStatusLabel.Text = $"Latest sample {sample.TimestampUtc:HH:mm:ss.fff} UTC, {sample.ElapsedMilliseconds:F0} ms elapsed — {diagnosticCapturePath}";
+            });
+        }
+
+        private void OnDiagnosticMonitorError(object? sender, string message)
+        {
+            int generation = monitorGeneration;
+            PostToUi(() =>
+            {
+                if (generation != monitorGeneration) return;
+                stoppingDiagnostics = false;
+                UpdateUIState();
+                if (string.IsNullOrEmpty(message))
+                {
+                    captureStatusLabel.Text = $"Capture stopped: {diagnosticCapturePath}";
+                    statusLabel.Text = "Capture stopped. Open Capture to review or export the saved data.";
+                }
+                else
+                {
+                    captureStatusLabel.Text = $"Capture stopped after an error: {diagnosticCapturePath}";
+                    ShowError("ABS diagnostic capture", message);
+                }
+            });
+        }
+
+        private async void openCaptureButton_Click(object sender, EventArgs e)
+        {
+            if (!FilesAvailable) return;
+            using var dialog = new OpenFileDialog
+            {
+                Title = "Review a saved ABS capture or baseline", InitialDirectory = LoggerPaths.OutputDirectory,
+                Filter = "ABS captures and baselines (*.jsonl;*.json)|*.jsonl;*.json|All files (*.*)|*.*",
+                CheckFileExists = true,
+            };
+            if (dialog.ShowDialog(this) != DialogResult.OK || !BeginOperation(false, "Loading saved ABS capture...")) return;
+            try
+            {
+                var document = await Task.Run(() => AbsDiagnosticCaptureFile.Load(dialog.FileName), lifetimeCts.Token);
+                if (IsClosing) return;
+                reviewedCapture = document;
+                reviewedCapturePath = dialog.FileName;
+                captureNotesTextBox.Text = document.Notes;
+                changingReview = true;
+                try
+                {
+                    reviewSampleNumeric.Maximum = Math.Max(1, document.Samples.Count);
+                    reviewSampleNumeric.Value = Math.Max(1, document.Samples.Count);
+                }
+                finally { changingReview = false; }
+                reviewCountLabel.Text = $"of {document.Samples.Count:N0} samples";
+                if (document.Samples.Count > 0) ShowReviewedSample();
+                else ShowReviewedBaseline();
+                statusLabel.Text = $"Opened saved data: {reviewedCapturePath}";
+            }
+            catch (OperationCanceledException) when (IsClosing) { }
+            catch (Exception ex) { if (!IsClosing) ShowError("Open ABS capture", ex.Message); }
+            finally { EndOperation(); }
+        }
+
+        private void reviewSampleNumeric_ValueChanged(object sender, EventArgs e)
+        {
+            if (!changingReview && FilesAvailable) ShowReviewedSample();
+        }
+
+        private void ShowReviewedSample()
+        {
+            if (reviewedCapture is null || reviewedCapture.Samples.Count == 0) return;
+            int index = (int)reviewSampleNumeric.Value - 1;
+            var sample = reviewedCapture.Samples[index];
+            reviewingBaseline = false;
+            reviewBaselineButton.Text = "View Baseline";
+            Populate(liveStateListView, sample.Rows);
+            captureStatusLabel.Text = $"Saved sample {index + 1:N0}: {sample.TimestampUtc:yyyy-MM-dd HH:mm:ss.fff} UTC, {sample.ElapsedMilliseconds:F0} ms — {reviewedCapturePath}";
+        }
+
+        private void reviewBaselineButton_Click(object sender, EventArgs e)
+        {
+            if (!FilesAvailable) return;
+            if (reviewingBaseline && reviewedCapture?.Samples.Count > 0) ShowReviewedSample();
+            else ShowReviewedBaseline();
+        }
+
+        private void ShowReviewedBaseline()
+        {
+            reviewingBaseline = true;
+            reviewBaselineButton.Text = reviewedCapture?.Samples.Count > 0 ? "View Sample" : "View Baseline";
+            Populate(liveStateListView, reviewedCapture?.Baseline?.Rows ??
+                [new AbsReportRow("Saved capture", "No baseline or samples")]);
+            captureStatusLabel.Text = $"Saved baseline: {reviewedCapturePath}";
+        }
+
+        private async void exportCaptureButton_Click(object sender, EventArgs e)
+        {
+            if (!FilesAvailable || reviewedCapture is not { } document) return;
+            try
+            {
+                using var dialog = SaveDialog("Export reviewed ABS capture", "ABS_Diagnostic_Export", "csv", "CSV files (*.csv)|*.csv");
+                if (dialog.ShowDialog(this) != DialogResult.OK) return;
+                RequireNewFile(dialog.FileName);
+                if (!BeginOperation(false, "Exporting saved ABS capture...")) return;
+                var exportDocument = document with { Notes = captureNotesTextBox.Text };
+                try
+                {
+                    await Task.Run(() => AbsDiagnosticCaptureFile.ExportCsv(dialog.FileName, exportDocument), lifetimeCts.Token);
+                    if (!IsClosing) statusLabel.Text = $"CSV exported: {dialog.FileName}";
+                }
+                finally { EndOperation(); }
+            }
+            catch (OperationCanceledException) when (IsClosing) { }
+            catch (Exception ex) { if (!IsClosing) ShowError("Export ABS capture", ex.Message); }
+        }
+
+        private async void startTelemetryButton_Click(object sender, EventArgs e)
+        {
+            if (!BeginOperation(true, "Starting passive broadcast monitor...")) return;
+            string? csvPath = logTelemetryCheckBox.Checked
+                ? LoggerPaths.UniquePath(LoggerPaths.TimestampedCsvPath("ABS_Telemetry")) : null;
+            stoppingTelemetry = false;
+            monitorGeneration++;
+            try
+            {
+                await Task.Run(() => Service.StartTelemetryMonitor(csvPath), lifetimeCts.Token);
+                if (!IsClosing && IsMonitoringTelemetry)
+                {
+                    telemetryListView.Items.Clear();
+                    statusLabel.Text = csvPath is null ? "Monitoring passive broadcasts; decoding is provisional."
+                        : $"Provisional broadcast monitor — saving to {csvPath}";
+                }
+            }
+            catch (OperationCanceledException) when (IsClosing) { }
+            catch (Exception ex) { if (!IsClosing) ShowError("ABS broadcast monitor", ex.Message); }
+            finally { EndOperation(); }
+        }
+
+        private async void stopTelemetryButton_Click(object sender, EventArgs e)
+        {
+            if (operationBusy || stoppingTelemetry || !IsMonitoringTelemetry || IsClosing) return;
+            operationBusy = true;
+            stoppingTelemetry = true;
+            monitorGeneration++;
+            UpdateUIState();
+            statusLabel.Text = "Stopping passive broadcast monitor...";
+            try
+            {
+                await Task.Run(Service.StopTelemetryMonitor);
+                if (!IsClosing)
+                {
+                    stoppingTelemetry = IsMonitoringTelemetry;
+                    statusLabel.Text = stoppingTelemetry
+                        ? "Stopping passive broadcast monitor; waiting for the driver to release the device."
+                        : "Passive broadcast monitor stopped.";
+                }
+            }
+            catch (Exception ex)
+            {
+                stoppingTelemetry = false;
+                if (!IsClosing) ShowError("Stop ABS broadcast monitor", ex.Message);
+            }
+            finally { EndOperation(); }
         }
 
         private void OnTelemetryReceived(object? sender, AbsTelemetrySample sample)
         {
-            if (IsDisposed || Disposing)
-                return;
-
-            if (InvokeRequired)
+            int generation = monitorGeneration;
+            PostToUi(() =>
             {
-                // The monitor fires at ~10 Hz; a dropped update during shutdown is harmless.
-                try { BeginInvoke(() => OnTelemetryReceived(sender, sample)); } catch (ObjectDisposedException) { }
-                return;
-            }
-
-            Populate(telemetryListView, DescribeTelemetry(sample));
+                if (generation == monitorGeneration && IsMonitoringTelemetry && !stoppingTelemetry)
+                    Populate(telemetryListView, DescribeTelemetry(sample));
+            });
         }
 
         private void OnTelemetryError(object? sender, string message)
         {
-            if (IsDisposed || Disposing)
-                return;
-
-            if (InvokeRequired)
+            int generation = monitorGeneration;
+            PostToUi(() =>
             {
-                try { BeginInvoke(() => OnTelemetryError(sender, message)); } catch (ObjectDisposedException) { }
-                return;
-            }
-
-            Service.StopTelemetryMonitor();
-            SetActionsEnabled(true);
-            statusLabel.Text = "Telemetry monitor stopped after an error.";
-            MessageBox.Show($"ABS telemetry monitoring failed:\n\n{message}",
-                "ABS Telemetry", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                if (generation != monitorGeneration) return;
+                stoppingTelemetry = false;
+                UpdateUIState();
+                if (string.IsNullOrEmpty(message))
+                    statusLabel.Text = "Passive broadcast monitor stopped.";
+                else
+                    ShowError("ABS broadcast monitor", message);
+            });
         }
 
-        /// <summary>
-        /// Renders a telemetry sample as report rows. Raw 14-bit counts are shown alongside km/h,
-        /// because the raw values are exact while km/h depends on an ECU-side wheel multiplier that
-        /// this module does not carry.
-        /// </summary>
-        private static IReadOnlyList<AbsReportRow> DescribeTelemetry(AbsTelemetrySample s)
-        {
-            var rows = new List<AbsReportRow>
-            {
-                Wheel("Left front", s.WheelLf),
-                Wheel("Right front", s.WheelRf),
-                Wheel("Left rear", s.WheelLr),
-                Wheel("Right rear", s.WheelRr),
-                Wheel("Vehicle speed", s.VehicleSpeedRaw),
-                new("Brake switch",
-                    s.BrakeSwitch is int b ? AbsTelemetrySample.BrakeSwitchName(b) : "—",
-                    s.BrakeSwitch is int raw ? $"raw {raw}" : "no 0x0A4 frame"),
-                Flag("ESP active", s.EspActive),
-                Flag("ABS active", s.AbsActive),
-                Flag("Torque reduction requested", s.TorqueRequest),
-                Flag("No intervention", s.NoIntervention),
-                Flag("ESP warning lamp", s.EspWarning),
-                new("Frame counters",
-                    $"0x0A2 {Counter(s.CounterA2)} / 0x0A4 {Counter(s.CounterA4)}",
-                    $"checksums: 0x0A2 {Checksum(s.ChecksumA2Ok)}, 0x0A4 {Checksum(s.ChecksumA4Ok)}"),
-                new("Last update", s.Timestamp.ToString("HH:mm:ss.fff")),
-            };
+        private static IReadOnlyList<AbsReportRow> DescribeTelemetry(AbsTelemetrySample s) =>
+        [
+            new("Broadcast decoding", "Provisional", "Layout and scale are unverified; use diagnostic Live Data for comparison."),
+            Wheel("Left front", s.WheelLf), Wheel("Right front", s.WheelRf),
+            Wheel("Left rear", s.WheelLr), Wheel("Right rear", s.WheelRr),
+            Wheel("Vehicle speed", s.VehicleSpeedRaw),
+            new("Brake switch", s.BrakeSwitch is int b ? AbsTelemetrySample.BrakeSwitchName(b) : "—",
+                s.BrakeSwitch is int raw ? $"raw {raw}; provisional" : "no 0x0A4 frame"),
+            Flag("ESP active", s.EspActive), Flag("ABS active", s.AbsActive),
+            Flag("Torque reduction requested", s.TorqueRequest), Flag("No intervention", s.NoIntervention),
+            Flag("ESP warning lamp", s.EspWarning),
+            new("Frame counters", $"0x0A2 {s.CounterA2} / 0x0A4 {s.CounterA4}",
+                $"provisional checksum checks: 0x0A2 {s.ChecksumA2Ok}, 0x0A4 {s.ChecksumA4Ok}"),
+            new("Raw 0x0A2", s.RawA2 ?? "—"),
+            new("Raw 0x0A4", s.RawA4 ?? "—"),
+            new("Raw 0x0A8", s.RawA8 ?? "—"),
+            new("Last update", s.Timestamp.ToString("HH:mm:ss.fff")),
+        ];
 
-            return rows;
+        private static AbsReportRow Wheel(string name, int? raw) => new(name,
+            raw is int r ? $"raw {r}" : "—",
+            raw is not null ? "Provisional broadcast layout; physical units unverified"
+                : "no frame / decoder reports invalid");
+        private static AbsReportRow Flag(string name, bool? value) => new(name,
+            value is null ? "—" : value.Value ? "YES" : "no", "provisional broadcast interpretation");
 
-            static AbsReportRow Wheel(string name, int? raw) => new(name,
-                raw is int v ? $"{AbsTelemetrySample.ToKph(v):F1} km/h" : "—",
-                raw is int r ? $"raw {r}" : "no frame / sensor invalid");
-
-            static AbsReportRow Flag(string name, bool? value) => new(name,
-                value is null ? "—" : value.Value ? "YES" : "no",
-                value is null ? "no 0x0A8 frame" : "");
-
-            static string Counter(int? value) => value?.ToString() ?? "—";
-
-            static string Checksum(bool? ok) => ok is null ? "—" : ok.Value ? "OK" : "MISMATCH";
-        }
-
-        // ── Actuation (§9) ──────────────────────────────────────────────────────────────
-
-        private async void checkPreconditionsButton_Click(object sender, EventArgs e) =>
-            await RunOperation(checkPreconditionsButton, "Checking...", "Checking actuation preconditions...",
-                "ABS precondition check", actuationListView,
-                () =>
-                {
-                    var (success, error, result) = Service.CheckActuationPreconditions();
-                    return (success, error, result.Rows);
-                },
-                "Precondition check complete — review the rows before running a routine.");
+        private void pumpOperatorCheckBox_CheckedChanged(object sender, EventArgs e) => UpdateUIState();
 
         private async void runRoutineButton_Click(object sender, EventArgs e)
         {
-            if (isLoggerActive || SelectedRoutine is not RoutineChoice choice)
-                return;
-
-            int seconds = choice.IsBleedSequence ? choice.DefaultSeconds : (int)durationNumeric.Value;
-
-            var confirm = MessageBox.Show(
-                $"{choice.Label}\n\n{choice.Description}\n\n" +
-                "This runs the ABS pump motor and solenoid valves, and moves brake fluid.\n\n" +
-                "Confirm ALL of the following:\n" +
-                "  • The vehicle is stationary and safely supported/chocked\n" +
-                "  • Ignition is ON and the engine is OFF\n" +
-                "  • The brake pedal is released\n" +
-                "  • The reservoir is full and, when bleeding, a pressure bleeder is attached\n\n" +
-                $"Estimated run time: {seconds} s. Continue?",
-                "Run ABS Actuation Routine", MessageBoxButtons.YesNo, MessageBoxIcon.Warning,
-                MessageBoxDefaultButton.Button2);
-
-            if (confirm != DialogResult.Yes)
-                return;
-
-            routineCts?.Dispose();
-            routineCts = new CancellationTokenSource();
-            CancellationToken token = routineCts.Token;
-
-            SetActionsEnabled(false);
-            stopRoutineButton.Enabled = true;
-            runRoutineButton.Text = "Running...";
-            actuationListView.Items.Clear();
-            statusLabel.Text = $"Running {choice.Label}…";
-
-            // Progress<T> marshals to the UI thread, so the live poll rows can be shown directly.
-            var progress = new Progress<AbsRoutineProgress>(p =>
-            {
-                actuationProgressLabel.Text =
-                    $"{p.Phase} — {p.ElapsedSeconds:F0}/{p.TotalSeconds:F0} s";
-                Populate(actuationListView, p.Rows);
-            });
-
+            bool operatorConfirmed = pumpOperatorCheckBox.Checked;
+            if (!DeviceAvailable || !operatorConfirmed) return;
+            string capturePath;
             try
             {
-                var (success, errorMessage, result) = await Task.Run(() => choice.IsBleedSequence
-                    ? Service.RunBleedSequence(progress, token)
-                    : Service.RunRoutine(choice.Type!.Value, seconds, progress, token));
+                capturePath = LoggerPaths.UniquePath(LoggerPaths.TimestampedPath("ABS_Pump", "jsonl"));
+                LoggerPaths.EnsureParentDirectory(capturePath);
+                RequireNewFile(capturePath);
+            }
+            catch (Exception ex)
+            {
+                ShowError("Pump test journal", ex.Message);
+                return;
+            }
 
-                Populate(actuationListView, result.Rows);
-                WriteDiagnosticsLog(success ? $"ABS actuation — {choice.Label}"
-                                            : $"ABS actuation FAILED — {choice.Label}", result.Rows);
-
-                if (success)
+            if (!BeginOperation(true, "Checking pump test prerequisites...")) return;
+            int seconds = (int)durationNumeric.Value;
+            using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(lifetimeCts.Token);
+            pumpCts = cancellation;
+            runRoutineButton.Text = "Running...";
+            actuationProgressLabel.Text = "Checking prerequisites before activation...";
+            Populate(actuationListView, [PumpCaptureRow(capturePath)]);
+            UpdateUIState();
+            var progress = new Progress<AbsRoutineProgress>(update =>
+            {
+                if (IsClosing || !ReferenceEquals(pumpCts, cancellation)) return;
+                string elapsed = update.TotalSeconds > 0 && update.ElapsedSeconds > 0
+                    ? $" ({update.ElapsedSeconds:F1} / {update.TotalSeconds:F1} s)" : "";
+                actuationProgressLabel.Text = update.Phase + elapsed;
+                if (update.Rows.Count > 0)
+                    Populate(actuationListView, update.Rows.Append(PumpCaptureRow(capturePath)));
+            });
+            try
+            {
+                // The service performs the identity/live-data gates and owns independent cleanup.
+                // Let it observe cancellation itself; cancelling Task.Run must not skip that cleanup.
+                var (success, error, result) = await Task.Run(() =>
+                    Service.RunPumpCycle(seconds, operatorConfirmed, capturePath, progress, cancellation.Token));
+                if (IsClosing) return;
+                Populate(actuationListView, result.Rows.Append(PumpCaptureRow(capturePath)));
+                ShowPumpResult(success, error, result, capturePath);
+            }
+            catch (Exception ex)
+            {
+                if (!IsClosing)
                 {
-                    actuationProgressLabel.Text = "Routine complete.";
-                    statusLabel.Text = $"{choice.Label} completed — {SavedToLog}";
-                }
-                else
-                {
-                    actuationProgressLabel.Text = "Routine did not complete.";
-                    statusLabel.Text = $"{choice.Label}: {errorMessage}";
-                    MessageBox.Show($"{choice.Label} did not complete:\n\n{errorMessage}\n\n" +
-                        "Any routine that was started has been stopped and the module returned to the " +
-                        "default session.",
-                        "ABS Actuation", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    const string outcome = "Pump result and shutdown are unconfirmed. Turn the ignition off and check the unit.";
+                    actuationProgressLabel.Text = outcome;
+                    Populate(actuationListView,
+                        [new AbsReportRow("Pump test error", ex.Message), PumpCaptureRow(capturePath)]);
+                    ShowError("Pump test", outcome + "\r\n\r\n" + ex.Message);
                 }
             }
             finally
             {
-                runRoutineButton.Text = "Run";
-                stopRoutineButton.Enabled = false;
-                SetActionsEnabled(true);
+                pumpCts = null;
+                if (!IsClosing)
+                {
+                    runRoutineButton.Text = "Run Pump Test";
+                    pumpOperatorCheckBox.Checked = false;
+                }
+                EndOperation();
             }
         }
+
+        private void ShowPumpResult(bool success, string error, AbsRoutineResult result, string capturePath)
+        {
+            bool commandsAcknowledged = result.OffCommandCompleted && result.StopConfirmed;
+            string outcome;
+            if (result.CleanupRequired && !commandsAcknowledged)
+                outcome = "Pump shutdown commands are unconfirmed. Turn the ignition off and check the unit.";
+            else if (!result.CleanupRequired)
+                outcome = result.Cancelled ? "Pump test cancelled before activation."
+                    : result.ActivationAttempted ? $"Pump ON was refused: {error}"
+                    : $"Pump test not started: {error}";
+            else
+            {
+                outcome = result.Cancelled ? "Pump test cancelled."
+                    : success && result.Completed ? "Pump test finished." : $"Pump test ended with an error: {error}";
+                outcome += " OFF command completed; stop request accepted. Physical motor state is not measured.";
+            }
+            if (result.ActivationAttempted && !result.SessionRestored)
+                outcome += " The default diagnostic session was not restored.";
+            actuationProgressLabel.Text = outcome;
+            statusLabel.Text = outcome;
+            if (result.CleanupRequired && !commandsAcknowledged)
+                MessageBox.Show(this, outcome + "\r\n\r\n" + error +
+                    $"\r\n\r\nRaw exchanges: {capturePath}", "Pump shutdown unconfirmed",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
+
+        private static AbsReportRow PumpCaptureRow(string path) => new("Pump test journal", path,
+            "Open this JSONL file in Live Data & Captures to review the raw exchanges.");
 
         private void stopRoutineButton_Click(object sender, EventArgs e)
         {
-            // Cancellation is cooperative: the service breaks out of its poll loop and always sends
-            // StopRoutine (0x32) plus a return to the default session before it returns.
-            routineCts?.Cancel();
-            stopRoutineButton.Enabled = false;
-            statusLabel.Text = "Stopping routine…";
-        }
-
-        // ── Bus sniff ───────────────────────────────────────────────────────────────────
-
-        // Seconds to passively capture after the idle baseline. Long enough for the user to trigger
-        // the reference tester's ABS read during the window.
-        private const int SniffCaptureSeconds = 40;
-
-        private static readonly string SniffLogPath =
-            Path.Combine(LoggerPaths.OutputDirectory, "abs-sniff.txt");
-
-        private static void WriteSniffLog(AbsSniffResult result)
-        {
-            try
-            {
-                LoggerPaths.EnsureParentDirectory(SniffLogPath);
-                var lines = new List<string>
-                {
-                    $"# ABS Bus Sniff — {DateTime.Now:yyyy-MM-dd HH:mm:ss}",
-                    $"# Baseline periodic ids: {result.BaselineIdCount}",
-                    $"# New ids seen during capture ({result.NewIds.Count}):",
-                };
-                lines.AddRange(result.NewIds);
-                lines.Add($"# Frames ({result.Frames.Count}) — elapsed, id, data:");
-                lines.AddRange(result.Frames);
-                File.WriteAllLines(SniffLogPath, lines);
-            }
-            catch
-            {
-                // Best-effort; ignore file/IO errors.
-            }
+            if (IsClosing || pumpCts is not { } cancellation) return;
+            cancellation.Cancel();
+            actuationProgressLabel.Text = "Stop requested; waiting for OFF, stop and session-restoration attempts...";
+            statusLabel.Text = actuationProgressLabel.Text;
         }
 
         private async void sniffBusButton_Click(object sender, EventArgs e)
         {
-            if (isLoggerActive)
-                return;
-
-            SetActionsEnabled(false);
-            sniffBusButton.Text = "Sniffing...";
-            infoListView.Items.Clear();
-
-            // Progress<T> marshals its callback to this (UI) thread, so status updates are safe.
-            var progress = new Progress<string>(s => statusLabel.Text = s);
-
-            try
-            {
-                var (success, errorMessage, result) = await Task.Run(
-                    () => Service.SniffBus(SniffCaptureSeconds, progress));
-
-                if (!success)
+            var progress = StatusProgress();
+            await RunOperation(sniffBusButton, "Sniffing...", "Listening for external tester traffic...",
+                "ABS bus sniff", infoListView, () =>
                 {
-                    statusLabel.Text = "Sniff failed";
-                    MessageBox.Show($"Bus sniff failed:\n\n{errorMessage}",
-                        "ABS Bus Sniff", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    return;
-                }
-
-                var rows = new List<AbsReportRow>
-                {
-                    new("Baseline", $"{result.BaselineIdCount} periodic ids"),
-                };
-                rows.AddRange(result.NewIds.Select(id => new AbsReportRow("New id", id)));
-                rows.Add(new AbsReportRow("Frames", $"{result.Frames.Count} captured", "see abs-sniff.txt"));
-                Populate(infoListView, rows);
-
-                WriteSniffLog(result);
-
-                statusLabel.Text = result.NewIds.Count == 0
-                    ? "No new ids — did the tester run during capture? (saved to abs-sniff.txt)"
-                    : $"{result.NewIds.Count} new id(s) — saved to Documents\\LotusECMLogger\\abs-sniff.txt";
-            }
-            finally
-            {
-                sniffBusButton.Text = "Sniff Bus";
-                SetActionsEnabled(true);
-            }
+                    var (ok, error, result) = Service.SniffBus(40, progress);
+                    var rows = new List<AbsReportRow> { new("Baseline", $"{result.BaselineIdCount} periodic ids") };
+                    rows.AddRange(result.NewIds.Select(id => new AbsReportRow("New id", id)));
+                    rows.Add(new("Frames", $"{result.Frames.Count} captured", "see abs-sniff.txt"));
+                    if (ok)
+                    {
+                        string path = Path.Combine(LoggerPaths.OutputDirectory, "abs-sniff.txt");
+                        LoggerPaths.EnsureParentDirectory(path);
+                        File.WriteAllLines(path, new[] { $"# ABS bus sniff — {DateTime.Now:O}" }
+                            .Concat(result.NewIds).Concat(result.Frames));
+                    }
+                    return (ok, error, rows);
+                }, "Bus sniff complete — saved to Documents\\LotusECMLogger\\abs-sniff.txt");
         }
     }
 }
