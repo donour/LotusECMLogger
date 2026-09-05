@@ -23,9 +23,12 @@
     <Compile Include="../LotusECMLogger/Services/AbsKwpResponse.cs" Link="Services/AbsKwpResponse.cs" />
     <Compile Include="../LotusECMLogger/Services/AbsPumpOperations.cs" Link="Services/AbsPumpOperations.cs" />
     <Compile Include="../LotusECMLogger/Services/J2534DeviceLease.cs" Link="Services/J2534DeviceLease.cs" />
+    <Compile Include="../LotusECMLogger/Services/AbsFirmwareImage.cs" Link="Services/AbsFirmwareImage.cs" />
+    <Compile Include="../LotusECMLogger/Services/AbsFirmwareFlasher.cs" Link="Services/AbsFirmwareFlasher.cs" />
     <Compile Include="../LotusECMLogger.Tests/AbsDiagnosticDecoderTests.cs" Link="AbsDiagnosticDecoderTests.cs" />
     <Compile Include="../LotusECMLogger.Tests/AbsDiagnosticCaptureTests.cs" Link="AbsDiagnosticCaptureTests.cs" />
     <Compile Include="../LotusECMLogger.Tests/AbsDiagnosticOperationsTests.cs" Link="AbsDiagnosticOperationsTests.cs" />
     <Compile Include="../LotusECMLogger.Tests/AbsPumpOperationsTests.cs" Link="AbsPumpOperationsTests.cs" />
+    <Compile Include="../LotusECMLogger.Tests/AbsFirmwareFlasherTests.cs" Link="AbsFirmwareFlasherTests.cs" />
   </ItemGroup>
 </Project>

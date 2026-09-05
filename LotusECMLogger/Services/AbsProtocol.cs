@@ -1,3 +1,5 @@
+using System.Numerics;
+
 namespace LotusECMLogger.Services
 {
     /// <summary>
@@ -90,6 +92,35 @@ namespace LotusECMLogger.Services
             if (seed.Length != 2)
                 throw new ArgumentException("Application security requires exactly two seed bytes.", nameof(seed));
             return [(byte)(seed[0] ^ 0x52), (byte)(seed[1] ^ 0x20)];
+        }
+
+        /// <summary>
+        /// Bootloader-only four-byte key transform recovered from the OEM ABS client. This must
+        /// never be substituted for <see cref="ComputeKey(byte[])"/>; the two exchanges use
+        /// different seed widths and security levels.
+        /// </summary>
+        public static byte[] ComputeBootloaderKey(byte[] seed)
+        {
+            ArgumentNullException.ThrowIfNull(seed);
+            if (seed.Length != 4)
+                throw new ArgumentException("ABS bootloader security requires exactly four seed bytes.", nameof(seed));
+            uint value = ((uint)seed[0] << 24) | ((uint)seed[1] << 16) | ((uint)seed[2] << 8) | seed[3];
+            if (value == 0) return [0, 0, 0, 0];
+            int rotate = (int)(((value & 0x20) >> 2) + ((value & 0x02) << 1)
+                + ((value & 0x1000) >> 11) + ((value & 0x40000000) >> 30));
+            uint rotated = (value & 0x00200000) != 0
+                ? BitOperations.RotateLeft(value, rotate)
+                : BitOperations.RotateRight(value, rotate);
+            int selector = (int)(((value & 0x4000) >> 13) + ((value & 0x04000000) >> 26));
+            uint key = selector switch
+            {
+                0 => rotated | value,
+                1 => rotated & value,
+                2 => rotated ^ value,
+                3 => rotated,
+                _ => throw new InvalidOperationException("Invalid bootloader key selector."),
+            };
+            return [(byte)(key >> 24), (byte)(key >> 16), (byte)(key >> 8), (byte)key];
         }
 
         // ── DTC formatting (guide §8) ────────────────────────────────────────────────

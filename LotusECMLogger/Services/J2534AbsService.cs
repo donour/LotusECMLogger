@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Text.Json;
 using LotusECMLogger.Services.Logging;
 using SAE.J2534;
 
@@ -560,6 +561,88 @@ namespace LotusECMLogger.Services
             {
                 return (false, ex.Message, AbsSniffResult.Empty);
             }
+        }
+
+        public (bool success, string errorMessage, AbsFlashResult result) FlashFirmware(
+            string firmwarePath, AbsFlashOptions options, IProgress<AbsFlashProgress>? progress,
+            CancellationToken cancellationToken)
+        {
+            AbsFirmwareImage? image = null;
+            try
+            {
+                image = AbsFirmwareImage.Load(firmwarePath);
+                if (string.IsNullOrWhiteSpace(options.DriverFileName))
+                    throw new InvalidOperationException("Select the J2534 driver explicitly before ABS programming.");
+                lock (_deviceLock)
+                {
+                    EnsureDeviceFree();
+                    using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetimeCts.Token);
+                    linked.Token.ThrowIfCancellationRequested();
+                    string auditPath = BeginFlashAudit(image, options);
+                    using var abs = AbsKwpSession.Open(options.DriverFileName);
+                    var flasher = new AbsFirmwareFlasher(
+                        (payload, token, timeout) => abs.RequestProgramming(payload, token, timeout),
+                        abs.MeasureBatteryVoltage, exchangeAudit: exchange => AppendFlashExchange(auditPath, exchange),
+                        enforceProductionGeometry: true);
+                    AbsFlashResult result = flasher.Flash(image, options, progress, linked.Token);
+                    result = result with { AuditLogPath = auditPath };
+                    try { WriteFlashAudit(auditPath, image, options, result); }
+                    catch (Exception auditError)
+                    {
+                        result = result with { Rows = result.Rows.Append(new AbsReportRow("Audit", $"Final audit append failed: {auditError.Message}; exchange audit remains available.")).ToArray() };
+                    }
+                    string error = result.Rows.FirstOrDefault(row => row.Field == "Error")?.Value ?? "";
+                    return (result.Completed, error, result);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                return (false, "Flashing cancelled before programming.", new AbsFlashResult { Cancelled = true, ImageSha256 = image?.Sha256 ?? "" });
+            }
+            catch (Exception error)
+            {
+                return (false, error.Message, new AbsFlashResult
+                {
+                    ImageSha256 = image?.Sha256 ?? "",
+                    Rows = [new AbsReportRow("Error", error.Message), new AbsReportRow("Integrity", AbsFirmwareFlasher.IntegrityWarning)],
+                });
+            }
+        }
+
+        private static string BeginFlashAudit(AbsFirmwareImage image, AbsFlashOptions options)
+        {
+            string path = Path.Combine(LoggerPaths.OutputDirectory, "abs-flash-audit.jsonl");
+            LoggerPaths.EnsureParentDirectory(path);
+            var header = new { TimestampUtc = DateTimeOffset.UtcNow, Event = "flash-started", image.SourcePath, image.Sha256, image.StartAddress, image.EndAddressExclusive, image.Manifest, options.DriverFileName, options.MinimumBatteryVoltage };
+            File.AppendAllText(path, JsonSerializer.Serialize(header) + Environment.NewLine);
+            return path;
+        }
+
+        private static void AppendFlashExchange(string path, AbsFlashExchange exchange)
+        {
+            File.AppendAllText(path, JsonSerializer.Serialize(new { TimestampUtc = DateTimeOffset.UtcNow, Event = "exchange", exchange }) + Environment.NewLine);
+        }
+
+        private static void WriteFlashAudit(string path, AbsFirmwareImage image, AbsFlashOptions options, AbsFlashResult result)
+        {
+            var record = new
+            {
+                TimestampUtc = DateTimeOffset.UtcNow,
+                image.SourcePath,
+                image.Sha256,
+                image.StartAddress,
+                image.EndAddressExclusive,
+                image.Manifest,
+                options.MinimumBatteryVoltage,
+                result.Completed,
+                result.Cancelled,
+                result.BlocksSent,
+                result.BytesSent,
+                result.BatteryVoltage,
+                result.IntegrityWarning,
+                Exchanges = result.Exchanges,
+            };
+            File.AppendAllText(path, JsonSerializer.Serialize(record) + Environment.NewLine);
         }
 
         // ═══════════════════════════════════════════════════════════════════════════════

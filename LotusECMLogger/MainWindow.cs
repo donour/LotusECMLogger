@@ -247,6 +247,18 @@ namespace LotusECMLogger
             helpDialog.ShowDialog(this);
         }
 
+        private void AbsFirmwareFlasherToolStripMenuItem_Click(object? sender, EventArgs e)
+        {
+            var absControl = absTab.Controls.OfType<AbsControl>().FirstOrDefault();
+            if (absControl is null)
+            {
+                MessageBox.Show(this, "The ABS service is not available.", "ABS Firmware Flasher", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+            using var dialog = new AbsFlashDialog(absControl.ServiceForOperations);
+            dialog.ShowDialog(this);
+        }
+
         private void ApplyTabIcons()
         {
             var tabColor = SystemColors.ControlText;

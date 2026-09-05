@@ -192,7 +192,7 @@ namespace LotusECMLogger.Services
     }
 
     /// <summary>Primary ABS diagnostic reads, raw captures and provisional passive broadcasts.
-    /// Includes a bounded OEM pump test. Persistent writes, firmware programming and unverified valve routines are not provided.
+    /// Includes a bounded OEM pump test and the separately guarded ABS firmware programming flow.
     /// </summary>
     public interface IAbsService
     {
@@ -281,5 +281,10 @@ namespace LotusECMLogger.Services
         /// <paramref name="captureSeconds"/>. Captures both 11-bit and 29-bit ids.
         /// </summary>
         (bool success, string errorMessage, AbsSniffResult result) SniffBus(int captureSeconds, IProgress<string>? progress);
+
+        /// <summary>Flashes a strict Intel HEX image through the recovered ABS bootloader flow.</summary>
+        (bool success, string errorMessage, AbsFlashResult result) FlashFirmware(
+            string firmwarePath, AbsFlashOptions options, IProgress<AbsFlashProgress>? progress,
+            CancellationToken cancellationToken);
     }
 }

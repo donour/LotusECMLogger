@@ -66,3 +66,27 @@ internal static class AbsKwpResponseMatcher
         return AbsResponseKind.Complete;
     }
 }
+
+/// <summary>Programming matcher kept separate from the diagnostic matcher because 71 replies carry routine data.</summary>
+internal static class AbsProgrammingResponseMatcher
+{
+    public static AbsResponseKind Match(byte[] request, byte[] response, out KwpResponse result)
+    {
+        result = default;
+        if (request.Length == 0 || response.Length == 0) return AbsResponseKind.Ignore;
+        if (response[0] == 0x7f)
+        {
+            if (response.Length < 2 || response[1] != request[0]) return AbsResponseKind.Ignore;
+            if (response.Length != 3) { result = KwpResponse.Failure("Malformed negative response.", response); return AbsResponseKind.Complete; }
+            result = KwpResponse.Negative(response);
+            return response[2] == 0x78 ? AbsResponseKind.Pending : AbsResponseKind.Complete;
+        }
+        if (response[0] != (byte)(request[0] | 0x40)) return AbsResponseKind.Ignore;
+        if (request.Length > 1 && request[0] is 0x10 or 0x22 or 0x27 or 0x2e or 0x31)
+        {
+            if (response.Length < 2 || response[1] != request[1]) return AbsResponseKind.Ignore;
+        }
+        result = KwpResponse.Positive(response);
+        return AbsResponseKind.Complete;
+    }
+}

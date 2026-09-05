@@ -53,6 +53,9 @@ namespace LotusECMLogger.Controls
 
         private IAbsService Service => absService
             ?? throw new InvalidOperationException("No ABS service is available.");
+
+        /// <summary>Shared service used by the guarded ABS firmware dialog.</summary>
+        public IAbsService ServiceForOperations => Service;
         private bool IsMonitoringTelemetry => absService?.IsMonitoringTelemetry == true;
         private bool IsMonitoringDiagnostics => absService?.IsMonitoringDiagnostics == true;
         private bool IsClosing => shuttingDown || IsDisposed || Disposing;
