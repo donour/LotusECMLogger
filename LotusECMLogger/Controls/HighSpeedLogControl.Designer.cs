@@ -37,6 +37,7 @@ namespace LotusECMLogger.Controls
             startButton = new Button();
             stopButton = new Button();
             aemToggleButton = new CheckBox();
+            zt3ToggleButton = new CheckBox();
             gridGroupBox = new GroupBox();
             channelToolbar = new FlowLayoutPanel();
             removeChannelButton = new Button();
@@ -60,6 +61,8 @@ namespace LotusECMLogger.Controls
             droppedValueLabel = new Label();
             aemLabel = new Label();
             aemValueLabel = new Label();
+            zt3Label = new Label();
+            zt3ValueLabel = new Label();
             layoutPanel.SuspendLayout();
             configGroupBox.SuspendLayout();
             configLayout.SuspendLayout();
@@ -188,6 +191,7 @@ namespace LotusECMLogger.Controls
             buttonPanel.Controls.Add(startButton);
             buttonPanel.Controls.Add(stopButton);
             buttonPanel.Controls.Add(aemToggleButton);
+            buttonPanel.Controls.Add(zt3ToggleButton);
             buttonPanel.Margin = new Padding(0);
             buttonPanel.Name = "buttonPanel";
             buttonPanel.WrapContents = false;
@@ -229,6 +233,15 @@ namespace LotusECMLogger.Controls
             aemToggleButton.Text = "AEM Wideband";
             aemToggleButton.TabIndex = 3;
             aemToggleButton.UseVisualStyleBackColor = true;
+            //
+            // zt3ToggleButton
+            //
+            zt3ToggleButton.Anchor = AnchorStyles.None;
+            zt3ToggleButton.AutoSize = true;
+            zt3ToggleButton.Name = "zt3ToggleButton";
+            zt3ToggleButton.Text = "ZT-3 CAN";
+            zt3ToggleButton.TabIndex = 4;
+            zt3ToggleButton.UseVisualStyleBackColor = true;
             //
             // gridGroupBox
             //
@@ -351,9 +364,12 @@ namespace LotusECMLogger.Controls
             statusLayout.Controls.Add(droppedValueLabel, 1, 3);
             statusLayout.Controls.Add(aemLabel, 0, 4);
             statusLayout.Controls.Add(aemValueLabel, 1, 4);
+            statusLayout.Controls.Add(zt3Label, 0, 5);
+            statusLayout.Controls.Add(zt3ValueLabel, 1, 5);
             statusLayout.Dock = DockStyle.Fill;
             statusLayout.Name = "statusLayout";
-            statusLayout.RowCount = 5;
+            statusLayout.RowCount = 6;
+            statusLayout.RowStyles.Add(new RowStyle());
             statusLayout.RowStyles.Add(new RowStyle());
             statusLayout.RowStyles.Add(new RowStyle());
             statusLayout.RowStyles.Add(new RowStyle());
@@ -421,6 +437,18 @@ namespace LotusECMLogger.Controls
             aemValueLabel.Name = "aemValueLabel";
             aemValueLabel.Text = "—";
             //
+            // zt3Label
+            //
+            zt3Label.AutoSize = true;
+            zt3Label.Name = "zt3Label";
+            zt3Label.Text = "ZT-3 Wideband:";
+            //
+            // zt3ValueLabel
+            //
+            zt3ValueLabel.AutoSize = true;
+            zt3ValueLabel.Name = "zt3ValueLabel";
+            zt3ValueLabel.Text = "—";
+            //
             // HighSpeedLogControl
             //
             AutoScaleDimensions = new SizeF(10F, 25F);
@@ -469,6 +497,7 @@ namespace LotusECMLogger.Controls
         private Button startButton;
         private Button stopButton;
         private CheckBox aemToggleButton;
+        private CheckBox zt3ToggleButton;
         private GroupBox gridGroupBox;
         private FlowLayoutPanel channelToolbar;
         private Button removeChannelButton;
@@ -492,5 +521,7 @@ namespace LotusECMLogger.Controls
         private Label droppedValueLabel;
         private Label aemLabel;
         private Label aemValueLabel;
+        private Label zt3Label;
+        private Label zt3ValueLabel;
     }
 }
