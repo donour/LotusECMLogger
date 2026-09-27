@@ -27,12 +27,12 @@
     { "symbol": "afr_commanded",         "rate": 10 },                        // Final commanded AFR (floor 8.00)
 
     // ── Knock inputs ─────────────────────────────────────────────────────────────────────────────
-    { "symbol": "knock_ign_retard_cyl0", "rate": 10 },                        // Accumulated knock retard driving PE (deg = val/4; div 6 in PE calc)
-    { "symbol": "ign_rpm_and_coolant_comp", "rate": 10, "signed": true, "scale": 0.25, "unit": "deg" }, // Subtracted from retard before PE
+    { "symbol": "knock_ign_retard_sum", "rate": 10 },                        // Accumulated knock retard driving PE (deg = val/4; div 6 in PE calc)
+    { "symbol": "ign_comp_coolant",      "rate": 10 }, // Subtracted from retard before PE
     { "symbol": "ign_comp_iat",          "rate": 5 },                        // Subtracted from retard before PE
 
     // ── Temp factors ─────────────────────────────────────────────────────────────────────────────
-    { "symbol": "inj_enrichment_factor_load_n_coolant", "rate": 5 },          // x val/64, floor 1.0 — CAL_inj_enrichment_factor_load_n_coolant_{manual|ips}
+    { "symbol": "inj_warmup_factor_ips", "rate": 5 },          // x val/64, floor 1.0 — CAL_inj_enrichment_factor_load_n_coolant_{manual|ips}
     { "symbol": "inj_comp_air_temp",     "rate": 5 },                         // Air-temp compensation factor (val/100)
 
     // ── Flow conversion ──────────────────────────────────────────────────────────────────────────

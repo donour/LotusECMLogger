@@ -3,7 +3,7 @@
   // load/temp axes through target/enrichment, knock PE contribution, flow conversion and pulse
   // width to the closed-loop trims. Port of C132E0278_fuel_diagnostics.json with these deltas:
   //   - No TMAP sensor: airflow comes from the MAF (maf_flow_1, plus its raw sensor voltage
-  //     sensor_adc_maf1) and IAT from air_temp_intake;
+  //     sensor_adc_maf1) and IAT from airtemp_ambient;
   //     the obd_ii_manifold_temp channel has no equivalent here.
   //   - No fuel pressure sensor: inj_flow_rate is a fixed-rail calibration value, so battery
   //     voltage + inj_deadtime_base stand in as the delivery-side health channels.
@@ -14,7 +14,7 @@
   //   - Per-cylinder knock retard lives in a [6] array (knock_ign_retard2); knock_ign_retard_sum
   //     (total, 1/4-deg) is logged instead.
   // All channels resolve from database/B13200091.csv; most scale/unit metadata is derived from the
-  // encoded catalog types. Only the remaining `undefined*` entries (ign_comp_rpm, obd_ltft_bank_1/2)
+  // encoded catalog types. Only the remaining `undefined*` entries (ign_comp_rpm, obd_ii_ltft_bank_1/2)
   // carry inline overrides — those marked "assumed" are unverified on this firmware, sanity-check
   // against a known reading before trusting them.
   //
@@ -56,7 +56,7 @@
       "rate": 1
     }, // Y of warmup/enrichment table
     {
-      "symbol": "air_temp_intake",
+      "symbol": "airtemp_ambient",
       "rate": 1
     }, // IAT comp input (no TMAP on this ECU)
 
@@ -197,14 +197,14 @@
     //{ "symbol": "stft_bank1",           "rate": 20 },                      // Short-term trim B1
     //{ "symbol": "stft_bank2",           "rate": 20 },                      // Short-term trim B2
     {
-      "symbol": "obd_ltft_bank_1",
+      "symbol": "obd_ii_ltft_bank_1",
       "rate": 1,
       "scale": 0.78125,
       "offset": -100,
       "unit": "%"
     }, // Long-term trim B1 (assumed OBD A/1.28-100 encoding)
     {
-      "symbol": "obd_ltft_bank_2",
+      "symbol": "obd_ii_ltft_bank_2",
       "rate": 1,
       "scale": 0.78125,
       "offset": -100,

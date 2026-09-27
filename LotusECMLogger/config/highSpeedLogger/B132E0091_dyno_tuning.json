@@ -367,13 +367,13 @@
     },
 
     {
-      "symbol": "ltft_rate_bank1",
+      "symbol": "stft_ramp_rate_bank1",
       "rate": 1
-    }, // LTFT rate of change bank 1 (raw)
+    }, // STFT ramp rate bank 1 (signed raw)
     {
-      "symbol": "ltft_rate_bank2",
+      "symbol": "stft_ramp_rate_bank2",
       "rate": 1
-    }, // LTFT rate of change bank 2 (raw)
+    }, // STFT ramp rate bank 2 (signed raw)
     {
       "symbol": "obd_ii_atmospheric_baro",
       "rate": 1
@@ -383,7 +383,7 @@
       "rate": 1
     },
     {
-      "symbol": "temp_engine_air",
+      "symbol": "airtemp_tmaf",
       "rate": 11
     },
     {

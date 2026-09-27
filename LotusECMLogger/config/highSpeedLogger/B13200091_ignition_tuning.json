@@ -78,7 +78,7 @@
     { "symbol": "ign_comp_rpm",      "rate": 10 }, // RPM timing comp (deg)
 
     { "symbol": "coolant_temp",            "rate": 1 },
-    { "symbol": "air_temp_intake",         "rate": 1 }, // Charge-air heating — the usual cause of a moving knock limit
+    { "symbol": "airtemp_ambient",         "rate": 1 }, // Charge-air heating — the usual cause of a moving knock limit
 
     // ── 1 Hz: octane adaptation & learned knock retard ───────────────────────────────────────────
  

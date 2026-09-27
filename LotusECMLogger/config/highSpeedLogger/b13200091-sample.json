@@ -35,6 +35,6 @@
     { "symbol": "load_mass_per_stroke",  "rate": 50 },
     { "symbol": "torque_limit_external_and_internal", "rate": 50 },
     { "symbol": "torque_net_engine_combustion",       "rate": 50 },
-    { "symbol": "air_temp_intake",       "rate": 5  }
+    { "symbol": "airtemp_ambient",       "rate": 5  }
   ]
 }

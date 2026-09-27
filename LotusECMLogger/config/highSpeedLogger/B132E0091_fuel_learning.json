@@ -20,7 +20,7 @@
   //   - stft_bank1/2 and stft_filtered_bank1/2 are i16_percent_1/20 -> raw*0.05 %; ltft_bank1/2 are
   //     i16_percent_1/10 -> raw*0.1 %. Sanity-check on a warm idle whether they centre on 0 (delta)
   //     or 100 (multiplier) before reading absolute numbers off them.
-  //   - LEA_fuel_learn_zone_* are u8_percent_100/256-50 -> raw*0.390625 - 50, i.e. +/-50% about
+  //   - LEA_inj_fuel_learn_zone_* are u8_percent_100/256-50 -> raw*0.390625 - 50, i.e. +/-50% about
   //     zero with 128 = no correction.
   //   - obd_ii_ltft_bank_1/2 are u8_percent_100/128-100 -> raw*0.78125 - 100, the 1-byte OBD Mode 01
   //     encoding. They are the cross-check on the 16-bit ltft_bank1/2 above: if the two disagree in
@@ -174,7 +174,7 @@
       "rate": 5
     }, // Closed-loop state flags bank 1 (u16, raw) — the finer gating behind the status word
     {
-      "symbol": "temp_engine_air",
+      "symbol": "airtemp_tmaf",
       "rate": 5
     }, // Intake air temperature (°C = raw*5/8 - 40) — drives the IAT fuel compensation
 
@@ -209,19 +209,19 @@
     }, // Fuel level (L) — a sudden step marks a refuel, i.e. a possible fuel-quality change
 
     {
-      "symbol": "LEA_fuel_learn_zone_2_bank1",
+      "symbol": "LEA_inj_fuel_learn_zone_2_bank1",
       "rate": 1
     }, // Learned fuel cell, zone 2 bank 1 (raw*0.390625 - 50 %, 128 = no correction)
     {
-      "symbol": "LEA_fuel_learn_zone_2_bank2",
+      "symbol": "LEA_inj_fuel_learn_zone_2_bank2",
       "rate": 1
     }, // Learned fuel cell, zone 2 bank 2
     {
-      "symbol": "LEA_fuel_learn_zone_3_bank1",
+      "symbol": "LEA_inj_fuel_learn_zone_3_bank1",
       "rate": 1
     }, // Learned fuel cell, zone 3 bank 1
     {
-      "symbol": "LEA_fuel_learn_zone_3_bank2",
+      "symbol": "LEA_inj_fuel_learn_zone_3_bank2",
       "rate": 1
     }, // Learned fuel cell, zone 3 bank 2
     {
