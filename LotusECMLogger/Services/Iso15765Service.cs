@@ -201,7 +201,7 @@ namespace LotusECMLogger.Services
         // ISO 15765-4 (CAN) prefixes the codes with a one-byte DTC count; the payload after the
         // SID is therefore odd-length when that count is present. Each code is two bytes, and a
         // 0x0000 pair is padding/"no code" and skipped.
-        private static List<DiagnosticTroubleCode> ParseDtcResponse(byte[] data)
+        internal static List<DiagnosticTroubleCode> ParseDtcResponse(byte[] data)
         {
             var codes = new List<DiagnosticTroubleCode>();
 
@@ -265,7 +265,7 @@ namespace LotusECMLogger.Services
         // Form A is the bare service byte; Form B adds the 0xFF00 "report all" sub-function.
         // Both fit in one frame, which matters: the firmware reads the eight receive-buffer
         // bytes directly and reassembles no multi-frame request.
-        private static byte[] BuildMode13Request(Mode13RequestForm form)
+        internal static byte[] BuildMode13Request(Mode13RequestForm form)
         {
             byte[] payload = form == Mode13RequestForm.BareService
                 ? [(byte)OBDIIMode.ReadAllDiagnosticTroubleCodes]
@@ -391,7 +391,7 @@ namespace LotusECMLogger.Services
             }
         }
 
-        private static byte[] BuildModeMessage(OBDIIMode mode, byte pid, byte trailing = 0x00)
+        internal static byte[] BuildModeMessage(OBDIIMode mode, byte pid, byte trailing = 0x00)
         {
             // Use Lotus ECM header. The trailing byte is the frame number for Mode 02.
             var message = new byte[ECM_HEADER.Length + 3];
@@ -402,7 +402,7 @@ namespace LotusECMLogger.Services
             return message;
         }
 
-        private static byte[] BuildMultiPIDMessage(OBDIIMode mode, List<int> pids)
+        internal static byte[] BuildMultiPIDMessage(OBDIIMode mode, List<int> pids)
         {
             if (pids.Count < 1 || pids.Count > 6)
             {
@@ -424,7 +424,7 @@ namespace LotusECMLogger.Services
             return message;
         }
 
-        private static List<int> ParseSupportedPIDsResponse(byte[] data, OBDIIMode mode)
+        internal static List<int> ParseSupportedPIDsResponse(byte[] data, OBDIIMode mode)
         {
             var supportedPIDs = new List<int>();
 
