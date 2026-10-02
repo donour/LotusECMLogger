@@ -23,9 +23,18 @@ namespace LotusECMLogger.Controls
 			set
 			{
 				isLoggerActive = value;
-				readCodesButton.Enabled = !isLoggerActive;
-				writeCodesButton.Enabled = !isLoggerActive && modifiedCodingDecoder != null;
+				UpdateButtonStates();
 			}
+		}
+
+		// True while a coding read is running in the background; keeps both device buttons off so
+		// a second session cannot be opened on the adapter mid-read.
+		private bool isReading;
+
+		private void UpdateButtonStates()
+		{
+			readCodesButton.Enabled = !isLoggerActive && !isReading;
+			writeCodesButton.Enabled = !isLoggerActive && !isReading && modifiedCodingDecoder != null;
 		}
 
 		public EcuCodingControl(IEcuCodingService service)
@@ -43,7 +52,7 @@ namespace LotusECMLogger.Controls
 			GuiIcons.ApplyToButton(resetCodingButton, GuiIcons.Refresh);
 		}
 
-		private void readCodesButton_Click(object? sender, EventArgs e)
+		private async void readCodesButton_Click(object? sender, EventArgs e)
 		{
 			if (IsLoggerActive)
 			{
@@ -53,10 +62,12 @@ namespace LotusECMLogger.Controls
 
 			try
 			{
-				readCodesButton.Enabled = false;
+				isReading = true;
+				UpdateButtonStates();
 				readCodesButton.Text = "Reading...";
 
-				LoadCodingDecoder(service.ReadCoding());
+				// Off the UI thread: the read waits on the ECU and can take ~3 s to time out.
+				LoadCodingDecoder(await Task.Run(service.ReadCoding));
 				MessageBox.Show("Coding data successfully read from ECU!", "Read Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
 			}
 			catch (InvalidEcuCodingDataException ex)
@@ -72,7 +83,8 @@ namespace LotusECMLogger.Controls
 			}
 			finally
 			{
-				readCodesButton.Enabled = !IsLoggerActive;
+				isReading = false;
+				UpdateButtonStates();
 				readCodesButton.Text = "Read Codes";
 			}
 		}
@@ -83,7 +95,7 @@ namespace LotusECMLogger.Controls
 			modifiedCodingDecoder = originalCodingDecoder;
 
 			UpdateCodingView();
-			writeCodesButton.Enabled = !IsLoggerActive;
+			UpdateButtonStates();
 			UpdateBitFieldLabel();
 		}
 
