@@ -1,13 +1,18 @@
 namespace LotusECMLogger.Services
 {
     /// <summary>
-    /// One decoded snapshot of the ABS module's passive CAN broadcasts (guide §4). The module sends
-    /// 0xA2/0xA4/0xA8 at 100 Hz with no request and no session, so this needs neither addressing nor
-    /// a security unlock and is safe to read while the vehicle is moving.
+    /// Merged provisional readings from passive CAN broadcasts 0xA2/0xA4/0xA8.
+    /// Their raw bytes are preserved; packing, physical scaling and simultaneous sample timing
+    /// have not been validated. No requests are transmitted.
     /// </summary>
     public sealed record AbsTelemetrySample
     {
         public DateTime Timestamp { get; init; } = DateTime.Now;
+
+        /// <summary>Latest full broadcast data bytes; channel timestamps/packing are not inferred.</summary>
+        public string? RawA2 { get; init; }
+        public string? RawA4 { get; init; }
+        public string? RawA8 { get; init; }
 
         // ── CAN 0xA2 — front wheels + vehicle speed ──
         public int? WheelLf { get; init; }
@@ -33,13 +38,6 @@ namespace LotusECMLogger.Services
         /// <summary>True once any of the three broadcast frames has been seen.</summary>
         public bool HasData => VehicleSpeedRaw.HasValue || WheelLr.HasValue || EspActive.HasValue;
 
-        /// <summary>
-        /// Raw 14-bit wheel/vehicle counts converted to km/h. The multiplier is an ECU-side
-        /// calibration (not stored in the ABS), so absolute km/h is only correct at the stock 1.0.
-        /// </summary>
-        public static double ToKph(int raw, double wheelMultiplier = 1.0) =>
-            raw * 6.25 * wheelMultiplier / 1000.0;
-
         public static string BrakeSwitchName(int value) => value switch
         {
             0 => "released",
@@ -50,10 +48,9 @@ namespace LotusECMLogger.Services
     }
 
     /// <summary>
-    /// Decoders for the ABS module's three broadcast frames. Bit layouts are transcribed from
-    /// <c>DIAGNOSTICS_PROGRAMMING_GUIDE.md</c> §4 / <c>CAN_MESSAGES.md</c>, which derive them from
-    /// the firmware's CAN builders. They are independent of the diagnostic client — no session, no
-    /// unlock, nothing transmitted.
+    /// Provisional legacy broadcast decoders. Their packing/status meanings are not validated
+    /// by the primary diagnostic 04 trace. Complete raw bytes are retained for comparison.
+    /// They cannot establish physical speed or authorize hydraulic actuation.
     /// </summary>
     internal static class AbsTelemetryDecoder
     {
@@ -90,6 +87,7 @@ namespace LotusECMLogger.Services
             return sample with
             {
                 Timestamp = DateTime.Now,
+                RawA2 = Convert.ToHexString(d),
                 WheelRf = Valid(rf),
                 WheelLf = Valid(lf),
                 VehicleSpeedRaw = Valid(car),
@@ -106,6 +104,7 @@ namespace LotusECMLogger.Services
             return sample with
             {
                 Timestamp = DateTime.Now,
+                RawA4 = Convert.ToHexString(d),
                 WheelRr = Valid(rr),
                 WheelLr = Valid(lr),
                 BrakeSwitch = d[4] & 0x03,
@@ -117,6 +116,7 @@ namespace LotusECMLogger.Services
         private static AbsTelemetrySample ApplyEspStatus(AbsTelemetrySample sample, byte[] d) => sample with
         {
             Timestamp = DateTime.Now,
+            RawA8 = Convert.ToHexString(d),
             EspActive = (d[1] & 0x08) != 0,
             AbsActive = (d[1] & 0x20) != 0,
             TorqueRequest = (d[1] & 0x40) != 0,

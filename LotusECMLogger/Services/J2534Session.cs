@@ -20,17 +20,39 @@ namespace LotusECMLogger.Services
     {
         private readonly J2534Device _device;
         private readonly List<J2534Channel> _channels = new();
+        private readonly J2534DeviceLease lease;
+        private bool disposed;
 
-        private J2534Session(J2534Device device) => _device = device;
+        private J2534Session(J2534Device device, J2534DeviceLease lease)
+        {
+            _device = device;
+            this.lease = lease;
+        }
 
         /// <summary>Loads the first registered J2534 API and opens its first device.</summary>
-        public static J2534Session Open()
+        public static J2534Session Open(string? driverFileName = null)
         {
-            string dllFileName = J2534APIFactory.DiscoverAPIs().First().FileName;
-            // Cached, process-wide instance owned by the factory — must not be disposed here.
-            J2534API api = J2534APIFactory.LoadAPI(dllFileName).Unwrap();
-            return new J2534Session(api.OpenDevice("").Unwrap());
+            var lease = J2534DeviceLease.Acquire();
+            try
+            {
+                var drivers = J2534APIFactory.DiscoverAPIs().ToList();
+                string dllFileName;
+                if (string.IsNullOrWhiteSpace(driverFileName)) dllFileName = drivers.First().FileName;
+                else
+                {
+                    var selected = drivers.FirstOrDefault(driver => string.Equals(driver.FileName, driverFileName, StringComparison.OrdinalIgnoreCase));
+                    if (string.IsNullOrWhiteSpace(selected.FileName)) throw new InvalidOperationException($"Selected J2534 driver was not found: {driverFileName}");
+                    dllFileName = selected.FileName;
+                }
+                // The factory owns the cached API; this scope owns only the device and channels.
+                J2534API api = J2534APIFactory.LoadAPI(dllFileName).Unwrap();
+                return new J2534Session(api.OpenDevice("").Unwrap(), lease);
+            }
+            catch { lease.Dispose(); throw; }
         }
+
+        public static IReadOnlyList<string> DiscoverDriverFileNames() =>
+            J2534APIFactory.DiscoverAPIs().Select(driver => driver.FileName).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
 
         /// <summary>Opens a channel owned by this session (disposed when the session is).</summary>
         public J2534Channel OpenChannel(Protocol protocol, Baud baud, ConnectFlag flags = ConnectFlag.NONE)
@@ -46,12 +68,33 @@ namespace LotusECMLogger.Services
         /// <summary>Opens a raw CAN channel (defaults to 500 kbaud).</summary>
         public J2534Channel OpenCan(Baud baud = Baud.CAN) => OpenChannel(Protocol.CAN, baud);
 
+        /// <summary>Measures adapter-reported vehicle battery voltage in volts.</summary>
+        public (bool success, double volts, string error) MeasureBatteryVoltage()
+        {
+            var result = _device.MeasureBatteryVoltage();
+            return result.IsSuccess
+                ? (true, result.Value / 1000.0, "")
+                : (false, 0, result.ErrorMessage);
+        }
+
         public void Dispose()
         {
-            foreach (J2534Channel channel in _channels)
-                channel.Dispose();
-            _channels.Clear();
-            _device.Dispose();
+            if (disposed) return;
+            disposed = true;
+            try
+            {
+                try
+                {
+                    foreach (J2534Channel channel in _channels)
+                        channel.Dispose();
+                }
+                finally
+                {
+                    _channels.Clear();
+                    _device.Dispose();
+                }
+            }
+            finally { lease.Dispose(); }
         }
     }
 }

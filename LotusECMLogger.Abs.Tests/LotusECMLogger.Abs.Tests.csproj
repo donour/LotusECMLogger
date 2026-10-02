@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+    <Using Include="Xunit" />
+  </ItemGroup>
+  <!-- Run the same ABS tests and production code without loading WinForms or a J2534 driver.
+       The Windows test project also includes these tests through its normal source glob. -->
+  <ItemGroup>
+    <Compile Include="../LotusECMLogger/Services/IAbsService.cs" Link="Services/IAbsService.cs" />
+    <Compile Include="../LotusECMLogger/Services/AbsProtocol.cs" Link="Services/AbsProtocol.cs" />
+    <Compile Include="../LotusECMLogger/Services/AbsTelemetry.cs" Link="Services/AbsTelemetry.cs" />
+    <Compile Include="../LotusECMLogger/Services/AbsDiagnosticDecoder.cs" Link="Services/AbsDiagnosticDecoder.cs" />
+    <Compile Include="../LotusECMLogger/Services/AbsDiagnosticCapture.cs" Link="Services/AbsDiagnosticCapture.cs" />
+    <Compile Include="../LotusECMLogger/Services/AbsDiagnosticOperations.cs" Link="Services/AbsDiagnosticOperations.cs" />
+    <Compile Include="../LotusECMLogger/Services/AbsKwpResponse.cs" Link="Services/AbsKwpResponse.cs" />
+    <Compile Include="../LotusECMLogger/Services/AbsPumpOperations.cs" Link="Services/AbsPumpOperations.cs" />
+    <Compile Include="../LotusECMLogger/Services/J2534DeviceLease.cs" Link="Services/J2534DeviceLease.cs" />
+    <Compile Include="../LotusECMLogger/Services/AbsFirmwareImage.cs" Link="Services/AbsFirmwareImage.cs" />
+    <Compile Include="../LotusECMLogger/Services/AbsFirmwareFlasher.cs" Link="Services/AbsFirmwareFlasher.cs" />
+    <Compile Include="../LotusECMLogger.Tests/AbsDiagnosticDecoderTests.cs" Link="AbsDiagnosticDecoderTests.cs" />
+    <Compile Include="../LotusECMLogger.Tests/AbsDiagnosticCaptureTests.cs" Link="AbsDiagnosticCaptureTests.cs" />
+    <Compile Include="../LotusECMLogger.Tests/AbsDiagnosticOperationsTests.cs" Link="AbsDiagnosticOperationsTests.cs" />
+    <Compile Include="../LotusECMLogger.Tests/AbsPumpOperationsTests.cs" Link="AbsPumpOperationsTests.cs" />
+    <Compile Include="../LotusECMLogger.Tests/AbsFirmwareFlasherTests.cs" Link="AbsFirmwareFlasherTests.cs" />
+  </ItemGroup>
+</Project>
