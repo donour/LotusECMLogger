@@ -1,3 +1,5 @@
+using System.Buffers.Binary;
+
 namespace BinaryFileMonitor;
 
 /// <summary>
@@ -11,6 +13,10 @@ namespace BinaryFileMonitor;
 ///
 /// Monitoring operates on 4-byte aligned words. File size should ideally be a multiple of 4.
 /// Thread-safe for concurrent access to the buffer.
+///
+/// Words are read big-endian (first byte most significant), matching the PowerPC ECU whose memory
+/// these files mirror: a word's value here is the value the ECU reads, and sending it most
+/// significant byte first reproduces the file's bytes in ECU memory.
 /// </remarks>
 public class BinaryFileMonitor : IDisposable
 {
@@ -202,7 +208,7 @@ public class BinaryFileMonitor : IDisposable
                 throw new ArgumentException("Byte offset must be 4-byte aligned.", nameof(byteOffset));
             }
 
-            return BitConverter.ToUInt32(_currentBuffer, byteOffset);
+            return BinaryPrimitives.ReadUInt32BigEndian(_currentBuffer.AsSpan(byteOffset, 4));
         }
     }
 
@@ -274,8 +280,8 @@ public class BinaryFileMonitor : IDisposable
                 for (int i = 0; i < wordCount; i++)
                 {
                     int byteOffset = i * 4;
-                    uint oldWord = BitConverter.ToUInt32(_currentBuffer, byteOffset);
-                    uint newWord = BitConverter.ToUInt32(newBuffer, byteOffset);
+                    uint oldWord = BinaryPrimitives.ReadUInt32BigEndian(_currentBuffer.AsSpan(byteOffset, 4));
+                    uint newWord = BinaryPrimitives.ReadUInt32BigEndian(newBuffer.AsSpan(byteOffset, 4));
 
                     if (oldWord != newWord)
                     {
@@ -295,8 +301,8 @@ public class BinaryFileMonitor : IDisposable
             for (int i = 0; i < totalWords; i++)
             {
                 int byteOffset = i * 4;
-                uint oldWord = BitConverter.ToUInt32(_currentBuffer, byteOffset);
-                uint newWord = BitConverter.ToUInt32(newBuffer, byteOffset);
+                uint oldWord = BinaryPrimitives.ReadUInt32BigEndian(_currentBuffer.AsSpan(byteOffset, 4));
+                uint newWord = BinaryPrimitives.ReadUInt32BigEndian(newBuffer.AsSpan(byteOffset, 4));
 
                 if (oldWord != newWord)
                 {

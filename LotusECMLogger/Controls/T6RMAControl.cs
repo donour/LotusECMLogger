@@ -1,4 +1,5 @@
 using LotusECMLogger.Services;
+using System.Buffers.Binary;
 using System.ComponentModel;
 using System.Text;
 
@@ -194,18 +195,30 @@ namespace LotusECMLogger.Controls
 
 			// Add numeric interpretations
 			sb.AppendLine();
-			sb.AppendLine("Numeric Interpretations:");
-			if (e.Data.Length >= 1)
-				sb.AppendLine($"  Byte (unsigned): {e.Data[0]}");
-			if (e.Data.Length >= 2)
-				sb.AppendLine($"  Int16 (LE): {BitConverter.ToInt16(e.Data, 0)}");
-			if (e.Data.Length >= 4)
-			{
-				sb.AppendLine($"  Int32 (LE): {BitConverter.ToInt32(e.Data, 0)}");
-				sb.AppendLine($"  Float (LE): {BitConverter.ToSingle(e.Data, 0):F6}");
-			}
+			sb.Append(FormatNumericInterpretations(e.Data));
 
 			dataTextBox.Text = sb.ToString();
+		}
+
+		/// <summary>
+		/// Interprets the first bytes read as the numbers the ECU would see there. The ECU is a
+		/// big-endian PowerPC and the RMA read returns memory byte-for-byte in address order, so
+		/// multi-byte values are decoded most significant byte first.
+		/// </summary>
+		internal static string FormatNumericInterpretations(byte[] data)
+		{
+			var sb = new StringBuilder();
+			sb.AppendLine("Numeric Interpretations:");
+			if (data.Length >= 1)
+				sb.AppendLine($"  Byte (unsigned): {data[0]}");
+			if (data.Length >= 2)
+				sb.AppendLine($"  Int16 (BE): {BinaryPrimitives.ReadInt16BigEndian(data)}");
+			if (data.Length >= 4)
+			{
+				sb.AppendLine($"  Int32 (BE): {BinaryPrimitives.ReadInt32BigEndian(data)}");
+				sb.AppendLine($"  Float (BE): {BinaryPrimitives.ReadSingleBigEndian(data):F6}");
+			}
+			return sb.ToString();
 		}
 
 		private void OnErrorOccurred(object? sender, string errorMessage)

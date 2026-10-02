@@ -330,27 +330,7 @@ namespace LotusECMLogger.Services
 			{
 				Debug.WriteLine($"T6LiveTuning: Writing word - Address=0x{address:X8}, Value=0x{value:X8}");
 
-				// Build CAN message for memory write (CAN ID 0x54)
-				// Format: [CAN ID (4 bytes)][Address (4 bytes, big-endian)][Data (4 bytes, big-endian)]
-				byte[] canMessage = new byte[12];
-
-				// CAN ID 0x54
-				canMessage[0] = 0x00;
-				canMessage[1] = 0x00;
-				canMessage[2] = 0x00;
-				canMessage[3] = 0x54;
-
-				// Address in BIG-ENDIAN format
-				canMessage[4] = (byte)((address >> 24) & 0xFF);
-				canMessage[5] = (byte)((address >> 16) & 0xFF);
-				canMessage[6] = (byte)((address >> 8) & 0xFF);
-				canMessage[7] = (byte)(address & 0xFF);
-
-				// Value in BIG-ENDIAN format
-				canMessage[8] = (byte)((value >> 24) & 0xFF);
-				canMessage[9] = (byte)((value >> 16) & 0xFF);
-				canMessage[10] = (byte)((value >> 8) & 0xFF);
-				canMessage[11] = (byte)(value & 0xFF);
+				byte[] canMessage = BuildWordWriteFrame(address, value);
 
 				// Send the write command (fire-and-forget, no response expected)
 				await Task.Run(() => channelToUse.SendMessage(canMessage));
@@ -363,6 +343,25 @@ namespace LotusECMLogger.Services
 				ErrorOccurred?.Invoke(this, $"Failed to write to ECU at 0x{address:X8}: {ex.Message}");
 				throw;
 			}
+		}
+
+		/// <summary>
+		/// Builds the RMA 32-bit write frame (CAN ID 0x54):
+		/// [CAN ID (4)][address (4, big-endian)][value (4, big-endian)].
+		/// </summary>
+		/// <remarks>
+		/// The firmware's 0x54 handler loads CAN data bytes 4-7 as one word and stores it at the
+		/// address (lwz/stw, no byte swap), so data byte 4 lands at the address and byte 7 at
+		/// address + 3. Sending the value most significant byte first therefore puts it in ECU
+		/// memory exactly as <see cref="BinaryFileMonitor.BinaryFileMonitor"/> read it from the file.
+		/// </remarks>
+		internal static byte[] BuildWordWriteFrame(uint address, uint value)
+		{
+			byte[] frame = new byte[12];
+			frame[3] = 0x54;
+			System.Buffers.Binary.BinaryPrimitives.WriteUInt32BigEndian(frame.AsSpan(4, 4), address);
+			System.Buffers.Binary.BinaryPrimitives.WriteUInt32BigEndian(frame.AsSpan(8, 4), value);
+			return frame;
 		}
 
 		/// <summary>

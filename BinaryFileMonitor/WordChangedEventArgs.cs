@@ -17,12 +17,12 @@ public class WordChangedEventArgs : EventArgs
     public int WordIndex => ByteOffset / 4;
 
     /// <summary>
-    /// Gets the previous 32-bit value before the change.
+    /// Gets the previous 32-bit value before the change, read big-endian.
     /// </summary>
     public uint OldValue { get; }
 
     /// <summary>
-    /// Gets the new 32-bit value after the change.
+    /// Gets the new 32-bit value after the change, read big-endian.
     /// </summary>
     public uint NewValue { get; }
 
