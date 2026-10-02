@@ -136,8 +136,9 @@ namespace LotusECMLogger.Services
 		/// <param name="length">Number of bytes to read</param>
 		/// <param name="filePath">Path where the binary file will be saved</param>
 		/// <param name="progress">Optional progress callback (bytesRead, totalBytes)</param>
-		/// <returns>True if successful, false otherwise</returns>
-		Task<bool> ReadMemoryToFileAsync(uint startAddress, uint length, string filePath, IProgress<(int bytesRead, int totalBytes)>? progress = null);
+		/// <param name="cancellationToken">Checked between chunks; a cancelled read throws <see cref="OperationCanceledException"/>.</param>
+		/// <returns>True if successful, false otherwise. The file is deleted unless the read completes.</returns>
+		Task<bool> ReadMemoryToFileAsync(uint startAddress, uint length, string filePath, IProgress<(int bytesRead, int totalBytes)>? progress = null, CancellationToken cancellationToken = default);
 
 		/// <summary>
 		/// Downloads the ECU's flash-resident Learned Data region (persisted adaptive

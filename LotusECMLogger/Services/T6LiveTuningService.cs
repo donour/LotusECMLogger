@@ -180,8 +180,9 @@ namespace LotusECMLogger.Services
 				}
 				catch (Exception ex)
 				{
-					// Cleanup on failure
-					CleanupResources();
+					// Cleanup on failure. Safe under the lock: the monitor thread is started last,
+					// so no thread exists yet that could be waiting on _lock.
+					ReleaseResources(DetachResources());
 
 					Debug.WriteLine($"T6LiveTuning: Failed to start monitoring - {ex.Message}");
 					throw new InvalidOperationException($"Failed to start monitoring: {ex.Message}", ex);
@@ -200,10 +201,12 @@ namespace LotusECMLogger.Services
 		}
 
 		/// <summary>
-		/// Stops monitoring the current file.
+		/// Stops monitoring the current file. Safe to call more than once; never throws.
 		/// </summary>
 		public void StopMonitoring()
 		{
+			(BinaryFileMonitor.BinaryFileMonitor? monitor, J2534Session? session) resources;
+
 			lock (_lock)
 			{
 				if (!_isMonitoring)
@@ -212,22 +215,13 @@ namespace LotusECMLogger.Services
 				}
 
 				Debug.WriteLine("T6LiveTuning: Stopping monitoring");
-
-				try
-				{
-					CleanupResources();
-					Debug.WriteLine("T6LiveTuning: Monitoring stopped successfully");
-				}
-				catch (Exception ex)
-				{
-					Debug.WriteLine($"T6LiveTuning: Error stopping monitoring - {ex.Message}");
-
-					// Even on error, ensure we're in a clean state
-					CleanupResources();
-
-					throw new InvalidOperationException($"Error stopping monitoring: {ex.Message}", ex);
-				}
+				resources = DetachResources();
 			}
+
+			// Released outside the lock: stopping the monitor waits for its thread to exit, and that
+			// thread may be inside OnWordChanged waiting for _lock. Holding it here would deadlock.
+			ReleaseResources(resources);
+			Debug.WriteLine("T6LiveTuning: Monitoring stopped");
 		}
 
 		/// <summary>
@@ -247,52 +241,61 @@ namespace LotusECMLogger.Services
 			}
 			catch (Exception ex)
 			{
+				// The caller (StartMonitoring) releases whatever was opened.
 				Debug.WriteLine($"T6LiveTuning: Failed to initialize J2534 device - {ex.Message}");
-				CleanupResources();
 				throw new InvalidOperationException($"Failed to initialize J2534 device: {ex.Message}", ex);
 			}
 		}
 
 		/// <summary>
-		/// Cleans up all resources including file monitor and J2534 device/channel
+		/// Resets the service to the not-monitoring state and hands back the resources it held, so
+		/// the caller can release them. Must be called under <see cref="_lock"/>.
 		/// </summary>
-		private void CleanupResources()
+		private (BinaryFileMonitor.BinaryFileMonitor? monitor, J2534Session? session) DetachResources()
 		{
+			var resources = (_fileMonitor, _session);
+
+			_fileMonitor = null;
+			_session = null;
+			_channel = null;
+			_monitoredFilePath = null;
+			_baseMemoryAddress = 0;
+			_memoryLength = 0;
+			_isMonitoring = false;
+
+			return resources;
+		}
+
+		/// <summary>
+		/// Stops the file monitor (waiting for its thread) and closes the J2534 session. Never
+		/// throws: a failure here must not leave the caller thinking monitoring is still running.
+		/// </summary>
+		private void ReleaseResources((BinaryFileMonitor.BinaryFileMonitor? monitor, J2534Session? session) resources)
+		{
+			var (monitor, session) = resources;
+
 			try
 			{
-				// Stop and cleanup file monitor
-				if (_fileMonitor != null)
+				if (monitor != null)
 				{
-					_fileMonitor.WordChanged -= OnWordChanged;
-					_fileMonitor.MonitorError -= OnFileMonitorError;
-					_fileMonitor.Stop();
-					_fileMonitor.Dispose();
-					_fileMonitor = null;
+					monitor.WordChanged -= OnWordChanged;
+					monitor.MonitorError -= OnFileMonitorError;
+					monitor.Dispose(); // stops the monitor thread
 				}
-
-				// Cleanup J2534 session (disposes its channel, device, and API)
-				_session?.Dispose();
-				_session = null;
-				_channel = null;
-
-				// Clear state variables
-				_monitoredFilePath = null;
-				_baseMemoryAddress = 0;
-				_memoryLength = 0;
-				_isMonitoring = false;
 			}
 			catch (Exception ex)
 			{
-				Debug.WriteLine($"T6LiveTuning: Error during cleanup - {ex.Message}");
+				Debug.WriteLine($"T6LiveTuning: Error stopping file monitor - {ex.Message}");
+			}
 
-				// Force null even on error
-				_fileMonitor = null;
-				_session = null;
-				_channel = null;
-				_monitoredFilePath = null;
-				_baseMemoryAddress = 0;
-				_memoryLength = 0;
-				_isMonitoring = false;
+			try
+			{
+				// Disposes the session's channel and device.
+				session?.Dispose();
+			}
+			catch (Exception ex)
+			{
+				Debug.WriteLine($"T6LiveTuning: Error closing J2534 session - {ex.Message}");
 			}
 		}
 

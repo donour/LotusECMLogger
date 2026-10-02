@@ -552,7 +552,7 @@ namespace LotusECMLogger.Services
 			}
 		}
 
-		public async Task<bool> ReadMemoryToFileAsync(uint startAddress, uint length, string filePath, IProgress<(int bytesRead, int totalBytes)>? progress = null)
+		public async Task<bool> ReadMemoryToFileAsync(uint startAddress, uint length, string filePath, IProgress<(int bytesRead, int totalBytes)>? progress = null, CancellationToken cancellationToken = default)
 		{
 			// Validate parameters
 			if (length == 0)
@@ -580,7 +580,7 @@ namespace LotusECMLogger.Services
 					$"Memory range exceeds RAM bounds. Start: 0x{startAddress:X8}, Length: {length}, End: 0x{startAddress + length - 1:X8}, Max: 0x{RAM_END:X8}");
 			}
 
-			return await ReadMemoryToFileCoreAsync(startAddress, length, filePath, progress);
+			return await ReadMemoryToFileCoreAsync(startAddress, length, filePath, progress, cancellationToken);
 		}
 
 		public async Task<bool> DownloadLearnedDataAsync(EcuVariant variant, string filePath, IProgress<(int bytesRead, int totalBytes)>? progress = null)
@@ -616,12 +616,14 @@ namespace LotusECMLogger.Services
 			return await ReadMemoryToFileCoreAsync(address, length, filePath, progress);
 		}
 
-		private async Task<bool> ReadMemoryToFileCoreAsync(uint startAddress, uint length, string filePath, IProgress<(int bytesRead, int totalBytes)>? progress)
+		private async Task<bool> ReadMemoryToFileCoreAsync(uint startAddress, uint length, string filePath, IProgress<(int bytesRead, int totalBytes)>? progress, CancellationToken cancellationToken = default)
 		{
 			const byte MAX_CHUNK_SIZE = 255; // Maximum bytes per RMA read request
 
 			J2534Session? tempSession = null;
 			J2534Channel? tempChannel = null;
+			FileStream? fileStream = null;
+			bool completed = false;
 
 			try
 			{
@@ -641,7 +643,7 @@ namespace LotusECMLogger.Services
 				Debug.WriteLine($"T6RMA: Reading {length} bytes from 0x{startAddress:X8} to {filePath}");
 
 				// Create output file
-				using var fileStream = new FileStream(filePath, FileMode.Create, FileAccess.Write);
+				fileStream = new FileStream(filePath, FileMode.Create, FileAccess.Write);
 
 				uint currentAddress = startAddress;
 				uint bytesRemaining = length;
@@ -650,6 +652,9 @@ namespace LotusECMLogger.Services
 
 				while (bytesRemaining > 0)
 				{
+					// Checked between chunks: a chunk in flight finishes (at most ~2 s) before the
+					// cancellation is honoured.
+					cancellationToken.ThrowIfCancellationRequested();
 					chunkNumber++;
 
 					// Calculate chunk size for this iteration
@@ -680,7 +685,13 @@ namespace LotusECMLogger.Services
 				}
 
 				Debug.WriteLine($"T6RMA: Successfully read {totalBytesRead} bytes to {filePath}");
+				completed = true;
 				return true;
+			}
+			catch (OperationCanceledException)
+			{
+				Debug.WriteLine("T6RMA: Memory read cancelled");
+				throw;
 			}
 			catch (Exception ex)
 			{
@@ -689,6 +700,16 @@ namespace LotusECMLogger.Services
 			}
 			finally
 			{
+				fileStream?.Dispose();
+
+				// A partial image looks like a real one on disk and could later be monitored or
+				// uploaded, so anything short of a complete read is removed.
+				if (!completed && fileStream != null)
+				{
+					try { File.Delete(filePath); }
+					catch (Exception ex) { Debug.WriteLine($"T6RMA: Could not delete partial file: {ex.Message}"); }
+				}
+
 				// Cleanup temporary session (disposes its channel, device, and API)
 				tempSession?.Dispose();
 			}

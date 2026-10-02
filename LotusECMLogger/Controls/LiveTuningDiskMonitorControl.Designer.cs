@@ -31,9 +31,8 @@ namespace LotusECMLogger.Controls
             browseFileButton = new Button();
             startMonitoringButton = new Button();
             uploadProgressBar = new ProgressBar();
-            cancelUploadButton = new Button();
             uploadToEcuButton = new Button();
-            stopMonitoringButton = new Button();
+            stopButton = new Button();
             statusTextBox = new TextBox();
             mainTableLayout.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)lengthNumericUpDown).BeginInit();
@@ -62,9 +61,8 @@ namespace LotusECMLogger.Controls
             mainTableLayout.Controls.Add(browseFileButton, 3, 3);
             mainTableLayout.Controls.Add(startMonitoringButton, 4, 3);
             mainTableLayout.Controls.Add(uploadProgressBar, 1, 4);
-            mainTableLayout.Controls.Add(cancelUploadButton, 3, 4);
             mainTableLayout.Controls.Add(uploadToEcuButton, 4, 4);
-            mainTableLayout.Controls.Add(stopMonitoringButton, 0, 5);
+            mainTableLayout.Controls.Add(stopButton, 0, 5);
             mainTableLayout.Controls.Add(statusTextBox, 0, 6);
             mainTableLayout.Dock = DockStyle.Fill;
             mainTableLayout.Location = new Point(0, 0);
@@ -237,18 +235,6 @@ namespace LotusECMLogger.Controls
             uploadProgressBar.Size = new Size(492, 26);
             uploadProgressBar.TabIndex = 15;
             //
-            // cancelUploadButton
-            //
-            cancelUploadButton.Anchor = AnchorStyles.Left;
-            cancelUploadButton.Enabled = false;
-            cancelUploadButton.Location = new Point(684, 165);
-            cancelUploadButton.Name = "cancelUploadButton";
-            cancelUploadButton.Size = new Size(90, 32);
-            cancelUploadButton.TabIndex = 16;
-            cancelUploadButton.Text = "Cancel";
-            cancelUploadButton.UseVisualStyleBackColor = true;
-            cancelUploadButton.Click += CancelUploadButton_Click;
-            //
             // uploadToEcuButton
             //
             uploadToEcuButton.Anchor = AnchorStyles.Left;
@@ -261,16 +247,16 @@ namespace LotusECMLogger.Controls
             uploadToEcuButton.UseVisualStyleBackColor = true;
             uploadToEcuButton.Click += UploadToEcuButton_Click;
             //
-            // stopMonitoringButton
+            // stopButton
             //
-            stopMonitoringButton.Enabled = false;
-            stopMonitoringButton.Location = new Point(13, 203);
-            stopMonitoringButton.Name = "stopMonitoringButton";
-            stopMonitoringButton.Size = new Size(120, 32);
-            stopMonitoringButton.TabIndex = 18;
-            stopMonitoringButton.Text = "Stop Monitoring";
-            stopMonitoringButton.UseVisualStyleBackColor = true;
-            stopMonitoringButton.Click += StopMonitoringButton_Click;
+            stopButton.Enabled = false;
+            stopButton.Location = new Point(13, 203);
+            stopButton.Name = "stopButton";
+            stopButton.Size = new Size(120, 32);
+            stopButton.TabIndex = 18;
+            stopButton.Text = "Stop";
+            stopButton.UseVisualStyleBackColor = true;
+            stopButton.Click += StopButton_Click;
             //
             // statusTextBox
             //
@@ -317,9 +303,8 @@ namespace LotusECMLogger.Controls
         private Button browseFileButton;
         private Button startMonitoringButton;
         private ProgressBar uploadProgressBar;
-        private Button cancelUploadButton;
         private Button uploadToEcuButton;
-        private Button stopMonitoringButton;
+        private Button stopButton;
         private TextBox statusTextBox;
     }
 }

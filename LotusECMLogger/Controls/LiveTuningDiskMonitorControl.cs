@@ -5,23 +5,22 @@ using System.Text.Json;
 
 namespace LotusECMLogger.Controls
 {
+    /// <summary>
+    /// Live tuning: read a calibration region out of ECU RAM to a file, watch that file and write
+    /// every saved change back to the ECU, or upload a whole file in one shot.
+    /// </summary>
+    /// <remarks>
+    /// The control is either idle or running exactly one operation (Read &amp; Start, Start
+    /// Monitoring, or Upload). Each operation is one async method run through
+    /// <see cref="RunAsync"/>; the single Stop button cancels whichever one is running.
+    /// <see cref="UpdateButtons"/> derives every control's enabled state from that one fact.
+    /// </remarks>
     public partial class LiveTuningDiskMonitorControl : UserControl
     {
-        private T6LiveTuningService? _liveTuningService;
-        private string? _currentFilePath;
-        private uint _baseAddress;
         private List<MemoryPreset> _presets = [];
 
-        /// <summary>Cancels an in-flight upload; null whenever no upload is running.</summary>
-        private CancellationTokenSource? _uploadCts;
-
-        /// <summary>
-        /// Whether the current upload has put any bytes on the wire. Set from the first write-phase
-        /// progress report, so it distinguishes "cancelled before anything was sent" — which the
-        /// pre-flight check and the unlock probe both make common — from "cancelled part-way
-        /// through", which leaves the region half-written.
-        /// </summary>
-        private bool _uploadSentData;
+        /// <summary>The running operation's cancellation; null whenever the control is idle.</summary>
+        private CancellationTokenSource? _operation;
 
         private bool _isInitialized = false;
 
@@ -48,11 +47,11 @@ namespace LotusECMLogger.Controls
             // Load memory presets from JSON
             LoadMemoryPresets();
 
-            // Subscribe to text changed event to validate inputs
-            baseAddressTextBox.TextChanged += ValidateInputs;
-            lengthNumericUpDown.ValueChanged += ValidateInputs;
-            outputDirectoryTextBox.TextChanged += ValidateReadFromEcuInputs;
-            existingFileTextBox.TextChanged += ValidateLoadFileInputs;
+            // The action buttons depend on these inputs being valid.
+            baseAddressTextBox.TextChanged += (_, _) => UpdateButtons();
+            outputDirectoryTextBox.TextChanged += (_, _) => UpdateButtons();
+            existingFileTextBox.TextChanged += (_, _) => UpdateButtons();
+            UpdateButtons();
 
             LogStatus("Live Tuning control initialized");
         }
@@ -114,19 +113,6 @@ namespace LotusECMLogger.Controls
             }
         }
 
-        public void SetLiveTuningService(T6LiveTuningService service)
-        {
-            _liveTuningService = service;
-
-            if (_liveTuningService != null)
-            {
-                // Subscribe to service events
-                _liveTuningService.WordWritten += OnWordWritten;
-                _liveTuningService.ErrorOccurred += OnError;
-                LogStatus("Live tuning service connected");
-            }
-        }
-
         private void BrowseOutputButton_Click(object sender, EventArgs e)
         {
             using var folderDialog = new FolderBrowserDialog
@@ -161,216 +147,35 @@ namespace LotusECMLogger.Controls
             }
         }
 
+        // ── Buttons ─────────────────────────────────────────────────────────────────────────
+
         private async void ReadFromEcuButton_Click(object sender, EventArgs e)
         {
-            // Validate and parse inputs
             if (!TryParseReadFromEcuInputs(out uint baseAddress, out uint length, out string outputDir))
             {
                 return;
             }
 
-            try
-            {
-                var rmaService = new T6RMAService();
-
-                LogStatus("Reading ECU memory...");
-                LogStatus($"Configuration: Address=0x{baseAddress:X8}, Length={length} bytes");
-                LogStatus($"Output directory: {outputDir}");
-
-                // Disable new workflows
-                SetLoadFileControlsEnabled(false);
-                SetReadFromEcuControlsEnabled(false);
-
-                // Enable stop button to allow canceling/stopping
-                stopMonitoringButton.Enabled = true;
-
-                // Generate filename with ISO-8601 date and .cpt extension
-                _currentFilePath = GenerateFilePath(outputDir, baseAddress);
-
-                // Ensure directory exists
-                string? directory = Path.GetDirectoryName(_currentFilePath);
-                if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
-                {
-                    Directory.CreateDirectory(directory);
-                    LogStatus($"Created directory: {directory}");
-                }
-
-                LogStatus($"Reading ECU memory to file: {Path.GetFileName(_currentFilePath)}");
-
-                // Create progress reporter
-                var progress = new Progress<(int bytesRead, int totalBytes)>(p =>
-                {
-                    if (InvokeRequired)
-                    {
-                        Invoke(() => LogStatus($"Progress: {p.bytesRead}/{p.totalBytes} bytes ({p.bytesRead * 100 / p.totalBytes}%)"));
-                    }
-                    else
-                    {
-                        LogStatus($"Progress: {p.bytesRead}/{p.totalBytes} bytes ({p.bytesRead * 100 / p.totalBytes}%)");
-                    }
-                });
-
-                // Read memory from ECU
-                bool success = await rmaService.ReadMemoryToFileAsync(baseAddress, length, _currentFilePath, progress);
-
-                if (success)
-                {
-                    LogStatus($"Successfully read {length} bytes from ECU");
-                    LogStatus($"File saved: {_currentFilePath}");
-
-                    // Dispose the RMA service since we're done reading
-                    rmaService.Dispose();
-
-                    // Now create the live tuning service for monitoring
-                    _liveTuningService = new T6LiveTuningService();
-
-                    // Subscribe to service events
-                    _liveTuningService.WordWritten += OnWordWritten;
-                    _liveTuningService.ErrorOccurred += OnError;
-
-                    // Store base address for monitoring
-                    _baseAddress = baseAddress;
-
-                    // Start monitoring the file we just created
-                    _liveTuningService.StartMonitoring(_currentFilePath, _baseAddress, scanIntervalMs: 100);
-
-                    LogStatus($"Started live tuning: {Path.GetFileName(_currentFilePath)}");
-                    LogStatus($"Base address: 0x{_baseAddress:X8}");
-                    LogStatus($"Monitoring for changes every 100ms...");
-                    LogStatus($"Changes will be automatically written to ECU");
-
-                    MessageBox.Show($"ECU memory successfully read and live tuning started:\n{_currentFilePath}\n\nYou can now edit this file and changes will be written to the ECU automatically.",
-                        "Read Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                }
-                else
-                {
-                    LogStatus("Failed to read ECU memory");
-                    MessageBox.Show("Failed to read ECU memory. Check the status log for details.",
-                        "Read Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
-
-                    // Dispose the RMA service on failure
-                    rmaService.Dispose();
-
-                    // Re-enable controls on failure
-                    SetReadFromEcuControlsEnabled(true);
-                    SetLoadFileControlsEnabled(true);
-                    stopMonitoringButton.Enabled = false;
-                }
-            }
-            catch (Exception ex)
-            {
-                LogStatus($"Error reading ECU: {ex.Message}");
-                MessageBox.Show($"Failed to read ECU memory: {ex.Message}",
-                    "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-
-                // Cleanup on error
-                if (_liveTuningService != null)
-                {
-                    try
-                    {
-                        _liveTuningService.StopMonitoring();
-                        _liveTuningService.Dispose();
-                        _liveTuningService = null;
-                    }
-                    catch
-                    {
-                        // Ignore cleanup errors
-                    }
-                }
-
-                // Re-enable controls on error
-                SetReadFromEcuControlsEnabled(true);
-                SetLoadFileControlsEnabled(true);
-                stopMonitoringButton.Enabled = false;
-            }
+            await RunAsync("Read & Start", token => ReadAndMonitorAsync(baseAddress, length, outputDir, token));
         }
 
-        private void StartMonitoringButton_Click(object sender, EventArgs e)
+        private async void StartMonitoringButton_Click(object sender, EventArgs e)
         {
-            // Get file path from existing file textbox
             string filePath = existingFileTextBox.Text.Trim();
-
-            if (string.IsNullOrEmpty(filePath) || !File.Exists(filePath))
+            if (!File.Exists(filePath))
             {
                 MessageBox.Show("Please select a valid calibration file.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
-            // Parse base address
             if (!TryParseHexAddress(baseAddressTextBox.Text, out uint baseAddress))
             {
                 MessageBox.Show("Invalid base address", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;
             }
 
-            try
-            {
-                _currentFilePath = filePath;
-                _baseAddress = baseAddress;
-
-                // Create T6LiveTuningService if not already created
-                if (_liveTuningService == null)
-                {
-                    _liveTuningService = new T6LiveTuningService();
-
-                    // Subscribe to service events
-                    _liveTuningService.WordWritten += OnWordWritten;
-                    _liveTuningService.ErrorOccurred += OnError;
-                }
-
-                // Start live tuning monitoring (this will monitor file AND write to ECU)
-                _liveTuningService.StartMonitoring(_currentFilePath, _baseAddress, scanIntervalMs: 100);
-
-                LogStatus($"Started live tuning: {Path.GetFileName(_currentFilePath)}");
-                LogStatus($"Base address: 0x{_baseAddress:X8}");
-                LogStatus($"Monitoring for changes every 100ms...");
-                LogStatus($"Changes will be automatically written to ECU");
-
-                SetReadFromEcuControlsEnabled(false);
-                SetLoadFileControlsEnabled(false);
-                stopMonitoringButton.Enabled = true;
-            }
-            catch (Exception ex)
-            {
-                LogStatus($"Error starting live tuning: {ex.Message}");
-                MessageBox.Show($"Failed to start live tuning: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-
-                // Clean up on error
-                if (_liveTuningService != null)
-                {
-                    try
-                    {
-                        _liveTuningService.StopMonitoring();
-                    }
-                    catch
-                    {
-                        // Ignore cleanup errors
-                    }
-                }
-            }
+            await RunAsync("Live tuning", token => MonitorAsync(filePath, baseAddress, token));
         }
-
-        private void StopMonitoringButton_Click(object sender, EventArgs e)
-        {
-            try
-            {
-                if (_liveTuningService != null)
-                {
-                    _liveTuningService.StopMonitoring();
-                    LogStatus("Live tuning stopped");
-                }
-
-                stopMonitoringButton.Enabled = false;
-                SetReadFromEcuControlsEnabled(true);
-                SetLoadFileControlsEnabled(true);
-            }
-            catch (Exception ex)
-            {
-                LogStatus($"Error stopping live tuning: {ex.Message}");
-                MessageBox.Show($"Failed to stop live tuning: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-        }
-
 
         /// <summary>
         /// Uploads the selected calibration file into ECU RAM in one shot — the inverse of
@@ -379,17 +184,8 @@ namespace LotusECMLogger.Controls
         /// </summary>
         private async void UploadToEcuButton_Click(object sender, EventArgs e)
         {
-            // A monitoring session holds the J2534 device open, and the device cannot be opened
-            // twice. The button is disabled while monitoring; this covers the rest.
-            if (_liveTuningService?.IsMonitoring == true)
-            {
-                MessageBox.Show("Stop live tuning before uploading — the monitoring session holds the J2534 device.",
-                    "Monitoring Active", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-
             string filePath = existingFileTextBox.Text.Trim();
-            if (string.IsNullOrEmpty(filePath) || !File.Exists(filePath))
+            if (!File.Exists(filePath))
             {
                 MessageBox.Show("Please select a valid calibration file.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
@@ -414,73 +210,187 @@ namespace LotusECMLogger.Controls
                 return;
             }
 
-            SetReadFromEcuControlsEnabled(false);
-            SetLoadFileControlsEnabled(false);
-            uploadToEcuButton.Enabled = false;
-            cancelUploadButton.Enabled = true;
+            await RunAsync("Upload", token => UploadAsync(filePath, baseAddress, (int)fileLength, token));
+        }
 
-            _uploadCts = new CancellationTokenSource();
-            _uploadSentData = false;
+        private void StopButton_Click(object sender, EventArgs e)
+        {
+            if (_operation is null)
+            {
+                return;
+            }
+
+            LogStatus("Stopping...");
+            _operation.Cancel();
+            UpdateButtons();
+        }
+
+        // ── Operation plumbing ──────────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Runs one operation to completion, failure, or Stop. Owns the busy state: the control is
+        /// busy exactly while an operation is inside this method, and every exit path returns it
+        /// to idle.
+        /// </summary>
+        private async Task RunAsync(string name, Func<CancellationToken, Task> operation)
+        {
+            if (_operation != null)
+            {
+                return; // Already busy — the buttons are disabled, this only guards a stale click.
+            }
+
+            _operation = new CancellationTokenSource();
+            UpdateButtons();
 
             try
             {
-                using var rmaService = new T6RMAService();
-
-                LogStatus("Checking ECU unlock state...");
-                if (!await Task.Run(rmaService.IsEcuUnlocked, _uploadCts.Token))
-                {
-                    LogStatus("ECU did not answer the unlock probe — upload aborted");
-                    MessageBox.Show(
-                        "The ECU did not respond to the unlock probe. A locked ECU silently discards memory writes, " +
-                        "so nothing would be uploaded. Unlock the ECU and try again.",
-                        "ECU Locked", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    return;
-                }
-
-                LogStatus($"Uploading {fileLength} bytes to 0x{baseAddress:X8}-0x{baseAddress + (uint)fileLength - 1:X8}");
-                LogStatus($"Source: {Path.GetFileName(filePath)}");
-                LogStatus($"Checking the file against the first 32 bytes in ECU memory...");
-
-                await RunUploadAsync(rmaService, baseAddress, filePath, (int)fileLength, _uploadCts.Token);
+                await operation(_operation.Token);
             }
             catch (OperationCanceledException)
             {
-                if (!_uploadSentData)
-                {
-                    LogStatus("Upload cancelled before any data was sent — ECU memory is unchanged");
-                    return;
-                }
-
-                LogStatus("Upload cancelled — the region now holds a mix of the old and new calibrations");
-                MessageBox.Show(
-                    "Upload cancelled part-way through. ECU RAM now holds part of the old calibration and part of the new one.\n\n" +
-                    "Upload the file again to finish, or cycle the ignition to reload the calibration from flash.",
-                    "Upload Cancelled", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                LogStatus($"{name} stopped");
             }
             catch (Exception ex)
             {
-                LogStatus($"Upload failed: {ex.Message}");
-                MessageBox.Show($"Failed to upload calibration: {ex.Message}",
-                    "Upload Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                LogStatus($"{name} failed: {ex.Message}");
+                if (!IsDisposed)
+                {
+                    MessageBox.Show($"{name} failed: {ex.Message}", name, MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
             }
             finally
             {
-                _uploadCts?.Dispose();
-                _uploadCts = null;
+                _operation.Dispose();
+                _operation = null;
+                UpdateButtons();
+            }
+        }
 
-                if (!IsDisposed && !Disposing)
+        /// <summary>
+        /// Sets every control's enabled state. Idle: inputs editable and each action available when
+        /// its inputs are valid. Busy: everything locked except Stop.
+        /// </summary>
+        private void UpdateButtons()
+        {
+            if (IsDisposed)
+            {
+                return;
+            }
+
+            bool idle = _operation == null;
+            bool hasAddress = TryParseHexAddress(baseAddressTextBox.Text, out _);
+            bool hasOutputDir = !string.IsNullOrWhiteSpace(outputDirectoryTextBox.Text);
+            bool hasFile = File.Exists(existingFileTextBox.Text.Trim());
+
+            presetComboBox.Enabled = idle;
+            baseAddressTextBox.Enabled = idle;
+            lengthNumericUpDown.Enabled = idle;
+            outputDirectoryTextBox.Enabled = idle;
+            browseOutputButton.Enabled = idle;
+            existingFileTextBox.Enabled = idle;
+            browseFileButton.Enabled = idle;
+
+            readFromEcuButton.Enabled = idle && hasAddress && hasOutputDir;
+            startMonitoringButton.Enabled = idle && hasAddress && hasFile;
+            uploadToEcuButton.Enabled = idle && hasAddress && hasFile;
+
+            // Disabled once pressed, so a second click cannot look like it did something.
+            stopButton.Enabled = !idle && !_operation!.IsCancellationRequested;
+        }
+
+        // ── Operations ──────────────────────────────────────────────────────────────────────
+
+        /// <summary>Reads the region to a new file, selects that file, then monitors it until Stop.</summary>
+        private async Task ReadAndMonitorAsync(uint baseAddress, uint length, string outputDir, CancellationToken token)
+        {
+            Directory.CreateDirectory(outputDir);
+            string filePath = GenerateFilePath(outputDir, baseAddress);
+
+            LogStatus($"Reading {length} bytes from 0x{baseAddress:X8} to {Path.GetFileName(filePath)}...");
+
+            int lastLoggedTenth = -1;
+            var progress = new Progress<(int bytesRead, int totalBytes)>(p =>
+            {
+                int tenth = p.bytesRead * 10 / p.totalBytes;
+                if (tenth == lastLoggedTenth)
                 {
-                    cancelUploadButton.Enabled = false;
+                    return;
+                }
+                lastLoggedTenth = tenth;
+                LogStatus($"Read {p.bytesRead}/{p.totalBytes} bytes ({tenth * 10}%)");
+            });
+
+            using (var rmaService = new T6RMAService())
+            {
+                if (!await rmaService.ReadMemoryToFileAsync(baseAddress, length, filePath, progress, token))
+                {
+                    throw new IOException("The ECU stopped answering memory reads. Check that it is unlocked and the ignition is on.");
+                }
+            }
+
+            LogStatus($"Saved {filePath}");
+
+            // Select the new file so it can be monitored again or uploaded after Stop.
+            existingFileTextBox.Text = filePath;
+
+            await MonitorAsync(filePath, baseAddress, token);
+        }
+
+        /// <summary>
+        /// Watches the file and writes every saved change to the ECU until Stop. The service lives
+        /// exactly as long as the session.
+        /// </summary>
+        private async Task MonitorAsync(string filePath, uint baseAddress, CancellationToken token)
+        {
+            using var service = new T6LiveTuningService();
+            service.WordWritten += OnWordWritten;
+            service.ErrorOccurred += OnError;
+
+            service.StartMonitoring(filePath, baseAddress, scanIntervalMs: 100);
+            LogStatus($"Live tuning started: {Path.GetFileName(filePath)} at 0x{baseAddress:X8}");
+            LogStatus("Changes saved to the file are written to the ECU automatically");
+
+            // Stop the session the moment Stop is pressed (or the control is disposed), rather than
+            // whenever this method's continuation next runs on the UI thread.
+            using var stopOnCancel = token.Register(service.StopMonitoring);
+            await Task.Delay(Timeout.Infinite, token);
+        }
+
+        private async Task UploadAsync(string filePath, uint baseAddress, int fileLength, CancellationToken token)
+        {
+            using var rmaService = new T6RMAService();
+
+            LogStatus("Checking ECU unlock state...");
+            if (!await Task.Run(rmaService.IsEcuUnlocked, token))
+            {
+                LogStatus("ECU did not answer the unlock probe — upload aborted");
+                MessageBox.Show(
+                    "The ECU did not respond to the unlock probe. A locked ECU silently discards memory writes, " +
+                    "so nothing would be uploaded. Unlock the ECU and try again.",
+                    "ECU Locked", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            LogStatus($"Uploading {fileLength} bytes to 0x{baseAddress:X8}-0x{baseAddress + (uint)fileLength - 1:X8}");
+            LogStatus($"Source: {Path.GetFileName(filePath)}");
+            LogStatus($"Checking the file against the first 32 bytes in ECU memory...");
+
+            try
+            {
+                await RunUploadAsync(rmaService, baseAddress, filePath, fileLength, token);
+            }
+            finally
+            {
+                if (!IsDisposed)
+                {
                     uploadProgressBar.Value = 0;
-                    SetReadFromEcuControlsEnabled(true);
-                    SetLoadFileControlsEnabled(true);
                 }
             }
         }
 
         /// <summary>
-        /// Performs the upload and reports the outcome. Split out so the surrounding handler is
-        /// only concerned with guards, control state, and error presentation.
+        /// Performs the upload and reports the outcome. Split out so the caller is only concerned
+        /// with the unlock check and the progress bar's reset.
         /// </summary>
         private async Task RunUploadAsync(IT6RMAService rmaService, uint baseAddress, string filePath, int fileLength, CancellationToken cancellationToken)
         {
@@ -489,16 +399,21 @@ namespace LotusECMLogger.Controls
             uploadProgressBar.Maximum = fileLength * 2;
             uploadProgressBar.Value = 0;
 
+            // Whether any bytes have gone out: distinguishes "stopped before anything was sent" —
+            // which the pre-flight check and the unlock probe both make common — from "stopped
+            // part-way through", which leaves the region half-written.
+            bool sentData = false;
+
             int lastLoggedPercent = -1;
             var progress = new Progress<T6RMAUploadProgress>(p =>
             {
-                // The tab can be torn down mid-upload (closing the app, for instance) while reports
-                // are still in flight; touching the controls after that throws.
                 if (p.Phase == T6RMAUploadPhase.Writing && p.BytesDone > 0)
                 {
-                    _uploadSentData = true;
+                    sentData = true;
                 }
 
+                // The tab can be torn down mid-upload (closing the app, for instance) while reports
+                // are still in flight; touching the controls after that throws.
                 if (IsDisposed || Disposing)
                 {
                     return;
@@ -525,32 +440,40 @@ namespace LotusECMLogger.Controls
             T6RMAUploadResult result;
             try
             {
-                result = await rmaService.WriteFileToMemoryAsync(
-                    baseAddress, filePath, verify: true, checkHeader: true, progress, cancellationToken);
+                try
+                {
+                    result = await rmaService.WriteFileToMemoryAsync(
+                        baseAddress, filePath, verify: true, checkHeader: true, progress, cancellationToken);
+                }
+                catch (T6RMAHeaderMismatchException mismatch)
+                {
+                    // Nothing was written — the check runs before the first frame. Uploading a genuinely
+                    // different calibration is a legitimate thing to want, so this asks rather than refuses.
+                    if (IsDisposed || Disposing)
+                    {
+                        return;
+                    }
+
+                    LogStatus($"Pre-flight check failed at 0x{mismatch.Address:X8} — the file does not match ECU memory");
+
+                    if (!ConfirmHeaderMismatch(mismatch))
+                    {
+                        LogStatus("Upload abandoned — ECU memory is unchanged");
+                        return;
+                    }
+
+                    LogStatus("Mismatch overridden — uploading anyway");
+                    lastLoggedPercent = -1;
+                    uploadProgressBar.Value = 0;
+
+                    result = await rmaService.WriteFileToMemoryAsync(
+                        baseAddress, filePath, verify: true, checkHeader: false, progress, cancellationToken);
+                }
             }
-            catch (T6RMAHeaderMismatchException mismatch)
+            catch (OperationCanceledException)
             {
-                // Nothing was written — the check runs before the first frame. Uploading a genuinely
-                // different calibration is a legitimate thing to want, so this asks rather than refuses.
-                if (IsDisposed || Disposing)
-                {
-                    return;
-                }
-
-                LogStatus($"Pre-flight check failed at 0x{mismatch.Address:X8} — the file does not match ECU memory");
-
-                if (!ConfirmHeaderMismatch(mismatch))
-                {
-                    LogStatus("Upload abandoned — ECU memory is unchanged");
-                    return;
-                }
-
-                LogStatus("Mismatch overridden — uploading anyway");
-                lastLoggedPercent = -1;
-                uploadProgressBar.Value = 0;
-
-                result = await rmaService.WriteFileToMemoryAsync(
-                    baseAddress, filePath, verify: true, checkHeader: false, progress, cancellationToken);
+                ReportUploadStopped(sentData);
+                throw;
             }
 
             if (IsDisposed || Disposing)
@@ -577,6 +500,24 @@ namespace LotusECMLogger.Controls
                 $"First mismatching addresses: {sample}\n\n" +
                 "ECU RAM does not match the file. Upload again, or cycle the ignition to reload the calibration from flash.",
                 "Verification Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+
+        private void ReportUploadStopped(bool sentData)
+        {
+            if (!sentData)
+            {
+                LogStatus("Upload stopped before any data was sent — ECU memory is unchanged");
+                return;
+            }
+
+            LogStatus("Upload stopped — the region now holds a mix of the old and new calibrations");
+            if (!IsDisposed)
+            {
+                MessageBox.Show(
+                    "Upload stopped part-way through. ECU RAM now holds part of the old calibration and part of the new one.\n\n" +
+                    "Upload the file again to finish, or cycle the ignition to reload the calibration from flash.",
+                    "Upload Stopped", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
         }
 
         /// <summary>
@@ -652,69 +593,20 @@ namespace LotusECMLogger.Controls
             return text.ToString();
         }
 
-        private void CancelUploadButton_Click(object sender, EventArgs e)
-        {
-            if (_uploadCts is null)
-            {
-                return;
-            }
-
-            LogStatus("Cancelling upload...");
-            cancelUploadButton.Enabled = false;
-            _uploadCts.Cancel();
-        }
+        // ── Service callbacks (raised on background threads) ────────────────────────────────
 
         private void OnWordWritten(object? sender, LiveTuningWordWrittenEventArgs e)
         {
-            if (InvokeRequired)
-            {
-                Invoke(() => OnWordWritten(sender, e));
-                return;
-            }
-
-            string message = $"[{DateTime.Now:HH:mm:ss.fff}] ECU Write: Addr=0x{e.MemoryAddress:X8}, " +
-                             $"Offset=0x{e.FileOffset:X}, Old=0x{e.OldValue:X8}, New=0x{e.NewValue:X8}";
-            LogStatus(message);
+            LogStatus($"ECU Write: Addr=0x{e.MemoryAddress:X8}, Offset=0x{e.FileOffset:X}, " +
+                      $"Old=0x{e.OldValue:X8}, New=0x{e.NewValue:X8}");
         }
 
         private void OnError(object? sender, string errorMessage)
         {
-            if (InvokeRequired)
-            {
-                Invoke(() => OnError(sender, errorMessage));
-                return;
-            }
-
             LogStatus($"ERROR: {errorMessage}");
         }
 
-        private void ValidateInputs(object? sender, EventArgs e)
-        {
-            ValidateReadFromEcuInputs(sender, e);
-            ValidateLoadFileInputs(sender, e);
-        }
-
-        private void ValidateReadFromEcuInputs(object? sender, EventArgs e)
-        {
-            // Enable/disable Read & Start button based on input validation
-            bool hasValidAddress = TryParseHexAddress(baseAddressTextBox.Text, out _);
-            bool hasValidPath = !string.IsNullOrWhiteSpace(outputDirectoryTextBox.Text);
-
-            readFromEcuButton.Enabled = hasValidAddress && hasValidPath;
-        }
-
-        private void ValidateLoadFileInputs(object? sender, EventArgs e)
-        {
-            // Enable/disable Start Monitoring button based on input validation
-            bool hasValidAddress = TryParseHexAddress(baseAddressTextBox.Text, out _);
-            bool hasValidFile = !string.IsNullOrWhiteSpace(existingFileTextBox.Text) && File.Exists(existingFileTextBox.Text.Trim());
-
-            startMonitoringButton.Enabled = hasValidAddress && hasValidFile;
-
-            // Upload takes the same two inputs as Start Monitoring: which file, and where it lives
-            // in ECU memory.
-            uploadToEcuButton.Enabled = hasValidAddress && hasValidFile;
-        }
+        // ── Helpers ─────────────────────────────────────────────────────────────────────────
 
         private bool TryParseReadFromEcuInputs(out uint baseAddress, out uint length, out string outputDir)
         {
@@ -779,11 +671,21 @@ namespace LotusECMLogger.Controls
             return Path.Combine(directory, filename);
         }
 
+        /// <summary>
+        /// Appends a timestamped line to the status log. Safe from any thread: background callers
+        /// are queued to the UI thread without waiting, so they can never block on it.
+        /// </summary>
         private void LogStatus(string message)
         {
+            if (IsDisposed || Disposing)
+            {
+                return;
+            }
+
             if (InvokeRequired)
             {
-                Invoke(() => LogStatus(message));
+                try { BeginInvoke(() => LogStatus(message)); }
+                catch (InvalidOperationException) { } // handle gone during teardown
                 return;
             }
 
@@ -798,57 +700,13 @@ namespace LotusECMLogger.Controls
             Debug.WriteLine($"LiveTuning: {message}");
         }
 
-        private void SetReadFromEcuControlsEnabled(bool enabled)
-        {
-            baseAddressTextBox.Enabled = enabled;
-            lengthNumericUpDown.Enabled = enabled;
-            outputDirectoryTextBox.Enabled = enabled;
-            browseOutputButton.Enabled = enabled;
-            presetComboBox.Enabled = enabled;
-
-            if (enabled)
-            {
-                ValidateReadFromEcuInputs(null, EventArgs.Empty);
-            }
-            else
-            {
-                readFromEcuButton.Enabled = false;
-            }
-        }
-
-        private void SetLoadFileControlsEnabled(bool enabled)
-        {
-            existingFileTextBox.Enabled = enabled;
-            browseFileButton.Enabled = enabled;
-
-            if (enabled)
-            {
-                ValidateLoadFileInputs(null, EventArgs.Empty);
-            }
-            else
-            {
-                startMonitoringButton.Enabled = false;
-                uploadToEcuButton.Enabled = false;
-            }
-        }
-
         protected override void Dispose(bool disposing)
         {
             if (disposing)
             {
-                // An upload in flight would otherwise keep writing to the ECU after the tab is gone.
-                // The handler's finally block disposes the source, so only cancel here.
-                _uploadCts?.Cancel();
-
-                // Stop and dispose live tuning service
-                if (_liveTuningService != null)
-                {
-                    _liveTuningService.WordWritten -= OnWordWritten;
-                    _liveTuningService.ErrorOccurred -= OnError;
-                    _liveTuningService.StopMonitoring();
-                    _liveTuningService.Dispose();
-                    _liveTuningService = null;
-                }
+                // Stops whatever is running: a read or upload at its next chunk, and a monitoring
+                // session immediately, through its cancellation registration.
+                _operation?.Cancel();
 
                 components?.Dispose();
             }
