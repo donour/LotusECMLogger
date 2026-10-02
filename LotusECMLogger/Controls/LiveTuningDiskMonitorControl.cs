@@ -337,14 +337,18 @@ namespace LotusECMLogger.Controls
         }
 
         /// <summary>
-        /// Watches the file and writes every saved change to the ECU until Stop. The service lives
-        /// exactly as long as the session.
+        /// Watches the file and writes every saved change to the ECU until Stop, or until the
+        /// session fails on its own (a write is refused, or the file stays unreadable). The service
+        /// lives exactly as long as the session.
         /// </summary>
         private async Task MonitorAsync(string filePath, uint baseAddress, CancellationToken token)
         {
             using var service = new T6LiveTuningService();
             service.WordWritten += OnWordWritten;
             service.ErrorOccurred += OnError;
+
+            var faulted = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+            service.Faulted += (_, reason) => faulted.TrySetResult(reason);
 
             service.StartMonitoring(filePath, baseAddress, scanIntervalMs: 100);
             LogStatus($"Live tuning started: {Path.GetFileName(filePath)} at 0x{baseAddress:X8}");
@@ -353,7 +357,11 @@ namespace LotusECMLogger.Controls
             // Stop the session the moment Stop is pressed (or the control is disposed), rather than
             // whenever this method's continuation next runs on the UI thread.
             using var stopOnCancel = token.Register(service.StopMonitoring);
-            await Task.Delay(Timeout.Infinite, token);
+
+            // Returns only if the session fails by itself; Stop surfaces as a cancellation instead.
+            // Either way, leaving this method disposes the service, which stops the session.
+            string reason = await faulted.Task.WaitAsync(token);
+            throw new IOException(reason);
         }
 
         private async Task UploadAsync(string filePath, uint baseAddress, int fileLength, CancellationToken token)

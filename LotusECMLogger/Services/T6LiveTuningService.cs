@@ -21,7 +21,16 @@ namespace LotusECMLogger.Services
 		private uint _baseMemoryAddress;
 		private uint _memoryLength;
 		private bool _isMonitoring;
+		private int _scanIntervalMs;
 		private readonly object _lock = new();
+
+		// Set once the session can no longer keep the ECU in step with the file; no further writes
+		// are sent and Faulted has been raised.
+		private bool _faulted;
+
+		// How long the file may stay unreadable before the session gives up. Editors that save by
+		// replacing the file make it briefly unreadable, so a short outage is expected and ignored.
+		private const int FileUnavailableLimitMs = 5000;
 
 		// J2534 device and channel for persistent connection during monitoring
 		private J2534Session? _session;
@@ -40,6 +49,15 @@ namespace LotusECMLogger.Services
 		/// Event fired when an error occurs during live tuning
 		/// </summary>
 		public event EventHandler<string>? ErrorOccurred;
+
+		/// <summary>
+		/// Raised once, on a background thread, when the session can no longer keep the ECU in step
+		/// with the file: a write to the ECU failed, or the file stayed unreadable. Nothing further
+		/// is written after this. The service does not stop itself — stopping waits for the monitor
+		/// thread, which may be the one raising this — so the owner should call
+		/// <see cref="StopMonitoring"/>.
+		/// </summary>
+		public event EventHandler<string>? Faulted;
 
 		/// <summary>
 		/// Gets whether the service is currently monitoring a file
@@ -156,6 +174,8 @@ namespace LotusECMLogger.Services
 					// Store configuration
 					_monitoredFilePath = filePath;
 					_baseMemoryAddress = baseMemoryAddress;
+					_scanIntervalMs = scanIntervalMs;
+					_faulted = false;
 
 					// Get file size for validation
 					var fileInfo = new FileInfo(filePath);
@@ -195,9 +215,39 @@ namespace LotusECMLogger.Services
 		/// </summary>
 		private void OnFileMonitorError(object? sender, BinaryFileMonitor.FileMonitorErrorEventArgs e)
 		{
-			string errorMsg = $"File monitor error: {e.Exception.Message}";
-			Debug.WriteLine($"T6LiveTuning ERROR: {errorMsg}");
-			ErrorOccurred?.Invoke(this, errorMsg);
+			Debug.WriteLine($"T6LiveTuning: File monitor error #{e.ConsecutiveFailures}: {e.Exception.Message}");
+
+			// The monitor retries every scan, so a missing or locked file would otherwise log a line
+			// every scan interval. Only the first failure of a run is reported.
+			if (e.ConsecutiveFailures == 1)
+			{
+				ErrorOccurred?.Invoke(this, $"File monitor error: {e.Exception.Message}");
+			}
+
+			if ((long)e.ConsecutiveFailures * _scanIntervalMs >= FileUnavailableLimitMs)
+			{
+				Fault($"The calibration file has been unreadable for {FileUnavailableLimitMs / 1000} seconds " +
+					$"({e.Exception.Message}). Changes to it can no longer reach the ECU.");
+			}
+		}
+
+		/// <summary>
+		/// Marks the session as unable to continue and raises <see cref="Faulted"/>, once. Ignored
+		/// after the session has been stopped, so writes still in flight at Stop cannot trigger it.
+		/// </summary>
+		private void Fault(string reason)
+		{
+			lock (_lock)
+			{
+				if (!_isMonitoring || _faulted)
+				{
+					return;
+				}
+				_faulted = true;
+			}
+
+			Debug.WriteLine($"T6LiveTuning: Session faulted - {reason}");
+			Faulted?.Invoke(this, reason);
 		}
 
 		/// <summary>
@@ -326,23 +376,14 @@ namespace LotusECMLogger.Services
 				channelToUse = _channel;
 			}
 
-			try
-			{
-				Debug.WriteLine($"T6LiveTuning: Writing word - Address=0x{address:X8}, Value=0x{value:X8}");
+			Debug.WriteLine($"T6LiveTuning: Writing word - Address=0x{address:X8}, Value=0x{value:X8}");
 
-				byte[] canMessage = BuildWordWriteFrame(address, value);
+			byte[] canMessage = BuildWordWriteFrame(address, value);
 
-				// Send the write command (fire-and-forget, no response expected)
-				await Task.Run(() => channelToUse.SendMessage(canMessage));
-
-				Debug.WriteLine($"T6LiveTuning: Write successful");
-			}
-			catch (Exception ex)
-			{
-				Debug.WriteLine($"T6LiveTuning: Write failed - {ex.Message}");
-				ErrorOccurred?.Invoke(this, $"Failed to write to ECU at 0x{address:X8}: {ex.Message}");
-				throw;
-			}
+			// The ECU never acknowledges an RMA write, but the adapter does report whether it took the
+			// frame for transmission. A refusal (an unplugged adapter, for one) is the only failure
+			// visible from here, so it must not be ignored.
+			await Task.Run(() => channelToUse.SendMessage(canMessage).ThrowIfError());
 		}
 
 		/// <summary>
@@ -376,6 +417,10 @@ namespace LotusECMLogger.Services
 			uint ecuAddress;
 			lock (_lock)
 			{
+				if (_faulted)
+				{
+					return; // the session is ending; nothing more is sent
+				}
 				ecuAddress = _baseMemoryAddress + (uint)e.ByteOffset;
 			}
 
@@ -406,6 +451,12 @@ namespace LotusECMLogger.Services
 					string errorMsg = $"Failed to write word change to ECU at 0x{ecuAddress:X8}: {ex.Message}";
 					Debug.WriteLine($"T6LiveTuning ERROR: {errorMsg}");
 					ErrorOccurred?.Invoke(this, errorMsg);
+
+					// The monitor has already moved past this change and will not offer it again, so
+					// the ECU now differs from the file. Carrying on would look like live tuning while
+					// silently not being it.
+					Fault($"A write to the ECU failed at 0x{ecuAddress:X8} ({ex.Message}). The ECU no longer " +
+						"matches the file — upload the file to bring them back in step.");
 				}
 			});
 		}

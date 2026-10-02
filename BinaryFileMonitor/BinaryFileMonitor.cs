@@ -28,6 +28,10 @@ public class BinaryFileMonitor : IDisposable
     private readonly object _bufferLock = new();
     private bool _disposed;
 
+    // Scans that have failed in a row; reset by the next successful read. Touched only by the
+    // monitor thread.
+    private int _consecutiveFailures;
+
     /// <summary>
     /// Raised when a 32-bit word in the monitored file changes.
     /// </summary>
@@ -122,6 +126,7 @@ public class BinaryFileMonitor : IDisposable
         }
 
         // Start monitoring thread
+        _consecutiveFailures = 0;
         _isRunning = true;
         _monitorThread = new Thread(MonitorLoop)
         {
@@ -247,7 +252,7 @@ public class BinaryFileMonitor : IDisposable
             }
             catch (Exception ex)
             {
-                OnMonitorError(new FileMonitorErrorEventArgs(ex));
+                OnMonitorError(new FileMonitorErrorEventArgs(ex, ++_consecutiveFailures));
             }
         }
     }
@@ -259,10 +264,11 @@ public class BinaryFileMonitor : IDisposable
         try
         {
             newBuffer = File.ReadAllBytes(_filePath);
+            _consecutiveFailures = 0;
         }
         catch (Exception ex) when (ex is FileNotFoundException or IOException or UnauthorizedAccessException)
         {
-            OnMonitorError(new FileMonitorErrorEventArgs(ex));
+            OnMonitorError(new FileMonitorErrorEventArgs(ex, ++_consecutiveFailures));
             return;
         }
 
