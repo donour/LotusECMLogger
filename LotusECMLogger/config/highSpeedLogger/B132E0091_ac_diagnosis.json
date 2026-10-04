@@ -1,0 +1,303 @@
+{
+  // A/C compressor control trace for the 2011 Evora NA (Fed) ECU.
+  //
+  // Answers three questions, in the order the ECU answers them:
+  //   1. Was the A/C asked for, and was the request allowed? (button -> valid request -> inhibit
+  //      flags/timers -> engage request -> state machine -> clutch relay / clutch input)
+  //   2. Once engaged, how hard is the compressor being driven? (evap-temperature PID ->
+  //      ramp/power limit -> compressor duty and load)
+  //   3. What did engagement cost the engine, and did the ECU compensate? (idle target and throttle
+  //      request, accessory friction torque, ignition compensation, rpm dip)
+  //
+  // Three tiers:
+  //   Tier 1 (50 Hz) — the control decision and its immediate effect. Clutch engagement and the
+  //     idle dip it causes play out in a few hundred ms, so this tier is fast enough to put the
+  //     request -> relay -> rpm sag sequence in order.
+  //   Tier 2 (10 Hz) — the evaporator temperature loop and the inhibit conditions. The PID runs on
+  //     ac_evap_pid_update_period (5 ms ticks), well under 10 Hz, so 10 Hz resolves every update.
+  //   Tier 3 (2 Hz) — thermal and fan context.
+  //
+  // Reading the inhibit path: ac_inhibit_flags is the summary word; the timers below it are the
+  // individual gates. Each one corresponds to a calibration value:
+  //   ac_tps_inhibit_timer          <- CAL_ac_inhibit_tps / CAL_ac_tps_inhibit_timer
+  //   ac_rpm_inhibit_delay_timer    <- CAL_ac_inhibit_rpm
+  //   ac_rpm_cutoff_*_timer         <- CAL_ac_inhibit_rpm_cutoff (+ _on_delay / _min_hold)
+  //   ac_evap_freeze_inhibit_timer  <- CAL_ac_inhibit_evap_temp / CAL_ac_evap_freeze_inhibit_delay
+  //   coolant_temp                  <- CAL_ac_inhibit_coolant
+  //   car_speed_u8                  <- CAL_ac_inhibit_carspeed2
+  // The flag bit assignments are not decoded yet, so log the word raw and correlate each bit's
+  // transitions with the timer/condition that changes at the same instant.
+  //
+  // Scaling notes (all derived from the catalog types; nothing is overridden inline):
+  //   - Most A/C internals (ac_compressor_dc, ac_compressor_load, ac_pid_*, ac_ramp_step,
+  //     ac_power_limit, ac_compressor_load_power) are untyped in the catalog and log as raw counts.
+  //     CAL_ac_pwm_dc_divisor and CAL_ac_output_pwm_freq suggest ac_compressor_dc is a PWM duty
+  //     (variable-displacement control valve) rather than a plain on/off output. Confirm the
+  //     full-scale count before converting to %.
+  //   - obd_ii_ac_evap_temp and ac_evap_temp_delta are u16_temp_1/10C (raw/10 °C, no offset),
+  //     the same encoding as CAL_ac_evap_target_temp. If the evaporator goes below 0 °C and the
+  //     value jumps to ~6553 °C, it is really signed and needs "signed": true.
+  //   - ac_compressor_state is enum_ac_compressor_state and logs the raw enum value.
+  //   - tps_16bit and idle_tps_requested are u16_factor_1/1023, normalized, so they display 0-100%.
+  //
+  // Bandwidth: about 220 frames/s, or ~6% of the 500 kbit/s bus. Most of that is Tier 1 at 50 Hz;
+  // dropping it to 20 Hz roughly halves the load.
+  "name": "A/C Compressor Diagnosis (B132E0091)",
+  "description": "A/C compressor control trace: button request through inhibit flags and timers to engage request, compressor state and clutch relay; evaporator-temperature PID terms driving compressor duty and load; and the idle, torque and ignition compensation applied on engagement.",
+  "ecuVersion": "B13200091",
+  "channels": [
+    // ══ TIER 1 — 50 Hz — control decision and immediate effect ══════════════════════════════════
+    {
+      "symbol": "ac_button_requested",
+      "rate": 50
+    }, // Driver A/C request (bool). If this never goes true, the fault is upstream of the ECU
+    // (switch, HVAC panel, or the CAN/wire that carries it).
+    {
+      "symbol": "ac_request_valid",
+      "rate": 50
+    }, // Request accepted as valid (bool). Button true with this false = request is being rejected
+    // before the inhibit logic runs.
+    {
+      "symbol": "ac_clutch_engage_request",
+      "rate": 50
+    }, // ECU decided to engage (bool) — after all inhibits. Valid request with this false = an
+    // inhibit is active; read ac_inhibit_flags.
+    {
+      "symbol": "ac_compressor_state",
+      "rate": 50
+    }, // Compressor state machine (raw enum). Shows soft-engage / running / shutdown phases
+    // between the engage request and steady operation.
+    {
+      "symbol": "obd_ii_ac_clutch_relay",
+      "rate": 50
+    }, // Clutch relay output as reported for OBD (raw). Engage request true with this off =
+    // output-stage or state-machine problem.
+    {
+      "symbol": "ac_clutch_input",
+      "rate": 50
+    }, // Clutch feedback input (bool). Relay on with this false = relay, fuse, wiring or clutch
+    // coil fault — the ECU commanded it and nothing happened.
+    {
+      "symbol": "ac_inhibit_flags",
+      "rate": 50
+    }, // Inhibit summary word (u16, raw). Nonzero = something is blocking the compressor; see the
+    // header for the gate list.
+    {
+      "symbol": "ac_compressor_dc",
+      "rate": 50
+    }, // Compressor drive duty (raw counts, see scaling note) — the controller's output
+    {
+      "symbol": "ac_compressor_load",
+      "rate": 50
+    }, // Compressor load estimate (raw) — what the ECU believes the compressor is taking from the
+    // crank; feeds the idle and torque compensation
+    {
+      "symbol": "engine_speed_16bit",
+      "rate": 50
+    }, // RPM (u16, 1 rpm/count). The dip at clutch engagement is the most direct measure of whether
+    // the idle compensation arrived in time.
+    {
+      "symbol": "obd_ii_idle_speed_target_total",
+      "rate": 50
+    }, // Idle speed target including all adders (rpm). Should step up with A/C on.
+    {
+      "symbol": "idle_tps_requested",
+      "rate": 50
+    }, // Idle throttle request (0-100%). Should lead or match the clutch engagement, not trail it.
+    {
+      "symbol": "tps_16bit",
+      "rate": 50
+    }, // Actual throttle plate (0-100%). Also the input to the TPS inhibit (CAL_ac_inhibit_tps).
+
+    // ══ TIER 2 — 10 Hz — evaporator loop and inhibit conditions ═════════════════════════════════
+    {
+      "symbol": "ac_evap_temp_voltage",
+      "rate": 10
+    }, // Raw evap sensor volts (V = raw*5/1023). Pegged at 0 or 5 V = open/short sensor circuit.
+    {
+      "symbol": "obd_ii_ac_evap_temp",
+      "rate": 10
+    }, // Evaporator temperature (°C = raw/10). The PID's feedback; compare to
+    // CAL_ac_evap_target_temp.
+    {
+      "symbol": "ac_evap_temp_delta",
+      "rate": 10
+    }, // Evap temperature error/trend (°C = raw/10)
+    {
+      "symbol": "ac_pid_p_term",
+      "rate": 10
+    }, // Evap PID proportional term (raw)
+    {
+      "symbol": "ac_pid_i_term",
+      "rate": 10
+    }, // Evap PID integral term (raw). Pinned at a limit (CAL_ac_evap_pid_integrator_limit) =
+    // compressor can't reach target: low charge, blocked condenser or weak compressor.
+    {
+      "symbol": "ac_pid_d_term",
+      "rate": 10
+    }, // Evap PID derivative term (raw)
+    {
+      "symbol": "ac_pid_out_accum",
+      "rate": 10
+    }, // PID output accumulator (raw)
+    {
+      "symbol": "ac_pid_target_accum",
+      "rate": 10
+    }, // PID target accumulator (raw)
+    {
+      "symbol": "ac_ramp_step",
+      "rate": 10
+    }, // Load ramp step (raw) — slews the compressor in/out per CAL_ac_load_slew_* / CAL_ac_load_ramp_steps
+    {
+      "symbol": "ac_power_limit",
+      "rate": 10
+    }, // Compressor power limit (raw). If the duty is flat at this value, the limit is in control,
+    // not the PID.
+    {
+      "symbol": "ac_compressor_load_power",
+      "rate": 10
+    }, // Compressor load as power (raw)
+    {
+      "symbol": "ac_compressor_soft_engage_timer",
+      "rate": 10
+    }, // Soft-engage timer (raw), against CAL_ac_compressor_soft_engage_time
+    {
+      "symbol": "ac_tps_inhibit_timer",
+      "rate": 10
+    }, // TPS (wide-open-throttle cut) inhibit timer (ms = raw*100)
+    {
+      "symbol": "ac_rpm_inhibit_delay_timer",
+      "rate": 10
+    }, // RPM inhibit delay timer (ms = raw*100)
+    {
+      "symbol": "ac_rpm_cutoff_on_delay_timer",
+      "rate": 10
+    }, // RPM cutoff on-delay timer (raw), against CAL_ac_inhibit_rpm_cutoff_on_delay
+    {
+      "symbol": "ac_rpm_cutoff_min_hold_timer",
+      "rate": 10
+    }, // RPM cutoff minimum-hold timer (raw), against CAL_ac_inhibit_rpm_cutoff_min_hold
+    {
+      "symbol": "ac_evap_freeze_inhibit_timer",
+      "rate": 10
+    }, // Evaporator freeze-protection inhibit timer (ms = raw*5). Cycling on this = evap reaching
+    // CAL_ac_inhibit_evap_temp; normal at low load, suspicious if it cycles constantly.
+    {
+      "symbol": "torque_engine_friction_accessory_scaled",
+      "rate": 10
+    }, // Accessory friction torque (Nm) — where the compressor load enters the torque model
+    {
+      "symbol": "ac_compressor_ign_compensation_active",
+      "rate": 10
+    }, // Ignition compensation for compressor engaged (bool), after CAL_ac_ign_comp_delay
+    {
+      "symbol": "ign_adv_final",
+      "rate": 10
+    }, // Final ignition advance (deg = raw/4). Should show the CAL_ign_comp_ac_compressor_active
+    // step while the flag above is set.
+    {
+      "symbol": "load_mass_per_stroke",
+      "rate": 10
+    }, // Load (mg/stroke = raw*4). Steps up when the compressor engages.
+    {
+      "symbol": "coolant_temp",
+      "rate": 10
+    }, // Coolant temperature (°C = raw*5/8 - 40), against CAL_ac_inhibit_coolant
+    {
+      "symbol": "car_speed_u8",
+      "rate": 10
+    }, // Vehicle speed (km/h), against CAL_ac_inhibit_carspeed2
+    {
+      "symbol": "sensor_adc_ecu_voltage",
+      "rate": 10
+    }, // Supply voltage (V = raw*18/1023). Clutch coil and fan current show up as a sag here.
+
+    // ══ TIER 3 — 2 Hz — thermal and fan context ═════════════════════════════════════════════════
+    {
+      "symbol": "fan_cooling_1_state",
+      "rate": 2
+    }, // Cooling fan 1 state (raw). With A/C on the fans run on the _with_ac thresholds; a hot
+    // condenser with fans off raises head pressure and can trip the pressure switch.
+    {
+      "symbol": "fan_cooling_2_state",
+      "rate": 2
+    }, // Cooling fan 2 state (raw)
+    {
+      "symbol": "fan_coolant_flags",
+      "rate": 2
+    }, // Fan request flags (u32, raw)
+    {
+      "symbol": "ac_fan_startup_hold_timer",
+      "rate": 2
+    }, // A/C fan startup hold (ms = raw*100), against CAL_ac_fan_startup_hold_time
+    {
+      "symbol": "ac_evap_pid_update_period",
+      "rate": 2
+    }, // PID update period in use (ms = raw*5). Changes between the warm and cold gain sets
+    // (CAL_ac_evap_pid_ki_warm / _cold).
+    {
+      "symbol": "airtemp_tmaf",
+      "rate": 2
+    }, // Intake air temperature (°C = raw*5/8 - 40) — best available proxy for ambient heat load
+    {
+      "symbol": "idle_strategy",
+      "rate": 2
+    }, // Idle strategy (raw enum) — whether the idle controller is in charge when the clutch engages
+    {
+      "symbol": "engine_state_failure_flags",
+      "rate": 2
+    }, // Engine failure flags (u32, raw). A latched fault can inhibit A/C as a protective measure.
+
+    // ══ Optional — unchecked ════════════════════════════════════════════════════════════════════
+    // Not logged unless ticked.
+    //   - The raw/scaled evap temperature copies are for checking the sensor conversion chain if
+    //     obd_ii_ac_evap_temp looks wrong.
+    //   - The idle air P/I terms show how hard the idle controller works to absorb the engagement.
+    //     Tick them when the rpm dip is the question.
+    {
+      "symbol": "ac_evap_temp_raw",
+      "rate": 10,
+      "defaultSelected": false
+    }, // Evap temperature, raw intermediate (u32)
+    {
+      "symbol": "ac_evap_temp_scaled",
+      "rate": 10,
+      "defaultSelected": false
+    }, // Evap temperature, scaled intermediate (u16)
+    {
+      "symbol": "torque_engine_friction_accessory",
+      "rate": 10,
+      "defaultSelected": false
+    }, // Accessory friction torque before scaling (raw)
+    {
+      "symbol": "idle_air_control_proportional_term",
+      "rate": 50,
+      "defaultSelected": false
+    }, // Idle air P term (raw)
+    {
+      "symbol": "idle_air_control_integral_term",
+      "rate": 50,
+      "defaultSelected": false
+    }, // Idle air I term (raw)
+    {
+      "symbol": "ign_comp_idle_speed_error",
+      "rate": 50,
+      "defaultSelected": false
+    }, // Idle-speed ignition correction (deg = raw/4) — the fast path that catches an rpm dip
+    {
+      "symbol": "load_comp_idle",
+      "rate": 10,
+      "defaultSelected": false
+    }, // Idle load compensation (mg/stroke)
+    {
+      "symbol": "fan_1_after_run_timer",
+      "rate": 2,
+      "defaultSelected": false
+    }, // Fan 1 after-run timer (s)
+    {
+      "symbol": "ambient_air_temp_unscaled",
+      "rate": 2,
+      "defaultSelected": false
+    }  // Ambient air temperature, unscaled (raw u8; encoding unconfirmed)
+  ]
+}
