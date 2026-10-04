@@ -232,6 +232,12 @@ namespace LotusECMLogger
             dialog.ShowDialog(this);
         }
 
+        private void Hc08TpsPatchToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            using var dialog = new Hc08TpsPatchDialog();
+            dialog.ShowDialog(this);
+        }
+
         private void UserGuideToolStripMenuItem_Click(object sender, EventArgs e)
         {
             var helpDialog = new HelpDialog();

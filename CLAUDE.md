@@ -78,6 +78,15 @@ ECU coding service:
 - Creates T6eCodingDecoder from responses
 
 
+### HC08 TPS Patching (Hc08Tools library)
+
+C# port of `hc08_patcher/hc08_tps_sync.py`; the spec and test vectors are in `hc08_patcher/HC08_TPS_firmware_update.md`.
+- `Hc08TpsPatcher.Analyze(prog, cal)`: pure function; runs all safety checks and builds a re-verified patched PROG in memory
+- `Hc08TpsPatcher.Apply(path, analysis, backup)`: timestamped backup + atomic replace; refuses if the file changed since analysis
+- `Hc08TpsProfiles.Known`: per-firmware table locations keyed by calibration ID (only C132E0278 so far)
+- Deliberate divergence from the Python/spec: an rpm axis mismatch is not an error. The CAL axis is converted to HC08 units (never copied raw) and written over the HC08 axis, then the tables are compared on it. Both axes, and the converted one, must be strictly increasing
+- UI: `Hc08TpsPatchDialog` (Tools > HC08 TPS Table Patch…); tests: `Hc08TpsPatcherTests` (synthetic images reproduce the spec's vectors)
+
 ### UI Components
 
 #### MainWindow - Top-Level Tabs

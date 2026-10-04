@@ -35,6 +35,7 @@ namespace LotusECMLogger
             eraseModelInfoToolStripMenuItem = new ToolStripMenuItem();
             unpackCrpToolStripMenuItem = new ToolStripMenuItem();
             createCrpToolStripMenuItem = new ToolStripMenuItem();
+            hc08TpsPatchToolStripMenuItem = new ToolStripMenuItem();
             helpToolStripMenuItem = new ToolStripMenuItem();
             userGuideToolStripMenuItem = new ToolStripMenuItem();
             aboutLotusECMLoggerToolStripMenuItem = new ToolStripMenuItem();
@@ -86,7 +87,7 @@ namespace LotusECMLogger
             //
             // toolsToolStripMenuItem
             //
-            toolsToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { cliRunnerToolStripMenuItem, eraseModelInfoToolStripMenuItem, unpackCrpToolStripMenuItem, createCrpToolStripMenuItem });
+            toolsToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { cliRunnerToolStripMenuItem, eraseModelInfoToolStripMenuItem, unpackCrpToolStripMenuItem, createCrpToolStripMenuItem, hc08TpsPatchToolStripMenuItem });
             toolsToolStripMenuItem.Name = "toolsToolStripMenuItem";
             toolsToolStripMenuItem.Size = new Size(70, 29);
             toolsToolStripMenuItem.Text = "Tools";
@@ -118,6 +119,13 @@ namespace LotusECMLogger
             createCrpToolStripMenuItem.Size = new Size(292, 34);
             createCrpToolStripMenuItem.Text = "Create CRP File…";
             createCrpToolStripMenuItem.Click += CreateCrpToolStripMenuItem_Click;
+            //
+            // hc08TpsPatchToolStripMenuItem
+            //
+            hc08TpsPatchToolStripMenuItem.Name = "hc08TpsPatchToolStripMenuItem";
+            hc08TpsPatchToolStripMenuItem.Size = new Size(292, 34);
+            hc08TpsPatchToolStripMenuItem.Text = "HC08 TPS Table Patch…";
+            hc08TpsPatchToolStripMenuItem.Click += Hc08TpsPatchToolStripMenuItem_Click;
             //
             // helpToolStripMenuItem
             // 
@@ -406,6 +414,7 @@ namespace LotusECMLogger
         private ToolStripMenuItem eraseModelInfoToolStripMenuItem;
         private ToolStripMenuItem unpackCrpToolStripMenuItem;
         private ToolStripMenuItem createCrpToolStripMenuItem;
+        private ToolStripMenuItem hc08TpsPatchToolStripMenuItem;
         private ToolStripMenuItem userGuideToolStripMenuItem;
         private ToolStripMenuItem aboutLotusECMLoggerToolStripMenuItem;
         private StatusStrip statusStrip1;

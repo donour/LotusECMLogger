@@ -98,6 +98,7 @@ namespace LotusECMLogger
             features.Nodes.Add("livetuning", "T6 Live Tuning");
             features.Nodes.Add("flasher", "T6E Calibration Flasher");
             features.Nodes.Add("erasemodel", "Erase Model Info");
+            features.Nodes.Add("hc08patch", "HC08 TPS Table Patch");
 
             var adapters = navigationTree.Nodes.Add("adapters", "Supported Adapters");
             var troubleshooting = navigationTree.Nodes.Add("troubleshooting", "Troubleshooting");
@@ -173,6 +174,9 @@ namespace LotusECMLogger
                 case "erasemodel":
                     ShowEraseModelHelp();
                     break;
+                case "hc08patch":
+                    ShowHc08TpsPatchHelp();
+                    break;
                 case "adapters":
                     ShowAdaptersHelp();
                     break;
@@ -240,6 +244,7 @@ namespace LotusECMLogger
             AddBulletPoint("T6 Live Tuning: Edit calibration values in ECU RAM in real time by monitoring a calibration file on disk, or upload a whole calibration into RAM in one operation (requires an unlocked ECU).");
             AddBulletPoint("T6E Calibration Flasher: Flash calibration files to the ECU.");
             AddBulletPoint("Erase Model Info: Clear stored model info after a firmware migration so the new firmware activates (Tools menu).");
+            AddBulletPoint("HC08 TPS Table Patch: Raise the throttle monitor's copy of the TPS max table in a T6 firmware file to match a tuned calibration, and fix its checksum (Tools menu).");
             AddBulletPoint("Free and open source: No cost, no restrictions, and community-driven development.");
         }
 
@@ -281,6 +286,7 @@ namespace LotusECMLogger
             AddParagraph("Some advanced, rarely-used operations live in the Tools menu rather than a tab:");
             AddBulletPoint("T6E Calibration Flasher - Flash a calibration file to the ECU");
             AddBulletPoint("Erase Model Info - Activate a newly flashed firmware version by clearing the stored model info");
+            AddBulletPoint("HC08 TPS Table Patch - Bring the HC08 throttle monitor's TPS max table in a firmware file up to your calibration's values before flashing");
         }
 
         private void ShowLiveDataHelp()
@@ -931,6 +937,75 @@ namespace LotusECMLogger
             AddBulletPoint("This operation cannot be undone. The previous model string is overwritten, and the firmware re-seeds it from the installed calibration.");
             AddBulletPoint("Selecting the wrong firmware version targets the wrong memory address. Confirm the installed version before proceeding.");
             AddBulletPoint("The change is written to ECU EEPROM and persists across power cycles.");
+        }
+
+        private void ShowHc08TpsPatchHelp()
+        {
+            AddHeading("HC08 TPS Table Patch");
+
+            AddParagraph("The HC08 TPS Table Patch updates a T6 firmware (PROG) file so that the throttle safety monitor allows the same maximum throttle as your calibration. It is available from the Tools menu: Tools > HC08 TPS Table Patch. It works on files only - it never connects to the ECU - and the patched file must then be flashed.");
+
+            AddSubheading("Background - Two Copies of the Same Table:");
+            AddParagraph("Besides the main PowerPC processor, the T6 ECU contains a small Freescale HC08 microcontroller that acts as an independent electronic-throttle safety monitor. Its firmware is not a separate file: it is embedded inside the main PROG image (the *_BIN.cpt file), and the main processor loads it into the HC08.");
+            AddParagraph("Both processors hold a 16-point 'TPS max vs rpm' table. The main processor uses the calibration copy - the table romraider calls 'tps: scaling factor rpm'. The HC08 uses its own copy inside the PROG file. Tuning tools such as romraider only edit the calibration, so the HC08 copy keeps its old values.");
+
+            AddSubheading("When and Why You Need This:");
+            AddBulletPoint("You raised 'tps: scaling factor rpm' in your calibration. The main processor now allows more throttle than the HC08 monitor's table at those rpm, but the monitor still enforces its old, lower limit. Raising only the calibration therefore does not raise the limit the monitor applies, and the two processors disagree about what is allowed.");
+            AddBulletPoint("You are flashing a GT430 (C132E0278) firmware, even unmodified. Lotus raised the calibration table at 1750-3000 rpm in the factory 0278 and 0288 software without updating the HC08 copy, so the tool reports an update even for stock files.");
+            AddBulletPoint("Every time you change the TPS max table and are about to flash. Run it with the exact PROG and calibration files you are going to flash together.");
+            AddParagraph("You do NOT need it if you have not touched the TPS max table, or have only lowered it. The tool never lowers the HC08 limit, so lower calibration values are reported but left alone. Running it again on an already patched file does nothing, so it is always safe to check.");
+            AddParagraph("Why the checksum matters: the HC08 firmware is protected by a 16-bit checksum, and the main processor compares the value the HC08 reports against an expected value stored in PROG. Changing the HC08 table without updating that stored value would make the ECU flag the HC08 as faulty. This tool updates both together, which is why the table should not simply be edited by hand in a hex editor.");
+
+            AddSubheading("Supported Firmware:");
+            AddBulletPoint("C132E0278 (2019 Evora GT430): supported.");
+            AddBulletPoint("D132E0231, C132E0271 (Evora 400) and E132E0288 (Evora GT): very likely the same layout, but not enabled until the table locations are confirmed. The tool refuses unknown calibrations rather than guessing.");
+            AddBulletPoint("B132E0091 (naturally aspirated Evora): not applicable - its HC08 firmware has no rpm-dependent TPS max table.");
+            AddParagraph("The firmware is identified from the calibration ID at the start of the calibration file. The 'Firmware profile' option can force a profile, but only use it if you know the firmware shares that profile's layout; the safety checks below still apply.");
+
+            AddSubheading("What You Need:");
+            AddBulletPoint("The PROG file you intend to flash (for example T6EVRGT430E01_BIN.cpt): the program image as flashed at address 0x40000. This file is modified.");
+            AddBulletPoint("The calibration file you will flash with it (for example your tuned C132E0278_TAB.cpt): the calibration image as flashed at 0x20000. This file is only read.");
+            AddBulletPoint("If you only have a full 1 MB flash dump, extract PROG first (bytes 0x40000 to the end). The tool does not accept full dumps.");
+
+            AddSubheading("How to Use:");
+            AddParagraph("1. Open Tools > HC08 TPS Table Patch.");
+            AddParagraph("2. Click Browse next to Firmware and select the PROG (*_BIN.cpt) file.");
+            AddParagraph("3. Click Browse next to Calibration and select the calibration (*_TAB.cpt) file. The check runs automatically once both files are selected.");
+            AddParagraph("4. Review the result. The table lists all 16 breakpoints with the calibration rpm, the HC08 axis rpm, the HC08 value now, the calibration value, and the HC08 value after patching. Green rows will be raised; yellow rows are where the calibration is lower and the HC08 value is kept; a blue HC08 axis cell shows a breakpoint whose rpm will be rewritten (see below). The chart shows the three curves against rpm.");
+            AddParagraph("5. If an update is needed, leave 'Save a timestamped backup' ticked and click 'Apply Patch...'. Confirm the prompt (the default answer is No). The original is saved next to the PROG file as <name>.<date-time>.bak, and the dialog re-checks the file to show that it is now up to date.");
+            AddParagraph("6. Flash the patched PROG together with the calibration. A calibration-only flash does not include PROG, so build a CRP containing both files with Tools > Create CRP File..., then flash that CRP with Tools > T6E Calibration Flasher.");
+            AddParagraph("'Copy Report' copies a plain-text summary of the check (the same format as the hc08_tps_sync.py script) to the clipboard for your records or for sharing.");
+
+            AddSubheading("When the RPM Axes Differ:");
+            AddParagraph("Both tables have their own 16-point rpm axis, stored in different units. Normally they hold the same breakpoints (the HC08 axis agrees with the calibration to within one HC08 step of about 32 rpm). If you have moved the breakpoints of 'tps: scaling factor rpm' in your calibration, or the PROG was patched by an older script that copied the calibration axis bytes without converting them, the two axes no longer match.");
+            AddParagraph("In that case the calibration axis is used as the reference: it is converted to HC08 units and written over the HC08 rpm axis, so both processors use the same breakpoints. The table values are then compared breakpoint by breakpoint on the calibration axis, raising the HC08 value wherever the calibration is higher. The dialog marks every rewritten breakpoint in blue, the status line explains the change, and the confirmation prompt lists it.");
+            AddParagraph("Because the old HC08 values stay at their index while their rpm moves, the patched HC08 limit is guaranteed to be at or above the calibration at every rpm, but not necessarily at or above the old HC08 curve wherever a breakpoint moved. When the axes already match, the axis is left untouched.");
+            AddParagraph("The HC08 axis can only hold up to about 8128 rpm, and adjacent calibration breakpoints must be at least one HC08 step (about 32 rpm) apart so they convert to distinct HC08 breakpoints. Calibrations that break either rule are refused.");
+
+            AddSubheading("Safety Checks:");
+            AddParagraph("Before anything is written, the tool verifies all of the following and refuses to patch if any check fails:");
+            AddBulletPoint("The PROG file contains the HC08CODE marker. This also catches the PROG and calibration files being selected the wrong way round.");
+            AddBulletPoint("There is a profile for the calibration ID, and the calibration file is long enough for it.");
+            AddBulletPoint("Exactly one checksum instruction is found in PROG.");
+            AddBulletPoint("Both rpm axes - the calibration axis and the HC08 axis currently in PROG - are strictly increasing, with every breakpoint above the one before. An axis that is not increasing means the file is damaged or the table locations are wrong for this firmware.");
+            AddBulletPoint("If the axes differ, every calibration breakpoint fits on the HC08 axis and the converted axis is still strictly increasing.");
+            AddBulletPoint("The checksum currently stored in PROG matches the HC08 contents. If it does not, something else has already modified the HC08 firmware, and the tool will not cover that up.");
+            AddParagraph("After building the patched image in memory, the tool re-checks it from scratch: the two axes must now agree and be strictly increasing, and only the HC08 axis, the raised table bytes and the two checksum bytes may have changed. When writing, it confirms the file on disk has not changed since it was checked, writes to a temporary file and then replaces the original, and reads the result back.");
+
+            AddSubheading("Error Messages:");
+            AddBulletPoint("'HC08CODE marker not found': the selected Firmware file is not a T6 PROG file, or the two files are swapped.");
+            AddBulletPoint("'No profile for calibration ...': the firmware is not supported (see Supported Firmware).");
+            AddBulletPoint("'Calibration is only ... bytes': the calibration file is truncated or is not a calibration file.");
+            AddBulletPoint("'rpm axis is not strictly increasing': a breakpoint is not above the one before it. For the calibration axis, fix the breakpoints in your tuning tool. For the HC08 axis, the PROG is damaged or does not match this firmware's layout - start from a known-good PROG. For the converted HC08 axis, two calibration breakpoints are closer than one HC08 step (about 32 rpm); spread them further apart.");
+            AddBulletPoint("'outside the range the HC08 axis can hold': a calibration breakpoint is above about 8128 rpm, which the HC08 axis cannot represent.");
+            AddBulletPoint("'HC08 checksum already inconsistent': the HC08 firmware in this PROG was modified elsewhere without fixing its checksum. Start from a known-good PROG file.");
+            AddBulletPoint("'Expected 1 HC08 checksum instruction': the PROG is from an unsupported or heavily modified firmware.");
+            AddBulletPoint("'The PROG file changed on disk after it was checked': the file was modified while the dialog was open. It is re-checked automatically; review the new result before applying.");
+
+            AddSubheading("Important Notes:");
+            AddBulletPoint("Experimental: the patch output has been verified byte-for-byte against the reference script and by independent checksum, but how the HC08 responds when the main processor exceeds its table has not been fully characterised. Keep the backup and your original files.");
+            AddBulletPoint("The HC08 is a safety monitor. Only raise the TPS max table if you understand the effect on throttle behaviour.");
+            AddBulletPoint("Patching the file has no effect until the patched PROG is flashed to the ECU.");
         }
 
         private void ShowAdaptersHelp()
