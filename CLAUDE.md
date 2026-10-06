@@ -95,8 +95,9 @@ C# port of `hc08_patcher/hc08_tps_sync.py`; the spec and test vectors are in `hc
 3. **Live Data**: Sub-tabs — High-Speed Log, OBD-II Logging (Logger + Logging Config), and T6 RMA Logging (direct ECU RAM read/log via RMA protocol)
 4. **ECU Coding**: Vehicle configuration bit field editor
 5. **Diagnostic Trouble Codes**: Read stored (Mode 03), pending (Mode 07), and permanent (Mode 0A) codes; read the freeze frame (Mode 02) captured when a code set — triggering DTC plus decoded parameters, raw hex for undecoded PIDs; clear codes and freeze frames (Mode 04) with confirmation
-6. **T6 Live Tuning**: Real-time calibration editing via .CPT file monitoring
-7. **Snapshots**: One-shot binary downloads of ECU flash regions (Learned Data, Calibration, Program) via the T6 RMA read protocol; an ECU Version selector (T4e, K4, T4, T6/T6e) picks which generation's memory map to use, since each lays out flash differently; shares its `IT6RMAService` instance with the T6 RMA Logging tab
+6. **Emissions**: OBD-II inspection pre-check (`IEmissionsService` / `J2534EmissionsService`): readiness monitors with support and completion since clear (PID 0x01) and this drive cycle (PID 0x41), MIL, OBD standard, since-cleared counters, stored/pending/permanent DTCs, VIN. `EmissionsCheckEvaluator` judges the read against California Smog Check or federal I/M rules by model year (decoded from the VIN, user-overridable), citing BAR's OBD Test Reference and 40 CFR 85.2207/85.2222; California's "Modified Software" check compares Cal ID / CVN against `StockSoftwareCatalog` (`config/stock_software.json`, ships empty because BAR's list is unpublished); pure decoding lives in `EmissionsDecoder`
+7. **T6 Live Tuning**: Real-time calibration editing via .CPT file monitoring
+8. **Snapshots**: One-shot binary downloads of ECU flash regions (Learned Data, Calibration, Program) via the T6 RMA read protocol; an ECU Version selector (T4e, K4, T4, T6/T6e) picks which generation's memory map to use, since each lays out flash differently; shares its `IT6RMAService` instance with the T6 RMA Logging tab
 
 #### EcuCodingControl (250+ lines)
 ECU coding editor:

@@ -140,6 +140,23 @@ namespace LotusECMLogger
                 MessageBox.Show($"Failed to initialize ABS tab: {ex.Message}", "Startup Error",
                     MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
+
+            // Add the OBD-II emissions (inspection readiness) check
+            try
+            {
+                var emissionsControl = new EmissionsControl(new J2534EmissionsService())
+                {
+                    Dock = DockStyle.Fill,
+                    IsLoggerActive = false
+                };
+                emissionsTab.Controls.Clear();
+                emissionsTab.Controls.Add(emissionsControl);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Failed to initialize Emissions tab: {ex.Message}", "Startup Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
         }
 
         /// <summary>
@@ -175,6 +192,10 @@ namespace LotusECMLogger
                 var absControl = absTab.Controls.OfType<AbsControl>().FirstOrDefault();
                 if (absControl != null)
                     absControl.IsLoggerActive = isLogging;
+
+                var emissionsControl = emissionsTab.Controls.OfType<EmissionsControl>().FirstOrDefault();
+                if (emissionsControl != null)
+                    emissionsControl.IsLoggerActive = isLogging;
 
                 // Erasing model info issues an RMA write, which conflicts with active logging.
                 eraseModelInfoToolStripMenuItem.Enabled = !isLogging;
@@ -260,6 +281,7 @@ namespace LotusECMLogger
             // The ABS tab's brake rotor is drawn rather than taken from a glyph — Segoe MDL2 has no
             // brake symbol — so it is appended to the list instead of passed to BuildImageList.
             mainIcons.Images.Add(GuiIcons.RenderBrakeRotor(20, tabColor));
+            mainIcons.Images.Add(GuiIcons.Render(GuiIcons.Emissions, 20, tabColor));
 
             mainTabControl.ImageList = mainIcons;
             vehicleInfoTab.ImageIndex       = 0;
@@ -270,6 +292,7 @@ namespace LotusECMLogger
             liveTuningTab.ImageIndex        = 5;
             snapshotsTab.ImageIndex         = 6;
             absTab.ImageIndex               = 7;
+            emissionsTab.ImageIndex         = 8;
 
             var loggingModeIcons = GuiIcons.BuildImageList(20, tabColor,
                 GuiIcons.HighSpeedLog,

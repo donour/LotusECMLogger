@@ -47,6 +47,12 @@
     <Compile Update="Controls\AbsControl.Designer.cs">
       <DependentUpon>AbsControl.cs</DependentUpon>
     </Compile>
+    <Compile Update="Controls\EmissionsControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Update="Controls\EmissionsControl.Designer.cs">
+      <DependentUpon>EmissionsControl.cs</DependentUpon>
+    </Compile>
     <Compile Update="Controls\Mode13Control.cs">
       <SubType>UserControl</SubType>
     </Compile>
