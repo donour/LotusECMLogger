@@ -35,6 +35,9 @@ jobs:
     - name: Run tests
       run: dotnet test LotusECMLogger.Tests --configuration Release
 
+    - name: Run CCP protocol tests
+      run: dotnet test LotusECMLogger.Ccp.Tests --configuration Release
+
     - name: Publish application
       run: dotnet publish LotusECMLogger/LotusECMLogger.csproj --configuration Release --output ./publish /p:Platform=x86 --no-restore
 

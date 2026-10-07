@@ -24,9 +24,11 @@ and the driver source, and the two alternative hypotheses that were tested and r
 The ECU also has a separate, non-CCP raw memory peek/poke interface (CAN 0x50–0x57). It is covered in
 [§8](#8-the-other-interface-raw-memory-peekpoke-0x500x57).
 
-Everything here comes from static analysis of the Ghidra programs in the shared `Lotus ECU` project. **Nothing
-has been tested on a vehicle yet.** Items marked *(verified)* were checked in the decompiled code of that
-build. Items marked *(inferred)* follow from identical code structure but were not re-read in that build.
+Everything here comes from static analysis of the Ghidra programs in the shared `Lotus ECU` project.
+**The newly documented memory/checksum operations have not been bench-tested.**
+The existing DAQ logger has separate live-car validation (2026-06-27, see `CCP-client-plan.md`);
+that does not validate all commands or every target profile. Items marked *(verified)* were checked in
+the decompiled code of that build. Items marked *(inferred)* follow from identical code structure but were not re-read in that build.
 
 ---
 
@@ -44,6 +46,7 @@ build. Items marked *(inferred)* follow from identical code structure but were n
 11. [Firmware references](#11-firmware-references)
 12. [Open items](#12-open-items)
 13. [Verification: CCP 2.1 vs alternatives](#13-verification-ccp-21-vs-alternatives)
+14. [Static cross-check, 2026-10-07](#14-static-cross-check-2026-10-07)
 
 ---
 
@@ -143,10 +146,10 @@ The CRO is always 8 bytes: `[CMD, CTR, params…]`. Command replies (CRM) are `[
 | 0x17 | EXCHANGE_ID | — | Reply `[FF,00,ctr, idLen, 0x00, 0x03, 0x00, 0x8E]`: ID length; resource availability 0x03 = **CAL + DAQ**; resource protection 0x00 = **nothing locked**. MTA0 is set to the ID string, to be read with UPLOAD. |
 | 0x1B | GET_CCP_VERSION | — | `[FF,00,ctr, 2, 1]` → **CCP 2.1**. |
 | 0x02 | SET_MTA | byte 2 = MTA number (**only 0**; else error 0x32), byte 3 = address extension (**ignored**), bytes 4–7 = address (MSB first) | No range check. |
-| 0x03 | DNLOAD | byte 2 = size (≤5), bytes 3.. = data | Writes bytes at MTA0 and post-increments it. No range check (§6). **Spec deviation:** the reply should carry the post-incremented MTA0 in bytes 3–7. The driver only does that with `CCP_STANDARD`, which this build lacks, so bytes 3–7 are stale. |
+| 0x03 | DNLOAD | byte 2 = size (master must enforce 1–5; firmware does not check), bytes 3.. = data | Writes bytes at MTA0 and post-increments it. No range check (§6). **Spec deviation:** the reply should carry the post-incremented MTA0 in bytes 3–7. The driver only does that with `CCP_STANDARD`, which this build lacks, so bytes 3–7 are stale. |
 | 0x23 | DNLOAD_6 | bytes 2–7 = 6 data bytes | Same as DNLOAD with size 6 (same reply deviation). |
-| 0x04 | UPLOAD | byte 2 = size (≤5) | Reads from MTA0 into reply bytes 3..; post-increments MTA0. |
-| 0x0F | SHORT_UP | byte 2 = size, byte 3 = ext (ignored), bytes 4–7 = address | Reads via MTA1. |
+| 0x04 | UPLOAD | byte 2 = size (master must enforce 1–5; firmware does not check) | Reads from MTA0 into reply bytes 3..; post-increments MTA0. |
+| 0x0F | SHORT_UP | byte 2 = size (master must enforce 1–5), byte 3 = ext (ignored), bytes 4–7 = address | Reads via MTA1. |
 | 0x0E | BUILD_CHKSUM | bytes 4–5 = block size (**only the low 16 bits** of the spec's 32-bit size at bytes 2–5) | Starts at MTA0 (copied to MTA1). Computes a 16-bit additive checksum 256 bytes per main-loop pass (Vector `ccpBackground`), **then** sends the reply (size 2, checksum in bytes 4–5). Vector's 16-bit configuration replies 0x32 for blocks ≥64 KiB; **EFI's build drops that check and silently truncates**. |
 | 0x11 | SELECT_CAL_PAGE | — | Stores MTA0 as the "active page" (the driver's `ccpSetCalPage` hook). **Cosmetic**: nothing else reads it; there is one page (the RAM copy). |
 | 0x09 | GET_ACTIVE_CAL_PAGE | — | Returns the stored page address. |
@@ -159,6 +162,15 @@ The CRO is always 8 bytes: `[CMD, CTR, params…]`. Command replies (CRM) are `[
 **Not implemented** (reply error 0x30): GET_SEED (0x12), UNLOCK (0x13), SET_S_STATUS (0x0C), GET_S_STATUS (0x0D),
 CLEAR_MEMORY (0x10), PROGRAM (0x18), PROGRAM_6 (0x22), MOVE (0x19), DIAG_SERVICE (0x20),
 ACTION_SERVICE (0x21), START/STOP data-polling variants. Configure your tool not to send them.
+
+**Transfer-size quirk:** DNLOAD, UPLOAD and SHORT_UP pass the requested length straight to unchecked
+byte loops. Values above 5 can read past the CRO data or overwrite the CRM and adjacent state. The master
+must validate lengths before sending; the documented limits are protocol limits, not firmware guards.
+
+**Checksum command exclusion:** BUILD_CHKSUM uses MTA1 and accumulates in the shared CRM buffer;
+new commands overwrite its response state, and SHORT_UP replaces MTA1. Allow only one outstanding
+command until checksum completion, while continuing to receive DAQ. Size 0 produces no reply because
+the worker only runs when its remaining count is nonzero. A timeout does not establish that work stopped.
 
 **Gate:** apart from CONNECT and TEST, every command is ignored silently (no reply) unless the session is connected.
 
@@ -189,6 +201,9 @@ These are the standard CCP codes.
 - **Start timing:** a freshly started list fires on the first tick of its event, then every `prescaler` ticks.
 - **Bandwidth:** a TX buffer of 120 frames (10 on 2010) is drained one frame per tick/TX-complete interrupt.
   A list is enqueued only if all its frames fit; otherwise it is skipped and flagged (overflow bit above).
+- **List initialisation side effect:** GET_DAQ_SIZE also resets the global transmit queue, not only the
+  selected list. Adding a cursor list during logging can discard frames from other lists. Plan shared
+  allocations before starting, or coordinate a pause/reconfiguration and report the data gap.
 - **Persistence:** DAQ configuration is RAM-only and is wiped at every boot (`clear_can_logging_buffer`).
 
 ---
@@ -219,6 +234,9 @@ What writes do, by region:
 
 Recommendations:
 - In the A2L, declare **only the calibration RAM range** as a writable CHARACTERISTIC area.
+- Preserve the active CCP enable/bus-select byte in normal calibration uploads. Writing 0 or selecting
+  another bus disables/moves the connection during the upload. An intentional gate change belongs in a
+  separate final operation after other writes have been verified.
 - Edit tables with the engine off where possible. Multi-byte table/axis edits are not atomic: a lookup can
   see a half-written table.
 - To make a tune permanent, copy the edited RAM image back into the calibration file and reflash. Read it back
@@ -240,6 +258,20 @@ Recommendations:
 | E132E0288 | 0x40008654 / 0x69AC | 0x400088EC | 0x40001700 | 0x40006E50 | — | 0xB4634 | 0xB76AC (A), 0xBA618 (C) |
 | A138E0112 | 0x40008654 / 0x69AC | 0x400088EC | 0x400015E8 | 0x40006DB0 | 0x400069D8 | 0xB12C8 | 0xB4500 (A), 0xB707C (C) |
 | C132F0395 (TCU) | 0x40008E58 / 0x61A8 | — | 0x40001420 `Ccp_TCU` | 0x40003854 | `chlog_streaming_control_flags` | 0x51358 | 0x54038 (A), 0x56528 (C) |
+
+### Runtime global-variable metadata (reported, not yet independently located)
+
+The project owner reports a firmware table queryable at runtime that returns global-variable locations
+and sizes, but no English names (2026-10-07). This may allow physical addresses/sizes to be discovered
+instead of hard-coded. Semantic names, types/scaling and reliable object identity still need a catalog
+or A2L binding; do not assume table ordering is stable across software builds.
+
+The table's locator, record format, coverage and access mechanism are still to be verified. The CCP
+command dispatcher documented here has no identified symbol-enumeration command; reading a table via
+UPLOAD is different from a dedicated CAN query. C132E0278's known `segment_data`/`segment_bss` records
+are consumed by startup copy/zero routines and describe memory segments; they are not evidence of a
+per-global table. Whether the reported table is linker metadata or intended for a CAN data interface
+remains an open question until its contents and code references are inspected.
 
 ### Live variables: why one A2L per build is needed
 
@@ -414,7 +446,8 @@ EFI's changes to the driver:
 
 ## 12. Open items
 
-1. **Bench test:** the whole guide is from static analysis; confirm with a real CCP master.
+1. **Bench test:** the new command behaviors are from static analysis; confirm memory/checksum operations
+   and additional target profiles with a real CCP master. Existing DAQ logging has separate validation.
 2. **Enable byte in stock calibrations:** whether `CAL_logger_high_speed_logger_enable` is 0 on production cars.
    The Exige 410 image has no calibration.
 3. **Event rates per build:** the 100/100/50/50/20/20/10/10/2/1 Hz figures come from B13200091 only.
@@ -427,7 +460,9 @@ EFI's changes to the driver:
    MTA0 in the reply, and that PIDs with bit 7 set (overrun) are handled (§4, §5, §13).
 9. **Ghidra labels:** the `chlog_*` / `logger_*` / `diag_stream_*` labels could be renamed to the Vector driver names
    in §11, so exports read like `ccp.c`.
-10. **Old notes:** `romraider-defs - Copy/disassembly_references/ChannelLogger.md` still describes this as a
+10. **Runtime variable metadata:** locate the owner-reported per-global address/size table, decode its
+    format and trace its callers/query path. Confirm stable entry identity, coverage and byte-size semantics.
+11. **Old notes:** `romraider-defs - Copy/disassembly_references/ChannelLogger.md` still describes this as a
     proprietary logger. It needs a pointer to this guide.
 
 ---
@@ -501,3 +536,15 @@ The overrun bit is a CANape feature. A master that checks the MTA0 returned by D
 - Kvaser, CCP/XCP overview: <https://kvaser.com/about-can/higher-layer-protocols/ccpxcp/>
 - Vector application note AN-IMC-1-001, *Integration of the Vector CCP Driver with a free CAN Driver*:
   <https://automotivetechis.wordpress.com/wp-content/uploads/2012/06/an-imc-1-001_integration_of-the_vector_ccp_driver_with_a_free_can_driver.pdf>
+
+## 14. Static cross-check, 2026-10-07
+
+The sibling `LotusECU-T4e` exports for C132E0278, B13200091 and C132F0395 reproduce
+the command/version mapping, shared memory pointers, unchecked transfer lengths, delayed checksums,
+DAQ queue reset and element-index bug described above. C132E0278 symbols confirm CAL_base
+0x40008654, enable byte 0x400088EC and CAL_prog_version 0x4000E028 (+0x59D4).
+Its fixed-axis interpolators shift the input left before dividing by 256: raw point spacing is
+2^(8−shift), so shift 3 gives 32. This matters when creating A2L FIX_AXIS definitions.
+The lookup survey totals reproduce (484 inputs, 281 tables, 49 multi-call tables, 42 axes with
+different expressions), but renamed locals are misclassified as globals. Scope and RAM-address
+verification are required before using those classifications to select DAQ measurements.
