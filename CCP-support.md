@@ -291,6 +291,9 @@ The access path is independently corroborated in `LotusECU-T4e`:
   The registry therefore has diagnostic consumers; it is not merely unused linking information.
 
 The Python client documents RPM at index 31 and uses indexes 253/254 for CAL base and CAL-size storage.
+The actual GT430 C132E0278 image has index 31 = 0x40001769, size 1; OBD RPM at 0x40001764
+is index 55, size 2. CAL indexes 253/254 are 0x40008654 (32 bytes) and 0x4000290A (2 bytes).
+Do not carry the RPM index assertion across builds.
 Those are candidate semantic bindings, not proof of index stability in every T6 build. Preserve aliases
 and full exported byte counts; validate headers, bounds, terminators and named catalog bindings before
 using discovered widths. Larger entries need splitting into supported DAQ element widths/ODTs.
@@ -578,3 +581,20 @@ verification are required before using those classifications to select DAQ measu
 The runtime registry was subsequently located using the supplied 0x000C02B8/+0x2C layout.
 Independent source evidence is `lib/ltacc.py` (`read_varptr_list`), B13200091
 `obd_ii_data_buffer_update`/raw-memory RX, and the C132E0278/E132E0288 DLC-4 pointer replies.
+
+
+### GT430 real-image simulator verification (2026-10-07)
+
+`CcpSimulator` loads `C132E0278.CRP` with the existing T6 CRP decoder; no firmware binaries are
+stored in this repository. PROG SHA256 is
+`b11a1812dc742ace61eb190e41d6435deef8b908158e5090d14ee1a4f4c52aea`.
+The image confirms the registry header at 0xCE958, 753 six-byte entries at 0xCE984 and the zero
+terminator at 0xCFB2A. Exported sizes: 181 × 1, 438 × 2, 123 × 4, 4 × 5, 1 × 6,
+2 × 8, 1 × 10 and 3 × 32 bytes. The stock CAL enable byte at offset 0x298 is **2 (FlexCAN C)**.
+
+Boot-memory mapping uses PROG at flash 0x40000 and CAL at 0x20000. The verified data copy takes
+0x1648 bytes from flash 0xD38C8 into RAM 0x40000000; this includes `Ccp_T6` at 0x40001588.
+The CAL copy takes 0x69AC bytes into RAM 0x40008654. Other RAM starts zero, with the verified
+GT430 0x55 stack fill at 0x4000F000 for 0xE00 bytes. Subsequent firmware initialization functions
+and control loops are not executed. See [`CcpSimulator/README.md`](CcpSimulator/README.md)
+for the reproducible verification command and alternate-profile interface.

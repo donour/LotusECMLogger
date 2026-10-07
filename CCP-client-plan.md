@@ -3,9 +3,10 @@
 Design notes for adding a CCP 2.1 master to LotusECMLogger. The ECU side is described in
 [`CCP-support.md`](CCP-support.md); this document covers the PC side.
 
-**Status (2026-10-07): Phase 1 implemented; session orchestration and UI remain planned.**
+**Status (2026-10-07): Phase 1 and a firmware-backed GT430 simulator implemented; hardware session orchestration and UI remain planned.**
 The protocol core, target/build profiles, transport contract, J2534 transport and deterministic fake slave
 are implemented. Cross-platform tests exercise the command sequence, firmware quirks and runtime-registry format.
+The fake loads real PROG/CAL from CRP and exposes `ICcpTransport`; see [`CcpSimulator/README.md`](CcpSimulator/README.md).
 The existing high-speed logger is not ported yet. Run `dotnet test LotusECMLogger.Ccp.Tests`.
 
 The decisions below were made with the project owner; the reasons are recorded so they can be revisited deliberately rather than by accident.
@@ -106,11 +107,13 @@ New code goes under `LotusECMLogger/Services/Ccp/`.
   entries for build identity. Entry counts/headers must be verified per build, not copied from V00BU.
 - `T6SymbolRegistry` decodes both counted header/table dumps and bounded zero-terminated entry arrays,
   validates T6 flash/RAM ranges, and retains indexes, aliases and exact byte sizes. Synthetic tests
-  exercise the supplied 753-entry layout; actual image bytes/count are not present in the C export.
+  exercise the supplied layout. The real C132E0278 CRP additionally confirms 753 entries, their sizes,
+  and the six-zero-byte terminator at 0xCFB2A.
 - The B13200091 freeze-frame code uses `entries[(pid & 0x3ff)]` and reads the exported size to select
   1/2/4-byte captures. This establishes diagnostic use; the registry is not merely unused linker residue.
   The existing Python client also uses indexes 253/254 to locate CAL RAM and its size, and documents
-  RPM at index 31. Verify these semantic bindings in each build before treating indexes as stable.
+  RPM at index 31. The GT430 image disproves that binding: index 31 is one byte at 0x40001769,
+  while the decompile-labeled OBD RPM at 0x40001764 is index 55, two bytes. Verify bindings per build.
 - Keep physical metadata (address/exported byte count) separate from name, signedness, units, scaling
   and table/input relationships. Validate catalog bindings against the registry; do not infer a name
   from size alone. Sizes greater than four are exported objects, not legal WRITE_DAQ widths: split
@@ -120,7 +123,7 @@ New code goes under `LotusECMLogger/Services/Ccp/`.
 **Transport**
 - `ICcpTransport`: send an 8-byte CRO; deliver received frames with the adapter's hardware timestamp.
 - `J2534CcpTransport`: raw CAN through `J2534Session`, PASS filter on the target's DTO ID.
-- `FakeCcpSlave` (test project): an in-memory slave that reproduces this firmware's behaviour, so the master
+- `FakeCcpSlave` (`CcpSimulator`, reusable in tests): an in-memory slave that reproduces this firmware's behaviour, so the master
   can be tested without hardware:
   - commands other than CONNECT/TEST are ignored silently until connected;
   - the DNLOAD reply does not contain the post-incremented MTA0;
@@ -303,7 +306,7 @@ A vendor `IF_DATA` block (ignored by other tools) could carry these later withou
 **To verify while building**
 - **Runtime variable registry:** validate table header/count, the zero terminator and semantic index
   bindings against each actual firmware image before replacing inferred channel sizes. The decoder
-  is implemented; session-driven discovery and catalog reconciliation remain Phase 2 work.
+  is implemented; the simulation driver reads the full registry over CCP; hardware-session discovery and catalog reconciliation remain Phase 2 work.
 - **A2L map storage order:** which `RECORD_LAYOUT` index mode (`ROW_DIR` / `COLUMN_DIR`) matches the
   firmware's X-fastest layout. Pin it with a test against a known table such as
   `CAL_injtip_transient_throttle_response_time` (8 × 8).
@@ -334,7 +337,7 @@ A vendor `IF_DATA` block (ignored by other tools) could carry these later withou
 ## 8. Initial implementation and validation
 
 Phase 1 code lives in `LotusECMLogger/Services/Ccp/`; the linked-source
-`LotusECMLogger.Ccp.Tests` project runs on macOS/Linux/Windows without loading WinForms or J2534.
+`CcpSimulator` project shares the protocol sources; `LotusECMLogger.Ccp.Tests` runs on macOS/Linux/Windows without loading WinForms or J2534.
 The fake slave models only these firmware families, not every CCP implementation. It advances checksum
 work explicitly in 256-byte passes and emits DAQ frames deterministically, without a real-time scheduler. Oversized transfer buffer corruption and last-ODT metadata corruption
 are explicitly outside the fake's coverage; they must be prevented by the master.
@@ -349,3 +352,10 @@ Decompile line numbers vary as labels are updated. No new hardware validation is
 Validation on 2026-10-07: `dotnet test LotusECMLogger.Ccp.Tests --configuration Release`
 and a Windows-targeted application cross-build with `-p:EnableWindowsTargeting=true`.
 The transport compiles against J2534-Sharp.Core 2.0.4; adapter I/O still requires a Windows bench check.
+
+
+The firmware-backed simulator was verified against `EMS/C132E0278.CRP`: all 753 exported objects
+read through CCP, full CAL checksum, RAM writes, ten 100 Hz DAQ samples and reset restoration.
+The simulator preserves the stock enable byte (2, FlexCAN C). JSON profiles bind alternate images
+by PROG SHA256 and supply boot-copy and registry locations; alternate-address synthetic tests
+exercise that path. This does not execute PowerPC code or simulate engine-control physics.

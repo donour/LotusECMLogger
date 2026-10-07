@@ -2,16 +2,16 @@ using System.Buffers.Binary;
 using System.Text;
 using LotusECMLogger.Services.Ccp;
 
-namespace LotusECMLogger.Ccp.Tests;
+namespace LotusECMLogger.Services.Ccp.Simulation;
 
 /// <summary>
 /// Deterministic firmware model, not a generic CCP simulator. No wall-clock scheduler or native I/O:
 /// AdvanceMainLoop runs one checksum pass; QueueEvent/DrainDaq represent sampling/transmission.
 /// Only well-sized transfers are modelled; real firmware's oversized buffer corruption is not safe to emulate.
 /// </summary>
-internal sealed class FakeCcpSlave : ICcpTransport
+public sealed class FakeCcpSlave : ICcpTransport
 {
-    internal readonly record struct Entry(uint Address, byte Size);
+    public readonly record struct Entry(uint Address, byte Size);
     private readonly Dictionary<uint, byte> _memory = new();
     private readonly Queue<CcpReceivedFrame> _received = new();
     private readonly Queue<byte[]> _daqTransmit = new();
@@ -28,7 +28,11 @@ internal sealed class FakeCcpSlave : ICcpTransport
     private uint _mta0, _mta1;
     private int _checksumRemaining;
     private (int list, int odt, int element)? _daqPointer;
-    private const uint IdAddress = 0x40001000;
+    private uint _idAddress = 0x40001000;
+    private readonly T6FirmwareImage? _firmware;
+    public byte Bus { get; private set; } = 1;
+    private bool Enabled => _profile.EnableByteAddress is not uint enable || Peek(enable) == Bus;
+    public T6FirmwareImage? Firmware => _firmware;
     public CcpTarget Target => _profile.Target;
     public uint Timestamp { get; set; }
     public uint Mta0 => _mta0;
@@ -45,22 +49,59 @@ internal sealed class FakeCcpSlave : ICcpTransport
         _prescalers = new ushort[lists];
         _cycles = new ushort[lists];
         _overruns = new bool[lists];
-        Load(IdAddress, Encoding.ASCII.GetBytes(Target.SlaveId + "\0"));
+        Load(_idAddress, Encoding.ASCII.GetBytes(Target.SlaveId + "\0"));
         if (_profile.EnableByteAddress is uint enable) Load(enable, [1]);
     }
 
+    public FakeCcpSlave(T6FirmwareImage firmware, byte? bus = null) : this(firmware.Profile.BuildProfile)
+    {
+        _firmware = firmware;
+        _idAddress = firmware.Profile.CcpIdAddress;
+        Reboot();
+        Bus = bus ?? Peek(firmware.Profile.EnableByteAddress);
+        if (Bus is not (1 or 2)) throw new ArgumentOutOfRangeException(nameof(bus), "Select FlexCAN A (1) or C (2).");
+    }
+
+    /// <summary>Restore initialized RAM and CAL from immutable flash, clear session/DAQ and pending replies.</summary>
+    public void Reboot()
+    {
+        if (_firmware is null) throw new InvalidOperationException("Reboot requires a firmware image.");
+        _firmware.ResetRam();
+        _connected = _temporary = _daqInitialized = false;
+        _mta0 = _mta1 = 0; _checksumRemaining = 0; _daqPointer = null;
+        Array.Clear(_entries); Array.Clear(_listState); Array.Clear(_lastOdt);
+        Array.Clear(_events); Array.Clear(_prescalers); Array.Clear(_cycles); Array.Clear(_overruns);
+        Array.Clear(_crm); _received.Clear(); _daqTransmit.Clear(); Timestamp = 0; _virtualMilliseconds = 0;
+    }
+
+    /// <summary>Advance explicit virtual time, including checksum work and periodic DAQ events.</summary>
+    public void AdvanceMilliseconds(int milliseconds)
+    {
+        if (milliseconds < 0) throw new ArgumentOutOfRangeException(nameof(milliseconds));
+        for (int i = 0; i < milliseconds; i++)
+        {
+            _virtualMilliseconds++;
+            AdvanceMainLoop();
+            foreach (var rate in Target.EventRatesHz)
+                if (_virtualMilliseconds % (1000 / rate.Value) == 0) QueueEvent(rate.Key);
+            DrainDaq();
+        }
+    }
+    private long _virtualMilliseconds;
+
     public void Load(uint address, ReadOnlySpan<byte> data)
     {
+        if (_firmware is not null) { _firmware.WriteRam(address, data); return; }
         for (int i = 0; i < data.Length; i++) _memory[unchecked(address + (uint)i)] = data[i];
     }
-    public byte Peek(uint address) => _memory.GetValueOrDefault(address);
+    public byte Peek(uint address) => _firmware?.ReadByte(address) ?? _memory.GetValueOrDefault(address);
     public Entry DaqEntry(int list, int odt, int element) => _entries[list, odt, element];
 
     public void Send(ReadOnlySpan<byte> command)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         if (command.Length != 8) throw new ArgumentException("Expected DLC 8.", nameof(command));
-        if (_profile.EnableByteAddress is uint enable && Peek(enable) != 1) return;
+        if (!Enabled) return;
         byte cmd = command[0];
         if (cmd is 1 or 5)
         {
@@ -96,7 +137,7 @@ internal sealed class FakeCcpSlave : ICcpTransport
             case CcpCommandCode.ExchangeId:
                 _crm[3] = (byte)Target.SlaveId.Length;
                 _crm[4] = 0; _crm[5] = 3; _crm[6] = 0; _crm[7] = 0x8E;
-                _mta0 = IdAddress;
+                _mta0 = _idAddress;
                 break;
             case CcpCommandCode.SetMta:
                 if (command[2] != 0) _crm[1] = 0x32;
@@ -188,7 +229,7 @@ internal sealed class FakeCcpSlave : ICcpTransport
 
     public void AdvanceMainLoop()
     {
-        if (_checksumRemaining == 0 || (_profile.EnableByteAddress is uint enable && Peek(enable) != 1)) return;
+        if (_checksumRemaining == 0 || !Enabled) return;
         int count = Math.Min(256, _checksumRemaining);
         uint sum = BinaryPrimitives.ReadUInt16BigEndian(_crm.AsSpan(4));
         for (int i = 0; i < count; i++) { sum += Peek(_mta1); _mta1 = unchecked(_mta1 + 1); }
@@ -199,7 +240,7 @@ internal sealed class FakeCcpSlave : ICcpTransport
 
     public void QueueEvent(int eventChannel)
     {
-        if (_profile.EnableByteAddress is uint enable && Peek(enable) != 1) return;
+        if (!Enabled) return;
         for (int l = 0; l < Target.DaqListCount; l++)
         {
             if (_listState[l] != 1 || _events[l] != eventChannel || --_cycles[l] != 0) continue;
@@ -242,9 +283,10 @@ internal sealed class FakeCcpSlave : ICcpTransport
     private void BeginReply(byte counter) { _crm[0] = 0xFF; _crm[1] = 0; _crm[2] = counter; }
     private void Reply()
     {
-        if (_profile.EnableByteAddress is not uint enable || Peek(enable) == 1) Receive(_crm);
+        if (Enabled) Receive(_crm);
     }
-    private void Receive(byte[] bytes) => _received.Enqueue(new(bytes.ToArray(), Timestamp++));
+    private void Receive(byte[] bytes) => _received.Enqueue(new(bytes.ToArray(),
+        _firmware is null ? Timestamp++ : unchecked((uint)(_virtualMilliseconds * 1000))));
     private void StopAll() => Array.Clear(_listState);
     private static void CheckSize(int size)
     {

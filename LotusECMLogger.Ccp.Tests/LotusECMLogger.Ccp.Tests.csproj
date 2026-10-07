@@ -13,9 +13,7 @@
     <Using Include="Xunit" />
   </ItemGroup>
   <ItemGroup>
-    <!-- Exercise the app's exact protocol source without WinForms or the Windows-only J2534 assembly. -->
-    <Compile Include="../LotusECMLogger/Services/Ccp/*.cs"
-             Exclude="../LotusECMLogger/Services/Ccp/J2534CcpTransport.cs"
-             Link="Ccp/%(Filename)%(Extension)" />
+    <ProjectReference Include="../CcpSimulator/CcpSimulator.csproj" />
+    <Using Include="LotusECMLogger.Services.Ccp.Simulation" />
   </ItemGroup>
 </Project>
