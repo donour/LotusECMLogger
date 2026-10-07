@@ -5,7 +5,7 @@ Design notes for adding a CCP 2.1 master to LotusECMLogger. The ECU side is desc
 
 **Status (2026-10-07): Phase 1 implemented; session orchestration and UI remain planned.**
 The protocol core, target/build profiles, transport contract, J2534 transport and deterministic fake slave
-are implemented. Cross-platform tests exercise the command sequence and firmware quirks.
+are implemented. Cross-platform tests exercise the command sequence, firmware quirks and runtime-registry format.
 The existing high-speed logger is not ported yet. Run `dotnet test LotusECMLogger.Ccp.Tests`.
 
 The decisions below were made with the project owner; the reasons are recorded so they can be revisited deliberately rather than by accident.
@@ -83,27 +83,39 @@ New code goes under `LotusECMLogger/Services/Ccp/`.
   | IPS TCU C132F0395 | 0x360 / 0x361 | 10 × 12 | list×12 | 0–9 |
 
 - `CcpBuildProfile`: per-build CAL_base/size, enable-byte address and `CAL_prog_version` offset
-  (`CCP-support.md` §7). When an A2L is loaded, its `IF_DATA ASAP1B_CCP`, `MEMORY_SEGMENT` and `EPK` take
+  and a verified symbol-entry-array address (`CCP-support.md` §7). When an A2L is loaded, its `IF_DATA ASAP1B_CCP`, `MEMORY_SEGMENT` and `EPK` take
   precedence for describing the target, after validation against the identified build. A2L memory segments
   must not expand the verified writable range. Unsupported layout/conversion/addressing features disable
   editing of the affected characteristic rather than being silently skipped. The built-in profiles are the fallback
   so the CCP tab and logger work without an A2L.
 
-**Runtime variable metadata (reported by the project owner, 2026-10-07)**
-- The firmware reportedly exposes a table that can be queried at runtime for global-variable locations
-  and sizes, without English names. Add a read-only discovery step to Phase 2 once the table address,
-  entry format and query mechanism are identified; do not invent a CCP enumeration command.
-- Keep physical metadata (address/byte length) separate from semantic definitions (name, signedness,
-  units, scaling and table/input relationships). A2L/symbol catalogs still supply semantics. Validate
-  catalog bindings against discovered locations/sizes before scheduling DAQ or enabling edits.
-- Establish whether entries have stable identifiers/order across builds, whether sizes describe whole
-  objects or element widths, and whether arrays/aliases/locals are included. Address/size alone does
-  not identify which object is engine speed, nor establish a writable calibration range.
-- The available C132E0278 export contains `segment_data` at 0x00040A28 (15 records of source,
-  destination, size) and `segment_bss` at 0x00040ADC (4 records of destination, size), consumed by
-  `init_segment`. Those describe startup memory regions; they have not been identified as the reported
-  per-global table. The C export omits initialised values, so a table dump/binary or exact locator is
-  needed to verify its contents and callers. Linker residue versus CAN-interface metadata remains open.
+**Runtime variable registry (located, 2026-10-07)**
+- The T6 firmware contains a nameless address/size export registry. The owner supplied a T6-V00BU
+  table at 0x000C02B8: 32-byte build ID, 12-byte version, then 753 six-byte records
+  `{address: u32 big-endian, size: u8, reserved: u8=0}` at +0x2C. Total size is 4562 bytes,
+  excluding any subsequent zero terminator. Decode the six-byte wire stride explicitly rather than
+  relying on native struct alignment. Sizes include 1/2/4 and whole objects of 5/6/8/10/32 bytes.
+- The sibling project's `lib/ltacc.py:read_varptr_list` already discovers it: send raw CAN 0x53 with
+  four zero bytes (DLC 4), receive a four-byte big-endian entries pointer on 0x7A0, then read six-byte
+  records until a six-zero-byte terminator. This is the unlock-gated raw-memory interface, not CCP.
+  The T6 RX handler selects this behavior by DLC 4; it does not require the four payload bytes to be zero.
+- Decompile-confirmed entry pointers: B13200091 0x000C02E4, C132E0278 0x000CE984,
+  E132E0288 0x000D2EF4. `CcpBuildProfile.SymbolEntriesAddress` holds only these verified fallbacks.
+  Once CCP is enabled, read the same flash registry through SET_MTA/UPLOAD using the matched profile,
+  without opening an additional RMA session or requiring the RMA unlock. Read the 44 bytes preceding
+  entries for build identity. Entry counts/headers must be verified per build, not copied from V00BU.
+- `T6SymbolRegistry` decodes both counted header/table dumps and bounded zero-terminated entry arrays,
+  validates T6 flash/RAM ranges, and retains indexes, aliases and exact byte sizes. Synthetic tests
+  exercise the supplied 753-entry layout; actual image bytes/count are not present in the C export.
+- The B13200091 freeze-frame code uses `entries[(pid & 0x3ff)]` and reads the exported size to select
+  1/2/4-byte captures. This establishes diagnostic use; the registry is not merely unused linker residue.
+  The existing Python client also uses indexes 253/254 to locate CAL RAM and its size, and documents
+  RPM at index 31. Verify these semantic bindings in each build before treating indexes as stable.
+- Keep physical metadata (address/exported byte count) separate from name, signedness, units, scaling
+  and table/input relationships. Validate catalog bindings against the registry; do not infer a name
+  from size alone. Sizes greater than four are exported objects, not legal WRITE_DAQ widths: split
+  into supported 1/2/4-byte elements and ODTs (seven payload bytes maximum), and reconstruct explicitly.
+  Registry membership does not authorize calibration writes or prove complete coverage of every global.
 
 **Transport**
 - `ICcpTransport`: send an 8-byte CRO; deliver received frames with the adapter's hardware timestamp.
@@ -289,8 +301,9 @@ A vendor `IF_DATA` block (ignored by other tools) could carry these later withou
 ## 7. Risks and things to verify
 
 **To verify while building**
-- **Runtime variable table:** locate the owner-reported address/size table and its callers; verify the
-  retrieval mechanism and stable identity before adding dynamic address resolution.
+- **Runtime variable registry:** validate table header/count, the zero terminator and semantic index
+  bindings against each actual firmware image before replacing inferred channel sizes. The decoder
+  is implemented; session-driven discovery and catalog reconciliation remain Phase 2 work.
 - **A2L map storage order:** which `RECORD_LAYOUT` index mode (`ROW_DIR` / `COLUMN_DIR`) matches the
   firmware's X-fastest layout. Pin it with a test against a known table such as
   `CAL_injtip_transient_throttle_response_time` (8 × 8).

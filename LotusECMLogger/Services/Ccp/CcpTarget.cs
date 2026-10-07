@@ -45,7 +45,8 @@ public sealed class CcpTarget
 
 /// <summary>Static-analysis profiles, not evidence that the connected ECU matches a selected build.</summary>
 public sealed record CcpBuildProfile(string Build, CcpTarget Target, uint CalibrationBase,
-    uint CalibrationSize, uint? EnableByteAddress = null, uint? ProgramVersionOffset = null)
+    uint CalibrationSize, uint? EnableByteAddress = null, uint? ProgramVersionOffset = null,
+    uint? SymbolEntriesAddress = null)
 {
     public bool ContainsCalibrationRange(uint address, int length) => length > 0 &&
         address >= CalibrationBase && (ulong)address + (uint)length <= (ulong)CalibrationBase + CalibrationSize;
@@ -53,12 +54,14 @@ public sealed record CcpBuildProfile(string Build, CcpTarget Target, uint Calibr
     public static IReadOnlyList<CcpBuildProfile> Known { get; } = Array.AsReadOnly(new[]
     {
         new CcpBuildProfile("C132E0044", CcpTarget.Evora2010, 0x40002768, 0x4874),
-        new CcpBuildProfile("B13200091", CcpTarget.T6, 0x40008E24, 0x61D8, 0x40008E4A),
+        new CcpBuildProfile("B13200091", CcpTarget.T6, 0x40008E24, 0x61D8, 0x40008E4A,
+            SymbolEntriesAddress: 0x000C02E4),
         new CcpBuildProfile("C132E0077", CcpTarget.T6, 0x40008E24, 0x61D8, 0x40008E4A),
         new CcpBuildProfile("C132E0271", CcpTarget.T6, 0x40008654, 0x69AC, 0x400088EC),
         new CcpBuildProfile("A132E0263", CcpTarget.T6, 0x40008654, 0x69AC, 0x400088EC),
-        new CcpBuildProfile("C132E0278", CcpTarget.T6, 0x40008654, 0x69AC, 0x400088EC, 0x59D4),
-        new CcpBuildProfile("E132E0288", CcpTarget.T6, 0x40008654, 0x69AC, 0x400088EC),
+        new CcpBuildProfile("C132E0278", CcpTarget.T6, 0x40008654, 0x69AC, 0x400088EC, 0x59D4, 0x000CE984),
+        new CcpBuildProfile("E132E0288", CcpTarget.T6, 0x40008654, 0x69AC, 0x400088EC,
+            SymbolEntriesAddress: 0x000D2EF4),
         new CcpBuildProfile("A138E0112", CcpTarget.T6, 0x40008654, 0x69AC, 0x400088EC, 0x59D4),
         new CcpBuildProfile("C132F0395", CcpTarget.IpsTcu, 0x40008E58, 0x61A8),
     });
