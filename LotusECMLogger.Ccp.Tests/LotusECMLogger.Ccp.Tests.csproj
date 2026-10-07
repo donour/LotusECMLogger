@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+    <Using Include="Xunit" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Exercise the app's exact protocol source without WinForms or the Windows-only J2534 assembly. -->
+    <Compile Include="../LotusECMLogger/Services/Ccp/*.cs"
+             Exclude="../LotusECMLogger/Services/Ccp/J2534CcpTransport.cs"
+             Link="Ccp/%(Filename)%(Extension)" />
+  </ItemGroup>
+</Project>
