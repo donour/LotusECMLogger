@@ -1,0 +1,281 @@
+{
+  // Fuel/injection diagnostics plus the idle air controller, for the B13200091 ECU. The fuel channels
+  // are the same as B13200091_fuel_diagnostics.json (see that file for the deltas from the C132E0278
+  // port). The idle section is added to diagnose an idle controller that never engages ("hung"): the
+  // engine must drop below idle_control_entry_rpm before obd_ii_idle_status goes nonzero, and until
+  // then the integral term stays at 0 and the air command is open-loop.
+  //
+  // Idle channel scaling overrides (the catalog types disagree with the disassembly):
+  //   - idle_air_control_integral_term is undefined4 in the catalog; it is an i32 with 1/1024 scaling.
+  //   - idle_air_learn_coolant_interpolated is uint32_t in the catalog; it is an i32 with 1/1024 scaling.
+  //   - LEA_obd_ii_idle_learn is u16_flow_mg/s in the catalog; it is an i16 with 1/1024 scaling.
+  //   - obd_ii_idle_speed_error is undefined2 in the catalog; it is an i16 in rpm.
+  //   - obd_ii_idle_air_output, idle_air_base and obd_ii_idle_status are undefined1 and log as raw
+  //     counts.
+  //
+  // The idle channels add ~185 samples/s to the fuel preset, roughly 40 more frames/s, for a total
+  // of about 180 frames/s, or ~5% of the 500 kbit/s bus.
+  "name": "Fuel & Idle Diagnostics (B132E0091)",
+  "description": "Injection pipeline (load/temp axes, AFR target, knock enrichment, flow conversion, pulse widths, duty cycle, bank trims, O2 feedback) plus the idle air controller: target, entry rpm, air command, PI integral, status, learned idle air and misfire count.",
+  "ecuVersion": "B13200091",
+  "channels": [
+    // ── Axes ─────────────────────────────────────────────────────────────────────────────────────
+    {
+      "symbol": "engine_speed_16bit",
+      "rate": 50
+    }, // X of the fueling tables (RPM)
+    {
+      "symbol": "load_mass_per_stroke",
+      "rate": 50
+    }, // Y of enrichment tables (mg/stk = val*4)
+    {
+      "symbol": "load_computed_alphaN",
+      "rate": 50
+    },
+    {
+      "symbol": "maf_flow_1",
+      "rate": 50
+    }, // Primary MAF — airflow basis of the fuel calc (mg/s = val*10)
+    {
+      "symbol": "sensor_adc_maf1",
+      "rate": 50
+    }, // Raw primary MAF sensor voltage (V = val*5/1023) — pre-transfer-function input to maf_flow_1;
+    // pair with maf_flow_1 to separate a sensor/wiring fault from a wrong CAL_sensor_maf_scaling curve.
+    // (sensor_adc_maf2 is the secondary element if the two MAF flows disagree.)
+    {
+      "symbol": "load_source_is_alphaN",
+      "rate": 50
+    },
+    {
+      "symbol": "coolant_temp",
+      "rate": 1
+    }, // Y of warmup/enrichment table
+    {
+      "symbol": "airtemp_ambient",
+      "rate": 1
+    }, // IAT comp input (no TMAP on this ECU)
+
+    // ── AFR target chain ─────────────────────────────────────────────────────────────────────────
+    {
+      "symbol": "afr_target",
+      "rate": 50
+    }, // Commanded AFR (u16 val/100; only AFR node on this firmware)
+    {
+      "symbol": "afr_enrichment_from_ign_retard",
+      "rate": 20
+    }, // Knock/retard PE contribution (AFR = val/100, subtracted)
+
+    {
+      "symbol": "tps_8bit",
+      "rate": 10
+    },
+
+    // ── Knock inputs ─────────────────────────────────────────────────────────────────────────────
+    {
+      "symbol": "knock_ign_retard_sum",
+      "rate": 10
+    }, // Total knock retard, all cylinders (i16_angle_1/4deg)
+    {
+      "symbol": "ign_comp_coolant",
+      "rate": 10
+    }, // Coolant ignition comp (deg = val/4)
+    {
+      "symbol": "ign_comp_rpm",
+      "rate": 10,
+      "signed": true,
+      "scale": 0.25,
+      "unit": "deg"
+    }, // RPM ignition comp (assumed i16 1/4-deg)
+    {
+      "symbol": "ign_comp_iat",
+      "rate": 5
+    }, // IAT ignition comp (i16_angle_1/4deg)
+
+    // ── Temp factors ─────────────────────────────────────────────────────────────────────────────
+    {
+      "symbol": "inj_warmup_factor",
+      "rate": 5
+    }, // Load/coolant enrichment factor (x val/64, floor 1.0) — CAL_inj_warmup_factor_{manual|ips}
+    {
+      "symbol": "inj_comp_iat",
+      "rate": 5
+    }, // Air-temp compensation factor (val/128) — CAL_inj_comp_iat
+
+    // ── Flow conversion ──────────────────────────────────────────────────────────────────────────
+    {
+      "symbol": "inj_efficiency",
+      "rate": 5
+    }, // Efficiency lookup + test trim (u8_factor_1/200; NOT val/100 as on C0278)
+    {
+      "symbol": "inj_flow_rate",
+      "rate": 5
+    }, // Commanded injector flow (mg/s) — fixed-rail, no dP correction
+    {
+      "symbol": "inj_bank_balance_ratio",
+      "rate": 5
+    }, // Bank balance (val/200; 100% = balanced)
+    {
+      "symbol": "inj_fuel_mass_required",
+      "rate": 10
+    }, // Fuel mass demand per stroke (10 ug units)
+    {
+      "symbol": "inj_fuel_mass_bank1",
+      "rate": 10
+    }, // Fuel mass bank 1 (10 ug units)
+    {
+      "symbol": "inj_fuel_mass_bank2",
+      "rate": 10
+    }, // Fuel mass bank 2 (10 ug units)
+
+    // ── Deadtime / supply (no fuel pressure sensor — delivery-side health) ───────────────────────
+    {
+      "symbol": "inj_deadtime_base",
+      "rate": 10
+    }, // Injector deadtime (us)
+    {
+      "symbol": "sensor_adc_ecu_voltage",
+      "rate": 10
+    }, // Battery/ECU supply — drives deadtime (V = val*18/1023)
+
+    // ── Pulse width ──────────────────────────────────────────────────────────────────────────────
+    {
+      "symbol": "inj_pw_bank1_pre_trim_us",
+      "rate": 20,
+      "unit": "us"
+    }, // Bank 1 pulse before STFT/LTFT
+    {
+      "symbol": "inj_pw_bank2_pre_trim_us",
+      "rate": 20,
+      "unit": "us"
+    }, // Bank 2 pulse before STFT/LTFT
+    {
+      "symbol": "inj_pw_bank1_post_trim_us",
+      "rate": 20,
+      "unit": "us"
+    }, // Bank 1 pulse after STFT/LTFT
+    {
+      "symbol": "inj_pw_bank2_post_trim_us",
+      "rate": 20,
+      "unit": "us"
+    }, // Bank 2 pulse after STFT/LTFT
+
+    // ── Duty cycle & headroom (replaces load_limit_from_inj) ─────────────────────────────────────
+    {
+      "symbol": "inj_duty_bank1_pct",
+      "rate": 20
+    }, // Injector duty bank 1 (%)
+    {
+      "symbol": "inj_duty_bank2_pct",
+      "rate": 20
+    }, // Injector duty bank 2 (%)
+    {
+      "symbol": "inj_pw_max_available_us",
+      "rate": 5
+    }, // Max pulse window at current RPM (us) — capacity ceiling
+
+    // ── Transient / correction filters ───────────────────────────────────────────────────────────
+    {
+      "symbol": "inj_tip_adj_enrichment",
+      "rate": 10
+    }, // Tip-in enrichment adj (undefined4, raw) — nonzero = transient-contaminated sample
+    {
+      "symbol": "inj_tip_adj_enleanment",
+      "rate": 10
+    }, // Tip-out enleanment adj (undefined4, raw) — nonzero = transient-contaminated sample
+    {
+      "symbol": "load_alphaN_trim_factor",
+      "rate": 1
+    }, // Learned alpha-N airflow trim (u16_factor_1/100) — ECU's own correction on top of the MAF curve
+
+    // ── Bank trims ───────────────────────────────────────────────────────────────────────────────
+    // 16-bit internal trims, catalog-typed i16_factor_1/20. Enable if the O2 traces aren't enough.
+    //{ "symbol": "stft_bank1",           "rate": 20 },                      // Short-term trim B1
+    //{ "symbol": "stft_bank2",           "rate": 20 },                      // Short-term trim B2
+    {
+      "symbol": "obd_ii_ltft_bank_1",
+      "rate": 1,
+      "scale": 0.78125,
+      "offset": -100,
+      "unit": "%"
+    }, // Long-term trim B1 (assumed OBD A/1.28-100 encoding)
+    {
+      "symbol": "obd_ii_ltft_bank_2",
+      "rate": 1,
+      "scale": 0.78125,
+      "offset": -100,
+      "unit": "%"
+    }, // Long-term trim B2 (assumed OBD A/1.28-100 encoding)
+
+    // ── O2 feedback ──────────────────────────────────────────────────────────────────────────────
+    {
+      "symbol": "obd_ii_o2_sensor1_voltage",
+      "rate": 5
+    }, // Front O2 bank 1 - drives bank 1 STFT
+    {
+      "symbol": "obd_ii_o2_sensor5_voltage",
+      "rate": 5
+    }, // Front O2 bank 2 - drives bank 2 STFT
+
+    // ── Idle air control ─────────────────────────────────────────────────────────────────────────
+    {
+      "symbol": "obd_ii_idle_speed_target_total",
+      "rate": 20
+    }, // Idle target rpm, all adders included (u16 rpm)
+    {
+      "symbol": "idle_control_entry_rpm",
+      "rate": 5
+    }, // rpm the engine must drop below for the controller to work (u16 rpm)
+    {
+      "symbol": "obd_ii_idle_speed_error",
+      "rate": 20,
+      "signed": true,
+      "unit": "rpm"
+    }, // Actual minus target (i16 rpm)
+    {
+      "symbol": "obd_ii_idle_air_output",
+      "rate": 20
+    }, // Total idle air command (u8, raw)
+    {
+      "symbol": "idle_air_base",
+      "rate": 20
+    }, // Open-loop base from CAL_idle_air_base_* (u8, raw)
+    {
+      "symbol": "idle_comp_high_rpm_transient",
+      "rate": 20
+    }, // High-rpm air adder that holds the hang (u16 rpm)
+    {
+      "symbol": "idle_air_control_integral_term",
+      "rate": 20,
+      "size": 4,
+      "signed": true,
+      "scale": 0.0009765625
+    }, // PI correction (i32 / 1024); stays at 0 while hung
+    {
+      "symbol": "obd_ii_idle_status",
+      "rate": 20
+    }, // Idle controller status (u8, raw); 0 means the controller isn't engaged
+    {
+      "symbol": "LEA_obd_ii_idle_learn",
+      "rate": 1,
+      "size": 2,
+      "signed": true,
+      "scale": 0.0009765625,
+      "unit": "raw"
+    }, // Learned idle air (i16 / 1024)
+    {
+      "symbol": "idle_air_learn_coolant_interpolated",
+      "rate": 5,
+      "size": 4,
+      "signed": true,
+      "scale": 0.0009765625
+    }, // The learned idle air actually being applied (i32 / 1024)
+    {
+      "symbol": "failed_ignition_cyl_count",
+      "rate": 10
+    }, // Misfire count (u8), which also adds idle air
+    {
+      "symbol": "tps_target",
+      "rate": 20
+    } // Commanded throttle-plate target (0-100%); compare with tps_8bit
+  ]
+}
