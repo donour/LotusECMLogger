@@ -259,19 +259,44 @@ Recommendations:
 | A138E0112 | 0x40008654 / 0x69AC | 0x400088EC | 0x400015E8 | 0x40006DB0 | 0x400069D8 | 0xB12C8 | 0xB4500 (A), 0xB707C (C) |
 | C132F0395 (TCU) | 0x40008E58 / 0x61A8 | — | 0x40001420 `Ccp_TCU` | 0x40003854 | `chlog_streaming_control_flags` | 0x51358 | 0x54038 (A), 0x56528 (C) |
 
-### Runtime global-variable metadata (reported, not yet independently located)
+### Runtime global-variable registry: confirmed diagnostic use
 
-The project owner reports a firmware table queryable at runtime that returns global-variable locations
-and sizes, but no English names (2026-10-07). This may allow physical addresses/sizes to be discovered
-instead of hard-coded. Semantic names, types/scaling and reliable object identity still need a catalog
-or A2L binding; do not assume table ordering is stable across software builds.
+The owner supplied the T6-V00BU layout on 2026-10-07:
 
-The table's locator, record format, coverage and access mechanism are still to be verified. The CCP
-command dispatcher documented here has no identified symbol-enumeration command; reading a table via
-UPLOAD is different from a dedicated CAN query. C132E0278's known `segment_data`/`segment_bss` records
-are consumed by startup copy/zero routines and describe memory segments; they are not evidence of a
-per-global table. Whether the reported table is linker metadata or intended for a CAN data interface
-remains an open question until its contents and code references are inspected.
+| Offset | Contents |
+|---|---|
+| +0x00 | 32-byte build ID, e.g. `T6-V00BU 18/12/2014 Lotus Eng` |
+| +0x20 | 12-byte version field, e.g. `V0001` |
+| +0x2C | six-byte entries: big-endian u32 address, u8 exported size, u8 reserved (zero) |
+
+For that reported table, the header is at 0x000C02B8 and entries at 0x000C02E4;
+44 + 753 × 6 = 4562 bytes. Sizes include 1/2/4, plus exported objects of 5/6/8/10/32 bytes.
+The table stores no English names, signedness or scaling. This is not the startup segment-copy table.
+Decode records with an explicit six-byte stride; native C/.NET struct alignment can otherwise pad
+`pointer + byte + byte` to eight bytes.
+
+The access path is independently corroborated in `LotusECU-T4e`:
+- `lib/ltacc.py:read_varptr_list` sends raw CAN 0x53 with four zero bytes, receives a four-byte
+  big-endian pointer on 0x7A0, and reads six-byte records until a six-zero-byte terminator. Its size
+  decoder reads bytes 4–5 as little-endian u16, equivalent to u8 size when reserved byte 5 is zero.
+- The T6 raw-memory handler's DLC-4 branch returns an entries pointer, not the header; the request's
+  four data bytes are not tested. Five/six-byte requests remain ordinary block reads. This path needs
+  `ecu_unlocked`; it is separate from the CCP enable gate. Do not pad the query to DLC 8.
+- Entry pointers in the decompiles are 0x000C02E4 (B13200091), 0x000CE984 (C132E0278),
+  and 0x000D2EF4 (E132E0288). For C132E0278, entries − 0x2C = 0x000CE958,
+  matching the exported `ecu_prog_version` symbol. Read these flash bytes over CCP when enabled,
+  using a correctly identified build; no new CCP enumeration opcode is needed.
+- B13200091's `obd_ii_data_buffer_update` indexes the table with the configured freeze-frame PID
+  masked to ten bits, strides six bytes, and uses the byte at entry+4 for 1/2/4-byte capture.
+  The registry therefore has diagnostic consumers; it is not merely unused linking information.
+
+The Python client documents RPM at index 31 and uses indexes 253/254 for CAL base and CAL-size storage.
+Those are candidate semantic bindings, not proof of index stability in every T6 build. Preserve aliases
+and full exported byte counts; validate headers, bounds, terminators and named catalog bindings before
+using discovered widths. Larger entries need splitting into supported DAQ element widths/ODTs.
+753 entries and the exact header/reserved bytes still require an actual V00BU image or table dump for
+independent byte-level verification; C exports omit initialised data. Do not assume this covers every
+Ghidra global or marks a region writable.
 
 ### Live variables: why one A2L per build is needed
 
@@ -460,8 +485,9 @@ EFI's changes to the driver:
    MTA0 in the reply, and that PIDs with bit 7 set (overrun) are handled (§4, §5, §13).
 9. **Ghidra labels:** the `chlog_*` / `logger_*` / `diag_stream_*` labels could be renamed to the Vector driver names
    in §11, so exports read like `ccp.c`.
-10. **Runtime variable metadata:** locate the owner-reported per-global address/size table, decode its
-    format and trace its callers/query path. Confirm stable entry identity, coverage and byte-size semantics.
+10. **Runtime variable registry:** the query path and six-byte diagnostic indexing are located. Verify
+    actual headers/counts/terminators and semantic index stability in each firmware build; reconcile
+    registry-exported byte counts with named catalogs before replacing inferred sizes.
 11. **Old notes:** `romraider-defs - Copy/disassembly_references/ChannelLogger.md` still describes this as a
     proprietary logger. It needs a pointer to this guide.
 
@@ -548,3 +574,7 @@ Its fixed-axis interpolators shift the input left before dividing by 256: raw po
 The lookup survey totals reproduce (484 inputs, 281 tables, 49 multi-call tables, 42 axes with
 different expressions), but renamed locals are misclassified as globals. Scope and RAM-address
 verification are required before using those classifications to select DAQ measurements.
+
+The runtime registry was subsequently located using the supplied 0x000C02B8/+0x2C layout.
+Independent source evidence is `lib/ltacc.py` (`read_varptr_list`), B13200091
+`obd_ii_data_buffer_update`/raw-memory RX, and the C132E0278/E132E0288 DLC-4 pointer replies.
