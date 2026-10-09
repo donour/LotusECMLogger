@@ -13,10 +13,10 @@
   //   - obd_ii_idle_air_output, idle_air_base and obd_ii_idle_status are undefined1 and log as raw
   //     counts.
   //
-  // The idle channels add ~185 samples/s to the fuel preset, roughly 40 more frames/s, for a total
-  // of about 180 frames/s, or ~5% of the 500 kbit/s bus.
+  // The idle, trim and fuel-learning channels add ~300 samples/s to the fuel preset, for a total of
+  // about 200 frames/s, or ~5-6% of the 500 kbit/s bus.
   "name": "Fuel & Idle Diagnostics (B132E0091)",
-  "description": "Injection pipeline (load/temp axes, AFR target, knock enrichment, flow conversion, pulse widths, duty cycle, bank trims, O2 feedback) plus the idle air controller: target, entry rpm, air command, PI integral, status, learned idle air and misfire count.",
+  "description": "Injection pipeline (load/temp axes, AFR target, knock enrichment, flow conversion, pulse widths, duty cycle, STFT/LTFT per bank, O2 feedback, fuel learning zones idle/off-idle/2/3 per bank) plus the idle air controller: target, entry rpm, air command, PI integral, status, learned idle air and misfire count.",
   "ecuVersion": "B13200091",
   "channels": [
     // ── Axes ─────────────────────────────────────────────────────────────────────────────────────
@@ -188,9 +188,26 @@
     }, // Learned alpha-N airflow trim (u16_factor_1/100) — ECU's own correction on top of the MAF curve
 
     // ── Bank trims ───────────────────────────────────────────────────────────────────────────────
-    // 16-bit internal trims, catalog-typed i16_factor_1/20. Enable if the O2 traces aren't enough.
-    //{ "symbol": "stft_bank1",           "rate": 20 },                      // Short-term trim B1
-    //{ "symbol": "stft_bank2",           "rate": 20 },                      // Short-term trim B2
+    // Internal 16-bit trims. Check on a warm idle whether they centre on 0 (delta) or 100
+    // (multiplier) before reading absolute numbers off them.
+    {
+      "symbol": "stft_bank1",
+      "rate": 20
+    }, // Short-term trim bank 1 (raw*0.05 %)
+    {
+      "symbol": "stft_bank2",
+      "rate": 20
+    }, // Short-term trim bank 2 (raw*0.05 %)
+    {
+      "symbol": "ltft_bank1",
+      "rate": 20
+    }, // Long-term trim bank 1 (raw*0.1 %), the running total the filtered STFT is folded into
+    {
+      "symbol": "ltft_bank2",
+      "rate": 20
+    }, // Long-term trim bank 2 (raw*0.1 %)
+    // OBD-reported LTFT: cross-check on ltft_bank1/2 above. If they disagree in sign or centre,
+    // the internal pair is being read with the wrong convention.
     {
       "symbol": "obd_ii_ltft_bank_1",
       "rate": 1,
@@ -215,6 +232,76 @@
       "symbol": "obd_ii_o2_sensor5_voltage",
       "rate": 5
     }, // Front O2 bank 2 - drives bank 2 STFT
+
+    // ── Fuel learning zones ──────────────────────────────────────────────────────────────────────
+    // Four zones per bank. Idle and off-idle learn an injector offset (us, added to
+    // inj_deadtime_base); zones 2 and 3 learn a multiplier cell on the MAF axis
+    // (CAL_inj_fuel_learn_zone_*_maf_min/max). A cell only moves while fuel_learning_zone selects
+    // it, and the dwell timers show which zone is accumulating qualifying time.
+    {
+      "symbol": "fuel_learning_zone",
+      "rate": 20
+    }, // Zone currently being learned into (raw)
+    {
+      "symbol": "LEA_inj_offset_learn_idle_bank1",
+      "rate": 1
+    }, // Idle zone: learned injector offset bank 1 (i16 us)
+    {
+      "symbol": "LEA_inj_offset_learn_idle_bank2",
+      "rate": 1
+    }, // Idle zone: learned injector offset bank 2 (i16 us)
+    {
+      "symbol": "LEA_inj_offset_learn_off_idle_bank1",
+      "rate": 1
+    }, // Off-idle zone: learned injector offset bank 1 (i16 us)
+    {
+      "symbol": "LEA_inj_offset_learn_off_idle_bank2",
+      "rate": 1
+    }, // Off-idle zone: learned injector offset bank 2 (i16 us)
+    {
+      "symbol": "LEA_inj_fuel_learn_zone_2_bank1",
+      "rate": 1
+    }, // Zone 2 learned cell bank 1 (raw*0.390625 - 50 %, 128 = no correction)
+    {
+      "symbol": "LEA_inj_fuel_learn_zone_2_bank2",
+      "rate": 1
+    }, // Zone 2 learned cell bank 2
+    {
+      "symbol": "LEA_inj_fuel_learn_zone_3_bank1",
+      "rate": 1
+    }, // Zone 3 learned cell bank 1
+    {
+      "symbol": "LEA_inj_fuel_learn_zone_3_bank2",
+      "rate": 1
+    }, // Zone 3 learned cell bank 2
+    {
+      "symbol": "obd_ii_fuel_trim_idle_time_bank1",
+      "rate": 1
+    }, // Idle-zone qualifying dwell, bank 1 (ms = raw*100)
+    {
+      "symbol": "obd_ii_fuel_trim_idle_time_bank2",
+      "rate": 1
+    }, // Idle-zone qualifying dwell, bank 2
+    {
+      "symbol": "obd_ii_fuel_trim_offidle_time_bank1",
+      "rate": 1
+    }, // Off-idle-zone qualifying dwell, bank 1
+    {
+      "symbol": "obd_ii_fuel_trim_offidle_time_bank2",
+      "rate": 1
+    }, // Off-idle-zone qualifying dwell, bank 2
+    {
+      "symbol": "obd_ii_fuel_trim_zone3_time_bank1",
+      "rate": 1
+    }, // Zone-3 qualifying dwell, bank 1
+    {
+      "symbol": "obd_ii_fuel_trim_zone3_time_bank2",
+      "rate": 1
+    }, // Zone-3 qualifying dwell, bank 2
+    {
+      "symbol": "evap_purge_duty",
+      "rate": 1
+    }, // Purge duty (raw). Nonzero = vapour in the mixture, so trim movement isn't a metering signal
 
     // ── Idle air control ─────────────────────────────────────────────────────────────────────────
     {
