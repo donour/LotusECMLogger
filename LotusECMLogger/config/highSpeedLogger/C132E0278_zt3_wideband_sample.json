@@ -1,0 +1,18 @@
+{
+  // Example road/dyno log combining the ECU's high-speed stream with a Zeitronix Zt-3 broadcast.
+  // Selecting this preset automatically checks "ZT-3 CAN" in the High-Speed Log tab. The controller
+  // must be wired to the same 500 kbit/s CAN bus and broadcasting its 8-byte frame on ID 0x05A.
+  "name": "GT430 + ZT-3 Wideband Sample (C132E0278)",
+  "description": "Sample RPM/load/throttle/target-AFR log with ZT-3 lambda, AFR, and O2 status.",
+  "ecuVersion": "C132E0278",
+  "zt3Wideband": true,
+  "channels": [
+    { "symbol": "engine_speed_16bit",   "rate": 100 },
+    { "symbol": "load_mass_per_stroke", "rate": 50 },
+    { "symbol": "tps_8bit",             "rate": 100 },
+    { "symbol": "accel_pedal_pos_16bit", "rate": 100 },
+    { "symbol": "afr_commanded",        "rate": 50 },
+    { "symbol": "map",                  "rate": 50 },
+    { "symbol": "iat",                  "rate": 5 }
+  ]
+}

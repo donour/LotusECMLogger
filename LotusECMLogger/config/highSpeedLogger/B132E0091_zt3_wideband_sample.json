@@ -1,0 +1,19 @@
+{
+  // Example road/dyno log for an S1 / NA car combining the ECU high-speed stream with a Zeitronix
+  // Zt-3 broadcast. B132E0091 uses the repository's B13200091 symbol catalog. Selecting this preset
+  // automatically checks "ZT-3 CAN"; the controller must share the 500 kbit/s bus and broadcast its
+  // 8-byte frame on standard CAN ID 0x05A.
+  "name": "S1 / NA + ZT-3 Wideband Sample (B132E0091)",
+  "description": "Sample S1/NA RPM/load/throttle/target-AFR log with ZT-3 lambda, AFR, and O2 status.",
+  "ecuVersion": "B13200091",
+  "zt3Wideband": true,
+  "channels": [
+    { "symbol": "engine_speed_16bit",             "rate": 100 },
+    { "symbol": "load_mass_per_stroke",           "rate": 50 },
+    { "symbol": "tps_16bit",                      "rate": 100 },
+    { "symbol": "accel_pedal_pos",                "rate": 100 },
+    { "symbol": "afr_target",                     "rate": 50 },
+    { "symbol": "manifold_pressure_calculated",   "rate": 50 },
+    { "symbol": "air_temp_intake",                "rate": 5 }
+  ]
+}
