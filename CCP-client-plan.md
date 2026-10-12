@@ -3,10 +3,10 @@
 Design notes for adding a CCP 2.1 master to LotusECMLogger. The ECU side is described in
 [`CCP-support.md`](CCP-support.md); this document covers the PC side.
 
-**Status (2026-10-12): Phases 1–4 implemented in code (protocol core, firmware-backed GT430 simulator,
-`CcpMaster`, high-speed logger ported onto it with AEM as a separate source, shared session host and a read-only
-CCP tab). Nothing since Phase 1 has run on a car yet; the live-car re-check covers Phases 3 and 4. Phase 5
-(guarded writes) is next. Scope narrowed to T6 2011+ for now (§2).**
+**Status (2026-10-12): Phases 1–5 implemented in code (protocol core, firmware-backed GT430 simulator,
+`CcpMaster`, high-speed logger ported onto it with AEM as a separate source, shared session host, CCP tab, guarded
+calibration writes). Nothing since Phase 1 has run on a car yet. Next: an A2L generator (before Phase 6), then
+Phase 6. Scope narrowed to T6 2011+ for now (§2).**
 The protocol core, target/build profiles, transport contract, J2534 transport and deterministic fake slave
 are implemented. Cross-platform tests exercise the command sequence, firmware quirks and runtime-registry format.
 The fake loads real PROG/CAL from CRP and exposes `ICcpTransport`; see [`CcpSimulator/README.md`](CcpSimulator/README.md).
@@ -67,7 +67,7 @@ What it does not do:
 | Calibration writes | In v1, with guards | Wanted for live tuning. |
 | Interactive live tuning | In scope (Phase 6) | Table editor over a calibration file, synced to ECU RAM over CCP, with a live operating-point cursor. |
 | Table definition format | **A2L files**, "for now" | Standard format, also usable in CANape/INCA/VISION. Accepts the limits in §6. |
-| Source of A2L files | Supplied by the project owner later | The app only *reads* A2L. No generator in scope; if one is built, it is a C# tool in this solution. |
+| Source of A2L files | A C# generator in this solution drafts them from the symbol catalogs (added 2026-10-12); the owner reviews them and adds lookup inputs | The catalogs already name tables and axes (`CAL_x`, `CAL_x_X_*`, `CAL_x_Y_*`). Input bindings need per-table checks against the decompile, so they stay manual. The app only *reads* A2L. |
 | Existing RMA-based T6 Live Tuning tab and Snapshots | Unchanged; no CCP back end for them | Out of scope for now. |
 | A2L for the high-speed logger | No: it keeps the symbol CSVs | Limits scope; can move later. |
 
@@ -247,6 +247,25 @@ disabled while the OBD logger holds the adapter.
   An intentional change requires a separate operation after all other writes and verification.
 - Validate address plus length without 32-bit wrap, build identity and characteristic layout before
   each operation. Failed verification/partial writes stop live sync and invalidate the affected state.
+
+Done (2026-10-12): `CcpCalibrationWriter` (`Services/Ccp/CcpCalibrationWriter.cs`) plus a write panel on the CCP
+tab. Prepare sends nothing: it limits the range to CAL RAM, refuses while the build's `engine_speed_16bit` (from its
+symbol catalog, when present) reads above zero, reads the current bytes and computes changed runs (merging runs up
+to 4 bytes apart). A value write that would change the enable byte is refused; a whole-image write keeps the ECU's
+value. Calibration files must be a raw CAL image or a 64 KB Snapshots download whose calibration ID matches the
+build. The user confirms (changed bytes, engine-speed reading, live and lost at power-off, non-atomic, backup
+location, override warning); Execute refuses if the ECU's checksum shows the region changed, saves a
+self-describing `ccp-backup_<build>_<address>_<length>_<time>.bin` under `Documents/LotusECMLogger/ccp-backups`,
+then writes each run with read-back. Restore Backup writes a backup file back to the address in its name. An
+unrecognised ECU allows writes only after the user picks a build and accepts a warning. Intentionally changing
+the enable byte is not offered. The A2L `MEMORY_SEGMENT` source for the range arrives with Phase 6a.
+
+**Before Phase 6: A2L generator.** A C# tool in this solution drafts an A2L per build from its symbol catalog:
+`MOD_COMMON` MSB_FIRST, `MOD_PAR` with `EPK`/`ADDR_EPK` at the calibration ID and a `MEMORY_SEGMENT` for CAL RAM,
+`CHARACTERISTIC` VALUE/CURVE/MAP from the `CAL_x` + `CAL_x_X_*`/`CAL_x_Y_*` naming (length X×Y, X fastest),
+`AXIS_PTS` for the separate axes, and `COMPU_METHOD`s from the catalog type names. Every axis is emitted with
+`NO_INPUT_QUANTITY`; the owner adds verified `InputQuantity` bindings. The record layout for X-fastest storage
+must be pinned by a test against a known table before generated files are trusted (§7).
 
 **Phase 6 sub-phases**
 - **6a, A2L reader.** See §6.
