@@ -21,7 +21,11 @@
          against the simulator without loading WinForms or J2534. -->
     <Compile Include="../LotusECMLogger/Models/HighSpeedChannel.cs" Link="HighSpeedLog/%(Filename)%(Extension)" />
     <Compile Include="../LotusECMLogger/Services/HighSpeedLogPlanner.cs" Link="HighSpeedLog/%(Filename)%(Extension)" />
-    <Compile Include="../LotusECMLogger/Services/HighSpeedLogLegacyCommands.cs" Link="HighSpeedLog/%(Filename)%(Extension)" />
+    <Compile Include="../LotusECMLogger/Services/HighSpeedLogService.cs" Link="HighSpeedLog/%(Filename)%(Extension)" />
+    <Compile Include="../LotusECMLogger/Services/IHighSpeedLogService.cs" Link="HighSpeedLog/%(Filename)%(Extension)" />
+    <Compile Include="../LotusECMLogger/Services/AemWidebandSource.cs" Link="HighSpeedLog/%(Filename)%(Extension)" />
+    <Compile Include="../LotusECMLogger/Services/Logging/*.cs" Link="HighSpeedLog/Logging/%(Filename)%(Extension)" />
+    <Compile Include="../LotusECMLogger/LoggerPaths.cs" Link="HighSpeedLog/%(Filename)%(Extension)" />
     <Compile Include="../LotusECMLogger/HighSpeedLogPresetLoader.cs" Link="HighSpeedLog/%(Filename)%(Extension)" />
     <Compile Include="../LotusECMLogger/Services/SymbolCatalog.cs" Link="HighSpeedLog/%(Filename)%(Extension)" />
     <Compile Include="../LotusECMLogger/Services/SymbolCatalogLoader.cs" Link="HighSpeedLog/%(Filename)%(Extension)" />

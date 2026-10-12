@@ -42,22 +42,38 @@ namespace LotusECMLogger.Services
         public int FirmwareIdLength { get; init; }
 
         /// <summary>Capability/protocol magic returned by identify (expected <see cref="ChannelLoggerMagic"/>).</summary>
+        /// <remarks>
+        /// Not a magic number: EXCHANGE_ID bytes 4–7 are data type 0x00, resource availability 0x03 (CAL+DAQ),
+        /// protection 0x00 and driver version 0x8E.
+        /// </remarks>
         public uint Magic { get; init; }
+
+        /// <summary>The CCP slave ID string uploaded after EXCHANGE_ID, e.g. "Ccp_T6".</summary>
+        public string? SlaveId { get; init; }
+
+        /// <summary>The CCP version the slave reports, e.g. "2.1".</summary>
+        public string? CcpVersion { get; init; }
+
+        /// <summary>Calibration ID read from the ECU when it matches a known build, e.g. "C132E0278".</summary>
+        public string? CalibrationId { get; init; }
+
+        /// <summary>The calibration's description (CAL_prog_version) when known for the build.</summary>
+        public string? CalibrationDescription { get; init; }
 
         /// <summary>True when identify succeeded and the magic matches the channel logger.</summary>
         public bool IsChannelLogger => Identified && Magic == ChannelLoggerMagic;
     }
 
     /// <summary>
-    /// Service for the T6 high-speed CAN channel logger. Configures the ECU's developer telemetry
-    /// facility over CAN ID 0x350, then streams decoded channel data from 0x351 to a CSV file and to
-    /// <see cref="DataReceived"/> subscribers. Protocol per <c>ChannelLogger.md</c>.
+    /// Service for the T6 high-speed CAN channel logger. Programs the ECU's CCP DAQ lists (commands on
+    /// CAN ID 0x350), then streams decoded channel data from 0x351 to a CSV file and to
+    /// <see cref="DataReceived"/> subscribers. Protocol per <c>CCP-support.md</c>.
     /// </summary>
     public interface IHighSpeedLogService : IDisposable
     {
         /// <summary>Column/reading names used when AEM wideband polling is enabled.</summary>
-        const string AemLambdaChannelName = "AEM Lambda";
-        const string AemAfrChannelName = "AEM AFR";
+        const string AemLambdaChannelName = AemWidebandSource.LambdaChannelName;
+        const string AemAfrChannelName = AemWidebandSource.AfrChannelName;
 
         /// <summary>Fired (off the UI thread) for each decoded log frame.</summary>
         event EventHandler<HighSpeedSampleEventArgs>? DataReceived;
@@ -90,9 +106,9 @@ namespace LotusECMLogger.Services
         void StopLogging();
 
         /// <summary>
-        /// Probes the ECU on its own temporary CAN session: opens a session (0x01) then sends identify
-        /// (0x17), reporting whether the diagnostic bus is reachable and whether the channel logger is
-        /// present. Must not be called while logging is active (it opens its own channel).
+        /// Probes the ECU on its own temporary CCP session: CONNECT, then EXCHANGE_ID with the ID string and
+        /// build identification, reporting whether the diagnostic bus is reachable and whether the channel
+        /// logger is present. Must not be called while logging is active (it opens its own channel).
         /// </summary>
         HighSpeedIdentifyResult Identify();
     }

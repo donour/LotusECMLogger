@@ -387,7 +387,8 @@ namespace LotusECMLogger.Controls
             }
             else if (r.IsChannelLogger)
             {
-                statusValueLabel.Text = $"Connected — channel logger present (proto {r.Magic:X8}, fw-id {r.FirmwareIdLength} B)";
+                string build = r.CalibrationId is null ? "build not recognised" : $"build {r.CalibrationId}";
+                statusValueLabel.Text = $"Connected — channel logger present ({r.SlaveId}, CCP {r.CcpVersion}, {build})";
                 statusValueLabel.ForeColor = Color.Green;
             }
             else
