@@ -84,6 +84,7 @@ namespace LotusECMLogger
             features.Nodes.Add("dynomode", "Dyno Mode");
             var dtc = features.Nodes.Add("dtc", "Diagnostic Trouble Codes");
             dtc.Nodes.Add("mode13", "Mode 0x13 - All Codes");
+            features.Nodes.Add("emissions", "Emissions Check");
             features.Nodes.Add("learneddata", "Learned Data Reset");
 
             // ABS/ESP is a separate module with four distinct procedure groups, so it gets an
@@ -143,6 +144,9 @@ namespace LotusECMLogger
                     break;
                 case "mode13":
                     ShowMode13Help();
+                    break;
+                case "emissions":
+                    ShowEmissionsHelp();
                     break;
                 case "learneddata":
                     ShowLearnedDataHelp();
@@ -238,6 +242,7 @@ namespace LotusECMLogger
             AddBulletPoint("Set VIN: Program a new VIN to the ECU using OBD-II Mode 0x3B.");
             AddBulletPoint("Dyno Mode: Enable the ECU's diagnostic override to inhibit faults from external systems (such as ABS) during dyno runs.");
             AddBulletPoint("Diagnostic Trouble Codes: Read and clear DTCs from the ECU, including the Lotus-only Mode 0x13 service that returns current, confirmed, and (on Series 1 Evoras) TPMS codes in a single request.");
+            AddBulletPoint("Emissions Check: Read every readiness monitor's support and status, the MIL, trouble codes, and the calibration ID and CVN, and judge them against California Smog Check or federal I/M rules before an inspection.");
             AddBulletPoint("Learned Data Reset: Clear adaptive learning values from the ECU.");
             AddBulletPoint("ABS/ESP Diagnostics: Read fault codes, identification, and live internal state from the Bosch ESP8 ABS module; log all four wheel speeds at 100 Hz; and run the pump/valve routines used for brake bleeding.");
             AddBulletPoint("T6 RMA Logging: Advanced memory address logging for development.");
@@ -274,6 +279,7 @@ namespace LotusECMLogger
             AddBulletPoint("High-Speed Log - High-rate CAN channel logging (requires firmware with the channel-logger facility)");
             AddBulletPoint("ECU Coding - Modify ECU configuration");
             AddBulletPoint("Diagnostic Trouble Codes - Read and clear fault codes, with a Mode 0x13 sub-tab that reads every code the ECU holds (including TPMS on Series 1 Evoras) in one request");
+            AddBulletPoint("Emissions - An OBD-II smog check / I/M pre-check: readiness monitors, MIL, trouble codes, and a pass/fail verdict for the inspection program you choose");
             AddBulletPoint("T6 RMA Logging - Advanced memory logging");
             AddBulletPoint("Live Tuning - Real-time calibration editing on unlocked ECUs");
             AddBulletPoint("ABS - Diagnostics for the ABS/ESP module, which is a separate computer from the engine ECU with its own fault memory (Evora; see the ABS/ESP Diagnostics topic)");
@@ -563,6 +569,61 @@ namespace LotusECMLogger
 
             AddSubheading("Vehicle Coverage:");
             AddParagraph("The protocol was reverse-engineered from Evora firmware B13200091 and is present across the T6e family, including calibrations E132E0288, C132E0278, and C132E0271. Attempting the read on an ECU without the service is harmless - it simply does not answer.");
+        }
+
+        private void ShowEmissionsHelp()
+        {
+            AddHeading("Emissions Check");
+
+            AddParagraph("The Emissions tab is an OBD-II emissions pre-check. It reads the same data a smog check or I/M inspection station reads from the engine ECU, then judges it against the rules of the inspection program you choose, so you can find out whether the car is ready before you pay for an inspection.");
+
+            AddSubheading("How to Use:");
+            AddParagraph("1. With the ignition on (engine running or not), click 'Run Emissions Check'.");
+            AddParagraph("2. Choose the inspection program: 'California Smog Check (CARB / BAR)' or 'Federal OBD-II I/M (EPA)'.");
+            AddParagraph("3. Check the model year. It is decoded from the VIN automatically; correct it if it is wrong, because the rules depend on it.");
+            AddParagraph("Changing the program or model year re-judges the last read immediately without talking to the car again.");
+
+            AddSubheading("Readiness Monitors:");
+            AddParagraph("Readiness monitors are the self-tests the ECU runs on its emissions systems. The top list shows every monitor defined for the engine type, with:");
+            AddBulletPoint("Type - Continuous monitors (misfire, fuel system, comprehensive components) run all the time. Non-continuous monitors (catalyst, EVAP, oxygen sensors and so on) run once per drive cycle when their conditions are met.");
+            AddBulletPoint("Supported - Whether this car has the monitor at all.");
+            AddBulletPoint("Since Codes Cleared - Complete (green) or Incomplete (orange) since trouble codes were last cleared or the battery was disconnected. N/A (grey) means the car does not have the monitor. This is what the inspection judges.");
+            AddBulletPoint("This Drive Cycle - Whether the monitor is enabled and has completed during the current drive. 'Disabled' means its run conditions have not been met on this drive.");
+            AddParagraph("Clearing trouble codes or disconnecting the battery resets every monitor to incomplete. The monitors complete again over normal driving that meets each one's conditions, which can take several days of varied driving.");
+
+            AddSubheading("The Verdict:");
+            AddParagraph("The large line under the buttons shows the overall result, and the checks list beneath explains it:");
+            AddBulletPoint("PASS - Every check passed.");
+            AddBulletPoint("FAIL - At least one check failed.");
+            AddBulletPoint("NOT READY - Federal I/M only: too many monitors are incomplete. The car is sent away to drive and return; it fails only if it is still not ready on the retest.");
+            AddBulletPoint("INCONCLUSIVE - A check could not be judged, for example because the model year is unknown, a read failed, or the software check has no reference (see below).");
+
+            AddSubheading("California Smog Check Rules:");
+            AddBulletPoint("MIL commanded on - fails.");
+            AddBulletPoint("Any confirmed (stored) trouble code - fails, even when the MIL is off. Pending codes do not count.");
+            AddBulletPoint("Readiness - 1996-1999 gasoline cars may have any one incomplete monitor; 2000 and newer gasoline cars may have only the EVAP monitor incomplete. 1998-2006 diesels may have none; 2007 and newer diesels only the particulate filter and NMHC catalyst.");
+            AddBulletPoint("Permanent codes - 2010 and newer cars fail with a permanent code, unless the car has completed at least 15 warm-ups and 200 miles since its codes were last cleared.");
+            AddBulletPoint("Modified software - 2000 and newer cars fail when the calibration ID and CVN do not match factory or CARB-approved software (see below).");
+            AddParagraph("These follow 16 CCR 3340.42.2 and BAR's On-Board Diagnostic Test Reference. An October 2025 amendment removes the per-model-year readiness allowances from the regulation, but BAR still applies them while it phases the change in.");
+
+            AddSubheading("Federal I/M Rules:");
+            AddBulletPoint("MIL commanded on for trouble codes - fails.");
+            AddBulletPoint("Readiness - 1996-2000 cars may have up to two incomplete monitors; 2001 and newer up to one. More than that is 'Not Ready'.");
+            AddParagraph("These follow 40 CFR 85.2207 and 85.2222. There is no software check in the federal program.");
+
+            AddSubheading("Calibration ID, CVN, and Modified Software:");
+            AddParagraph("Since July 2021 California fails cars whose software does not match a factory or CARB Executive Order configuration, reported as 'Modified Software'. The station identifies the software by its calibration ID and calibration verification number (CVN), both shown in the details list. On the T6 the CVN is a checksum of the calibration, so any change to the calibration - including a tune - changes the CVN.");
+            AddParagraph("BAR does not publish its list of approved configurations, so the application judges this against its own list in config\\stock_software.json, which maps a calibration ID to its stock CVNs, for example { \"C132E0278\": [\"0x0000ABCD\"] }. The file ships empty: until the car's calibration ID is listed, the software check reads 'Unknown' and the California verdict is Inconclusive. To fill it in, record the calibration ID and CVN from a car known to be running stock software, or ask a Lotus dealer for the stock values.");
+
+            AddSubheading("Limitations:");
+            AddBulletPoint("Engine ECU only. A station queries every emissions module, which on an automatic includes the transmission controller.");
+            AddBulletPoint("A station also checks visually that the MIL lights with the key on and goes out with the engine running. This application cannot see the bulb.");
+            AddBulletPoint("Stations apply per-vehicle exceptions for known problem models. None currently cover a Lotus.");
+            AddBulletPoint("This is a pre-check, not an official result. Program rules change; the reasons for each check are shown so you can compare them against the current rules.");
+
+            AddSubheading("Requirements:");
+            AddBulletPoint("Ignition ON, engine running or not.");
+            AddBulletPoint("Logging stopped: the check needs the J2534 device to itself, so the button is disabled while a logging session is running.");
         }
 
         private void ShowLearnedDataHelp()
@@ -1084,6 +1145,19 @@ namespace LotusECMLogger
             AddBulletPoint("Some coding operations require specific ECU states");
             AddBulletPoint("Not all Lotus ECUs support coding modifications");
             AddBulletPoint("Check that you have a T6 ECU (coding may not work on older models)");
+
+            AddSubheading("Emissions Check Issues:");
+
+            AddParagraph("Problem: The verdict says INCONCLUSIVE");
+            AddBulletPoint("Read the checks list - the row showing 'Unknown' says what could not be judged");
+            AddBulletPoint("'Model year unknown' - pick the model year from the dropdown; the VIN could not be decoded");
+            AddBulletPoint("'not in config\\stock_software.json' - the California software check has no stock reference for this calibration ID; see the Emissions Check topic");
+            AddBulletPoint("'unavailable' rows in the details list - a read failed; run the check again with the ignition on");
+
+            AddParagraph("Problem: Monitors stay 'Incomplete'");
+            AddBulletPoint("Monitors only complete during driving that meets each one's conditions (warm engine, steady cruise, deceleration, and so on), which can take several days");
+            AddBulletPoint("Clearing codes or disconnecting the battery resets all monitors - avoid both before an inspection");
+            AddBulletPoint("Use the 'This Drive Cycle' column to see which monitors ran on the current drive");
 
             AddSubheading("ABS/ESP Issues:");
 

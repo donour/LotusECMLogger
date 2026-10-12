@@ -309,6 +309,39 @@ namespace LotusECMLogger.Services
             return (null, null);
         }
 
+        /// <summary>
+        /// Service 0x01: requests one current-data PID. Returns the full raw response buffer
+        /// ([hdr4] 0x41 &lt;pid&gt; &lt;data...&gt;) on success, or the negative response code when
+        /// the ECU rejects the request; both are null when the ECU does not answer.
+        /// </summary>
+        public (byte[]? response, byte? nrc) ReadCurrentDataRaw(byte pid)
+        {
+            // A single-PID request: BuildModeMessage's trailing byte would ask for PID 0x00 too.
+            _channel.SendMessage(BuildMultiPIDMessage(OBDIIMode.ShowCurrentData, [pid]));
+
+            for (int retry = 0; retry < 10; retry++)
+            {
+                var response = _channel.ReadMessages(1, 250);
+                if (response.Messages.Length == 0)
+                    continue;
+
+                // Skip echoes of our own transmit and TX confirmation frames.
+                var data = response.Messages[0].Data;
+                if (data.Length < 7 || data[2] != 0x07 || data[3] != 0xE8)
+                    continue;
+
+                // Positive response: 0x41 <pid> <data...>
+                if (data[4] == 0x41 && data[5] == pid)
+                    return (data, null);
+
+                // Negative response: 0x7F 0x01 <NRC>
+                if (data[4] == 0x7F && data[5] == (byte)OBDIIMode.ShowCurrentData)
+                    return (null, data[6]);
+            }
+
+            return (null, null);
+        }
+
         public List<int> GetSupportedPIDs(OBDIIMode mode)
         {
             if (mode == OBDIIMode.RequestVehicleInformation)

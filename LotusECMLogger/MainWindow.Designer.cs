@@ -57,6 +57,7 @@ namespace LotusECMLogger
             codingDataTab = new TabPage();
             dtcTab = new TabPage();
             dtcControl = new LotusECMLogger.Controls.DTCControl();
+            emissionsTab = new TabPage();
             liveTuningTab = new TabPage();
             liveTuningControl = new LotusECMLogger.Controls.LiveTuningDiskMonitorControl();
             snapshotsTab = new TabPage();
@@ -172,6 +173,7 @@ namespace LotusECMLogger
             mainTabControl.Controls.Add(loggingTab);
             mainTabControl.Controls.Add(codingDataTab);
             mainTabControl.Controls.Add(dtcTab);
+            mainTabControl.Controls.Add(emissionsTab);
             mainTabControl.Controls.Add(liveTuningTab);
             mainTabControl.Controls.Add(snapshotsTab);
             mainTabControl.Controls.Add(absTab);
@@ -375,6 +377,16 @@ namespace LotusECMLogger
             absTab.Text = "ABS";
             absTab.UseVisualStyleBackColor = true;
             //
+            // emissionsTab
+            //
+            emissionsTab.Location = new Point(4, 64);
+            emissionsTab.Margin = new Padding(4);
+            emissionsTab.Name = "emissionsTab";
+            emissionsTab.Size = new Size(992, 613);
+            emissionsTab.TabIndex = 8;
+            emissionsTab.Text = "Emissions";
+            emissionsTab.UseVisualStyleBackColor = true;
+            //
             // MainWindow
             //
             AutoScaleDimensions = new SizeF(10F, 25F);
@@ -439,5 +451,6 @@ namespace LotusECMLogger
         private TabPage highSpeedLogTab;
         private TabPage snapshotsTab;
         private TabPage absTab;
+        private TabPage emissionsTab;
     }
 }

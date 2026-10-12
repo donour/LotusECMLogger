@@ -8,7 +8,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Platforms>x86</Platforms>
     <ApplicationIcon>assets\audio_video_media_control_resume_plain_icon_260667.ico</ApplicationIcon>
-    <Version>0.7.2.0</Version>
+    <Version>0.7.3.0</Version>
   </PropertyGroup>
 
   <ItemGroup>
@@ -46,6 +46,12 @@
     </Compile>
     <Compile Update="Controls\AbsControl.Designer.cs">
       <DependentUpon>AbsControl.cs</DependentUpon>
+    </Compile>
+    <Compile Update="Controls\EmissionsControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Update="Controls\EmissionsControl.Designer.cs">
+      <DependentUpon>EmissionsControl.cs</DependentUpon>
     </Compile>
     <Compile Update="Controls\Mode13Control.cs">
       <SubType>UserControl</SubType>
@@ -99,3 +105,4 @@
   </ItemGroup>
 
 </Project>
+    

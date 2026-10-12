@@ -18,6 +18,7 @@ internal static class GuiIcons
     public const string LiveData     = ""; // RenderBarChart
     public const string EcuCoding    = ""; // Settings gear
     public const string Dtc          = ""; // AlertSolid
+    public const string Emissions    = ""; // CheckList (emissions inspection)
     public const string RmaLogging   = ""; // Download (read from ECU)
     public const string LiveTuning   = ""; // Edit / pencil
     public const string Snapshots    = ""; // Camera (point-in-time memory snapshot)

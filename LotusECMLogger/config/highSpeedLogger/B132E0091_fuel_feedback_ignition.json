@@ -1,0 +1,293 @@
+{
+  // Fuel feedback + ignition/knock trace for the B13200091 ECU (2011 Evora NA).
+  //
+  // What it answers:
+  //   - Which load model is the ECU on right now? load_source_is_alphaN is the flag (true =
+  //     alpha-N, false = MAF). load_computed_maf and load_computed_alphaN are the two candidates and
+  //     load_selected_raw is the one the fuel and spark calcs consumed, so a step in trims or timing
+  //     at a source switch shows up as the gap between the two.
+  //   - Is the fuel loop closed and tracking? afr_target, pre-cat O2 volts, STFT/LTFT per bank and
+  //     cl_status_bank1/2 (bit 0x2 = closed loop).
+  //   - Where is spark, and how much is knock pulling? ign_base -> ign_comp_total -> ign_adv_final,
+  //     against the knock-safe ceiling, with the total and average knock retard and the AFR
+  //     enrichment the ECU adds when it retards.
+  //
+  // Scaling notes (all from the catalog types unless overridden inline):
+  //   - ign_* / spark_* / knock_ign_retard_sum are 1/4-degree counts -> deg.
+  //   - stft_bank1/2 are raw*0.05 %, ltft_bank1/2 raw*0.1 %. Check on a warm idle whether they centre
+  //     on 0 (delta) or 100 (multiplier) before reading absolute numbers off them.
+  //   - load_selected_raw / load_computed_* are u32 mg/stroke; load_mass_per_stroke is the u8 table
+  //     axis at 4 mg/stroke per count.
+  //   - cl_status_bank1/2 and knock_flags are untyped and log raw; read them as bit fields.
+  //
+  // Per-cylinder knock retard: the catalog only has it as arrays, which the logger hides. The
+  // optional block at the bottom logs the six elements of ign_knock_retard (0x40001C20, u8 1/4 deg)
+  // as explicit-address channels, unchecked. Which [6] array is the live per-cylinder retard isn't
+  // confirmed; tick them and check that they add up to knock_ign_retard_sum before relying on them.
+  //
+  // 4 rate groups (50/20/5/1 Hz), ~1200 samples/s, roughly 250 frames/s ≈ 6-7% of the 500 kbit/s bus.
+  "name": "Fuel Feedback + Ignition/Knock (B132E0091)",
+  "description": "Closed-loop fuel feedback (AFR target, pre-cat O2, STFT/LTFT and closed-loop status per bank), the fuel calculation chain (efficiency, fuel mass, pulse widths, duty, dead time, warmup/purge/power-enrichment gating) alongside spark (base, compensations, final, knock-safe ceiling, MBT margin) and knock retard, with the MAF vs alpha-N load source flag and both load calculations.",
+  "ecuVersion": "B13200091",
+  "channels": [
+    // ── 50 Hz: axes and load source ──────────────────────────────────────────────────────────────
+    {
+      "symbol": "engine_speed_16bit",
+      "rate": 50
+    }, // RPM
+    {
+      "symbol": "load_mass_per_stroke",
+      "rate": 50
+    }, // Table load axis (mg/stroke = raw*4)
+    {
+      "symbol": "load_source_is_alphaN",
+      "rate": 50
+    }, // Load source: true = alpha-N (throttle model), false = MAF
+    {
+      "symbol": "load_selected_raw",
+      "rate": 50
+    }, // Load actually used by the fuel/spark calcs (mg/stroke)
+    {
+      "symbol": "load_computed_maf",
+      "rate": 50
+    }, // MAF-based load candidate (mg/stroke)
+    {
+      "symbol": "load_computed_alphaN",
+      "rate": 50
+    }, // Alpha-N load candidate (mg/stroke)
+    {
+      "symbol": "maf_flow_1",
+      "rate": 50
+    }, // Primary MAF flow (mg/s = raw*10)
+
+    // ── 50 Hz: fuel feedback ─────────────────────────────────────────────────────────────────────
+    {
+      "symbol": "afr_target",
+      "rate": 50
+    }, // Commanded AFR (raw/100). Away from stoich = open-loop enrichment, trims are not O2-driven
+    {
+      "symbol": "obd_ii_o2_sensor1_voltage",
+      "rate": 50
+    }, // Pre-cat O2 bank 1 (V) — drives stft_bank1
+    {
+      "symbol": "obd_ii_o2_sensor5_voltage",
+      "rate": 50
+    }, // Pre-cat O2 bank 2 (V) — drives stft_bank2
+    {
+      "symbol": "stft_bank1",
+      "rate": 50
+    }, // Short-term trim bank 1 (raw*0.05 %)
+    {
+      "symbol": "stft_bank2",
+      "rate": 50
+    }, // Short-term trim bank 2 (raw*0.05 %)
+
+    // ── 50 Hz: fuel calculation chain ────────────────────────────────────────────────────────────
+    {
+      "symbol": "inj_efficiency",
+      "rate": 50
+    }, // Interpolated efficiency value actually used (% = raw/2). Correct the cell the ECU used,
+    // not one guessed from the axes.
+    {
+      "symbol": "inj_fuel_mass_required",
+      "rate": 50
+    }, // Fuel mass requested before injector timing (10 ug units). Separates load/AFR errors from
+    // efficiency errors.
+    {
+      "symbol": "inj_pw_bank1_pre_trim_us",
+      "rate": 50,
+      "unit": "us"
+    }, // Bank 1 pulse before trims, tip-in adder included (us)
+    {
+      "symbol": "inj_pw_bank1_post_trim_us",
+      "rate": 50,
+      "unit": "us"
+    }, // Bank 1 final pulse (us) — checks the whole chain end to end
+
+    // ── 50 Hz: spark and knock ───────────────────────────────────────────────────────────────────
+    {
+      "symbol": "ign_adv_final",
+      "rate": 50
+    }, // Final commanded spark advance (deg) — the actual timing
+    {
+      "symbol": "knock_ign_retard_sum",
+      "rate": 50
+    }, // Total knock retard, all cylinders (deg)
+
+    // ── 20 Hz: spark build-up, knock detail, enrichment ──────────────────────────────────────────
+    {
+      "symbol": "ign_base",
+      "rate": 20
+    }, // Base advance from the timing map, before compensations (deg)
+    {
+      "symbol": "ign_comp_total",
+      "rate": 20
+    }, // Sum of all timing compensations (deg)
+    {
+      "symbol": "ign_adv_knock_safe",
+      "rate": 20
+    }, // Knock-safe advance ceiling (deg)
+    {
+      "symbol": "ign_adv_delta_to_knock_safe",
+      "rate": 20
+    }, // Margin between commanded advance and the knock-safe ceiling (deg)
+    {
+      "symbol": "ign_retard_knock_avg",
+      "rate": 20
+    }, // Average knock retard across cylinders (deg)
+    {
+      "symbol": "knock_flags",
+      "rate": 20
+    }, // Knock control flags (raw bit field)
+    {
+      "symbol": "afr_enrichment_from_ign_retard",
+      "rate": 20
+    }, // Enrichment added because timing is retarded (AFR = raw/100, subtracted from target)
+    {
+      "symbol": "inj_tip_adj_enrichment",
+      "rate": 20
+    }, // Tip-in enrichment (raw) — nonzero = transient, closed-loop error at that instant is meaningless
+    {
+      "symbol": "tps_8bit",
+      "rate": 20
+    }, // Throttle — the alpha-N input
+    {
+      "symbol": "inj_duty_bank1_pct",
+      "rate": 20
+    }, // Injector duty bank 1 (%) — headroom check at 6000+ rpm WOT
+    {
+      "symbol": "fuel_power_enrich_flags",
+      "rate": 20
+    }, // Power enrichment flags (raw bits) — nonzero = power enrichment instead of base AFR
+
+    // ── 5 Hz: loop status, long-term trims, spark context ────────────────────────────────────────
+    {
+      "symbol": "cl_status_bank1",
+      "rate": 5
+    }, // Closed-loop status bank 1 (raw; bit 0x2 = closed loop)
+    {
+      "symbol": "cl_status_bank2",
+      "rate": 5
+    }, // Closed-loop status bank 2 (raw; bit 0x2 = closed loop)
+    {
+      "symbol": "ltft_bank1",
+      "rate": 5
+    }, // Long-term trim bank 1 (raw*0.1 %)
+    {
+      "symbol": "ltft_bank2",
+      "rate": 5
+    }, // Long-term trim bank 2 (raw*0.1 %)
+    {
+      "symbol": "spark_retard_from_mbt",
+      "rate": 5
+    }, // How far timing sits behind modeled MBT (deg)
+    {
+      "symbol": "ign_comp_coolant",
+      "rate": 5
+    }, // Coolant timing compensation (deg)
+    {
+      "symbol": "ign_comp_iat",
+      "rate": 5
+    }, // Intake-air-temp timing compensation (deg)
+    {
+      "symbol": "inj_warmup_factor",
+      "rate": 5
+    }, // Warmup enrichment (raw/64, displayed as %: 100% = no enrichment). Drop or correct samples
+    // where this is above 100% instead of filtering on coolant alone.
+    {
+      "symbol": "inj_mass_ratio_from_evap_purge_b1",
+      "rate": 5
+    }, // Purge vapour share of fuel mass, bank 1 (raw/255, displayed as %). Exclude samples with
+    // active purge from cruise cells: the vapour shows up as fuel-trim error.
+    {
+      "symbol": "sensor_adc_ecu_voltage",
+      "rate": 5
+    }, // Supply voltage (V = raw*18/1023) — dead time depends on it, matters for small pulses
+    {
+      "symbol": "inj_deadtime_base",
+      "rate": 5
+    }, // Injector dead time actually applied (us)
+
+    // ── 1 Hz: temperatures and learned alpha-N trim ──────────────────────────────────────────────
+    {
+      "symbol": "coolant_temp",
+      "rate": 1
+    }, // Coolant (°C)
+    {
+      "symbol": "airtemp_tmaf",
+      "rate": 1
+    }, // Intake air temp at the MAF (°C)
+    {
+      "symbol": "load_alphaN_trim_factor",
+      "rate": 1
+    }, // Learned alpha-N airflow trim (%) — the ECU's correction to the throttle model
+
+    // ── Optional — unchecked: per-cylinder knock retard (see header) ─────────────────────────────
+    {
+      "name": "ign_knock_retard_cyl1",
+      "address": "0x40001C20",
+      "size": 1,
+      "signed": false,
+      "scale": 0.25,
+      "offset": 0.0,
+      "unit": "deg",
+      "rate": 20,
+      "defaultSelected": false
+    },
+    {
+      "name": "ign_knock_retard_cyl2",
+      "address": "0x40001C21",
+      "size": 1,
+      "signed": false,
+      "scale": 0.25,
+      "offset": 0.0,
+      "unit": "deg",
+      "rate": 20,
+      "defaultSelected": false
+    },
+    {
+      "name": "ign_knock_retard_cyl3",
+      "address": "0x40001C22",
+      "size": 1,
+      "signed": false,
+      "scale": 0.25,
+      "offset": 0.0,
+      "unit": "deg",
+      "rate": 20,
+      "defaultSelected": false
+    },
+    {
+      "name": "ign_knock_retard_cyl4",
+      "address": "0x40001C23",
+      "size": 1,
+      "signed": false,
+      "scale": 0.25,
+      "offset": 0.0,
+      "unit": "deg",
+      "rate": 20,
+      "defaultSelected": false
+    },
+    {
+      "name": "ign_knock_retard_cyl5",
+      "address": "0x40001C24",
+      "size": 1,
+      "signed": false,
+      "scale": 0.25,
+      "offset": 0.0,
+      "unit": "deg",
+      "rate": 20,
+      "defaultSelected": false
+    },
+    {
+      "name": "ign_knock_retard_cyl6",
+      "address": "0x40001C25",
+      "size": 1,
+      "signed": false,
+      "scale": 0.25,
+      "offset": 0.0,
+      "unit": "deg",
+      "rate": 20,
+      "defaultSelected": false
+    }
+  ]
+}
