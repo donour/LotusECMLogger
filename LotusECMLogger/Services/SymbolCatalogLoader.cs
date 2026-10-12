@@ -13,7 +13,7 @@ namespace LotusECMLogger.Services
     /// </summary>
     public static class SymbolCatalogLoader
     {
-        private const string SymbolsSubDir = "config\\highSpeedLogger\\database";
+        private static readonly string SymbolsSubDir = Path.Combine("config", "highSpeedLogger", "database");
         private const uint RamStart = 0x4000_0000;
         private const uint RamEnd = 0x4000_FFFF;
 
