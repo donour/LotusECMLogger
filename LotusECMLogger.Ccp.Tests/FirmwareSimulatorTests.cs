@@ -78,6 +78,31 @@ public class FirmwareSimulatorTests
     }
 
     [Fact]
+    public async Task GuardedImageWriteUpdatesCalibrationRamAndKeepsTheBus()
+    {
+        var (profile, program, cal) = Fixture();
+        using var ecu = new FakeCcpSlave(new T6FirmwareImage(profile, program, cal));
+        using var master = new CcpMaster(new SimulatedCcpTransport(ecu, speedFactor: 200));
+        await master.ConnectAsync();
+        string backups = Path.Combine(Path.GetTempPath(), "ccp-fw-" + Guid.NewGuid());
+        try
+        {
+            var writer = new CcpCalibrationWriter(master, profile.BuildProfile, CcpBuildSource.Identified, backups);
+            var edited = (byte[])cal.Clone();
+            edited[50] = 0x5A;
+            edited[40] = 1; // the file would move CCP to FlexCAN A mid-write
+            var plan = await writer.PrepareAsync(profile.CalibrationRamAddress, writer.CalibrationImageFromFile(edited), wholeImage: true);
+            Assert.NotNull(plan.EnableBytePreserved);
+            var result = await writer.ExecuteAsync(plan);
+            Assert.Equal(cal, File.ReadAllBytes(result.BackupPath!));
+            edited[40] = cal[40];
+            Assert.Equal(edited, await master.ReadAsync(profile.CalibrationRamAddress, cal.Length));
+            Assert.Equal(CcpFrame.AdditiveChecksum(edited), await master.ChecksumAsync(profile.CalibrationRamAddress, cal.Length));
+        }
+        finally { if (Directory.Exists(backups)) Directory.Delete(backups, recursive: true); }
+    }
+
+    [Fact]
     public void StockBusGateAndTimeoutPoisoningArePreserved()
     {
         var (profile, program, cal) = Fixture();
