@@ -3,12 +3,15 @@
 Design notes for adding a CCP 2.1 master to LotusECMLogger. The ECU side is described in
 [`CCP-support.md`](CCP-support.md); this document covers the PC side.
 
-**Status (2026-10-12): Phase 1 and a firmware-backed GT430 simulator implemented; Phase 2 (`CcpMaster`) is next.
-Scope narrowed to T6 2011+ for now, and AEM wideband polling becomes a separate data source (§2).**
+**Status (2026-10-12): Phases 1 and 2 implemented (protocol core, firmware-backed GT430 simulator, `CcpMaster`);
+Phase 3 (high-speed logger port) is next. Scope narrowed to T6 2011+ for now, and AEM wideband polling becomes a
+separate data source (§2).**
 The protocol core, target/build profiles, transport contract, J2534 transport and deterministic fake slave
 are implemented. Cross-platform tests exercise the command sequence, firmware quirks and runtime-registry format.
 The fake loads real PROG/CAL from CRP and exposes `ICcpTransport`; see [`CcpSimulator/README.md`](CcpSimulator/README.md).
-The existing high-speed logger is not ported yet. Run `dotnet test LotusECMLogger.Ccp.Tests`.
+`CcpMaster` (session, memory, checksum, identification, registry, DAQ ownership, auxiliary routing) is tested
+against the fake through a threaded simulator transport. The existing high-speed logger is not ported yet.
+Run `dotnet test LotusECMLogger.Ccp.Tests`.
 
 The decisions below were made with the project owner; the reasons are recorded so they can be revisited deliberately rather than by accident.
 
@@ -156,8 +159,10 @@ New code goes under `LotusECMLogger/Services/Ccp/`.
   working pointer. After timeout/cancellation, mark the session uncertain and recover before another
   memory operation; never blindly retry a post-incrementing DNLOAD/UPLOAD. DAQ reception continues.
 - **DAQ ownership.** Allocate lists centrally for logger and cursor subscribers. GET_DAQ_SIZE clears the
-  selected list and resets the shared transmit queue, so configure allocations before streaming, or
-  explicitly pause/reconfigure all consumers and report the gap. Stop only the releasing consumer's
+  selected list and resets the shared transmit queue. As implemented, other consumers' lists keep running
+  (GET_DAQ_SIZE only stops the selected list) and each start is counted as a possible gap on their
+  subscriptions (`CcpDaqSubscription.Gaps`). Lists left configured by a failed start or stop are
+  re-initialised before the next START_STOP_ALL, which would otherwise start them. Stop only the releasing consumer's
   lists; DISCONNECT/end-session belongs to the session owner after the last consumer releases it.
   Use bounded subscriber queues so UI/disk work cannot block the receive loop.
 - **One instance is shared** by the CCP tab and the High-Speed Log tab, as `IT6RMAService` is shared between
@@ -205,6 +210,8 @@ New code goes under `LotusECMLogger/Services/Ccp/`.
 **Phase 3 steps**
 1. Before changing the service, capture golden T6 CRO frames for the sample presets (extract the frame
    sequence from `ConfigureEcu`; link `HighSpeedLogPlanner` and its models into the test project).
+   Known, intended differences to normalise in the comparison: `CcpFrame.GetDaqSize` fills bytes 4–7 with the
+   DTO ID (the old builder sends only the list byte; the slave ignores them), and stopping uses START_STOP per list (plus DISCONNECT by the session owner) instead of an immediate DISCONNECT.
 2. Move planner limits/rates onto `CcpTarget.T6`; use GET_DAQ_SIZE's first PID.
 3. Re-implement the service on `CcpMaster`; move AEM into `AemWidebandSource`, merged into the CSV and UI.
 4. Gate: golden frames match after DLC 8 padding; one live-car re-check including AEM and concurrent reads.
@@ -357,7 +364,10 @@ A vendor `IF_DATA` block (ignored by other tools) could carry these later withou
   reflashed. Check before Save As output is used for reflashing.
 
 **Needs hardware** (`CCP-support.md` §12)
-- BUILD_CHKSUM reply timing on real ECUs.
+- BUILD_CHKSUM reply timing on real ECUs (sets `ChecksumPassTimeout`; 20 ms per 256-byte pass is a guess).
+- J2534 receive pattern and command latency. `J2534CcpTransport.Read` waits for one message, then drains,
+  and yields its I/O lock to waiting senders. Measure UPLOAD round trips (a 27 KB CAL read is ~5,400 commands);
+  if the adapter's DLL is thread-safe, sending without the read lock may cut latency further.
 - TEST/CONNECT to a non-zero station address. The master only ever uses station 0x0000, so this should not
   arise.
 - One live logging re-check after the Phase 3 port, including concurrent reads and AEM polling.
@@ -383,8 +393,8 @@ Phase 1 code lives in `LotusECMLogger/Services/Ccp/`; the linked-source
 The fake slave models only these firmware families, not every CCP implementation. It advances checksum
 work explicitly in 256-byte passes and emits DAQ frames deterministically, without a real-time scheduler. Oversized transfer buffer corruption and last-ODT metadata corruption
 are explicitly outside the fake's coverage; they must be prevented by the master.
-Session gates, timeout recovery, DAQ ownership and guarded write orchestration are Phase 2/5 work;
-the low-level frame factories do not make arbitrary memory writes safe to expose in the UI.
+Guarded write orchestration is Phase 5 work: neither the frame factories nor `CcpMaster.WriteVerifiedAsync`
+(range-limited, read-back verified, but without engine-off/backup/build/enable-byte guards) are safe to expose in the UI.
 
 Static cross-checks on 2026-10-07 used the sibling `LotusECU-T4e` exports:
 `disassembly/evora/C132E0278/C132E0278.c`, its `_symbols.csv`,
@@ -395,6 +405,16 @@ Validation on 2026-10-07: `dotnet test LotusECMLogger.Ccp.Tests --configuration 
 and a Windows-targeted application cross-build with `-p:EnableWindowsTargeting=true`.
 The transport compiles against J2534-Sharp.Core 2.0.4; adapter I/O still requires a Windows bench check.
 
+
+**Phase 2 (2026-10-12).** `CcpMaster` lives in `Services/Ccp/CcpMaster*.cs`. `SimulatedCcpTransport` runs the
+single-threaded fake under a lock and advances virtual time from `Read` (capped at a multiple of wall time), so tests
+exercise the real receive thread. Tests cover the §10 session byte for byte (stop is per list), silent-bus timeouts,
+lost/stray/cancelled replies and recovery, error replies, whole-operation serialisation, transport faults,
+interrupted and unverified writes, 64 KiB checksum splitting, identification, registry discovery, list allocation,
+re-initialisation of lists left prepared by a failure, and memory access while DAQ streams. `dotnet run --project
+CcpSimulator` against the GT430 CRP now repeats the verification through `CcpMaster`: it identifies C132E0278
+from the CAL ID, reads the 753-entry registry and every symbol, and checksums the CAL while about 5,500 DAQ samples
+stream, with no stray, malformed, unrouted or dropped frames. No hardware validation is claimed.
 
 The firmware-backed simulator was verified against `EMS/C132E0278.CRP`: all 753 exported objects
 read through CCP, full CAL checksum, RAM writes, ten 100 Hz DAQ samples and reset restoration.
