@@ -102,6 +102,81 @@ public class FirmwareSimulatorTests
         finally { if (Directory.Exists(backups)) Directory.Delete(backups, recursive: true); }
     }
 
+    private static CcpSelfTestOptions QuickSelfTest(T6FirmwareProfile profile) => new()
+    {
+        DaqWindow = TimeSpan.FromSeconds(1), // 20 virtual seconds at speed 20: enough samples at 1 Hz
+        LatencySamples = 10,
+        LatencyWarnMilliseconds = 1000, // simulator latency follows the OS timer, not the protocol
+        Candidates = [profile.BuildProfile],
+    };
+
+    [Fact]
+    public async Task SelfTestPassesAgainstTheFirmwareModel()
+    {
+        var (profile, program, cal) = Fixture();
+        using var ecu = new FakeCcpSlave(new T6FirmwareImage(profile, program, cal));
+        using var master = new CcpMaster(new SimulatedCcpTransport(ecu, speedFactor: 20));
+        await master.ConnectAsync();
+        var seen = new List<string>();
+        var report = await CcpSelfTest.RunAsync(master, QuickSelfTest(profile), new SyncProgress<CcpCheckResult>(r => seen.Add(r.Name)));
+
+        Assert.Equal(CcpCheckStatus.Pass, report.Overall);
+        Assert.Equal(profile.CalibrationId, report.Build);
+        Assert.Equal(report.Checks.Select(c => c.Name), seen);
+        Assert.Equal(CcpCheckStatus.Skipped, report.Checks.Single(c => c.Name == "Engine speed").Status);
+        var daq = report.Checks.Single(c => c.Name.StartsWith("DAQ"));
+        Assert.Equal(CcpCheckStatus.Pass, daq.Status);
+        Assert.Contains("event 0: 100.0 Hz (expected 100)", daq.Detail);
+        Assert.Contains("event 9: 1.0 Hz (expected 1)", daq.Detail);
+        Assert.Contains("DAQ samples arrived", daq.Detail);
+        Assert.Contains("1 entries", report.Checks.Single(c => c.Name == "Variable table").Detail);
+        Assert.Empty(master.GetDaqAllocations()); // the self-test released its lists
+
+        string text = report.Format(["App: test"]);
+        Assert.Contains("Overall:  PASS", text);
+        Assert.Contains("App: test", text);
+        Assert.Contains("[PASS   ] Checksum", text);
+    }
+
+    [Fact]
+    public async Task SelfTestSkipsDaqWhileAnotherConsumerHoldsLists()
+    {
+        var (profile, program, cal) = Fixture();
+        using var ecu = new FakeCcpSlave(new T6FirmwareImage(profile, program, cal));
+        using var master = new CcpMaster(new SimulatedCcpTransport(ecu, speedFactor: 20));
+        await master.ConnectAsync();
+        await master.StartDaqAsync([new CcpDaqListRequest(0, 1, [[new CcpDaqElement(0x40000010, 2)]])], "High-Speed Log");
+        var report = await CcpSelfTest.RunAsync(master, QuickSelfTest(profile));
+        var daq = report.Checks.Single(c => c.Name.StartsWith("DAQ"));
+        Assert.Equal(CcpCheckStatus.Skipped, daq.Status);
+        Assert.Contains("High-Speed Log", daq.Detail);
+        Assert.True(report.Overall == CcpCheckStatus.Pass, report.Format());
+    }
+
+    [Fact]
+    public async Task SelfTestReportsAnEcuThatFallsSilent()
+    {
+        using var slave = new FakeCcpSlave();
+        var script = new ScriptedTransport(new SimulatedCcpTransport(slave, speedFactor: 50));
+        using var master = new CcpMaster(script, new CcpMasterOptions { CommandTimeout = TimeSpan.FromMilliseconds(100) });
+        await master.ConnectAsync();
+        var report = await CcpSelfTest.RunAsync(master, new CcpSelfTestOptions { LatencySamples = 5 },
+            new SyncProgress<CcpCheckResult>(r => { if (r.Name == "Variable table") script.Drop = _ => true; }));
+
+        Assert.Equal(CcpCheckStatus.Fail, report.Overall);
+        Assert.Equal(CcpCheckStatus.Warn, report.Checks.Single(c => c.Name == "Identification").Status); // no CAL ID loaded
+        Assert.Equal(CcpCheckStatus.Fail, report.Checks.Single(c => c.Name == "Command latency").Status);
+        Assert.All(report.Checks.SkipWhile(c => c.Name != "Memory read").TakeWhile(c => c.Name != "Session counters"),
+            c => Assert.Equal(CcpCheckStatus.Skipped, c.Status));
+        Assert.Equal(CcpCheckStatus.Warn, report.Checks[^1].Status);
+        Assert.Contains("timeout", report.Checks[^1].Detail);
+    }
+
+    private sealed class SyncProgress<T>(Action<T> report) : IProgress<T>
+    {
+        public void Report(T value) => report(value);
+    }
+
     [Fact]
     public void StockBusGateAndTimeoutPoisoningArePreserved()
     {
