@@ -9,17 +9,23 @@ internal sealed class LoggerHarness : IDisposable
 {
     public LoggerHarness(double speedFactor = 20)
     {
-        Service = new HighSpeedLogService(() =>
+        Host = new CcpSessionHost(() =>
         {
             Simulation = new SimulatedCcpTransport(Slave, speedFactor);
             Script = new ScriptedTransport(Simulation);
+            Interlocked.Increment(ref _transportsOpened);
             return Script;
         }, new CcpMasterOptions { CommandTimeout = TimeSpan.FromMilliseconds(150) });
+        Service = new HighSpeedLogService(Host);
         CsvPath = Path.Combine(Path.GetTempPath(), $"hsl-test-{Guid.NewGuid():N}.csv");
     }
 
+    private int _transportsOpened;
+
     public FakeCcpSlave Slave { get; } = new();
-    /// <summary>The latest session's transports (each session and Identify opens new ones).</summary>
+    public CcpSessionHost Host { get; }
+    public int TransportsOpened => Volatile.Read(ref _transportsOpened);
+    /// <summary>The latest session's transports (a new one opens whenever the host has no open session).</summary>
     public SimulatedCcpTransport? Simulation { get; private set; }
     public ScriptedTransport? Script { get; private set; }
     public HighSpeedLogService Service { get; }
@@ -57,6 +63,7 @@ internal sealed class LoggerHarness : IDisposable
     public void Dispose()
     {
         Service.Dispose();
+        Host.Dispose();
         Slave.Dispose();
         try { File.Delete(CsvPath); } catch (IOException) { }
     }

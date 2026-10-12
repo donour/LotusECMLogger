@@ -72,6 +72,23 @@ public sealed class HighSpeedLogServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task SharesTheSessionWithOtherLeaseHolders()
+    {
+        await using var ccpTab = await _harness.Host.AcquireAsync();
+        _harness.RunUntilStreaming(Selection);
+        Assert.Same(ccpTab.Master, _harness.Host.Master);
+        Assert.Equal("Ccp_T6", (await ccpTab.Master.ExchangeIdAsync()).SlaveId); // memory access while logging
+        _harness.Service.StopLogging();
+
+        Assert.Equal(1, _harness.TransportsOpened);
+        Assert.Equal(1, _harness.Script!.Sent.Count(c => c[0] == (byte)CcpCommandCode.Connect));
+        Assert.DoesNotContain(_harness.Script.Sent, c => c[0] == (byte)CcpCommandCode.Disconnect); // the tab still holds it
+        Assert.Equal(CcpSessionState.Connected, ccpTab.Master.State);
+        Assert.Equal("Ccp_T6", _harness.Service.Identify().SlaveId); // the probe joins the open session too
+        Assert.Equal(1, _harness.TransportsOpened);
+    }
+
+    [Fact]
     public async Task MergesAemWidebandReadingsIntoTheLog()
     {
         // λ = (2/65536)·0x8000 = 1.0; the gauge answers every poll.

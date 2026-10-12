@@ -15,8 +15,9 @@ namespace LotusECMLogger.Services
     /// so the full sequence runs on each start. The optional AEM wideband is a separate
     /// <see cref="AemWidebandSource"/> on the same session; its values are merged as extra columns.
     ///
-    /// Until a shared session host exists, this service owns its CcpMaster for the length of a session and
-    /// ends the CCP session (DISCONNECT) when logging stops.
+    /// Each session (and each Identify) holds a lease on the shared <see cref="CcpSessionHost"/>, so the logger
+    /// shares the adapter and CCP session with the CCP tab. Stopping stops only the logger's DAQ lists; the host
+    /// ends the CCP session when its last lease is released.
     /// </summary>
     public sealed partial class HighSpeedLogService : IHighSpeedLogService
     {
@@ -29,19 +30,20 @@ namespace LotusECMLogger.Services
         private const int MaxQueuedFrames = 1024;
         private static readonly TimeSpan StopTimeout = TimeSpan.FromSeconds(5);
 
-        private readonly Func<ICcpTransport> _openTransport;
-        private readonly CcpMasterOptions? _masterOptions;
+        private readonly CcpSessionHost _host;
+        private readonly bool _ownsHost;
         private readonly object _lock = new();
         private Session? _session;
         private bool _isLogging;
         private long _droppedFrames;
 
-        /// <param name="openTransport">Opens the transport for one session (the master takes ownership).</param>
-        public HighSpeedLogService(Func<ICcpTransport> openTransport, CcpMasterOptions? masterOptions = null)
+        /// <param name="host">The shared CCP session; not disposed by this service.</param>
+        public HighSpeedLogService(CcpSessionHost host) : this(host, ownsHost: false) { }
+
+        private HighSpeedLogService(CcpSessionHost host, bool ownsHost)
         {
-            ArgumentNullException.ThrowIfNull(openTransport);
-            _openTransport = openTransport;
-            _masterOptions = masterOptions;
+            ArgumentNullException.ThrowIfNull(host);
+            (_host, _ownsHost) = (host, ownsHost);
         }
 
         public event EventHandler<HighSpeedSampleEventArgs>? DataReceived;
@@ -67,9 +69,8 @@ namespace LotusECMLogger.Services
         }
 
         /// <summary>Everything one logging session owns.</summary>
-        private sealed class Session(CcpMaster master, LoggingPlan plan, ISampleSink sink, bool pollAem)
+        private sealed class Session(LoggingPlan plan, ISampleSink sink, bool pollAem)
         {
-            public CcpMaster Master { get; } = master;
             public LoggingPlan Plan { get; } = plan;
             public ISampleSink Sink { get; } = sink;
             public bool PollAem { get; } = pollAem;
@@ -79,6 +80,7 @@ namespace LotusECMLogger.Services
                 SingleReader = true,
                 FullMode = BoundedChannelFullMode.Wait, // TryWrite fails (counted) instead of evicting silently
             });
+            public volatile CcpSessionLease? Lease;
             public volatile CcpDaqSubscription? Daq;
             public volatile AemWidebandSource? Aem;
             public Task Worker { get; set; } = Task.CompletedTask;
@@ -110,13 +112,11 @@ namespace LotusECMLogger.Services
                     columnNames.Add(IHighSpeedLogService.AemAfrChannelName);
                 }
 
-                CcpMaster? master = null;
                 ISampleSink? sink = null;
                 try
                 {
-                    master = new CcpMaster(_openTransport(), _masterOptions);
                     sink = CreateSink(csvFilePath, channels, columnNames, pollAemWideband);
-                    var session = new Session(master, plan, sink, pollAemWideband);
+                    var session = new Session(plan, sink, pollAemWideband);
                     Interlocked.Exchange(ref _droppedFrames, 0);
                     _session = session;
                     _isLogging = true;
@@ -128,7 +128,6 @@ namespace LotusECMLogger.Services
                     _isLogging = false;
                     _session = null;
                     sink?.Dispose();
-                    master?.Dispose();
                     throw new InvalidOperationException($"Failed to start high-speed logging: {ex.Message}", ex);
                 }
             }
@@ -149,11 +148,16 @@ namespace LotusECMLogger.Services
             Debug.WriteLine("HighSpeedLog: stopped");
         }
 
-        public void Dispose() => StopLogging();
+        public void Dispose()
+        {
+            StopLogging();
+            if (_ownsHost) _host.Dispose();
+        }
 
         /// <summary>
-        /// Stops only this session's DAQ lists, ends the CCP session, then lets the writer drain the backlog.
-        /// Everything is best-effort: a silent ECU must not prevent the CSV from being closed.
+        /// Stops only this session's DAQ lists, lets the writer drain the backlog, then releases the lease (the
+        /// host ends the CCP session if no one else holds it). Best-effort: a silent ECU must not prevent the CSV
+        /// from being closed.
         /// </summary>
         private async Task StopAsync(Session session)
         {
@@ -165,21 +169,15 @@ namespace LotusECMLogger.Services
                 else session.Cancel.Cancel(); // still configuring: abandon it (the session becomes uncertain)
             }
             catch (Exception ex) { Debug.WriteLine($"HighSpeedLog: DAQ stop failed: {ex.Message}"); }
-            try
-            {
-                if (session.Master.State is CcpSessionState.Connected or CcpSessionState.Uncertain)
-                    await session.Master.DisconnectAsync(endSession: true, timeout.Token).ConfigureAwait(false);
-            }
-            catch (Exception ex) { Debug.WriteLine($"HighSpeedLog: disconnect failed: {ex.Message}"); }
 
             // The streams have ended; the writer drains what is queued and exits.
             try { await session.Worker.WaitAsync(StopTimeout).ConfigureAwait(false); }
             catch (Exception ex) { Debug.WriteLine($"HighSpeedLog: writer did not finish: {ex.Message}"); }
             session.Queue.Writer.TryComplete();
             session.Cancel.Cancel();
+            if (session.Lease is { } lease) await lease.DisposeAsync().ConfigureAwait(false);
             // Keep the session's drop count visible after it ends, as the old logger did.
             Interlocked.Add(ref _droppedFrames, (session.Daq?.Stream.Dropped ?? 0) + (session.Aem?.Dropped ?? 0));
-            session.Master.Dispose();
             try { session.Sink.Dispose(); }
             catch (Exception ex) { Debug.WriteLine($"HighSpeedLog: closing the log failed: {ex.Message}"); }
         }
@@ -190,9 +188,10 @@ namespace LotusECMLogger.Services
             var ct = session.Cancel.Token;
             try
             {
-                await session.Master.ConnectAsync(ct).ConfigureAwait(false);
-                session.Daq = await session.Master.StartDaqAsync(ToDaqLists(session.Plan), ct).ConfigureAwait(false);
-                if (session.PollAem) session.Aem = new AemWidebandSource(session.Master);
+                session.Lease = await _host.AcquireAsync(ct).ConfigureAwait(false);
+                var master = session.Lease.Master;
+                session.Daq = await master.StartDaqAsync(ToDaqLists(session.Plan), ct).ConfigureAwait(false);
+                if (session.PollAem) session.Aem = new AemWidebandSource(master);
 
                 var pumps = new List<Task> { PumpAsync(session.Daq.Stream.Reader, s => new WorkItem(s, null), session.Queue.Writer, ct) };
                 if (session.Aem is { } aem) pumps.Add(PumpAsync(aem.Samples, s => new WorkItem(null, s), session.Queue.Writer, ct));
@@ -336,8 +335,8 @@ namespace LotusECMLogger.Services
         }
 
         /// <summary>
-        /// Probes the ECU on its own short session: CONNECT (with the CCP 2.1 check), EXCHANGE_ID with the ID
-        /// string, and build identification from the calibration ID; then DISCONNECT.
+        /// Probes the ECU through a short lease on the shared session: CONNECT (with the CCP 2.1 check) unless
+        /// already connected, EXCHANGE_ID with the ID string, and build identification from the calibration ID.
         /// </summary>
         public HighSpeedIdentifyResult Identify()
         {
@@ -351,15 +350,15 @@ namespace LotusECMLogger.Services
 
         private async Task<HighSpeedIdentifyResult> IdentifyAsync()
         {
-            using var master = new CcpMaster(_openTransport(), _masterOptions);
-            try
-            {
-                try { await master.ConnectAsync().ConfigureAwait(false); }
-                catch (CcpTimeoutException) { return new HighSpeedIdentifyResult { SessionOpened = false }; }
-                catch (CcpProtocolException) { return new HighSpeedIdentifyResult { SessionOpened = true, Identified = false }; }
+            CcpSessionLease lease;
+            try { lease = await _host.AcquireAsync().ConfigureAwait(false); }
+            catch (CcpTimeoutException) { return new HighSpeedIdentifyResult { SessionOpened = false }; }
+            catch (CcpProtocolException) { return new HighSpeedIdentifyResult { SessionOpened = true, Identified = false }; }
 
+            await using (lease.ConfigureAwait(false))
+            {
                 CcpBuildIdentification identification;
-                try { identification = await master.IdentifyAsync().ConfigureAwait(false); }
+                try { identification = await lease.Master.IdentifyAsync().ConfigureAwait(false); }
                 catch (Exception ex) when (ex is CcpTimeoutException or CcpException or CcpProtocolException)
                 {
                     return new HighSpeedIdentifyResult { SessionOpened = true, Identified = false };
@@ -378,16 +377,6 @@ namespace LotusECMLogger.Services
                     CalibrationId = identification.CalibrationId,
                     CalibrationDescription = identification.CalibrationDescription,
                 };
-            }
-            finally
-            {
-                // Best-effort: leave the ECU as we found it.
-                try
-                {
-                    if (master.State is CcpSessionState.Connected or CcpSessionState.Uncertain)
-                        await master.DisconnectAsync().ConfigureAwait(false);
-                }
-                catch (Exception ex) { Debug.WriteLine($"HighSpeedLog: identify cleanup failed: {ex.Message}"); }
             }
         }
     }
