@@ -1,4 +1,5 @@
 using LotusECMLogger.Services;
+using LotusECMLogger.Services.Ccp;
 using LotusECMLogger.Controls;
 using System.Diagnostics;
 
@@ -14,14 +15,23 @@ namespace LotusECMLogger
         private OBDLoggerControl? obdLoggerControl;
         private PerformanceHistoryControl? performanceHistoryControl;
 
+        // One CCP session (and J2534 adapter) shared by the CCP tab, the high-speed logger and the Vehicle Info
+        // probe; it opens on first use and closes when the last of them lets go.
+        private readonly CcpSessionHost ccpHost = HighSpeedLogService.CreateJ2534Host();
+        private readonly TabPage ccpTab = new("CCP") { Name = "ccpTab", UseVisualStyleBackColor = true };
+        private CcpControl? ccpControl;
+
         public MainWindow()
         {
             InitializeComponent();
 
+            // The CCP tab sits beside Snapshots, the other direct ECU-memory tool.
+            mainTabControl.TabPages.Insert(mainTabControl.TabPages.IndexOf(snapshotsTab) + 1, ccpTab);
             ApplyTabIcons();
 
             // Handle form closing to ensure logger is stopped
             this.FormClosing += MainWindow_FormClosing;
+            this.FormClosed += (_, _) => ccpHost.Dispose();
 
             // Wire up logging config editor event (references obdLoggerControl, must be done in code)
             loggingConfigEditorControl.ConfigurationSaved += configName => obdLoggerControl?.RefreshAvailableConfigurations(configName);
@@ -108,7 +118,8 @@ namespace LotusECMLogger
             // Add high-speed CAN channel logging control
             try
             {
-                var hsService = new HighSpeedLogService();
+                var hsService = new HighSpeedLogService(ccpHost);
+                vehicleInfoControl.HighSpeedProbeService = hsService;
                 var hsControl = new HighSpeedLogControl(hsService)
                 {
                     Dock = DockStyle.Fill,
@@ -120,6 +131,19 @@ namespace LotusECMLogger
             catch (Exception ex)
             {
                 MessageBox.Show($"Failed to initialize High-Speed Log tab: {ex.Message}", "Startup Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+
+            // Add the CCP tab (connect, identify, read and checksum ECU memory over the shared session)
+            try
+            {
+                ccpControl = new CcpControl(ccpHost) { Dock = DockStyle.Fill, IsLoggerActive = false };
+                ccpTab.Controls.Clear();
+                ccpTab.Controls.Add(ccpControl);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Failed to initialize CCP tab: {ex.Message}", "Startup Error",
                     MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
 
@@ -196,6 +220,9 @@ namespace LotusECMLogger
                 var emissionsControl = emissionsTab.Controls.OfType<EmissionsControl>().FirstOrDefault();
                 if (emissionsControl != null)
                     emissionsControl.IsLoggerActive = isLogging;
+
+                if (ccpControl != null)
+                    ccpControl.IsLoggerActive = isLogging;
 
                 // Erasing model info issues an RMA write, which conflicts with active logging.
                 eraseModelInfoToolStripMenuItem.Enabled = !isLogging;
@@ -282,6 +309,7 @@ namespace LotusECMLogger
             // brake symbol — so it is appended to the list instead of passed to BuildImageList.
             mainIcons.Images.Add(GuiIcons.RenderBrakeRotor(20, tabColor));
             mainIcons.Images.Add(GuiIcons.Render(GuiIcons.Emissions, 20, tabColor));
+            mainIcons.Images.Add(GuiIcons.Render(GuiIcons.Connect, 20, tabColor));
 
             mainTabControl.ImageList = mainIcons;
             vehicleInfoTab.ImageIndex       = 0;
@@ -293,6 +321,7 @@ namespace LotusECMLogger
             snapshotsTab.ImageIndex         = 6;
             absTab.ImageIndex               = 7;
             emissionsTab.ImageIndex         = 8;
+            ccpTab.ImageIndex               = 9;
 
             var loggingModeIcons = GuiIcons.BuildImageList(20, tabColor,
                 GuiIcons.HighSpeedLog,
