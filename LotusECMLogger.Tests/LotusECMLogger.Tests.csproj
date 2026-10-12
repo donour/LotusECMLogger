@@ -31,6 +31,18 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- The CCP tab's UI test drives the real control against the simulated ECU. Only the simulation files are
+         linked; the CCP protocol types come from the app itself. -->
+    <Compile Include="..\CcpSimulator\FakeCcpSlave.cs" Link="CcpSimulation\%(Filename)%(Extension)" />
+    <Compile Include="..\CcpSimulator\SimulatedCcpTransport.cs" Link="CcpSimulation\%(Filename)%(Extension)" />
+    <Compile Include="..\CcpSimulator\T6FirmwareImage.cs" Link="CcpSimulation\%(Filename)%(Extension)" />
+    <!-- Symbol catalogs, found through the app's discovery path, for the CCP tab's variables and diff names. -->
+    <None Include="..\LotusECMLogger\config\highSpeedLogger\database\*.csv"
+          Link="config\highSpeedLogger\database\%(Filename)%(Extension)"
+          CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Using Include="Xunit" />
   </ItemGroup>
 

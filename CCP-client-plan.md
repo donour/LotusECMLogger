@@ -5,8 +5,9 @@ Design notes for adding a CCP 2.1 master to LotusECMLogger. The ECU side is desc
 
 **Status (2026-10-12): Phases 1–5 implemented in code (protocol core, firmware-backed GT430 simulator,
 `CcpMaster`, high-speed logger ported onto it with AEM as a separate source, shared session host, CCP tab, guarded
-calibration writes). Nothing since Phase 1 has run on a car yet. Next: an A2L generator (before Phase 6), then
-Phase 6. Scope narrowed to T6 2011+ for now (§2).**
+calibration writes) plus diagnostics tooling (trace, statistics, variable watch, memory diff, self-test). Nothing
+since Phase 1 has run on a car yet. Next: an A2L generator (before Phase 6), then Phase 6. Scope narrowed to T6
+2011+ for now (§2).**
 The protocol core, target/build profiles, transport contract, J2534 transport and deterministic fake slave
 are implemented. Cross-platform tests exercise the command sequence, firmware quirks and runtime-registry format.
 The fake loads real PROG/CAL from CRP and exposes `ICcpTransport`; see [`CcpSimulator/README.md`](CcpSimulator/README.md).
@@ -259,6 +260,24 @@ self-describing `ccp-backup_<build>_<address>_<length>_<time>.bin` under `Docume
 then writes each run with read-back. Restore Backup writes a backup file back to the address in its name. An
 unrecognised ECU allows writes only after the user picks a build and accepts a warning. Intentionally changing
 the enable byte is not offered. The A2L `MEMORY_SEGMENT` source for the range arrives with Phase 6a.
+
+**Before Phase 6: tooling and checks (done 2026-10-12, at the owner's request).**
+- `CcpMaster` keeps a fixed-size trace of commands, replies (with latency), timeouts, strays, events, malformed
+  frames and state changes (`CcpTrace`), counters and latency percentiles (`GetStatistics`), and named DAQ
+  allocations with per-list samples/overruns (`GetDaqAllocations`).
+- `CcpVariableCatalog` joins a build's symbol catalog with the ECU's variable table; `CcpVariableWatch` watches
+  variables live over a DAQ subscription packed by the logger's planner; `SymbolAddressLookup` names the symbol and
+  `[y][x]` table cell at an address; `CcpMemoryDiff` lists differing runs between ECU memory and a file.
+- `CcpSelfTest` is a read-only car checklist (identity, variable table, latency, read throughput, checksum
+  consistency and per-pass timing, every event channel's DAQ rate from adapter timestamps with a concurrent read,
+  engine speed, session counters) producing a shareable text report. It passes against the real GT430 image in
+  the simulator (`dotnet run --project CcpSimulator`).
+- The CCP tab gained Memory/Variables/Traffic/Self-Test sub-tabs. `CcpControlUiTests` (app test project) drives the
+  real control inside `Application.Run` against the simulator: connect, read, confirmed write, watch, trace,
+  self-test, disconnect; `CCP_UI_RENDER_DIR` saves a PNG per sub-tab. `SimulatedCcpTransport` now wakes on send,
+  which cut that test from ~58 s to ~8 s.
+- Found and fixed while doing this: operation continuations could touch a disposed (or disposing) CCP tab after
+  the window closed, crashing the app; they now skip UI work.
 
 **Before Phase 6: A2L generator.** A C# tool in this solution drafts an A2L per build from its symbol catalog:
 `MOD_COMMON` MSB_FIRST, `MOD_PAR` with `EPK`/`ADDR_EPK` at the calibration ID and a `MEMORY_SEGMENT` for CAL RAM,

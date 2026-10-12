@@ -13,7 +13,7 @@ namespace LotusECMLogger.Controls
     /// view or a .bin file, and checksums a region on the ECU, optionally against a file. Calibration writes go
     /// through <see cref="CcpCalibrationWriter"/>'s guards and an explicit confirmation.
     /// </summary>
-    public partial class CcpControl : UserControl
+    public partial class CcpControl : UserControl, ICcpTabContext
     {
         private static readonly Color GoodColor = Color.ForestGreen;
         private static readonly Color WarnColor = Color.DarkOrange;
@@ -32,7 +32,13 @@ namespace LotusECMLogger.Controls
         private CcpBuildProfile? writeBuild;
         private CcpBuildSource writeBuildSource;
 
-        private static string BackupDirectory => Path.Combine(LoggerPaths.OutputDirectory, "ccp-backups");
+        /// <summary>Where write backups go; replaceable so UI tests keep them out of the user's Documents.</summary>
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        internal string BackupDirectory { get; set; } = Path.Combine(LoggerPaths.OutputDirectory, "ccp-backups");
+
+        private readonly CcpVariablesPanel variablesPanel;
+        private readonly CcpTrafficPanel trafficPanel;
+        private readonly CcpSelfTestPanel selfTestPanel;
 
         /// <summary>Design-time constructor: lays out the control and opens nothing.</summary>
         public CcpControl()
@@ -51,13 +57,26 @@ namespace LotusECMLogger.Controls
             GuiIcons.ApplyToButton(saveButton, GuiIcons.Save);
             GuiIcons.ApplyToButton(checksumButton, GuiIcons.Refresh);
             GuiIcons.ApplyToButton(compareButton, GuiIcons.OpenFile);
+            GuiIcons.ApplyToButton(diffButton, GuiIcons.OpenFile);
             GuiIcons.ApplyToButton(cancelButton, GuiIcons.Clear);
             GuiIcons.ApplyToButton(writeValueButton, GuiIcons.Write);
             GuiIcons.ApplyToButton(writeFileButton, GuiIcons.Write);
             GuiIcons.ApplyToButton(restoreButton, GuiIcons.UpdateRestore);
+            variablesPanel = new CcpVariablesPanel(this) { Dock = DockStyle.Fill };
+            trafficPanel = new CcpTrafficPanel(this) { Dock = DockStyle.Fill };
+            selfTestPanel = new CcpSelfTestPanel(this) { Dock = DockStyle.Fill };
+            variablesPage.Controls.Add(variablesPanel);
+            trafficPage.Controls.Add(trafficPanel);
+            selfTestPage.Controls.Add(selfTestPanel);
+            ConfirmWrite = text => MessageBox.Show(this, text, "Write calibration RAM", MessageBoxButtons.YesNo,
+                MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2) == DialogResult.Yes;
             ShowInfo();
             UpdateUIState();
         }
+
+        /// <summary>Asks the user to approve a prepared write. Replaceable so UI tests can answer it.</summary>
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        internal Func<string, bool> ConfirmWrite { get; set; }
 
         public CcpControl(CcpSessionHost host) : this()
         {
@@ -82,9 +101,30 @@ namespace LotusECMLogger.Controls
             }
         }
 
-        private CcpMaster? Master => lease?.Master;
-        private bool IsConnected => Master?.State == CcpSessionState.Connected;
-        private bool IsBusy => operation is not null;
+        public CcpMaster? Master => lease?.Master;
+        public bool IsConnected => Master?.State == CcpSessionState.Connected;
+        public bool IsBusy => operation is not null;
+        public CcpBuildIdentification? Identification => identification;
+
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        public T6SymbolRegistry? Registry
+        {
+            get => registry;
+            set
+            {
+                registry = value;
+                ShowInfo();
+                UpdateUIState();
+            }
+        }
+
+        /// <summary>Raised on the UI thread whenever <see cref="UpdateUIState"/> runs.</summary>
+        public event EventHandler? SessionChanged;
+
+        public void CancelOperation() => operation?.Cancel();
+
+        /// <summary>Disposed or being disposed: late continuations must not touch (and so recreate) window handles.</summary>
+        private bool IsGone => IsDisposed || Disposing;
 
         // ---- Session -------------------------------------------------------------------------------
 
@@ -144,6 +184,7 @@ namespace LotusECMLogger.Controls
             if (!IsHandleCreated || IsDisposed) return;
             BeginInvoke(() =>
             {
+                if (IsGone) return;
                 ShowInfo();
                 UpdateUIState();
             });
@@ -223,6 +264,44 @@ namespace LotusECMLogger.Controls
 
         private void cancelButton_Click(object sender, EventArgs e) => operation?.Cancel();
 
+        /// <summary>Reads the region and lists every differing run against a file, named by symbol and table cell.</summary>
+        private async void diffButton_Click(object sender, EventArgs e)
+        {
+            if (!TryGetRange(out uint address, out int length)) return;
+            using var dialog = new OpenFileDialog { Filter = "Binary files (*.bin)|*.bin|All files (*.*)|*.*" };
+            if (dialog.ShowDialog(this) != DialogResult.OK) return;
+            var file = File.ReadAllBytes(dialog.FileName);
+            if (file.Length < length)
+            {
+                Log($"{Path.GetFileName(dialog.FileName)} has {file.Length:N0} bytes; the region needs {length:N0}.");
+                return;
+            }
+            await RunAsync("Diff", async ct =>
+            {
+                progressBar.Maximum = length;
+                var ecu = await Master!.ReadAsync(address, length, Progress(), ct);
+                lastRead = (address, ecu);
+                var lookup = SymbolLookupFor(identification?.Build);
+                var runs = CcpMemoryDiff.Compare(address, ecu, file.AsSpan(0, length), lookup is null ? null : lookup.At);
+                hexTextBox.Text = $"ECU 0x{address:X8}+{length:N0} against the first {length:N0} bytes of {Path.GetFileName(dialog.FileName)}\r\n\r\n" +
+                    CcpMemoryDiff.Format(runs);
+                Log(runs.Count == 0
+                    ? $"Diff: no differences against {Path.GetFileName(dialog.FileName)}."
+                    : $"Diff: {runs.Count:N0} differing run(s), {runs.Sum(r => r.Ecu.Length):N0} byte(s); listed in the Memory view.");
+            });
+        }
+
+        private static SymbolAddressLookup? SymbolLookupFor(CcpBuildProfile? build)
+        {
+            if (build is null) return null;
+            try { return SymbolCatalogLoader.LoadByName(build.Build) is { } catalog ? new SymbolAddressLookup(catalog) : null; }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"CcpControl: no symbol catalog for {build.Build}: {ex.Message}");
+                return null;
+            }
+        }
+
         // ---- Calibration writes ----------------------------------------------------------------------
 
         private const string ChooseBuildItem = "Not recognised: choose a build to allow writes…";
@@ -276,7 +355,7 @@ namespace LotusECMLogger.Controls
             new(Master!, build, writeBuildSource, BackupDirectory, EngineSpeedFor(build));
 
         /// <summary>The build's engine-speed symbol from its catalog, so writes are refused while the engine turns.</summary>
-        private static CcpEngineSpeedSymbol? EngineSpeedFor(CcpBuildProfile build)
+        internal static CcpEngineSpeedSymbol? EngineSpeedFor(CcpBuildProfile build)
         {
             try
             {
@@ -387,8 +466,7 @@ namespace LotusECMLogger.Controls
             if (plan.EnableBytePreserved is { } preserved) text.AppendLine($"• CCP enable byte left unchanged ({preserved}).");
             if (plan.Source == CcpBuildSource.UserOverride)
                 text.AppendLine().AppendLine($"WARNING: the ECU was not recognised; addresses come from {plan.Build.Build}, which you chose.");
-            return MessageBox.Show(this, text.ToString(), "Write calibration RAM", MessageBoxButtons.YesNo,
-                MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2) == DialogResult.Yes;
+            return ConfirmWrite(text.ToString());
         }
 
         private bool TryParseBytes(out byte[] bytes)
@@ -430,7 +508,7 @@ namespace LotusECMLogger.Controls
         // ---- Plumbing ------------------------------------------------------------------------------
 
         /// <summary>Runs one operation with the buttons disabled and Cancel enabled, logging any failure.</summary>
-        private async Task RunAsync(string what, Func<CancellationToken, Task> action)
+        public async Task RunAsync(string what, Func<CancellationToken, Task> action)
         {
             if (host is null || IsBusy) return;
             using var cancel = new CancellationTokenSource();
@@ -438,6 +516,7 @@ namespace LotusECMLogger.Controls
             progressBar.Value = 0;
             UpdateUIState();
             try { await action(cancel.Token); }
+            catch (Exception) when (IsGone) { }
             catch (OperationCanceledException)
             {
                 Log($"{what} cancelled. The ECU's transfer state is unknown, so the session must reconnect before more memory access.");
@@ -449,14 +528,18 @@ namespace LotusECMLogger.Controls
             finally
             {
                 operation = null;
-                progressBar.Value = 0;
-                ShowInfo();
-                UpdateUIState();
+                // The operation can outlive the tab (e.g. the window closed mid-read): touch no disposed controls.
+                if (!IsGone)
+                {
+                    progressBar.Value = 0;
+                    ShowInfo();
+                    UpdateUIState();
+                }
             }
         }
 
         private IProgress<int> Progress() =>
-            new Progress<int>(n => progressBar.Value = Math.Clamp(n, 0, progressBar.Maximum));
+            new Progress<int>(n => { if (!IsGone) progressBar.Value = Math.Clamp(n, 0, progressBar.Maximum); });
 
         private void UpdateUIState()
         {
@@ -468,7 +551,7 @@ namespace LotusECMLogger.Controls
             disconnectButton.Enabled = host is not null && lease is not null;
             readRegistryButton.Enabled = idle && IsConnected && identification?.Build?.SymbolEntriesAddress is not null;
             calibrationRangeButton.Enabled = idle && identification?.Build is not null;
-            readButton.Enabled = checksumButton.Enabled = compareButton.Enabled = idle && IsConnected;
+            readButton.Enabled = checksumButton.Enabled = compareButton.Enabled = diffButton.Enabled = idle && IsConnected;
             saveButton.Enabled = idle && lastRead is not null;
             buildComboBox.Enabled = idle && IsConnected && identification is { Build: null };
             bytesTextBox.Enabled = idle && IsConnected;
@@ -483,6 +566,7 @@ namespace LotusECMLogger.Controls
                 CcpSessionState.Faulted => ($"Adapter failed: {Master!.StateReason}", BadColor),
                 _ => ("Session closed", SystemColors.ControlText),
             };
+            SessionChanged?.Invoke(this, EventArgs.Empty);
         }
 
         private void ShowInfo()
@@ -552,8 +636,10 @@ namespace LotusECMLogger.Controls
             return text.ToString();
         }
 
-        private void Log(string message) =>
-            logTextBox.AppendText($"{DateTime.Now:HH:mm:ss}  {message}\r\n");
+        public void Log(string message)
+        {
+            if (!IsGone) logTextBox.AppendText($"{DateTime.Now:HH:mm:ss}  {message}\r\n");
+        }
 
         protected override void Dispose(bool disposing)
         {
