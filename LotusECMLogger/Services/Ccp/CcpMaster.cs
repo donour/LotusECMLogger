@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text;
 
 namespace LotusECMLogger.Services.Ccp;
@@ -31,6 +32,8 @@ public sealed partial class CcpMaster : IDisposable
     private Exception? _fault;
     private byte _counter;
     private long _strayReplies, _eventPackets, _malformedFrames;
+    private long _commands, _replies, _errorReplies, _timeouts, _cancellations, _uncertainTransitions;
+    private readonly CcpLatencyStats _latency = new();
 
     public CcpMaster(ICcpTransport transport, CcpMasterOptions? options = null)
     {
@@ -57,6 +60,18 @@ public sealed partial class CcpMaster : IDisposable
     public long EventPackets => Interlocked.Read(ref _eventPackets);
     /// <summary>DTOs that were not DLC 8 or carried a PID outside the target's range.</summary>
     public long MalformedFrames => Interlocked.Read(ref _malformedFrames);
+
+    /// <summary>Recent command traffic, for the traffic monitor.</summary>
+    public CcpTrace Trace { get; } = new();
+
+    public CcpMasterStatistics GetStatistics()
+    {
+        var (last, mean, p95, max) = _latency.Snapshot();
+        return new CcpMasterStatistics(Interlocked.Read(ref _commands), Interlocked.Read(ref _replies),
+            Interlocked.Read(ref _errorReplies), Interlocked.Read(ref _timeouts), Interlocked.Read(ref _cancellations),
+            StrayReplies, EventPackets, MalformedFrames, Interlocked.Read(ref _daqFrames), UnroutedDaqFrames,
+            Interlocked.Read(ref _uncertainTransitions), last, mean, p95, max);
+    }
 
     // ---- Session commands ----------------------------------------------------------------------
 
@@ -160,7 +175,7 @@ public sealed partial class CcpMaster : IDisposable
         byte counter = _counter++;
         byte[] cro = build(counter);
         var command = (CcpCommandCode)cro[0];
-        var pending = new PendingCommand(counter);
+        var pending = new PendingCommand(counter, command);
         lock (_sync)
         {
             if (_fault is not null) throw new IOException("The CCP transport failed.", _fault);
@@ -168,6 +183,9 @@ public sealed partial class CcpMaster : IDisposable
         }
         try
         {
+            Trace.Add(CcpTraceKind.Command, cro);
+            Interlocked.Increment(ref _commands);
+            pending.Started = Stopwatch.GetTimestamp();
             try { _transport.Send(cro); }
             catch (Exception ex)
             {
@@ -179,11 +197,15 @@ public sealed partial class CcpMaster : IDisposable
             try { reply = await pending.Reply.Task.WaitAsync(wait, ct).ConfigureAwait(false); }
             catch (TimeoutException)
             {
+                Interlocked.Increment(ref _timeouts);
+                Trace.Add(CcpTraceKind.Timeout, default, note: $"no reply to {command} #{counter} within {wait.TotalMilliseconds:0} ms");
                 MarkUncertain($"no reply to {command} (counter {counter})");
                 throw new CcpTimeoutException(command, counter, wait);
             }
             catch (OperationCanceledException)
             {
+                Interlocked.Increment(ref _cancellations);
+                Trace.Add(CcpTraceKind.Cancelled, default, note: $"{command} #{counter} cancelled while waiting for its reply");
                 MarkUncertain($"{command} was cancelled before its reply arrived");
                 throw;
             }
@@ -210,9 +232,11 @@ public sealed partial class CcpMaster : IDisposable
         return bytes;
     }
 
-    private sealed class PendingCommand(byte counter)
+    private sealed class PendingCommand(byte counter, CcpCommandCode command)
     {
         public byte Counter { get; } = counter;
+        public CcpCommandCode Command { get; } = command;
+        public long Started { get; set; }
         public TaskCompletionSource<CcpPacket> Reply { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
     }
 
@@ -226,6 +250,7 @@ public sealed partial class CcpMaster : IDisposable
             _state = state;
             _stateReason = reason;
         }
+        Trace.Add(CcpTraceKind.State, default, note: reason is null ? $"session {state}" : $"session {state}: {reason}");
         StateChanged?.Invoke(this, state);
     }
 
@@ -243,7 +268,10 @@ public sealed partial class CcpMaster : IDisposable
             if (changed) _state = CcpSessionState.Uncertain;
             if (changed || _state == CcpSessionState.Uncertain) _stateReason = reason;
         }
-        if (changed) StateChanged?.Invoke(this, CcpSessionState.Uncertain);
+        if (!changed) return;
+        Interlocked.Increment(ref _uncertainTransitions);
+        Trace.Add(CcpTraceKind.State, default, note: $"session Uncertain: {reason}");
+        StateChanged?.Invoke(this, CcpSessionState.Uncertain);
     }
 
     // ---- Receive loop --------------------------------------------------------------------------
@@ -277,12 +305,16 @@ public sealed partial class CcpMaster : IDisposable
         catch (ArgumentException)
         {
             Interlocked.Increment(ref _malformedFrames);
+            Trace.Add(CcpTraceKind.Malformed, frame.Payload.Span);
             return;
         }
         switch (packet.Kind)
         {
             case CcpPacketKind.CommandReturn: CompleteCommand(packet); break;
-            case CcpPacketKind.Event: Interlocked.Increment(ref _eventPackets); break;
+            case CcpPacketKind.Event:
+                Interlocked.Increment(ref _eventPackets);
+                Trace.Add(CcpTraceKind.Event, packet.Bytes.Span);
+                break;
             default: RouteDaq(packet, frame.TimestampMicroseconds); break;
         }
     }
@@ -298,11 +330,17 @@ public sealed partial class CcpMaster : IDisposable
         }
         if (pending is not null)
         {
+            double latency = CcpLatencyStats.Elapsed(pending.Started);
+            _latency.Add(latency);
+            bool error = packet.ErrorCode != 0;
+            Interlocked.Increment(ref error ? ref _errorReplies : ref _replies);
+            Trace.Add(error ? CcpTraceKind.ErrorReply : CcpTraceKind.Reply, packet.Bytes.Span, latency);
             pending.Reply.TrySetResult(packet);
             return;
         }
         // A late reply (after a timeout) or someone else's: the slave's CRM/MTA state is no longer known.
         Interlocked.Increment(ref _strayReplies);
+        Trace.Add(CcpTraceKind.StrayReply, packet.Bytes.Span);
         MarkUncertain($"unexpected reply with counter {packet.Counter}");
     }
 
@@ -318,6 +356,7 @@ public sealed partial class CcpMaster : IDisposable
             pending = _pending;
             _pending = null;
         }
+        Trace.Add(CcpTraceKind.State, default, note: $"transport failed: {ex.Message}");
         pending?.Reply.TrySetException(new IOException("The CCP transport failed.", ex));
         EndAllDaq("The CCP transport failed.", ex);
         EndAllAuxiliary(ex);
