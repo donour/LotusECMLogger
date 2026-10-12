@@ -1,4 +1,5 @@
 using LotusECMLogger.Models;
+using LotusECMLogger.Services.Ccp;
 
 namespace LotusECMLogger.Services
 {
@@ -7,45 +8,44 @@ namespace LotusECMLogger.Services
     /// for the T6 high-speed CAN channel logger, applying the firmware's packing rules:
     /// <list type="bullet">
     ///   <item>each frame holds at most 7 payload bytes of channels (hard limit, silent truncation);</item>
-    ///   <item>each group holds at most 12 frames; there are at most 10 groups;</item>
+    ///   <item>each group holds at most the target's ODTs per list (12 on T6), and there are at most its
+    ///   DAQ list count (10 on T6);</item>
     ///   <item>a channel address of 0 is invalid (the ECU treats it as end-of-list).</item>
     /// </list>
+    /// In CCP terms a group is a DAQ list, a frame an ODT, a slot an event channel, a divider a prescaler
+    /// and a label a PID. Limits and event rates come from the <see cref="CcpTarget"/>.
     /// Pure and deterministic — no I/O — so it can be unit-tested against the worked example in
     /// <c>ChannelLogger.md</c>.
     /// </summary>
     public static class HighSpeedLogPlanner
     {
-        public const int MaxGroups = 10;
-        public const int MaxFramesPerGroup = 12;
         public const int MaxPayloadBytes = 7;
 
         /// <summary>Rates (Hz) the scheduler can produce, for populating the UI rate dropdown.</summary>
         public static readonly int[] SupportedRatesHz = [1, 2, 5, 10, 20, 50, 100];
 
         /// <summary>
-        /// Base scheduler slot and per-group divider for each supported rate. Slots 0/2/4/6 have a
-        /// staggered partner (1/3/5/7) used to spread two same-rate groups across the bus; slots 8/9
-        /// have no partner. See the rate-control table in <c>ChannelLogger.md</c>.
+        /// Base event channel (scheduler slot) and prescaler (divider) for a rate: the event whose rate is a
+        /// multiple of it with the smallest prescaler, lowest event first. On T6 (events 0–9 at
+        /// 100/100/50/50/20/20/10/10/2/1 Hz) this gives 100→0, 50→2, 20→4, 10→6, 5→6÷2, 2→8, 1→9.
         /// </summary>
-        private static readonly Dictionary<int, (int slot, ushort divider)> RateTable = new()
-        {
-            [100] = (0, 1),
-            [50]  = (2, 1),
-            [20]  = (4, 1),
-            [10]  = (6, 1),
-            [5]   = (6, 2),
-            [2]   = (8, 1),
-            [1]   = (9, 1),
-        };
+        private static (int slot, ushort divider)? EventFor(CcpTarget target, int rateHz) =>
+            target.EventRatesHz
+                .Where(e => rateHz > 0 && e.Value % rateHz == 0 && e.Value / rateHz <= ushort.MaxValue)
+                .OrderBy(e => e.Value / rateHz).ThenBy(e => e.Key)
+                .Select(e => ((int, ushort)?)(e.Key, (ushort)(e.Value / rateHz)))
+                .FirstOrDefault();
 
         /// <summary>
         /// Builds a logging plan from the selected (channel, rateHz) pairs. Throws
         /// <see cref="ArgumentException"/> for an empty/invalid selection and
         /// <see cref="InvalidOperationException"/> when the program exceeds the ECU's capacity.
         /// </summary>
-        public static LoggingPlan Plan(IReadOnlyList<(HighSpeedChannel channel, int rateHz)> selected)
+        public static LoggingPlan Plan(IReadOnlyList<(HighSpeedChannel channel, int rateHz)> selected,
+            CcpTarget? target = null)
         {
             ArgumentNullException.ThrowIfNull(selected);
+            target ??= CcpTarget.T6;
             if (selected.Count == 0)
                 throw new ArgumentException("Select at least one channel to log.", nameof(selected));
 
@@ -55,7 +55,7 @@ namespace LotusECMLogger.Services
                     throw new ArgumentException($"Channel '{channel.Name}' has invalid size {channel.Size}; must be 1, 2 or 4.");
                 if (channel.Address == 0)
                     throw new ArgumentException($"Channel '{channel.Name}' has address 0, which the ECU treats as end-of-list.");
-                if (!RateTable.ContainsKey(rateHz))
+                if (!SupportedRatesHz.Contains(rateHz) || EventFor(target, rateHz) is null)
                     throw new ArgumentException($"Channel '{channel.Name}' has unsupported rate {rateHz} Hz.");
             }
 
@@ -73,27 +73,28 @@ namespace LotusECMLogger.Services
                 int rate = bucket.Key;
                 var channels = bucket.OrderBy(s => s.order).Select(s => s.channel).ToList();
                 var frames = PackFrames(channels);
-                var (baseSlot, divider) = RateTable[rate];
+                var (baseSlot, divider) = EventFor(target, rate)!.Value;
 
                 int chunkIndex = 0;
-                for (int start = 0; start < frames.Count; start += MaxFramesPerGroup)
+                for (int start = 0; start < frames.Count; start += target.OdtsPerList)
                 {
-                    if (groupIndex >= MaxGroups)
+                    if (groupIndex >= target.DaqListCount)
                         throw new InvalidOperationException(
-                            $"This selection needs more than {MaxGroups} ECU groups. Reduce the number of channels or rates.");
+                            $"This selection needs more than {target.DaqListCount} ECU groups. Reduce the number of channels or rates.");
 
-                    var chunk = frames.GetRange(start, Math.Min(MaxFramesPerGroup, frames.Count - start));
+                    var chunk = frames.GetRange(start, Math.Min(target.OdtsPerList, frames.Count - start));
                     var group = new PlannedGroup
                     {
                         GroupIndex = groupIndex,
-                        Slot = PairedSlot(baseSlot, chunkIndex),
+                        Slot = PairedSlot(target, baseSlot, chunkIndex),
                         Divider = divider,
                         RateHz = rate,
                     };
 
                     for (int f = 0; f < chunk.Count; f++)
                     {
-                        byte label = (byte)(groupIndex * 12 + f);
+                        // Expected PID; the logger uses the first PID GET_DAQ_SIZE actually returns.
+                        byte label = (byte)(target.ExpectedFirstPid(groupIndex) + f);
                         var frame = new PlannedFrame { FrameIndex = f, Label = label };
                         frame.Channels.AddRange(chunk[f]);
                         group.Frames.Add(frame);
@@ -136,14 +137,14 @@ namespace LotusECMLogger.Services
         }
 
         /// <summary>
-        /// Alternates spill groups of the same rate across a staggered slot pair (0/1, 2/3, 4/5, 6/7)
-        /// to avoid bursting both groups onto the same scheduler tick. Slots 8 and 9 have no partner.
+        /// Alternates spill groups of the same rate across a staggered event pair (on T6 0/1, 2/3, 4/5, 6/7)
+        /// to avoid bursting both groups onto the same scheduler tick. An event's partner is the next one
+        /// when it runs at the same rate; on T6, events 8 and 9 have none.
         /// </summary>
-        private static int PairedSlot(int baseSlot, int chunkIndex)
+        private static int PairedSlot(CcpTarget target, int baseSlot, int chunkIndex)
         {
-            if (baseSlot <= 6 && baseSlot % 2 == 0)
-                return baseSlot + (chunkIndex % 2);
-            return baseSlot;
+            bool paired = target.EventRatesHz.TryGetValue(baseSlot + 1, out int next) && next == target.EventRatesHz[baseSlot];
+            return paired ? baseSlot + (chunkIndex % 2) : baseSlot;
         }
     }
 }
