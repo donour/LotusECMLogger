@@ -14,6 +14,8 @@ public sealed class SimulatedCcpTransport : ICcpTransport
     private readonly FakeCcpSlave _ecu;
     private readonly double _speedFactor;
     private readonly Stopwatch _wall = Stopwatch.StartNew();
+    // Wakes an idle Read as soon as a command arrives, instead of after an OS sleep (up to ~15 ms on Windows).
+    private readonly AutoResetEvent _sent = new(false);
     private long _virtualMilliseconds;
     private bool _disposed;
 
@@ -50,6 +52,7 @@ public sealed class SimulatedCcpTransport : ICcpTransport
     {
         var bytes = command.ToArray();
         With(ecu => ecu.Send(bytes));
+        _sent.Set();
     }
 
     public void AddReceiveId(uint canId) => With(ecu => ecu.AddReceiveId(canId));
@@ -58,6 +61,7 @@ public sealed class SimulatedCcpTransport : ICcpTransport
     {
         var bytes = payload.ToArray();
         With(ecu => ecu.SendAuxiliary(canId, bytes));
+        _sent.Set();
     }
 
     public IReadOnlyList<CcpReceivedFrame> Read(int timeoutMilliseconds, CancellationToken cancellationToken = default)
@@ -80,7 +84,7 @@ public sealed class SimulatedCcpTransport : ICcpTransport
                 }
             }
             if (_wall.ElapsedMilliseconds >= deadline) return [];
-            Thread.Sleep(1);
+            _sent.WaitOne(1);
         }
     }
 

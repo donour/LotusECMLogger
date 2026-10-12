@@ -32,6 +32,7 @@ namespace LotusECMLogger.Controls
             saveButton = new Button();
             checksumButton = new Button();
             compareButton = new Button();
+            diffButton = new Button();
             cancelButton = new Button();
             progressBar = new ProgressBar();
             writePanel = new Panel();
@@ -44,17 +45,19 @@ namespace LotusECMLogger.Controls
             writeFileButton = new Button();
             restoreButton = new Button();
             writeNoteLabel = new Label();
-            outputSplit = new SplitContainer();
+            subTabs = new TabControl();
+            memoryPage = new TabPage();
+            variablesPage = new TabPage();
+            trafficPage = new TabPage();
+            selfTestPage = new TabPage();
             hexTextBox = new TextBox();
             logTextBox = new TextBox();
             connectionPanel.SuspendLayout();
             memoryPanel.SuspendLayout();
             writePanel.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)lengthUpDown).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)outputSplit).BeginInit();
-            outputSplit.Panel1.SuspendLayout();
-            outputSplit.Panel2.SuspendLayout();
-            outputSplit.SuspendLayout();
+            subTabs.SuspendLayout();
+            memoryPage.SuspendLayout();
             SuspendLayout();
             //
             // connectionPanel
@@ -68,7 +71,7 @@ namespace LotusECMLogger.Controls
             connectionPanel.Dock = DockStyle.Top;
             connectionPanel.Location = new Point(0, 0);
             connectionPanel.Name = "connectionPanel";
-            connectionPanel.Size = new Size(900, 250);
+            connectionPanel.Size = new Size(900, 214);
             connectionPanel.TabIndex = 0;
             //
             // connectButton
@@ -128,7 +131,7 @@ namespace LotusECMLogger.Controls
             infoListView.HeaderStyle = ColumnHeaderStyle.Nonclickable;
             infoListView.Location = new Point(12, 72);
             infoListView.Name = "infoListView";
-            infoListView.Size = new Size(876, 172);
+            infoListView.Size = new Size(876, 136);
             infoListView.TabIndex = 5;
             infoListView.UseCompatibleStateImageBehavior = false;
             infoListView.View = View.Details;
@@ -137,6 +140,7 @@ namespace LotusECMLogger.Controls
             //
             memoryPanel.Controls.Add(progressBar);
             memoryPanel.Controls.Add(cancelButton);
+            memoryPanel.Controls.Add(diffButton);
             memoryPanel.Controls.Add(compareButton);
             memoryPanel.Controls.Add(checksumButton);
             memoryPanel.Controls.Add(saveButton);
@@ -147,7 +151,7 @@ namespace LotusECMLogger.Controls
             memoryPanel.Controls.Add(addressTextBox);
             memoryPanel.Controls.Add(addressLabel);
             memoryPanel.Dock = DockStyle.Top;
-            memoryPanel.Location = new Point(0, 250);
+            memoryPanel.Location = new Point(0, 0);
             memoryPanel.Name = "memoryPanel";
             memoryPanel.Size = new Size(900, 92);
             memoryPanel.TabIndex = 1;
@@ -224,7 +228,7 @@ namespace LotusECMLogger.Controls
             //
             checksumButton.Location = new Point(254, 46);
             checksumButton.Name = "checksumButton";
-            checksumButton.Size = new Size(120, 32);
+            checksumButton.Size = new Size(110, 32);
             checksumButton.TabIndex = 7;
             checksumButton.Text = "Checksum";
             checksumButton.UseVisualStyleBackColor = true;
@@ -232,7 +236,7 @@ namespace LotusECMLogger.Controls
             //
             // compareButton
             //
-            compareButton.Location = new Point(380, 46);
+            compareButton.Location = new Point(370, 46);
             compareButton.Name = "compareButton";
             compareButton.Size = new Size(160, 32);
             compareButton.TabIndex = 8;
@@ -240,12 +244,22 @@ namespace LotusECMLogger.Controls
             compareButton.UseVisualStyleBackColor = true;
             compareButton.Click += compareButton_Click;
             //
+            // diffButton
+            //
+            diffButton.Location = new Point(536, 46);
+            diffButton.Name = "diffButton";
+            diffButton.Size = new Size(130, 32);
+            diffButton.TabIndex = 9;
+            diffButton.Text = "Diff with File…";
+            diffButton.UseVisualStyleBackColor = true;
+            diffButton.Click += diffButton_Click;
+            //
             // cancelButton
             //
-            cancelButton.Location = new Point(546, 46);
+            cancelButton.Location = new Point(672, 46);
             cancelButton.Name = "cancelButton";
             cancelButton.Size = new Size(90, 32);
-            cancelButton.TabIndex = 9;
+            cancelButton.TabIndex = 10;
             cancelButton.Text = "Cancel";
             cancelButton.UseVisualStyleBackColor = true;
             cancelButton.Click += cancelButton_Click;
@@ -253,10 +267,10 @@ namespace LotusECMLogger.Controls
             // progressBar
             //
             progressBar.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            progressBar.Location = new Point(650, 52);
+            progressBar.Location = new Point(770, 52);
             progressBar.Name = "progressBar";
-            progressBar.Size = new Size(238, 20);
-            progressBar.TabIndex = 10;
+            progressBar.Size = new Size(110, 20);
+            progressBar.TabIndex = 11;
             //
             // writePanel
             //
@@ -270,7 +284,7 @@ namespace LotusECMLogger.Controls
             writePanel.Controls.Add(buildLabel);
             writePanel.Controls.Add(writeTitleLabel);
             writePanel.Dock = DockStyle.Top;
-            writePanel.Location = new Point(0, 342);
+            writePanel.Location = new Point(0, 92);
             writePanel.Name = "writePanel";
             writePanel.Size = new Size(900, 104);
             writePanel.TabIndex = 2;
@@ -362,23 +376,57 @@ namespace LotusECMLogger.Controls
             writeNoteLabel.TabIndex = 8;
             writeNoteLabel.Text = "";
             //
-            // outputSplit
+            // subTabs
             //
-            outputSplit.Dock = DockStyle.Fill;
-            outputSplit.Location = new Point(0, 446);
-            outputSplit.Name = "outputSplit";
-            outputSplit.Orientation = Orientation.Horizontal;
+            subTabs.Controls.Add(memoryPage);
+            subTabs.Controls.Add(variablesPage);
+            subTabs.Controls.Add(trafficPage);
+            subTabs.Controls.Add(selfTestPage);
+            subTabs.Dock = DockStyle.Fill;
+            subTabs.Location = new Point(0, 214);
+            subTabs.Name = "subTabs";
+            subTabs.SelectedIndex = 0;
+            subTabs.Size = new Size(900, 376);
+            subTabs.TabIndex = 1;
             //
-            // outputSplit.Panel1
+            // memoryPage
             //
-            outputSplit.Panel1.Controls.Add(hexTextBox);
+            memoryPage.Controls.Add(hexTextBox);
+            memoryPage.Controls.Add(writePanel);
+            memoryPage.Controls.Add(memoryPanel);
+            memoryPage.Location = new Point(4, 24);
+            memoryPage.Name = "memoryPage";
+            memoryPage.Size = new Size(892, 348);
+            memoryPage.TabIndex = 0;
+            memoryPage.Text = "Memory";
+            memoryPage.UseVisualStyleBackColor = true;
             //
-            // outputSplit.Panel2
+            // variablesPage
             //
-            outputSplit.Panel2.Controls.Add(logTextBox);
-            outputSplit.Size = new Size(900, 254);
-            outputSplit.SplitterDistance = 150;
-            outputSplit.TabIndex = 3;
+            variablesPage.Location = new Point(4, 24);
+            variablesPage.Name = "variablesPage";
+            variablesPage.Size = new Size(892, 348);
+            variablesPage.TabIndex = 1;
+            variablesPage.Text = "Variables";
+            variablesPage.UseVisualStyleBackColor = true;
+            //
+            // trafficPage
+            //
+            trafficPage.Location = new Point(4, 24);
+            trafficPage.Name = "trafficPage";
+            trafficPage.Size = new Size(892, 348);
+            trafficPage.TabIndex = 2;
+            trafficPage.Text = "Traffic";
+            trafficPage.UseVisualStyleBackColor = true;
+            //
+            // selfTestPage
+            //
+            selfTestPage.Location = new Point(4, 24);
+            selfTestPage.Name = "selfTestPage";
+            selfTestPage.Size = new Size(892, 348);
+            selfTestPage.TabIndex = 3;
+            selfTestPage.Text = "Self-Test";
+            selfTestPage.UseVisualStyleBackColor = true;
             //
             // hexTextBox
             //
@@ -395,22 +443,21 @@ namespace LotusECMLogger.Controls
             //
             // logTextBox
             //
-            logTextBox.Dock = DockStyle.Fill;
-            logTextBox.Location = new Point(0, 0);
+            logTextBox.Dock = DockStyle.Bottom;
+            logTextBox.Location = new Point(0, 590);
             logTextBox.Multiline = true;
             logTextBox.Name = "logTextBox";
             logTextBox.ReadOnly = true;
             logTextBox.ScrollBars = ScrollBars.Vertical;
-            logTextBox.Size = new Size(900, 114);
-            logTextBox.TabIndex = 0;
+            logTextBox.Size = new Size(900, 110);
+            logTextBox.TabIndex = 2;
             //
             // CcpControl
             //
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
-            Controls.Add(outputSplit);
-            Controls.Add(writePanel);
-            Controls.Add(memoryPanel);
+            Controls.Add(subTabs);
+            Controls.Add(logTextBox);
             Controls.Add(connectionPanel);
             Name = "CcpControl";
             Size = new Size(900, 700);
@@ -421,13 +468,11 @@ namespace LotusECMLogger.Controls
             writePanel.ResumeLayout(false);
             writePanel.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)lengthUpDown).EndInit();
-            outputSplit.Panel1.ResumeLayout(false);
-            outputSplit.Panel1.PerformLayout();
-            outputSplit.Panel2.ResumeLayout(false);
-            outputSplit.Panel2.PerformLayout();
-            ((System.ComponentModel.ISupportInitialize)outputSplit).EndInit();
-            outputSplit.ResumeLayout(false);
+            memoryPage.ResumeLayout(false);
+            memoryPage.PerformLayout();
+            subTabs.ResumeLayout(false);
             ResumeLayout(false);
+            PerformLayout();
         }
 
         #endregion
@@ -449,6 +494,7 @@ namespace LotusECMLogger.Controls
         private Button saveButton;
         private Button checksumButton;
         private Button compareButton;
+        private Button diffButton;
         private Button cancelButton;
         private ProgressBar progressBar;
         private Panel writePanel;
@@ -461,7 +507,11 @@ namespace LotusECMLogger.Controls
         private Button writeFileButton;
         private Button restoreButton;
         private Label writeNoteLabel;
-        private SplitContainer outputSplit;
+        private TabControl subTabs;
+        private TabPage memoryPage;
+        private TabPage variablesPage;
+        private TabPage trafficPage;
+        private TabPage selfTestPage;
         private TextBox hexTextBox;
         private TextBox logTextBox;
     }
