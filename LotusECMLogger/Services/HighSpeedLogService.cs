@@ -190,7 +190,7 @@ namespace LotusECMLogger.Services
             {
                 session.Lease = await _host.AcquireAsync(ct).ConfigureAwait(false);
                 var master = session.Lease.Master;
-                session.Daq = await master.StartDaqAsync(ToDaqLists(session.Plan), ct).ConfigureAwait(false);
+                session.Daq = await master.StartDaqAsync(ToDaqLists(session.Plan), "High-Speed Log", ct).ConfigureAwait(false);
                 if (session.PollAem) session.Aem = new AemWidebandSource(master);
 
                 var pumps = new List<Task> { PumpAsync(session.Daq.Stream.Reader, s => new WorkItem(s, null), session.Queue.Writer, ct) };

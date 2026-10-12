@@ -22,12 +22,29 @@ public sealed class CcpDaqSubscription
     private readonly CcpMaster _master;
     private long _gaps;
 
-    internal CcpDaqSubscription(CcpMaster master, IReadOnlyList<CcpDaqListRequest> requests, int[] lists, int capacity)
+    private readonly long[] _samples, _overruns;
+
+    internal CcpDaqSubscription(CcpMaster master, string owner, IReadOnlyList<CcpDaqListRequest> requests, int[] lists,
+        int capacity)
     {
         _master = master;
+        Owner = owner;
         Requests = requests;
         SlaveLists = lists;
         Stream = new CcpStream<CcpDaqSample>(capacity, null);
+        _samples = new long[lists.Length];
+        _overruns = new long[lists.Length];
+    }
+
+    /// <summary>Who asked for these lists, for the DAQ allocation view.</summary>
+    public string Owner { get; }
+    public long SamplesFor(int list) => Interlocked.Read(ref _samples[list]);
+    public long OverrunsFor(int list) => Interlocked.Read(ref _overruns[list]);
+
+    internal void RecordSample(int list, bool overrun)
+    {
+        Interlocked.Increment(ref _samples[list]);
+        if (overrun) Interlocked.Increment(ref _overruns[list]);
     }
 
     public IReadOnlyList<CcpDaqListRequest> Requests { get; }
@@ -58,7 +75,7 @@ public sealed partial class CcpMaster
     // Lists whose slave state is unknown (a configuration or stop failed). Re-initialised with GET_DAQ_SIZE
     // before the next START_STOP_ALL, which would otherwise start a half-configured prepared list.
     private readonly HashSet<int> _dirtyLists = [];
-    private long _unroutedDaq;
+    private long _unroutedDaq, _daqFrames;
 
     private sealed record DaqRoute(CcpDaqSubscription Subscription, int List, int Odt);
 
@@ -72,7 +89,7 @@ public sealed partial class CcpMaster
     /// per element (elements 0–6 only) and START_STOP prepare; then START_STOP_ALL starts them together.
     /// Lists of other subscriptions keep running but may lose queued frames (see <see cref="CcpDaqSubscription.Gaps"/>).
     /// </summary>
-    public Task<CcpDaqSubscription> StartDaqAsync(IReadOnlyList<CcpDaqListRequest> lists,
+    public Task<CcpDaqSubscription> StartDaqAsync(IReadOnlyList<CcpDaqListRequest> lists, string? owner = null,
         CancellationToken cancellationToken = default)
     {
         ValidateDaqRequest(lists);
@@ -88,7 +105,7 @@ public sealed partial class CcpMaster
                 if (free.Length < lists.Count)
                     throw new InvalidOperationException(
                         $"{lists.Count} DAQ list(s) requested but only {free.Length} of {owners.Length} are free.");
-                subscription = new CcpDaqSubscription(this, lists, free, _options.StreamCapacity);
+                subscription = new CcpDaqSubscription(this, owner ?? "unnamed", lists, free, _options.StreamCapacity);
                 foreach (int list in free) owners[list] = subscription;
                 others = owners.Where(o => o is not null && o != subscription).Distinct().Cast<CcpDaqSubscription>().ToList();
                 dirty = _dirtyLists.Except(free).Order().ToArray();
@@ -200,7 +217,30 @@ public sealed partial class CcpMaster
             Interlocked.Increment(ref _unroutedDaq);
             return;
         }
+        Interlocked.Increment(ref _daqFrames);
+        route.Subscription.RecordSample(route.List, packet.Overrun);
         route.Subscription.Stream.Write(new CcpDaqSample(route.List, route.Odt, packet.Data, packet.Overrun, timestampMicroseconds));
+    }
+
+    /// <summary>The slave lists currently allocated, with their owners and traffic.</summary>
+    public IReadOnlyList<CcpDaqAllocation> GetDaqAllocations()
+    {
+        lock (_daqLock)
+        {
+            var owners = ListOwners;
+            var allocations = new List<CcpDaqAllocation>();
+            for (int list = 0; list < owners.Length; list++)
+            {
+                if (owners[list] is not { } subscription) continue;
+                int index = Array.IndexOf(subscription.SlaveLists.ToArray(), list);
+                var request = subscription.Requests[index];
+                byte firstPid = index < subscription.FirstPids.Count ? subscription.FirstPids[index] : (byte)0;
+                allocations.Add(new CcpDaqAllocation(list, subscription.Owner, request.EventChannel, request.Prescaler,
+                    request.Odts.Count, firstPid, subscription.SamplesFor(index), subscription.OverrunsFor(index),
+                    subscription.Stream.Dropped, subscription.Gaps));
+            }
+            return allocations;
+        }
     }
 
     /// <summary>Ends every subscription: after DISCONNECT end-of-session (the slave stops all lists), a fault, or disposal.</summary>
