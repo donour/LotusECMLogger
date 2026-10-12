@@ -34,11 +34,22 @@ namespace LotusECMLogger.Controls
             compareButton = new Button();
             cancelButton = new Button();
             progressBar = new ProgressBar();
+            writePanel = new Panel();
+            writeTitleLabel = new Label();
+            buildLabel = new Label();
+            buildComboBox = new ComboBox();
+            bytesLabel = new Label();
+            bytesTextBox = new TextBox();
+            writeValueButton = new Button();
+            writeFileButton = new Button();
+            restoreButton = new Button();
+            writeNoteLabel = new Label();
             outputSplit = new SplitContainer();
             hexTextBox = new TextBox();
             logTextBox = new TextBox();
             connectionPanel.SuspendLayout();
             memoryPanel.SuspendLayout();
+            writePanel.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)lengthUpDown).BeginInit();
             ((System.ComponentModel.ISupportInitialize)outputSplit).BeginInit();
             outputSplit.Panel1.SuspendLayout();
@@ -247,10 +258,114 @@ namespace LotusECMLogger.Controls
             progressBar.Size = new Size(238, 20);
             progressBar.TabIndex = 10;
             //
+            // writePanel
+            //
+            writePanel.Controls.Add(writeNoteLabel);
+            writePanel.Controls.Add(restoreButton);
+            writePanel.Controls.Add(writeFileButton);
+            writePanel.Controls.Add(writeValueButton);
+            writePanel.Controls.Add(bytesTextBox);
+            writePanel.Controls.Add(bytesLabel);
+            writePanel.Controls.Add(buildComboBox);
+            writePanel.Controls.Add(buildLabel);
+            writePanel.Controls.Add(writeTitleLabel);
+            writePanel.Dock = DockStyle.Top;
+            writePanel.Location = new Point(0, 342);
+            writePanel.Name = "writePanel";
+            writePanel.Size = new Size(900, 104);
+            writePanel.TabIndex = 2;
+            //
+            // writeTitleLabel
+            //
+            writeTitleLabel.AutoSize = true;
+            writeTitleLabel.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            writeTitleLabel.Location = new Point(12, 6);
+            writeTitleLabel.Name = "writeTitleLabel";
+            writeTitleLabel.Size = new Size(104, 15);
+            writeTitleLabel.TabIndex = 0;
+            writeTitleLabel.Text = "Calibration write";
+            //
+            // buildLabel
+            //
+            buildLabel.AutoSize = true;
+            buildLabel.Location = new Point(12, 33);
+            buildLabel.Name = "buildLabel";
+            buildLabel.Size = new Size(34, 15);
+            buildLabel.TabIndex = 1;
+            buildLabel.Text = "Build";
+            //
+            // buildComboBox
+            //
+            buildComboBox.DropDownStyle = ComboBoxStyle.DropDownList;
+            buildComboBox.Location = new Point(100, 29);
+            buildComboBox.Name = "buildComboBox";
+            buildComboBox.Size = new Size(260, 23);
+            buildComboBox.TabIndex = 2;
+            buildComboBox.SelectionChangeCommitted += buildComboBox_SelectionChangeCommitted;
+            //
+            // bytesLabel
+            //
+            bytesLabel.AutoSize = true;
+            bytesLabel.Location = new Point(376, 33);
+            bytesLabel.Name = "bytesLabel";
+            bytesLabel.Size = new Size(66, 15);
+            bytesLabel.TabIndex = 3;
+            bytesLabel.Text = "Bytes (hex)";
+            //
+            // bytesTextBox
+            //
+            bytesTextBox.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            bytesTextBox.Font = new Font("Consolas", 9.75F);
+            bytesTextBox.Location = new Point(450, 29);
+            bytesTextBox.Name = "bytesTextBox";
+            bytesTextBox.PlaceholderText = "e.g. 01 2C";
+            bytesTextBox.Size = new Size(438, 23);
+            bytesTextBox.TabIndex = 4;
+            //
+            // writeValueButton
+            //
+            writeValueButton.Location = new Point(12, 60);
+            writeValueButton.Name = "writeValueButton";
+            writeValueButton.Size = new Size(190, 32);
+            writeValueButton.TabIndex = 5;
+            writeValueButton.Text = "Write Bytes at Address";
+            writeValueButton.UseVisualStyleBackColor = true;
+            writeValueButton.Click += writeValueButton_Click;
+            //
+            // writeFileButton
+            //
+            writeFileButton.Location = new Point(208, 60);
+            writeFileButton.Name = "writeFileButton";
+            writeFileButton.Size = new Size(190, 32);
+            writeFileButton.TabIndex = 6;
+            writeFileButton.Text = "Write Calibration File…";
+            writeFileButton.UseVisualStyleBackColor = true;
+            writeFileButton.Click += writeFileButton_Click;
+            //
+            // restoreButton
+            //
+            restoreButton.Location = new Point(404, 60);
+            restoreButton.Name = "restoreButton";
+            restoreButton.Size = new Size(160, 32);
+            restoreButton.TabIndex = 7;
+            restoreButton.Text = "Restore Backup…";
+            restoreButton.UseVisualStyleBackColor = true;
+            restoreButton.Click += restoreButton_Click;
+            //
+            // writeNoteLabel
+            //
+            writeNoteLabel.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            writeNoteLabel.ForeColor = SystemColors.GrayText;
+            writeNoteLabel.Location = new Point(576, 62);
+            writeNoteLabel.Name = "writeNoteLabel";
+            writeNoteLabel.Size = new Size(312, 32);
+            writeNoteLabel.TabIndex = 8;
+            writeNoteLabel.Text = "";
+            //
             // outputSplit
             //
             outputSplit.Dock = DockStyle.Fill;
-            outputSplit.Location = new Point(0, 342);
+            outputSplit.Location = new Point(0, 446);
             outputSplit.Name = "outputSplit";
             outputSplit.Orientation = Orientation.Horizontal;
             //
@@ -261,9 +376,9 @@ namespace LotusECMLogger.Controls
             // outputSplit.Panel2
             //
             outputSplit.Panel2.Controls.Add(logTextBox);
-            outputSplit.Size = new Size(900, 358);
-            outputSplit.SplitterDistance = 240;
-            outputSplit.TabIndex = 2;
+            outputSplit.Size = new Size(900, 254);
+            outputSplit.SplitterDistance = 150;
+            outputSplit.TabIndex = 3;
             //
             // hexTextBox
             //
@@ -294,6 +409,7 @@ namespace LotusECMLogger.Controls
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             Controls.Add(outputSplit);
+            Controls.Add(writePanel);
             Controls.Add(memoryPanel);
             Controls.Add(connectionPanel);
             Name = "CcpControl";
@@ -302,6 +418,8 @@ namespace LotusECMLogger.Controls
             connectionPanel.PerformLayout();
             memoryPanel.ResumeLayout(false);
             memoryPanel.PerformLayout();
+            writePanel.ResumeLayout(false);
+            writePanel.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)lengthUpDown).EndInit();
             outputSplit.Panel1.ResumeLayout(false);
             outputSplit.Panel1.PerformLayout();
@@ -333,6 +451,16 @@ namespace LotusECMLogger.Controls
         private Button compareButton;
         private Button cancelButton;
         private ProgressBar progressBar;
+        private Panel writePanel;
+        private Label writeTitleLabel;
+        private Label buildLabel;
+        private ComboBox buildComboBox;
+        private Label bytesLabel;
+        private TextBox bytesTextBox;
+        private Button writeValueButton;
+        private Button writeFileButton;
+        private Button restoreButton;
+        private Label writeNoteLabel;
         private SplitContainer outputSplit;
         private TextBox hexTextBox;
         private TextBox logTextBox;
