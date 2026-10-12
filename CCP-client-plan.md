@@ -3,7 +3,8 @@
 Design notes for adding a CCP 2.1 master to LotusECMLogger. The ECU side is described in
 [`CCP-support.md`](CCP-support.md); this document covers the PC side.
 
-**Status (2026-10-07): Phase 1 and a firmware-backed GT430 simulator implemented; hardware session orchestration and UI remain planned.**
+**Status (2026-10-12): Phase 1 and a firmware-backed GT430 simulator implemented; Phase 2 (`CcpMaster`) is next.
+Scope narrowed to T6 2011+ for now, and AEM wideband polling becomes a separate data source (§2).**
 The protocol core, target/build profiles, transport contract, J2534 transport and deterministic fake slave
 are implemented. Cross-platform tests exercise the command sequence, firmware quirks and runtime-registry format.
 The fake loads real PROG/CAL from CRP and exposes `ICcpTransport`; see [`CcpSimulator/README.md`](CcpSimulator/README.md).
@@ -57,7 +58,8 @@ What it does not do:
 | Decision | Choice | Why |
 |---|---|---|
 | Existing high-speed logger | Port it onto the new CCP layer | One CCP implementation; streaming and memory access can share the bus. Guarded by a byte-identical regression test (Phase 3). |
-| Targets in v1 | T6 2011+, 2010 Evora C132E0044, IPS TCU C132F0395 | All three run the same Vector driver; only IDs and DAQ sizes differ (`CCP-support.md` §2). |
+| Targets in v1 | **T6 2011+ only, for now** (2026-10-12) | Only T6 has a live-validated logger, golden CRO bytes and a car to test on. The 2010 Evora C132E0044 and IPS TCU C132F0395 profiles stay in `CcpTarget`/`CcpBuildProfile` (same Vector driver, only IDs and DAQ sizes differ, `CCP-support.md` §2) but are not wired into the logger or UI. |
+| AEM wideband | **Separate data source**, not part of CCP or the HSL DAQ program (2026-10-12) | The gauge is not an ECU input. It shares the J2534 channel and receive loop, and its samples are logged and displayed as their own channels alongside DAQ data. |
 | Calibration writes | In v1, with guards | Wanted for live tuning. |
 | Interactive live tuning | In scope (Phase 6) | Table editor over a calibration file, synced to ECU RAM over CCP, with a live operating-point cursor. |
 | Table definition format | **A2L files**, "for now" | Standard format, also usable in CANape/INCA/VISION. Accepts the limits in §6. |
@@ -122,7 +124,11 @@ New code goes under `LotusECMLogger/Services/Ccp/`.
 
 **Transport**
 - `ICcpTransport`: send an 8-byte CRO; deliver received frames with the adapter's hardware timestamp.
-- `J2534CcpTransport`: raw CAN through `J2534Session`, PASS filter on the target's DTO ID.
+  Extended in Phase 2a for auxiliary sources: optional extra receive IDs, a raw send to a non-CRO ID,
+  and the CAN ID on each `CcpReceivedFrame`. CCP code never sees auxiliary frames.
+- `J2534CcpTransport`: raw CAN through `J2534Session`, PASS filters on the target's DTO ID plus any auxiliary IDs.
+- `SimulatedCcpTransport` (`CcpSimulator`): thread-safe wrapper over `FakeCcpSlave` that advances virtual
+  time on each `Read`, so the real `CcpMaster` receive thread can drive the deterministic fake.
 - `FakeCcpSlave` (`CcpSimulator`, reusable in tests): an in-memory slave that reproduces this firmware's behaviour, so the master
   can be tested without hardware:
   - commands other than CONNECT/TEST are ignored silently until connected;
@@ -134,6 +140,15 @@ New code goes under `LotusECMLogger/Services/Ccp/`.
 **`CcpMaster` (the session)**
 - **One receive loop.** Frames starting 0xFF go to the waiting command, matched on CTR; 0xFE is
   handled as an event packet; valid target PIDs go to DAQ subscribers. This is what lets memory access run during streaming.
+  Frames on other admitted CAN IDs go to auxiliary subscribers by ID.
+
+**Auxiliary sources (AEM wideband)**
+- `AemWidebandSource`: polls OBD Mode 01 PID 0x24 on 0x7E1 and decodes 0x7E9 replies (logic moved out of
+  `HighSpeedLogService`). It registers for 0x7E9 and sends polls through the session, not through CCP commands.
+- Exposes the same sample/channel shape as DAQ channels (name, unit, hardware timestamp), so the logger
+  writes it to the CSV and the UI displays it like any other channel. Keeps last-value-hold columns,
+  the 50 ms poll interval and the existing channel names (`AemLambdaChannelName`, `AemAfrChannelName`).
+- Independent of DAQ: it can run with or without a CCP connection, and a poll failure never stops DAQ.
 - **One command in flight.** CTR matching is not concurrency control: the slave has one CRM buffer,
   shared MTA0, shared DAQ pointer and a checksum worker that uses MTA1 and the CRM buffer. Serialise
   complete operations (SET_MTA plus all transfers/read-back; SET_DAQ_PTR plus WRITE_DAQ; EXCHANGE_ID plus
@@ -168,11 +183,37 @@ New code goes under `LotusECMLogger/Services/Ccp/`.
 | # | Phase | Hardware needed | Touches existing code |
 |---|---|---|---|
 | 1 | Protocol core, target profiles, transport, `FakeCcpSlave`. Tests replay the §10 example session from `CCP-support.md` byte for byte. | No | No |
-| 2 | `CcpMaster`: session, memory, checksum, DAQ, identification. Tests against the fake slave, including memory access while DAQ is streaming. | No | No |
-| 3 | Port `HighSpeedLogService` onto `CcpMaster`. The planner takes limits and rates from the target profile and uses the first PID from GET_DAQ_SIZE. Rename to CCP terms internally (UI wording can stay). `Identify()` decodes EXCHANGE_ID fields. **Regression gate:** a test asserts the T6 CRO frames for the sample presets are identical command fields to the current output, after normalising its short payloads to DLC 8 with zero padding. The old builder emits e.g. a four-byte CONNECT; the new transport always emits eight. Also preserve AEM polling, timestamps and bounded CSV queues. | One live re-check afterwards | Yes |
-| 4 | CCP tab (top level, sharing `CcpMaster` with High-Speed Log): connect panel (target, version, ID, resources/protection, build, CAL range); read a memory region to a hex view or `.bin`; checksum a region against a file. | For final checks | Adds a tab |
+| 2 | `CcpMaster`: session, memory, checksum, DAQ, identification, auxiliary routing. Tests against the fake slave, including memory access while DAQ is streaming. Steps 2a–2d below. | No | No |
+| 3 | Port `HighSpeedLogService` onto `CcpMaster` (T6 only). Steps below. The planner takes limits and rates from the target profile and uses the first PID from GET_DAQ_SIZE. Rename to CCP terms internally (UI wording can stay). `Identify()` decodes EXCHANGE_ID fields. **Regression gate:** a test asserts the T6 CRO frames for the sample presets are identical command fields to the current output, after normalising its short payloads to DLC 8 with zero padding. The old builder emits e.g. a four-byte CONNECT; the new transport always emits eight. Also preserve timestamps and bounded CSV queues; AEM moves to `AemWidebandSource`. | One live re-check afterwards | Yes |
+| 4 | Shared session host and CCP tab (top level, sharing `CcpMaster` with High-Speed Log): connect panel (target, version, ID, resources/protection, build, CAL range); read a memory region to a hex view or `.bin`; checksum a region against a file. | For final checks | Adds a tab |
 | 5 | Guarded writes (see below). | Yes | No |
 | 6 | Live tuning (see below). | Yes | No |
+
+**Phase 2 steps**
+- **2a, contract gaps.** Auxiliary IDs/raw send on `ICcpTransport` and `J2534CcpTransport`;
+  `SimulatedCcpTransport` for threaded tests.
+- **2b, session core.** Receive thread and routing, operation-level command gate, uncertain-state recovery
+  (TEST, then CONNECT), CONNECT/TEST/GET_CCP_VERSION/EXCHANGE_ID + ID upload/DISCONNECT.
+  Tests: §10 session byte for byte, silent wrong-bus timeout, CTR mismatch.
+- **2c, memory and identification.** Reads, low-level DNLOAD/DNLOAD_6 with read-back (not exposed in UI
+  until Phase 5), blocked BUILD_CHKSUM with local comparison, build identification, registry read over CCP.
+  Test: identify GT430 in the simulator and match `CcpSimulationClient`'s registry read.
+- **2d, DAQ ownership and auxiliary routing.** List allocator, consumer leases, pause/reconfigure on
+  reallocation; auxiliary subscribers. Tests: memory reads during DAQ streaming; auxiliary frames
+  interleaved with DAQ and CRMs.
+
+**Phase 3 steps**
+1. Before changing the service, capture golden T6 CRO frames for the sample presets (extract the frame
+   sequence from `ConfigureEcu`; link `HighSpeedLogPlanner` and its models into the test project).
+2. Move planner limits/rates onto `CcpTarget.T6`; use GET_DAQ_SIZE's first PID.
+3. Re-implement the service on `CcpMaster`; move AEM into `AemWidebandSource`, merged into the CSV and UI.
+4. Gate: golden frames match after DLC 8 padding; one live-car re-check including AEM and concurrent reads.
+
+**Phase 4 session host**
+- A reference-counted host in `MainWindow` hands one `CcpMaster` to the CCP and High-Speed Log tabs
+  (the `IT6RMAService` pattern), opening the transport on first lease and disconnecting after the last.
+- `VehicleInfoControl` currently creates its own `HighSpeedLogService` for `Identify()`, opening a second
+  J2534 session; route it through the host.
 
 **Phase 5 guards**
 - Writes are limited to the CAL RAM range (from the A2L `MEMORY_SEGMENT`, else the build profile).
@@ -320,6 +361,7 @@ A vendor `IF_DATA` block (ignored by other tools) could carry these later withou
 - TEST/CONNECT to a non-zero station address. The master only ever uses station 0x0000, so this should not
   arise.
 - One live logging re-check after the Phase 3 port, including concurrent reads and AEM polling.
+- 2010 Evora and IPS TCU on hardware: deferred with the scope decision in §2.
 - Explain the enable-byte prerequisite on connection failure: a disabled T6 cannot enable itself over CCP.
   Enabling requires an existing authorised calibration/reflash or separately unlocked RMA workflow.
 
