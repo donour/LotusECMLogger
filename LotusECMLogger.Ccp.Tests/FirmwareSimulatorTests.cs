@@ -58,6 +58,25 @@ public class FirmwareSimulatorTests
         Assert.Empty(client.Sample(100));
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task MasterIdentifiesTheProfiledBuildAndReadsItsRegistryAndCalibration(bool alternate)
+    {
+        var (profile, program, cal) = Fixture(alternate: alternate);
+        var image = new T6FirmwareImage(profile, program, cal);
+        using var ecu = new FakeCcpSlave(image);
+        using var master = new CcpMaster(new SimulatedCcpTransport(ecu, speedFactor: 200));
+        await master.ConnectAsync();
+        var identification = await master.IdentifyAsync([profile.BuildProfile]);
+        Assert.Equal(profile.BuildProfile, identification.Build);
+        Assert.Equal(profile.CalibrationId, identification.CalibrationId);
+        Assert.Equal("TEST PROGRAM", identification.RegistryBuildId);
+        Assert.Equal(image.Registry.Entries, (await master.ReadSymbolRegistryAsync(identification.Build!)).Entries);
+        Assert.Equal(cal, await master.ReadAsync(profile.CalibrationRamAddress, cal.Length));
+        Assert.Equal(CcpFrame.AdditiveChecksum(cal), await master.ChecksumAsync(profile.CalibrationRamAddress, cal.Length));
+    }
+
     [Fact]
     public void StockBusGateAndTimeoutPoisoningArePreserved()
     {
