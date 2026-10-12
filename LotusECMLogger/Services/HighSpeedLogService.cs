@@ -190,7 +190,7 @@ namespace LotusECMLogger.Services
             {
                 session.Lease = await _host.AcquireAsync(ct).ConfigureAwait(false);
                 var master = session.Lease.Master;
-                session.Daq = await master.StartDaqAsync(ToDaqLists(session.Plan), "High-Speed Log", ct).ConfigureAwait(false);
+                session.Daq = await master.StartDaqAsync(HighSpeedLogPlanner.ToDaqLists(session.Plan), "High-Speed Log", ct).ConfigureAwait(false);
                 if (session.PollAem) session.Aem = new AemWidebandSource(master);
 
                 var pumps = new List<Task> { PumpAsync(session.Daq.Stream.Reader, s => new WorkItem(s, null), session.Queue.Writer, ct) };
@@ -219,14 +219,6 @@ namespace LotusECMLogger.Services
                 if (!queue.TryWrite(wrap(item)))
                     Interlocked.Increment(ref _droppedFrames);
         }
-
-        /// <summary>Planner groups become DAQ lists, in order, so a fresh session allocates list n to group n.</summary>
-        internal static IReadOnlyList<CcpDaqListRequest> ToDaqLists(LoggingPlan plan) => plan.Groups
-            .Select(g => new CcpDaqListRequest(g.Slot, g.Divider, g.Frames
-                .Select(f => (IReadOnlyList<CcpDaqElement>)f.Channels
-                    .Select(c => new CcpDaqElement(c.Channel.Address, c.Channel.Size)).ToList())
-                .ToList()))
-            .ToList();
 
         // The single writer: decodes, writes the CSV and raises DataReceived, off the CCP receive loop.
         // Times come from the adapter's hardware timestamps (µs, shared by DAQ and AEM frames), anchored

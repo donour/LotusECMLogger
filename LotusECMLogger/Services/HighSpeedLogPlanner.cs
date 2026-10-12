@@ -110,6 +110,17 @@ namespace LotusECMLogger.Services
             return plan;
         }
 
+        /// <summary>
+        /// The plan's groups as CCP DAQ list requests, in order, so a session with free lists allocates list n to
+        /// group n. Samples come back indexed by group (list) and frame (ODT).
+        /// </summary>
+        public static IReadOnlyList<CcpDaqListRequest> ToDaqLists(LoggingPlan plan) => plan.Groups
+            .Select(g => new CcpDaqListRequest(g.Slot, g.Divider, g.Frames
+                .Select(f => (IReadOnlyList<CcpDaqElement>)f.Channels
+                    .Select(c => new CcpDaqElement(c.Channel.Address, c.Channel.Size)).ToList())
+                .ToList()))
+            .ToList();
+
         /// <summary>Packs channels sequentially into frames, never exceeding 7 payload bytes per frame.</summary>
         private static List<List<PlannedChannel>> PackFrames(IReadOnlyList<HighSpeedChannel> channels)
         {
