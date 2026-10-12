@@ -267,13 +267,13 @@
       "rate": 1
     }, // Base injector dead time (u16, us) before the learned LEA_inj_offset_* is added
     {
-      "symbol": "ign_idle_base_flags",
+      "symbol": "vvt_intake_low_load_mode_flags",
       "rate": 1
-    }, // Idle-controller state flags — idle vs off-idle decides which offset pair is being learned
+    }, // 0x40002176, formerly ign_idle_base_flags: intake VVT low-load mode flags (bit 0 = low-load cam schedule active)
     {
-      "symbol": "ign_idle_base_variant",
+      "symbol": "vvt_low_load_cam_offset",
       "rate": 1
-    }, // Idle base variant selector — context for the flags above
+    }, // 0x40002174, formerly ign_idle_base_variant: low-load cam offset — context for the flags above
 
     // ══ Optional — carried over, unchecked ══════════════════════════════════════════════════════
     // Not part of the three tiers above and not logged unless ticked. Rates are suggestions.
