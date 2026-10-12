@@ -24,6 +24,8 @@
     <Compile Include="../LotusECMLogger/Services/HighSpeedLogService.cs" Link="HighSpeedLog/%(Filename)%(Extension)" />
     <Compile Include="../LotusECMLogger/Services/IHighSpeedLogService.cs" Link="HighSpeedLog/%(Filename)%(Extension)" />
     <Compile Include="../LotusECMLogger/Services/AemWidebandSource.cs" Link="HighSpeedLog/%(Filename)%(Extension)" />
+    <Compile Include="../LotusECMLogger/Services/CcpVariableCatalog.cs" Link="HighSpeedLog/%(Filename)%(Extension)" />
+    <Compile Include="../LotusECMLogger/Services/CcpVariableWatch.cs" Link="HighSpeedLog/%(Filename)%(Extension)" />
     <Compile Include="../LotusECMLogger/Services/Logging/*.cs" Link="HighSpeedLog/Logging/%(Filename)%(Extension)" />
     <Compile Include="../LotusECMLogger/LoggerPaths.cs" Link="HighSpeedLog/%(Filename)%(Extension)" />
     <Compile Include="../LotusECMLogger/HighSpeedLogPresetLoader.cs" Link="HighSpeedLog/%(Filename)%(Extension)" />
