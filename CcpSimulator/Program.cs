@@ -99,6 +99,14 @@ static async Task VerifyMasterAsync(T6FirmwareImage image, byte? bus, T6SymbolEn
     await written.Task.WaitAsync(TimeSpan.FromSeconds(10));
     await daq.StopAsync();
     await consumer;
+    var selfTest = await CcpSelfTest.RunAsync(master, new CcpSelfTestOptions
+    {
+        DaqWindow = TimeSpan.FromSeconds(1),
+        Candidates = CcpBuildProfile.Known.Append(profile.BuildProfile).ToList(),
+        LatencyWarnMilliseconds = 1000, // simulator latency follows the OS timer, not the protocol
+    });
+    Console.Write(selfTest.Format(["Target: firmware-backed simulator"]));
+    if (selfTest.Overall == CcpCheckStatus.Fail) throw new InvalidDataException("The self-test failed against the simulator.");
     await master.DisconnectAsync();
     if (master.StrayReplies + master.MalformedFrames + master.UnroutedDaqFrames + daq.Stream.Dropped != 0)
         throw new InvalidDataException($"CcpMaster saw {master.StrayReplies} stray, {master.MalformedFrames} malformed, " +
