@@ -39,6 +39,24 @@ public class HighSpeedLogGoldenTests
         Assert.Equal(File.ReadAllLines(path), actual);
     }
 
+    /// <summary>Presets added after the port: no pre-port frames exist for them, but their symbols must resolve.</summary>
+    public static TheoryData<string> AllPresets
+    {
+        get
+        {
+            var all = new TheoryData<string> { "B132E0091_fuel_feedback_ignition.json", "B132E0091_fuel_idle_diagnostics.json" };
+            foreach (string preset in Presets) all.Add(preset);
+            return all;
+        }
+    }
+
+    // A symbol catalog rename otherwise drops the preset's channel silently (only a warning is recorded).
+    [Theory]
+    [MemberData(nameof(AllPresets))]
+    public void EveryPresetSymbolResolvesInItsCatalog(string preset) =>
+        Assert.Empty(HighSpeedLogPresetLoader.LoadFromFile(
+            Path.Combine(AppContext.BaseDirectory, "config", "highSpeedLogger", preset)).Warnings);
+
     internal static IReadOnlyList<(HighSpeedChannel Channel, int RateHz)> Selection(string preset)
     {
         var loaded = HighSpeedLogPresetLoader.LoadFromFile(Path.Combine(AppContext.BaseDirectory, "config", "highSpeedLogger", preset));
