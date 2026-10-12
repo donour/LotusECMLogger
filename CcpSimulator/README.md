@@ -14,7 +14,9 @@ dotnet run --project CcpSimulator --configuration Release -- \
 
 This performs an end-to-end verification: identification, all 753 symbol reads via CCP,
 full CAL checksum, a RAM write, ten 100 Hz DAQ samples, and reboot restoring the original RAM.
-Failures return exit code 1. The stock CAL selects FlexCAN C (enable byte 2); the default
+It then repeats the checks through the threaded `CcpMaster`
+(build identification from the CAL ID, registry and symbol reads, CAL checksum, a verified write) while a DAQ list
+streams, and fails on any stray, malformed, unrouted or dropped frame. Failures return exit code 1. The stock CAL selects FlexCAN C (enable byte 2); the default
 uses that bus. `--bus a` tests the expected silent timeout on the other bus. Neither command
 changes the source CRP. Decrypted images are kept in memory, and no firmware is shipped in Git.
 
@@ -37,7 +39,16 @@ commands, `Read` drains received frames, and `AdvanceMilliseconds` advances the 
 virtual clock, deferred checksum worker and DAQ sampling/transmission. `Load` injects scenario
 bytes into RAM. `Reboot` restores RAM from the immutable image and clears session/DAQ state.
 All access is single-threaded; the harness owns the receive queue. `CcpSimulationClient`
-is a deterministic test driver, not the planned asynchronous hardware `CcpMaster`.
+is a deterministic single-threaded test driver. To drive the fake from the real `CcpMaster`, wrap it in
+`SimulatedCcpTransport`: it serialises access under a lock, advances virtual time from `Read` (capped at
+`speedFactor` × wall time, or only via `Advance` when `Paused`), and `With(...)` runs scenario code safely:
+
+```csharp
+using var ecu = new FakeCcpSlave(image);
+using var master = new CcpMaster(new SimulatedCcpTransport(ecu));
+await master.ConnectAsync();
+var identification = await master.IdentifyAsync();
+```
 It retains DAQ packets received during commands and makes a timed-out driver unusable until
 a new driver is created after reboot. `Sample` returns accumulated DAQ packets.
 
