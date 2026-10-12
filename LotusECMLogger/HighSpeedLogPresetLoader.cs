@@ -57,7 +57,7 @@ namespace LotusECMLogger
     /// </summary>
     public static class HighSpeedLogPresetLoader
     {
-        private const string ConfigSubDir = "config\\highSpeedLogger";
+        private static readonly string ConfigSubDir = Path.Combine("config", "highSpeedLogger");
 
         private static readonly JsonSerializerOptions JsonOptions = new()
         {

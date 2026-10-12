@@ -16,4 +16,19 @@
     <ProjectReference Include="../CcpSimulator/CcpSimulator.csproj" />
     <Using Include="LotusECMLogger.Services.Ccp.Simulation" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- The high-speed logger is the CCP DAQ consumer. Its pure sources are linked so it can be tested
+         against the simulator without loading WinForms or J2534. -->
+    <Compile Include="../LotusECMLogger/Models/HighSpeedChannel.cs" Link="HighSpeedLog/%(Filename)%(Extension)" />
+    <Compile Include="../LotusECMLogger/Services/HighSpeedLogPlanner.cs" Link="HighSpeedLog/%(Filename)%(Extension)" />
+    <Compile Include="../LotusECMLogger/Services/HighSpeedLogLegacyCommands.cs" Link="HighSpeedLog/%(Filename)%(Extension)" />
+    <Compile Include="../LotusECMLogger/HighSpeedLogPresetLoader.cs" Link="HighSpeedLog/%(Filename)%(Extension)" />
+    <Compile Include="../LotusECMLogger/Services/SymbolCatalog.cs" Link="HighSpeedLog/%(Filename)%(Extension)" />
+    <Compile Include="../LotusECMLogger/Services/SymbolCatalogLoader.cs" Link="HighSpeedLog/%(Filename)%(Extension)" />
+    <Compile Include="../LotusECMLogger/Services/ChannelTypeParser.cs" Link="HighSpeedLog/%(Filename)%(Extension)" />
+    <!-- The presets and symbol catalogs, found through the same discovery path the app uses. -->
+    <None Include="../LotusECMLogger/config/highSpeedLogger/**/*.json;../LotusECMLogger/config/highSpeedLogger/**/*.csv"
+          LinkBase="config/highSpeedLogger" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Fixtures/**/*" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>

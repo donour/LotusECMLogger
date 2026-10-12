@@ -341,35 +341,8 @@ namespace LotusECMLogger.Services
         /// <summary>Runs the open → init/define → arm command sequence against the ECU.</summary>
         private void ConfigureEcu()
         {
-            // Open a fresh config session (also stops any prior logging on the ECU).
-            SendAndExpectAck(CmdOpenSession, 0x00, 0x00);
-
-            foreach (var group in _plan!.Groups)
-            {
-                SendAndExpectAck(CmdInitGroup, (byte)group.GroupIndex);
-
-                foreach (var frame in group.Frames)
-                {
-                    for (int chan = 0; chan < frame.Channels.Count; chan++)
-                    {
-                        var ch = frame.Channels[chan].Channel;
-                        SendAndExpectAck(CmdSelectSlot, (byte)group.GroupIndex, (byte)frame.FrameIndex, (byte)chan);
-                        // [size, 0x00, addr big-endian]
-                        SendAndExpectAck(CmdSetChannel,
-                            ch.Size, 0x00,
-                            (byte)(ch.Address >> 24), (byte)(ch.Address >> 16),
-                            (byte)(ch.Address >> 8), (byte)ch.Address);
-                    }
-                }
-
-                // Configure-only (mode 2): stage the group's timing without starting it yet.
-                SendAndExpectAck(CmdConfigure,
-                    0x02, (byte)group.GroupIndex, (byte)group.FrameCount, (byte)group.Slot,
-                    (byte)(group.Divider >> 8), (byte)(group.Divider & 0xFF));
-            }
-
-            // Start all staged groups together.
-            SendAndExpectAck(CmdStartStopAll, 0x01);
+            foreach (var (command, parameters) in HighSpeedLogLegacyCommands.Configure(_plan!))
+                SendAndExpectAck(command, parameters);
         }
 
         // The ECU stream is timestamped by the J2534 adapter (Message.Timestamp, microseconds). We anchor

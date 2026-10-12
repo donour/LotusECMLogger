@@ -1,0 +1,3 @@
+# preset: B132E0091_dyno_tuning.json
+# selection: 57 channel(s) at their default rate
+# planner error: Channel 'airtemp_tmaf' has unsupported rate 11 Hz.
