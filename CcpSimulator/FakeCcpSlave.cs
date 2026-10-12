@@ -15,6 +15,7 @@ public sealed class FakeCcpSlave : ICcpTransport
     private readonly Dictionary<uint, byte> _memory = new();
     private readonly Queue<CcpReceivedFrame> _received = new();
     private readonly Queue<byte[]> _daqTransmit = new();
+    private readonly HashSet<uint> _receiveIds = new();
     private readonly byte[] _crm = new byte[8];
     private readonly Entry[,,] _entries;
     private readonly byte[] _listState;
@@ -41,6 +42,7 @@ public sealed class FakeCcpSlave : ICcpTransport
     public FakeCcpSlave(CcpBuildProfile? profile = null)
     {
         _profile = profile ?? CcpBuildProfile.Known.Single(p => p.Build == "C132E0278");
+        _receiveIds.Add(Target.DtoId);
         int lists = Target.DaqListCount;
         _entries = new Entry[lists, Target.OdtsPerList, 7];
         _listState = new byte[lists];
@@ -266,6 +268,31 @@ public sealed class FakeCcpSlave : ICcpTransport
         }
     }
 
+    /// <summary>Raised for every auxiliary frame the master sends; a scenario can answer with <see cref="InjectFrame"/>.</summary>
+    public event Action<uint, byte[]>? AuxiliarySent;
+
+    public void AddReceiveId(uint canId)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        CcpTransportRules.ValidateReceiveId(Target, canId);
+        _receiveIds.Add(canId);
+    }
+
+    public void SendAuxiliary(uint canId, ReadOnlySpan<byte> payload)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        CcpTransportRules.ValidateAuxiliary(Target, canId, payload);
+        AuxiliarySent?.Invoke(canId, payload.ToArray());
+    }
+
+    /// <summary>Another node's frame on the bus. Delivered only when its ID was admitted, like a PASS filter.</summary>
+    public void InjectFrame(uint canId, ReadOnlySpan<byte> payload)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (payload.Length is < 1 or > 8) throw new ArgumentException("A CAN payload has 1–8 bytes.", nameof(payload));
+        if (canId != Target.DtoId && _receiveIds.Contains(canId)) Receive(payload.ToArray(), canId);
+    }
+
     public void DrainDaq()
     {
         while (_daqTransmit.TryDequeue(out var bytes)) Receive(bytes);
@@ -285,8 +312,9 @@ public sealed class FakeCcpSlave : ICcpTransport
     {
         if (Enabled) Receive(_crm);
     }
-    private void Receive(byte[] bytes) => _received.Enqueue(new(bytes.ToArray(),
-        _firmware is null ? Timestamp++ : unchecked((uint)(_virtualMilliseconds * 1000))));
+    private void Receive(byte[] bytes) => Receive(bytes, Target.DtoId);
+    private void Receive(byte[] bytes, uint canId) => _received.Enqueue(new(bytes.ToArray(),
+        _firmware is null ? Timestamp++ : unchecked((uint)(_virtualMilliseconds * 1000)), canId));
     private void StopAll() => Array.Clear(_listState);
     private static void CheckSize(int size)
     {
