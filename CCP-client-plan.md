@@ -3,15 +3,15 @@
 Design notes for adding a CCP 2.1 master to LotusECMLogger. The ECU side is described in
 [`CCP-support.md`](CCP-support.md); this document covers the PC side.
 
-**Status (2026-10-12): Phases 1 and 2 implemented (protocol core, firmware-backed GT430 simulator, `CcpMaster`);
-Phase 3 (high-speed logger port) is next. Scope narrowed to T6 2011+ for now, and AEM wideband polling becomes a
-separate data source (§2).**
+**Status (2026-10-12): Phases 1–3 implemented in code (protocol core, firmware-backed GT430 simulator,
+`CcpMaster`, high-speed logger ported onto it with AEM as a separate source). Phase 3's live-car re-check is
+outstanding; Phase 4 (session host and CCP tab) is next. Scope narrowed to T6 2011+ for now (§2).**
 The protocol core, target/build profiles, transport contract, J2534 transport and deterministic fake slave
 are implemented. Cross-platform tests exercise the command sequence, firmware quirks and runtime-registry format.
 The fake loads real PROG/CAL from CRP and exposes `ICcpTransport`; see [`CcpSimulator/README.md`](CcpSimulator/README.md).
 `CcpMaster` (session, memory, checksum, identification, registry, DAQ ownership, auxiliary routing) is tested
-against the fake through a threaded simulator transport. The existing high-speed logger is not ported yet.
-Run `dotnet test LotusECMLogger.Ccp.Tests`.
+against the fake through a threaded simulator transport. The high-speed logger now runs on `CcpMaster`; its
+configuration frames match the pre-port logger's for every shipped preset. Run `dotnet test LotusECMLogger.Ccp.Tests`.
 
 The decisions below were made with the project owner; the reasons are recorded so they can be revisited deliberately rather than by accident.
 
@@ -216,6 +216,9 @@ New code goes under `LotusECMLogger/Services/Ccp/`.
 3. Re-implement the service on `CcpMaster`; move AEM into `AemWidebandSource`, merged into the CSV and UI.
 4. Gate: golden frames match after DLC 8 padding; one live-car re-check including AEM and concurrent reads.
 
+Steps 1–3 and the golden half of step 4 are done; the live-car re-check remains. Until Phase 4's host exists,
+the service owns a `CcpMaster` per logging session (and per Identify), as it previously owned its J2534 session.
+
 **Phase 4 session host**
 - A reference-counted host in `MainWindow` hands one `CcpMaster` to the CCP and High-Speed Log tabs
   (the `IT6RMAService` pattern), opening the transport on first lease and disconnecting after the last.
@@ -405,6 +408,16 @@ Validation on 2026-10-07: `dotnet test LotusECMLogger.Ccp.Tests --configuration 
 and a Windows-targeted application cross-build with `-p:EnableWindowsTargeting=true`.
 The transport compiles against J2534-Sharp.Core 2.0.4; adapter I/O still requires a Windows bench check.
 
+
+**Phase 3 (2026-10-12).** The pre-port command sequence was first moved verbatim into a pure builder that the
+service used, and its frames for all 11 shipped presets (every channel at its default rate) were frozen in
+`LotusECMLogger.Ccp.Tests/Fixtures/HighSpeedLog`. The planner then took its limits, event channels and prescalers
+from `CcpTarget` (fixtures unchanged), and `HighSpeedLogService` was rebuilt on `CcpMaster` with AEM polling moved to
+`AemWidebandSource`; the builder was deleted. The golden test now runs the ported logger against the simulator and
+compares its configuration CROs, normalised only for DLC 8 padding, the GET_CCP_VERSION check and GET_DAQ_SIZE's DTO
+bytes, with the frozen frames; a single changed fixture byte fails it. Service tests cover decoding to events and
+CSV, the per-list stop plus DISCONNECT, the AEM merge, a silent ECU, identification and timestamp unwrapping (now by
+signed difference, so a slightly older AEM frame is not taken for a counter rollover). Not yet run on a car.
 
 **Phase 2 (2026-10-12).** `CcpMaster` lives in `Services/Ccp/CcpMaster*.cs`. `SimulatedCcpTransport` runs the
 single-threaded fake under a lock and advances virtual time from `Read` (capped at a multiple of wall time), so tests

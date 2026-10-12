@@ -1,77 +1,48 @@
-using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Threading.Channels;
 using LotusECMLogger.Models;
+using LotusECMLogger.Services.Ccp;
 using LotusECMLogger.Services.Logging;
-using SAE.J2534;
 
 namespace LotusECMLogger.Services
 {
     /// <summary>
-    /// Implements the T6 high-speed CAN channel logger (developer telemetry facility).
+    /// The T6 high-speed CAN channel logger: a CCP DAQ consumer on <see cref="CcpMaster"/>.
     ///
-    /// The PC configures the ECU as a programmable sampler by sending 8-byte command frames on
-    /// CAN ID 0x350; the ECU then autonomously streams the selected memory locations back on 0x351.
-    /// Protocol reverse-engineered in <c>ChannelLogger.md</c> and verified against the firmware
-    /// dispatch <c>diag_comm_queue_mgmt_unknown</c> (C132E0278.c:46654). Configuration is RAM-only on
-    /// the ECU and wiped on every boot, so the full open → define → arm sequence runs on each start.
+    /// Each session opens a transport, CONNECTs, programs the planned groups as DAQ lists (group = list,
+    /// frame = ODT, slot = event channel, divider = prescaler, label = PID) and streams them to a CSV file
+    /// and to <see cref="DataReceived"/>. DAQ configuration is RAM-only on the ECU and wiped on every boot,
+    /// so the full sequence runs on each start. The optional AEM wideband is a separate
+    /// <see cref="AemWidebandSource"/> on the same session; its values are merged as extra columns.
     ///
-    /// CAN frames go through J2534 raw-CAN, where the buffer is [00,00,IDhi,IDlo][payload…] — the same
-    /// encoding used by <see cref="T6RMAService"/>.
+    /// Until a shared session host exists, this service owns its CcpMaster for the length of a session and
+    /// ends the CCP session (DISCONNECT) when logging stops.
     /// </summary>
-    public sealed class HighSpeedLogService : IHighSpeedLogService
+    public sealed partial class HighSpeedLogService : IHighSpeedLogService
     {
-        // Command (PC→ECU) and stream/response (ECU→PC) CAN IDs.
-        private static readonly byte[] CommandIdHeader = [0x00, 0x00, 0x03, 0x50]; // 0x350
-        private const uint StreamCanId = 0x351;
-
-        // AEM X-Series wideband (OBDII variant, e.g. 30-0334) polling. The gauge answers OBD Mode 01
-        // PID 0x24 at 0x7E1/0x7E9 (same exchange the Live Data logger uses); the 30-0334 has no AEMnet
-        // broadcast, so request/response polling is the only way to read it. Single CAN frame each way,
-        // so it rides on this raw-CAN channel without ISO-TP. Frames are padded to 8 bytes per
-        // ISO 15765-4; the reply is [PCI, 0x41, 0x24, A, B, C, D, …] with lambda = (2/65536)·(A·256+B).
-        private static readonly byte[] AemPollFrame =
-            [0x00, 0x00, 0x07, 0xE1, 0x02, 0x01, 0x24, 0x00, 0x00, 0x00, 0x00, 0x00];
-        private const uint AemResponseCanId = 0x7E9;
-        private const int AemPollIntervalMs = 50; // 20 Hz nominal
-
-        // Command opcodes.
-        private const byte CmdOpenSession = 0x01;
-        private const byte CmdInitGroup = 0x14;
-        private const byte CmdSelectSlot = 0x15;
-        private const byte CmdSetChannel = 0x16;
-        private const byte CmdConfigure = 0x06;
-        private const byte CmdStartStopAll = 0x08;
-        private const byte CmdEndSession = 0x07;
-        private const byte CmdIdentify = 0x17;
-
-        private const byte ResponseMarker = 0xFF; // first payload byte of a command reply
-        private const int AckTimeoutMs = 400;
-        private const int StreamReadTimeoutMs = 100;
-
-        /// <summary>Log column carrying the frame demux label, ahead of the channel columns.</summary>
+        /// <summary>Log column carrying the frame's PID, ahead of the channel columns.</summary>
         private const string LabelColumn = "Label";
 
-        // Hand-off buffer between the CAN-drain thread and the CSV-writer thread. Bounded so a disk
-        // stall can't grow memory without limit: 1024 frames × (≤7-byte payload + small struct) is well
-        // under 128 kB. Beyond this the drain thread drops frames (counted) rather than blocking — a
-        // blocked drain would just push the overflow back onto the J2534 driver's RX buffer.
+        // Hand-off buffer between the session's streams and the CSV writer. Bounded so a disk stall can't
+        // grow memory without limit; beyond this frames are dropped (counted) rather than stalling the
+        // CCP receive loop, which would only push the overflow back onto the adapter.
         private const int MaxQueuedFrames = 1024;
+        private static readonly TimeSpan StopTimeout = TimeSpan.FromSeconds(5);
 
+        private readonly Func<ICcpTransport> _openTransport;
+        private readonly CcpMasterOptions? _masterOptions;
         private readonly object _lock = new();
-
-        private J2534Session? _session;
-        private J2534Channel? _channel;
-        private Thread? _loggingThread;   // CAN-drain (producer)
-        private Thread? _writerThread;    // decode + CSV + events (consumer)
+        private Session? _session;
         private bool _isLogging;
-        private byte _seq;
-
-        private LoggingPlan? _plan;
-        private ISampleSink? _sink;
-
-        private BlockingCollection<StreamWorkItem>? _writeQueue;
         private long _droppedFrames;
-        private bool _pollAem;
+
+        /// <param name="openTransport">Opens the transport for one session (the master takes ownership).</param>
+        public HighSpeedLogService(Func<ICcpTransport> openTransport, CcpMasterOptions? masterOptions = null)
+        {
+            ArgumentNullException.ThrowIfNull(openTransport);
+            _openTransport = openTransport;
+            _masterOptions = masterOptions;
+        }
 
         public event EventHandler<HighSpeedSampleEventArgs>? DataReceived;
         public event EventHandler<string>? ErrorOccurred;
@@ -82,84 +53,82 @@ namespace LotusECMLogger.Services
         }
 
         /// <summary>
-        /// Number of stream frames dropped because the writer thread could not keep up and the bounded
-        /// hand-off queue was full (e.g. a sustained disk stall). 0 in normal operation.
+        /// Frames dropped because a consumer fell behind (CSV writer or a full session stream), e.g. a
+        /// sustained disk stall. 0 in normal operation.
         /// </summary>
-        public long DroppedFrames => Interlocked.Read(ref _droppedFrames);
-
-        /// <summary>
-        /// One CAN stream frame handed from the drain thread to the writer thread. The payload bytes are
-        /// copied out of the J2534 buffer so they stay valid across the thread boundary.
-        /// </summary>
-        private readonly struct StreamWorkItem(
-            byte[] payload, IReadOnlyList<HighSpeedChannel> layout, DateTime timestamp, ulong elapsedUs, byte label, bool overflow,
-            bool isAemSample = false)
+        public long DroppedFrames
         {
-            public byte[] Payload { get; } = payload;
-            public IReadOnlyList<HighSpeedChannel> Layout { get; } = layout;
-            public DateTime Timestamp { get; } = timestamp;
-            public ulong ElapsedUs { get; } = elapsedUs;
-            public byte Label { get; } = label;
-            public bool Overflow { get; } = overflow;
-
-            /// <summary>True for a polled AEM wideband reply (0x7E9) rather than a 0x351 stream frame.</summary>
-            public bool IsAemSample { get; } = isAemSample;
+            get
+            {
+                Session? session;
+                lock (_lock) session = _session;
+                return Interlocked.Read(ref _droppedFrames) + (session?.Daq?.Stream.Dropped ?? 0) + (session?.Aem?.Dropped ?? 0);
+            }
         }
+
+        /// <summary>Everything one logging session owns.</summary>
+        private sealed class Session(CcpMaster master, LoggingPlan plan, ISampleSink sink, bool pollAem)
+        {
+            public CcpMaster Master { get; } = master;
+            public LoggingPlan Plan { get; } = plan;
+            public ISampleSink Sink { get; } = sink;
+            public bool PollAem { get; } = pollAem;
+            public CancellationTokenSource Cancel { get; } = new();
+            public Channel<WorkItem> Queue { get; } = Channel.CreateBounded<WorkItem>(new BoundedChannelOptions(MaxQueuedFrames)
+            {
+                SingleReader = true,
+                FullMode = BoundedChannelFullMode.Wait, // TryWrite fails (counted) instead of evicting silently
+            });
+            public volatile CcpDaqSubscription? Daq;
+            public volatile AemWidebandSource? Aem;
+            public Task Worker { get; set; } = Task.CompletedTask;
+        }
+
+        /// <summary>A DAQ sample or an AEM reading, in arrival order, for the single writer.</summary>
+        private readonly record struct WorkItem(CcpDaqSample? Daq, AemWidebandSample? Aem);
 
         public void StartLogging(IReadOnlyList<(HighSpeedChannel channel, int rateHz)> channels, string csvFilePath,
             bool pollAemWideband = false)
         {
             lock (_lock)
             {
-                if (_isLogging)
+                if (_isLogging || _session is not null)
                     throw new InvalidOperationException("High-speed logging is already active. Stop the current session first.");
 
                 if (string.IsNullOrWhiteSpace(csvFilePath))
                     throw new ArgumentException("CSV file path cannot be empty", nameof(csvFilePath));
 
                 // Build (and validate) the ECU channel program before touching hardware.
-                _plan = HighSpeedLogPlanner.Plan(channels);
+                var plan = HighSpeedLogPlanner.Plan(channels, CcpTarget.T6);
 
                 // Log columns = the frame label, then the selected channels in selection order
                 // (de-duplicated by name).
-                _pollAem = pollAemWideband;
                 List<string> columnNames = [LabelColumn, .. channels.Select(c => c.channel.Name).Distinct()];
-                if (_pollAem)
+                if (pollAemWideband)
                 {
                     columnNames.Add(IHighSpeedLogService.AemLambdaChannelName);
                     columnNames.Add(IHighSpeedLogService.AemAfrChannelName);
                 }
 
+                CcpMaster? master = null;
+                ISampleSink? sink = null;
                 try
                 {
-                    InitializeDevice();
-                    InitializeCsvFile(csvFilePath, channels, columnNames);
-
+                    master = new CcpMaster(_openTransport(), _masterOptions);
+                    sink = CreateSink(csvFilePath, channels, columnNames, pollAemWideband);
+                    var session = new Session(master, plan, sink, pollAemWideband);
                     Interlocked.Exchange(ref _droppedFrames, 0);
-                    _writeQueue = new BlockingCollection<StreamWorkItem>(MaxQueuedFrames);
+                    _session = session;
                     _isLogging = true;
-
-                    // Consumer first (it just blocks on the queue until the producer feeds it).
-                    _writerThread = new Thread(WriterThreadProc)
-                    {
-                        Name = "HighSpeedLog Writer",
-                        IsBackground = true,
-                    };
-                    _writerThread.Start();
-
-                    _loggingThread = new Thread(LoggingThreadProc)
-                    {
-                        Name = "HighSpeedLog Thread",
-                        IsBackground = true,
-                    };
-                    _loggingThread.Start();
-
-                    Debug.WriteLine($"HighSpeedLog: started, {_plan.Groups.Count} group(s), {columnNames.Count} column(s)");
+                    session.Worker = Task.Run(() => RunAsync(session));
+                    Debug.WriteLine($"HighSpeedLog: started, {plan.Groups.Count} group(s), {columnNames.Count} column(s)");
                 }
                 catch (Exception ex)
                 {
                     _isLogging = false;
-                    CleanupResources();
+                    _session = null;
+                    sink?.Dispose();
+                    master?.Dispose();
                     throw new InvalidOperationException($"Failed to start high-speed logging: {ex.Message}", ex);
                 }
             }
@@ -167,426 +136,258 @@ namespace LotusECMLogger.Services
 
         public void StopLogging()
         {
-            Thread? producer, writer;
+            Session? session;
             lock (_lock)
             {
-                if (!_isLogging && _loggingThread == null && _writerThread == null)
-                    return;
+                session = _session;
                 _isLogging = false;
-                producer = _loggingThread;
-                writer = _writerThread;
+                _session = null;
             }
-
-            // Drain thread exits its read loop (and sends its 0x07 stop), then completes the queue in its
-            // finally so the writer can flush the backlog and exit. Guard against a self-join if Stop is
-            // ever invoked from one of these threads.
-            if (producer != null && producer != Thread.CurrentThread)
-                producer.Join(TimeSpan.FromSeconds(5));
-
-            // Defensive: if the producer timed out or died before completing the queue, do it here so the
-            // writer can still drain and exit. Safe to call more than once.
-            try { _writeQueue?.CompleteAdding(); } catch (ObjectDisposedException) { }
-
-            if (writer != null && writer != Thread.CurrentThread)
-                writer.Join(TimeSpan.FromSeconds(5));
-
-            lock (_lock)
-            {
-                CleanupResources();
-                Debug.WriteLine("HighSpeedLog: stopped");
-            }
+            if (session is null) return;
+            // The master never resumes on a captured context, so blocking here (often the UI thread) is safe.
+            Task.Run(() => StopAsync(session)).GetAwaiter().GetResult();
+            Debug.WriteLine("HighSpeedLog: stopped");
         }
 
         public void Dispose() => StopLogging();
 
-        public HighSpeedIdentifyResult Identify()
+        /// <summary>
+        /// Stops only this session's DAQ lists, ends the CCP session, then lets the writer drain the backlog.
+        /// Everything is best-effort: a silent ECU must not prevent the CSV from being closed.
+        /// </summary>
+        private async Task StopAsync(Session session)
         {
-            lock (_lock)
-            {
-                if (_isLogging)
-                    throw new InvalidOperationException("Stop high-speed logging before testing the connection.");
-            }
-
-            const int probeTimeoutMs = 400;
-            J2534Session? tempSession = null;
+            using var timeout = new CancellationTokenSource(StopTimeout);
+            session.Aem?.Dispose();
             try
             {
-                tempSession = J2534Session.Open();
-                var channel = tempSession.OpenCan();
-                channel.StartMessageFilter(StreamPassFilter()).ThrowIfError();
-
-                // Open a session. This is always accepted, and a reply proves the 0x350 RX mailbox —
-                // and therefore the diagnostic bus (CAL_ecu_flexcan_diag_bus_select ≠ 0) — is live.
-                byte seq = 0;
-                channel.SendMessage(BuildFrame(CmdOpenSession, seq, [0x00, 0x00]));
-                if (ReadAck(channel, seq, probeTimeoutMs) == null)
-                    return new HighSpeedIdentifyResult { SessionOpened = false };
-
-                // Identify. Reply payload = [0xFF, status, echo, idLen, magic(4 bytes, big-endian)].
-                seq++;
-                channel.SendMessage(BuildFrame(CmdIdentify, seq, []));
-                byte[]? id = ReadAck(channel, seq, probeTimeoutMs);
-
-                // Best-effort: close the session we opened so we leave the ECU as we found it.
-                seq++;
-                try { channel.SendMessage(BuildFrame(CmdEndSession, seq, [0x01])); }
-                catch (Exception ex) { Debug.WriteLine($"HighSpeedLog: identify cleanup failed: {ex.Message}"); }
-
-                if (id == null)
-                    return new HighSpeedIdentifyResult { SessionOpened = true, Identified = false };
-
-                int idLen = id.Length > 7 ? id[7] : 0;
-                uint magic = id.Length >= 12
-                    ? (uint)((id[8] << 24) | (id[9] << 16) | (id[10] << 8) | id[11])
-                    : 0;
-
-                return new HighSpeedIdentifyResult
-                {
-                    SessionOpened = true,
-                    Identified = true,
-                    FirmwareIdLength = idLen,
-                    Magic = magic,
-                };
+                if (session.Daq is { IsActive: true } daq) await daq.StopAsync(timeout.Token).ConfigureAwait(false);
+                else session.Cancel.Cancel(); // still configuring: abandon it (the session becomes uncertain)
             }
-            finally
+            catch (Exception ex) { Debug.WriteLine($"HighSpeedLog: DAQ stop failed: {ex.Message}"); }
+            try
             {
-                tempSession?.Dispose();
+                if (session.Master.State is CcpSessionState.Connected or CcpSessionState.Uncertain)
+                    await session.Master.DisconnectAsync(endSession: true, timeout.Token).ConfigureAwait(false);
+            }
+            catch (Exception ex) { Debug.WriteLine($"HighSpeedLog: disconnect failed: {ex.Message}"); }
+
+            // The streams have ended; the writer drains what is queued and exits.
+            try { await session.Worker.WaitAsync(StopTimeout).ConfigureAwait(false); }
+            catch (Exception ex) { Debug.WriteLine($"HighSpeedLog: writer did not finish: {ex.Message}"); }
+            session.Queue.Writer.TryComplete();
+            session.Cancel.Cancel();
+            // Keep the session's drop count visible after it ends, as the old logger did.
+            Interlocked.Add(ref _droppedFrames, (session.Daq?.Stream.Dropped ?? 0) + (session.Aem?.Dropped ?? 0));
+            session.Master.Dispose();
+            try { session.Sink.Dispose(); }
+            catch (Exception ex) { Debug.WriteLine($"HighSpeedLog: closing the log failed: {ex.Message}"); }
+        }
+
+        /// <summary>Configures the ECU, then pumps DAQ and AEM into the queue while one loop writes the CSV.</summary>
+        private async Task RunAsync(Session session)
+        {
+            var ct = session.Cancel.Token;
+            try
+            {
+                await session.Master.ConnectAsync(ct).ConfigureAwait(false);
+                session.Daq = await session.Master.StartDaqAsync(ToDaqLists(session.Plan), ct).ConfigureAwait(false);
+                if (session.PollAem) session.Aem = new AemWidebandSource(session.Master);
+
+                var pumps = new List<Task> { PumpAsync(session.Daq.Stream.Reader, s => new WorkItem(s, null), session.Queue.Writer, ct) };
+                if (session.Aem is { } aem) pumps.Add(PumpAsync(aem.Samples, s => new WorkItem(null, s), session.Queue.Writer, ct));
+                var writer = WriteAsync(session);
+                // The streams end when logging stops (or the transport faults, which surfaces here).
+                try { await Task.WhenAll(pumps).ConfigureAwait(false); }
+                finally { session.Queue.Writer.TryComplete(); }
+                await writer.ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { }
+            catch (Exception ex)
+            {
+                session.Queue.Writer.TryComplete();
+                Debug.WriteLine($"HighSpeedLog: session error: {ex}");
+                bool current;
+                lock (_lock) { current = _session == session; if (current) _isLogging = false; }
+                if (current) ErrorOccurred?.Invoke(this, ex.Message);
             }
         }
 
-        private void InitializeDevice()
+        private async Task PumpAsync<T>(ChannelReader<T> source, Func<T, WorkItem> wrap, ChannelWriter<WorkItem> queue,
+            CancellationToken ct)
         {
-            _session = J2534Session.Open();
-            _channel = _session.OpenCan(); // raw CAN @ 500 kbaud
-            _channel.StartMessageFilter(StreamPassFilter()).ThrowIfError();
-            if (_pollAem)
-                _channel.StartMessageFilter(AemPassFilter()).ThrowIfError();
+            await foreach (var item in source.ReadAllAsync(ct).ConfigureAwait(false))
+                if (!queue.TryWrite(wrap(item)))
+                    Interlocked.Increment(ref _droppedFrames);
         }
 
-        /// <summary>PASS filter that admits only 0x351 (the stream + command responses).</summary>
-        private static MessageFilter StreamPassFilter() => new()
-        {
-            FilterType = Filter.PASS_FILTER,
-            Mask = [0x00, 0x00, 0x07, 0xFF],
-            Pattern = [0x00, 0x00, 0x03, 0x51],
-        };
+        /// <summary>Planner groups become DAQ lists, in order, so a fresh session allocates list n to group n.</summary>
+        internal static IReadOnlyList<CcpDaqListRequest> ToDaqLists(LoggingPlan plan) => plan.Groups
+            .Select(g => new CcpDaqListRequest(g.Slot, g.Divider, g.Frames
+                .Select(f => (IReadOnlyList<CcpDaqElement>)f.Channels
+                    .Select(c => new CcpDaqElement(c.Channel.Address, c.Channel.Size)).ToList())
+                .ToList()))
+            .ToList();
 
-        /// <summary>PASS filter that admits 0x7E9 (AEM wideband OBD replies); filters OR together.</summary>
-        private static MessageFilter AemPassFilter() => new()
+        // The single writer: decodes, writes the CSV and raises DataReceived, off the CCP receive loop.
+        // Times come from the adapter's hardware timestamps (µs, shared by DAQ and AEM frames), anchored
+        // to wall-clock at the first frame, so frames read together in one batch keep distinct, accurate times.
+        private async Task WriteAsync(Session session)
         {
-            FilterType = Filter.PASS_FILTER,
-            Mask = [0x00, 0x00, 0x07, 0xFF],
-            Pattern = [0x00, 0x00, 0x07, 0xE9],
-        };
+            var clock = new HardwareClock();
+            await foreach (var item in session.Queue.Reader.ReadAllAsync().ConfigureAwait(false))
+            {
+                if (item.Daq is { } sample) WriteDaq(session, sample, clock);
+                else if (item.Aem is { } aem) WriteAem(session, aem, clock);
+            }
+        }
 
-        private void InitializeCsvFile(string csvFilePath,
-            IReadOnlyList<(HighSpeedChannel channel, int rateHz)> channels, IReadOnlyList<string> columns)
+        private void WriteDaq(Session session, in CcpDaqSample sample, HardwareClock clock)
+        {
+            var (timestamp, elapsedUs) = clock.At(sample.TimestampMicroseconds);
+            var frame = session.Plan.Groups[sample.List].Frames[sample.Odt];
+            byte label = (byte)(session.Daq!.FirstPids[sample.List] + sample.Odt);
+            ReadOnlySpan<byte> payload = sample.Data.Span;
+
+            var readings = new List<HighSpeedReading>(frame.Channels.Count);
+            foreach (var planned in frame.Channels)
+            {
+                var ch = planned.Channel;
+                if (planned.ByteOffset >= payload.Length) break;
+                int len = Math.Min(ch.Size, payload.Length - planned.ByteOffset);
+                double value = ch.Decode(payload.Slice(planned.ByteOffset, len));
+                readings.Add(new HighSpeedReading { Name = ch.Name, Value = value, Unit = ch.Unit });
+                session.Sink.Set(ch.Name, value);
+            }
+
+            // A frame carries only its own group's channels; the rest of the row is carried forward by the sink.
+            session.Sink.Set(LabelColumn, label);
+            session.Sink.WriteRow(timestamp, elapsedUs / 1000.0);
+
+            DataReceived?.Invoke(this, new HighSpeedSampleEventArgs
+            {
+                Timestamp = timestamp,
+                Label = label,
+                Overflow = sample.Overrun,
+                Readings = readings,
+            });
+        }
+
+        // AEM values fold into the last-value-hold columns; the next stream row carries them. No CSV row of
+        // its own: at ~20 Hz against a stream running hundreds of Hz, per-poll rows would fragment the log.
+        private void WriteAem(Session session, in AemWidebandSample aem, HardwareClock clock)
+        {
+            var (timestamp, _) = clock.At(aem.TimestampMicroseconds);
+            session.Sink.Set(IHighSpeedLogService.AemLambdaChannelName, aem.Lambda);
+            session.Sink.Set(IHighSpeedLogService.AemAfrChannelName, aem.Afr);
+
+            DataReceived?.Invoke(this, new HighSpeedSampleEventArgs
+            {
+                Timestamp = timestamp,
+                Label = 0,
+                Overflow = false,
+                Readings =
+                [
+                    new HighSpeedReading { Name = IHighSpeedLogService.AemLambdaChannelName, Value = aem.Lambda, Unit = "λ" },
+                    new HighSpeedReading { Name = IHighSpeedLogService.AemAfrChannelName, Value = aem.Afr, Unit = "AFR" },
+                ],
+            });
+        }
+
+        /// <summary>
+        /// Unwraps the adapter's 32-bit µs counter (wraps every ~71.6 min) by signed difference, so a frame
+        /// from the other stream that arrives slightly out of order is not mistaken for a rollover.
+        /// </summary>
+        internal sealed class HardwareClock
+        {
+            private DateTime _anchor;
+            private bool _started;
+            private uint _lastRaw;
+            private long _lastElapsed;
+
+            public (DateTime Timestamp, ulong ElapsedUs) At(uint raw)
+            {
+                if (!_started)
+                {
+                    (_anchor, _lastRaw, _started) = (DateTime.Now, raw, true);
+                    return (_anchor, 0);
+                }
+                long elapsed = Math.Max(0, _lastElapsed + unchecked((int)(raw - _lastRaw)));
+                if (elapsed > _lastElapsed) (_lastRaw, _lastElapsed) = (raw, elapsed);
+                return (_anchor.AddTicks(elapsed * TimeSpan.TicksPerMicrosecond), (ulong)elapsed);
+            }
+        }
+
+        private static ISampleSink CreateSink(string csvFilePath,
+            IReadOnlyList<(HighSpeedChannel channel, int rateHz)> channels, IReadOnlyList<string> columns, bool pollAem)
         {
             List<string> notes = [];
             foreach (var (channel, rateHz) in channels)
                 notes.Add($"{channel.Name}: 0x{channel.Address:X8} size={channel.Size} {rateHz}Hz unit={channel.Unit}");
-            if (_pollAem)
-                notes.Add($"AEM UEGO: OBD Mode 01 PID 0x24 @ 0x7E1, polled every {AemPollIntervalMs}ms (last-value-hold columns)");
+            if (pollAem)
+                notes.Add($"AEM UEGO: OBD Mode 01 PID 0x24 @ 0x{AemWidebandSource.RequestId:X3}, polled every " +
+                    $"{AemWidebandSource.DefaultPollInterval.TotalMilliseconds:0}ms (last-value-hold columns)");
 
             // Every channel is a decoded measurement, so they are all plain decimal columns.
-            _sink = new CsvSampleSink(
+            return new CsvSampleSink(
                 csvFilePath,
                 new SampleLogHeader("Lotus High-Speed CAN Channel Log", notes),
                 columns.Select(SampleColumn.Number));
         }
 
-        private void LoggingThreadProc()
+        /// <summary>
+        /// Probes the ECU on its own short session: CONNECT (with the CCP 2.1 check), EXCHANGE_ID with the ID
+        /// string, and build identification from the calibration ID; then DISCONNECT.
+        /// </summary>
+        public HighSpeedIdentifyResult Identify()
         {
+            lock (_lock)
+            {
+                if (_isLogging || _session is not null)
+                    throw new InvalidOperationException("Stop high-speed logging before testing the connection.");
+            }
+            return Task.Run(IdentifyAsync).GetAwaiter().GetResult();
+        }
+
+        private async Task<HighSpeedIdentifyResult> IdentifyAsync()
+        {
+            using var master = new CcpMaster(_openTransport(), _masterOptions);
             try
             {
-                ConfigureEcu();
-                StreamLoop();
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"HighSpeedLog: thread error: {ex}");
-                lock (_lock) { _isLogging = false; }
-                ErrorOccurred?.Invoke(this, ex.Message);
+                try { await master.ConnectAsync().ConfigureAwait(false); }
+                catch (CcpTimeoutException) { return new HighSpeedIdentifyResult { SessionOpened = false }; }
+                catch (CcpProtocolException) { return new HighSpeedIdentifyResult { SessionOpened = true, Identified = false }; }
+
+                CcpBuildIdentification identification;
+                try { identification = await master.IdentifyAsync().ConfigureAwait(false); }
+                catch (Exception ex) when (ex is CcpTimeoutException or CcpException or CcpProtocolException)
+                {
+                    return new HighSpeedIdentifyResult { SessionOpened = true, Identified = false };
+                }
+                var slave = identification.Slave;
+                var fields = slave.Fields;
+                return new HighSpeedIdentifyResult
+                {
+                    SessionOpened = true,
+                    Identified = true,
+                    FirmwareIdLength = fields.IdLength,
+                    Magic = (uint)(fields.DataType << 24 | fields.AvailableResources << 16 |
+                        fields.ProtectedResources << 8 | fields.DriverVersion),
+                    SlaveId = slave.SlaveId,
+                    CcpVersion = $"{slave.VersionMajor}.{slave.VersionMinor}",
+                    CalibrationId = identification.CalibrationId,
+                    CalibrationDescription = identification.CalibrationDescription,
+                };
             }
             finally
             {
-                TrySendStop();
-                // No more frames are coming — let the writer drain the backlog and exit.
-                try { _writeQueue?.CompleteAdding(); } catch (ObjectDisposedException) { }
-            }
-        }
-
-        // Consumer: decodes queued frames, writes the CSV, and raises DataReceived — all off the CAN-drain
-        // thread, so disk latency here cannot stall the J2534 read loop.
-        private void WriterThreadProc()
-        {
-            try
-            {
-                foreach (var item in _writeQueue!.GetConsumingEnumerable())
+                // Best-effort: leave the ECU as we found it.
+                try
                 {
-                    if (item.IsAemSample)
-                        ProcessAemSample(in item);
-                    else
-                        ProcessFrame(in item);
+                    if (master.State is CcpSessionState.Connected or CcpSessionState.Uncertain)
+                        await master.DisconnectAsync().ConfigureAwait(false);
                 }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"HighSpeedLog: writer error: {ex}");
-                lock (_lock) { _isLogging = false; }
-                ErrorOccurred?.Invoke(this, ex.Message);
-            }
-        }
-
-        /// <summary>Runs the open → init/define → arm command sequence against the ECU.</summary>
-        private void ConfigureEcu()
-        {
-            foreach (var (command, parameters) in HighSpeedLogLegacyCommands.Configure(_plan!))
-                SendAndExpectAck(command, parameters);
-        }
-
-        // The ECU stream is timestamped by the J2534 adapter (Message.Timestamp, microseconds). We anchor
-        // wall-clock to the first frame and derive each row's time from the hardware timestamp, so frames
-        // read together in one batch get distinct, accurate times instead of one shared processing time.
-        private void StreamLoop()
-        {
-            DateTime wallAnchor = default;
-            bool haveAnchor = false;
-            uint rawT0 = 0, rawLast = 0;
-            ulong wrapAccum = 0; // accumulated 2^32-µs rollovers (the counter wraps ~every 71.6 min)
-            long nextAemPollAt = 0; // Environment.TickCount64 deadline; 0 = poll immediately
-
-            while (IsLogging)
-            {
-                if (_pollAem && Environment.TickCount64 >= nextAemPollAt)
-                {
-                    nextAemPollAt = Environment.TickCount64 + AemPollIntervalMs;
-                    SendAemPoll();
-                }
-
-                var result = _channel!.ReadMessages(16, StreamReadTimeoutMs);
-                foreach (var msg in result.Messages)
-                {
-                    if (msg.Data == null || msg.Data.Length < 5)
-                        continue;
-
-                    uint canId = (uint)((msg.Data[0] << 24) | (msg.Data[1] << 16) | (msg.Data[2] << 8) | msg.Data[3]);
-                    byte b0 = msg.Data[4];
-                    if (canId == StreamCanId && b0 == ResponseMarker)
-                        continue; // stray command response during streaming
-
-                    // Advance the hardware-timestamp clock for every admitted frame (handles rollover).
-                    // Stream and AEM frames share the adapter's counter, so one clock serves both.
-                    uint raw = msg.Timestamp;
-                    if (!haveAnchor)
-                    {
-                        wallAnchor = DateTime.Now;
-                        rawT0 = rawLast = raw;
-                        haveAnchor = true;
-                    }
-                    else if (raw < rawLast)
-                    {
-                        wrapAccum += 0x1_0000_0000UL;
-                    }
-                    rawLast = raw;
-                    ulong elapsedUs = wrapAccum + raw - rawT0;
-                    DateTime timestamp = wallAnchor.AddTicks((long)elapsedUs * TimeSpan.TicksPerMicrosecond);
-
-                    StreamWorkItem item;
-                    if (canId == AemResponseCanId)
-                    {
-                        // AEM OBD reply: hand the raw payload (PCI onward) to the writer for decode.
-                        item = new StreamWorkItem(msg.Data.AsSpan(4).ToArray(), [],
-                            timestamp, elapsedUs, 0, false, isAemSample: true);
-                    }
-                    else
-                    {
-                        byte label = (byte)(b0 & 0x7F);
-                        bool overflow = (b0 & 0x80) != 0;
-                        if (!_plan!.LayoutByLabel.TryGetValue(label, out var layout))
-                            continue;
-
-                        // Copy the payload (bytes after [header][label]) so it stays valid on the writer thread.
-                        item = new StreamWorkItem(msg.Data.AsSpan(5).ToArray(), layout, timestamp, elapsedUs, label, overflow);
-                    }
-
-                    try
-                    {
-                        // Non-blocking: if the writer has fallen behind and the queue is full, drop this
-                        // frame (counted) rather than stalling the CAN drain.
-                        if (!_writeQueue!.TryAdd(item))
-                            Interlocked.Increment(ref _droppedFrames);
-                    }
-                    catch (InvalidOperationException)
-                    {
-                        break; // queue completed (stop in progress)
-                    }
-                }
-            }
-        }
-
-        /// <summary>
-        /// Sends one Mode 01 PID 0x24 request to the AEM (0x7E1). Best-effort: a send failure must not
-        /// kill the ECU stream, so it is logged and polling simply retries next interval.
-        /// </summary>
-        private void SendAemPoll()
-        {
-            try
-            {
-                _channel!.SendMessage(AemPollFrame);
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"HighSpeedLog: AEM poll send failed: {ex.Message}");
-            }
-        }
-
-        // Decode one frame's channels, write its log row, and raise DataReceived. Runs on the writer thread.
-        private void ProcessFrame(in StreamWorkItem item)
-        {
-            ReadOnlySpan<byte> payload = item.Payload;
-            ISampleSink? sink = _sink;
-
-            var readings = new List<HighSpeedReading>(item.Layout.Count);
-            int offset = 0;
-            foreach (var ch in item.Layout)
-            {
-                if (offset >= payload.Length)
-                    break;
-                int len = Math.Min(ch.Size, payload.Length - offset);
-                double value = ch.Decode(payload.Slice(offset, len));
-                readings.Add(new HighSpeedReading { Name = ch.Name, Value = value, Unit = ch.Unit });
-                sink?.Set(ch.Name, value);
-                offset += ch.Size;
-            }
-
-            // A frame carries only its own group's channels; the rest of the row is carried forward
-            // by the sink. The adapter's hardware timestamp times the row far more precisely than
-            // wall-clock, which cannot separate frames read together in one batch.
-            sink?.Set(LabelColumn, item.Label);
-            sink?.WriteRow(item.Timestamp, item.ElapsedUs / 1000.0);
-
-            DataReceived?.Invoke(this, new HighSpeedSampleEventArgs
-            {
-                Timestamp = item.Timestamp,
-                Label = item.Label,
-                Overflow = item.Overflow,
-                Readings = readings,
-            });
-        }
-
-        // Decode one polled AEM wideband reply and fold lambda/AFR into the last-value-hold map; the
-        // next stream row then carries them. No CSV row of its own — at ~20 Hz against a stream running
-        // hundreds of Hz, per-poll rows would only fragment the log. Runs on the writer thread.
-        private void ProcessAemSample(in StreamWorkItem item)
-        {
-            // Payload = [PCI, 0x41, 0x24, A, B, C, D, …]; single-frame ISO-TP, mode 01 + 0x40 echo.
-            ReadOnlySpan<byte> p = item.Payload;
-            if (p.Length < 7 || (p[0] & 0xF0) != 0x00 || p[1] != 0x41 || p[2] != 0x24)
-                return;
-
-            // Same decode as LiveDataReading.ParseAemUegoResponse (offsets shifted: raw CAN keeps the PCI byte).
-            double lambda = (2.0 / 65536.0) * ((p[3] << 8) | p[4]);
-            double afr = lambda * 14.7;
-
-            ISampleSink? sink = _sink;
-            sink?.Set(IHighSpeedLogService.AemLambdaChannelName, lambda);
-            sink?.Set(IHighSpeedLogService.AemAfrChannelName, afr);
-
-            DataReceived?.Invoke(this, new HighSpeedSampleEventArgs
-            {
-                Timestamp = item.Timestamp,
-                Label = item.Label,
-                Overflow = false,
-                Readings =
-                [
-                    new HighSpeedReading { Name = IHighSpeedLogService.AemLambdaChannelName, Value = lambda, Unit = "λ" },
-                    new HighSpeedReading { Name = IHighSpeedLogService.AemAfrChannelName, Value = afr, Unit = "AFR" },
-                ],
-            });
-        }
-
-        /// <summary>Sends a command and waits for its matching ACK; throws on NAK or timeout.</summary>
-        private void SendAndExpectAck(byte cmd, params byte[] parameters)
-        {
-            byte seq = _seq++;
-            _channel!.SendMessage(BuildFrame(cmd, seq, parameters));
-
-            byte? status = WaitForAck(seq, AckTimeoutMs);
-            if (status == null)
-                throw new TimeoutException($"No ECU response to command 0x{cmd:X2} (seq {seq}). Is the diag bus enabled?");
-            if (status.Value != 0)
-                throw new InvalidOperationException($"ECU rejected command 0x{cmd:X2} with status 0x{status.Value:X2}.");
-        }
-
-        private byte? WaitForAck(byte seq, int timeoutMs) => ReadAck(_channel!, seq, timeoutMs)?[5];
-
-        /// <summary>
-        /// Reads 0x351 until the ACK echoing <paramref name="seq"/> arrives; returns the full RX frame
-        /// (<c>[00,00,03,51, 0xFF, status, echo, …]</c>) or null on timeout.
-        /// </summary>
-        private static byte[]? ReadAck(J2534Channel channel, byte seq, int timeoutMs)
-        {
-            var deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
-            while (DateTime.UtcNow < deadline)
-            {
-                var res = channel.ReadMessages(8, 20);
-                foreach (var m in res.Messages)
-                {
-                    // ACK payload = [0xFF, status, echo-seq, …] at data[4..]
-                    if (m.Data is { Length: >= 7 } && m.Data[4] == ResponseMarker && m.Data[6] == seq)
-                        return m.Data;
-                }
-            }
-            return null;
-        }
-
-        private static byte[] BuildFrame(byte cmd, byte seq, byte[] parameters)
-        {
-            // [00,00,03,50][cmd][seq][params…]
-            var frame = new byte[CommandIdHeader.Length + 2 + parameters.Length];
-            CommandIdHeader.CopyTo(frame, 0);
-            frame[4] = cmd;
-            frame[5] = seq;
-            parameters.CopyTo(frame, 6);
-            return frame;
-        }
-
-        /// <summary>Best-effort stop: tell the ECU to stop all groups and end the session.</summary>
-        private void TrySendStop()
-        {
-            try
-            {
-                if (_channel == null)
-                    return;
-                _channel.SendMessage(BuildFrame(CmdEndSession, _seq++, [0x01]));
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"HighSpeedLog: stop send failed: {ex.Message}");
-            }
-        }
-
-        private void CleanupResources()
-        {
-            try
-            {
-                _sink?.Dispose();
-                _sink = null;
-
-                _writeQueue?.Dispose();
-                _writeQueue = null;
-
-                _session?.Dispose(); // disposes channel + device too
-                _session = null;
-                _channel = null;
-                _loggingThread = null;
-                _writerThread = null;
-                _plan = null;
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"HighSpeedLog: cleanup error: {ex.Message}");
+                catch (Exception ex) { Debug.WriteLine($"HighSpeedLog: identify cleanup failed: {ex.Message}"); }
             }
         }
     }
