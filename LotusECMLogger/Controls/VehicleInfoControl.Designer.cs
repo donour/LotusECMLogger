@@ -16,7 +16,8 @@ namespace LotusECMLogger.Controls
             if (disposing)
             {
                 components?.Dispose();
-                _highSpeedLogService?.Dispose();
+                // A shared logger belongs to its tab; only the default one is ours to dispose.
+                if (_ownsHighSpeedLogService) _highSpeedLogService?.Dispose();
             }
             base.Dispose(disposing);
         }

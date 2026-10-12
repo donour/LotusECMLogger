@@ -9,7 +9,8 @@ namespace LotusECMLogger.Controls
         private readonly IObdResetService _resetService;
         private readonly IVinSetService _vinSetService;
         private readonly IT6RMAService _rmaService;
-        private readonly IHighSpeedLogService _highSpeedLogService;
+        private IHighSpeedLogService _highSpeedLogService;
+        private bool _ownsHighSpeedLogService = true;
         private readonly IDynoModeService _dynoModeService;
         private List<VehicleParameterReading> vehicleDataSnapshot = [];
 
@@ -27,6 +28,23 @@ namespace LotusECMLogger.Controls
                 resetButton.Enabled = !value;
                 setVinButton.Enabled = !value;
                 dynoModeButton.Enabled = !value;
+            }
+        }
+
+        /// <summary>
+        /// The logger whose Identify backs the high-speed availability indicator. The default has its own CCP
+        /// session; MainWindow replaces it with the logger on the application's shared session.
+        /// </summary>
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        public IHighSpeedLogService HighSpeedProbeService
+        {
+            get => _highSpeedLogService;
+            set
+            {
+                ArgumentNullException.ThrowIfNull(value);
+                if (_ownsHighSpeedLogService) _highSpeedLogService.Dispose();
+                _highSpeedLogService = value;
+                _ownsHighSpeedLogService = false;
             }
         }
 

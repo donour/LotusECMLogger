@@ -3,9 +3,10 @@
 Design notes for adding a CCP 2.1 master to LotusECMLogger. The ECU side is described in
 [`CCP-support.md`](CCP-support.md); this document covers the PC side.
 
-**Status (2026-10-12): Phases 1–3 implemented in code (protocol core, firmware-backed GT430 simulator,
-`CcpMaster`, high-speed logger ported onto it with AEM as a separate source). Phase 3's live-car re-check is
-outstanding; Phase 4 (session host and CCP tab) is next. Scope narrowed to T6 2011+ for now (§2).**
+**Status (2026-10-12): Phases 1–4 implemented in code (protocol core, firmware-backed GT430 simulator,
+`CcpMaster`, high-speed logger ported onto it with AEM as a separate source, shared session host and a read-only
+CCP tab). Nothing since Phase 1 has run on a car yet; the live-car re-check covers Phases 3 and 4. Phase 5
+(guarded writes) is next. Scope narrowed to T6 2011+ for now (§2).**
 The protocol core, target/build profiles, transport contract, J2534 transport and deterministic fake slave
 are implemented. Cross-platform tests exercise the command sequence, firmware quirks and runtime-registry format.
 The fake loads real PROG/CAL from CRP and exposes `ICcpTransport`; see [`CcpSimulator/README.md`](CcpSimulator/README.md).
@@ -224,6 +225,16 @@ the service owns a `CcpMaster` per logging session (and per Identify), as it pre
   (the `IT6RMAService` pattern), opening the transport on first lease and disconnecting after the last.
 - `VehicleInfoControl` currently creates its own `HighSpeedLogService` for `Identify()`, opening a second
   J2534 session; route it through the host.
+
+Done (2026-10-12): `CcpSessionHost` (`Services/Ccp/CcpSessionHost.cs`) hands out leases on one `CcpMaster`; the first
+opens the adapter and connects, later ones join (reconnecting an uncertain session), the last ends the session
+and closes the adapter, and a faulted master is replaced on the next acquisition. `MainWindow` owns one host
+(disposed on close) and gives it to the High-Speed Log tab, the Vehicle Info probe (via
+`VehicleInfoControl.HighSpeedProbeService`) and the CCP tab. The CCP tab (`Controls/CcpControl.cs`, beside
+Snapshots) connects and identifies, shows target/slave/version/resources/build/CAL range/enable byte, reads the
+variable table, reads memory to a hex view or `.bin`, and checksums a region, optionally against a file's prefix.
+Long operations can be cancelled, which leaves the session uncertain until Reconnect, by design. It is
+disabled while the OBD logger holds the adapter.
 
 **Phase 5 guards**
 - Writes are limited to the CAL RAM range (from the A2L `MEMORY_SEGMENT`, else the build profile).
