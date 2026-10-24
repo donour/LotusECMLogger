@@ -356,7 +356,16 @@ namespace LotusECMLogger.Controls
             return (roles[0] == CellRole.XAxis ? 0 : 1, cells.Select(c => c.Index).Distinct().Order().ToList());
         }
 
-        public bool IsSelected(int x, int y) => SelectedGridCells().Any(c => c.Role == CellRole.Data && c.X == x && c.Y == y);
+        // The graph asks once per point per paint, so the selected data cells are kept as a set.
+        private HashSet<(int X, int Y)> selectedData = [];
+
+        public bool IsSelected(int x, int y) => selectedData.Contains((x, y));
+
+        protected override void OnSelectionChanged(EventArgs e)
+        {
+            selectedData = [.. SelectedData()];
+            base.OnSelectionChanged(e);
+        }
 
         /// <summary>Selects data cells, the first becoming the current cell.</summary>
         public void SelectData(IEnumerable<(int X, int Y)> cells)

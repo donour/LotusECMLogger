@@ -20,7 +20,6 @@ public sealed class TableEditsTests
     [InlineData(TableOperation.Set, 5, 5)]
     [InlineData(TableOperation.Add, -2, 8)]
     [InlineData(TableOperation.Multiply, 1.5, 15)]
-    [InlineData(TableOperation.Percent, -10, 9)]
     public void ArithmeticAppliesToTheSelectedCellsOnly(TableOperation operation, double operand, double expected)
     {
         var values = Grid(3, 3, (_, _) => 10);

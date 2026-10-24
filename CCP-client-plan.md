@@ -372,26 +372,17 @@ generated file into CANape or INCA.
 - **6d, editor UI** (a sub-tab of the CCP tab). Table browser with search, units filter and "changed" markers.
   Grid with heatmap colouring and axis headers in real units. Selection operations: set, add, multiply,
   percent change, interpolate, smooth. Paste from Excel, undo/redo, comparison against the original file.
-  *Done in code 2026-10-24* (`Controls/CcpTuningPanel.cs`, the CCP tab's **Tuning** page beside Memory; operations in
-  `Services/Tuning/TableEdits.cs`, tested by `TableEditsTests`; end to end in `CcpControlUiTests`). As built:
-  - **Opening.** Open Calibration loads any `CalibrationImage` format. The build's A2L is taken from
-    `config/a2l/<build>.a2l` (or opened by hand) only if `CheckAgainst` finds no problem.
-  - **Browser.** Filters by kind (tables, axes, values), unit, "changed", and name or description.
-  - **Grid.** Maps show Y as rows and X as columns, with axis values in physical units as headers; VAL_BLKs wrap at
-    16. The heatmap is pastel blue to red. Bold marks cells that differ from the file, and the text colour gives
-    the sync state (orange pending, blue writing, red failed). A "Change from file" view shows the differences.
-    The cell tooltip shows raw, file and ECU state.
-  - **Editing.** Typing in a cell, Ctrl+C/Ctrl+V (tab-separated, current or invariant culture), Ctrl+Z/Ctrl+Y, and
-    selection operations. Set/Add/Multiply/+% and Smooth (3 × 3 mean) act on the selected cells. Interpolate fills
-    the selection's bounding range linearly or bilinearly from its corners, by axis position when the axis
-    increases there. Every operation is one undo step and all-or-nothing.
-  - **Sync controls.** Start/Stop Live Sync (with a confirmation naming the backup), Hold edits + Apply, Refresh
-    from ECU, and Send File / Take ECU Values while comparing. Live sync needs the ECU identified as the file's
-    build.
+  *Done in code 2026-10-24* (`Controls/CcpTuningPanel*.cs`, the CCP tab's **Tuning** page beside Memory; operations
+  in `Services/Tuning/TableEdits.cs`, tested by `TableEditsTests`; end to end in `CcpControlUiTests`). Open
+  Calibration loads any `CalibrationImage` format, and the build's A2L comes from `config/a2l/<build>.a2l` (or is
+  opened by hand) only if `CheckAgainst` finds no problem. Edits are atomic undo steps. Sync controls: Start/Stop
+  Live Sync (with a confirmation naming the backup), Hold edits + Apply, Refresh from ECU, and Send File / Take ECU
+  Values while comparing; live sync needs the ECU identified as the file's build. The first editor (flat list,
+  plain grid) was replaced the same day:
 
   *Editor rebuilt 2026-10-24 after the owner's RaiderLite* (`~/source/repos/RaiderLite`, the owner's own GPL
-  RomRaider-style editor; its plotting code is the owner's, so it was ported here). It replaces the flat list and
-  plain grid described above:
+  RomRaider-style editor; its plotting code is the owner's, so it was ported here). It replaced the first editor's flat
+  list and plain grid:
   - **Tree.** The generator writes subsystem GROUPs (`CalibrationGroups`: Fuel and injection › inj / injtip /
     closedloop…, Ignition and knock, Throttle, Idle, …) that the owner can rearrange in the A2L.
     `CalibrationTree` builds the browser from ROOT GROUPs and SUB_GROUPs. A2Ls without groups use the same name

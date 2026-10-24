@@ -293,7 +293,7 @@ namespace LotusECMLogger.Services.A2l
                 _ => null,
             };
 
-            private A2lByteOrder? ItemByteOrder(Node node, ref string? problem)
+            private static A2lByteOrder? ItemByteOrder(Node node, ref string? problem)
             {
                 if (node.Option("BYTE_ORDER", 1) is not [var order]) return null;
                 var parsed = ParseByteOrder(order.Text);
@@ -387,7 +387,7 @@ namespace LotusECMLogger.Services.A2l
                 return (table, vtab.Option("DEFAULT_VALUE", 1)?[0].Text);
             }
 
-            private A2lRecordLayout ReadRecordLayout(Node node, IReadOnlyDictionary<A2lDataType, int> moduleAlignment)
+            private static A2lRecordLayout ReadRecordLayout(Node node, IReadOnlyDictionary<A2lDataType, int> moduleAlignment)
             {
                 var alignment = new Dictionary<A2lDataType, int>(moduleAlignment);
                 ApplyAlignment(node, alignment);

@@ -12,8 +12,8 @@ namespace LotusECMLogger.Services.A2l
     /// Drafts an A2L for one build from its symbol catalog (CCP-client-plan.md, "Before Phase 6"). Tables follow
     /// the catalog's naming: <c>CAL_x</c> is the data, <c>CAL_x_X_*</c> and <c>CAL_x_Y_*</c> its separately stored
     /// axes, X stored fastest (<c>lut[y * size_x + x]</c> in <c>lookup_3D_uint8_interpolated</c>), which is ASAP2
-    /// <c>ROW_DIR</c>. Every axis gets <c>NO_INPUT_QUANTITY</c>: inputs need checking against the decompile, so the
-    /// owner adds them by hand. The output is deterministic, so a regenerated file diffs cleanly against an edited one.
+    /// <c>ROW_DIR</c>. Axes get an InputQuantity only from the reviewed inputs file (<see cref="AxisInputs"/>), else
+    /// <c>NO_INPUT_QUANTITY</c>. The output is deterministic, so a regenerated file diffs cleanly against an edited one.
     /// </summary>
     public static class A2lGenerator
     {

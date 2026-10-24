@@ -4,7 +4,7 @@ using System.Text.RegularExpressions;
 
 namespace LotusECMLogger.Services.Tuning
 {
-    public enum TableOperation { Set, Add, Multiply, Percent }
+    public enum TableOperation { Set, Add, Multiply }
 
     /// <summary>A rectangle of cells, inclusive: X is the column (first axis), Y the row.</summary>
     public readonly record struct CellRange(int X0, int Y0, int X1, int Y1)
@@ -39,8 +39,7 @@ namespace LotusECMLogger.Services.Tuning
             {
                 TableOperation.Set => operand,
                 TableOperation.Add => values[c.Y, c.X] + operand,
-                TableOperation.Multiply => values[c.Y, c.X] * operand,
-                _ => values[c.Y, c.X] * (1 + operand / 100),
+                _ => values[c.Y, c.X] * operand,
             })).ToList();
 
         /// <summary>
