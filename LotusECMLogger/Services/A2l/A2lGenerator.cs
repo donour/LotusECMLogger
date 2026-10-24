@@ -101,6 +101,7 @@ namespace LotusECMLogger.Services.A2l
                 WritePlain(body, s, compu);
             }
             foreach (var s in measurements) WriteMeasurement(body, s, compu);
+            WriteGroups(body, calibration.Select(s => s.Name));
 
             text.Append("ASAP2_VERSION 1 61\n");
             text.Append("/*\n");
@@ -132,6 +133,44 @@ namespace LotusECMLogger.Services.A2l
             text.Append(body);
             text.Append("  /end MODULE\n/end PROJECT\n");
             return new A2lGenerationResult(text.ToString(), warnings, values, blocks, curves, maps, axisCount, measurements.Count);
+        }
+
+        /// <summary>
+        /// One ROOT GROUP per subsystem (<see cref="CalibrationGroups"/>), with a SUB_GROUP per name prefix when a
+        /// subsystem spans several, so editors show a tree. Measurements are not grouped.
+        /// </summary>
+        private static void WriteGroups(StringBuilder text, IEnumerable<string> names)
+        {
+            var bySubsystem = names.GroupBy(CalibrationGroups.Classify).ToDictionary(g => g.Key, g => g.ToList());
+            foreach (var subsystem in CalibrationGroups.Subsystems.Where(bySubsystem.ContainsKey))
+            {
+                var byPrefix = bySubsystem[subsystem].GroupBy(CalibrationGroups.Prefix)
+                    .OrderBy(g => g.Key, StringComparer.Ordinal).ToList();
+                string root = "G_" + subsystem.Name;
+                text.Append(CultureInfo.InvariantCulture, $"    /begin GROUP {root} \"{subsystem.Title}\" ROOT\n");
+                if (byPrefix.Count == 1) WriteReferences(text, byPrefix[0]);
+                else
+                {
+                    text.Append("      /begin SUB_GROUP\n");
+                    foreach (var prefix in byPrefix) text.Append(CultureInfo.InvariantCulture, $"        {root}_{Identifier(prefix.Key)}\n");
+                    text.Append("      /end SUB_GROUP\n");
+                }
+                text.Append("    /end GROUP\n");
+                if (byPrefix.Count == 1) continue;
+                foreach (var prefix in byPrefix)
+                {
+                    text.Append(CultureInfo.InvariantCulture, $"    /begin GROUP {root}_{Identifier(prefix.Key)} \"{prefix.Key}\"\n");
+                    WriteReferences(text, prefix);
+                    text.Append("    /end GROUP\n");
+                }
+            }
+
+            static void WriteReferences(StringBuilder text, IEnumerable<string> names)
+            {
+                text.Append("      /begin REF_CHARACTERISTIC\n");
+                foreach (var name in names.Order(StringComparer.Ordinal)) text.Append("        ").Append(name).Append('\n');
+                text.Append("      /end REF_CHARACTERISTIC\n");
+            }
         }
 
         private static List<Symbol> UniqueSymbols(SymbolCatalog catalog, List<string> warnings)

@@ -10089,5 +10089,1996 @@
     /begin MEASUREMENT ips_shift_state "undefined" ULONG NO_COMPU_METHOD 0 0 0 4294967295
       ECU_ADDRESS 0x40008848
     /end MEASUREMENT
+    /begin GROUP G_Fuel "Fuel and injection" ROOT
+      /begin SUB_GROUP
+        G_Fuel_closedloop
+        G_Fuel_dfco
+        G_Fuel_fuel
+        G_Fuel_inj
+        G_Fuel_injtip
+        G_Fuel_lfb
+        G_Fuel_o2
+      /end SUB_GROUP
+    /end GROUP
+    /begin GROUP G_Fuel_closedloop "closedloop"
+      /begin REF_CHARACTERISTIC
+        CAL_closedloop_activate_air_temp
+        CAL_closedloop_activate_engine_timer
+        CAL_closedloop_afr
+        CAL_closedloop_bank_sync_max_hold
+        CAL_closedloop_derivative_gain_ips
+        CAL_closedloop_derivative_gain_table
+        CAL_closedloop_derivative_gain_table_X_rpm
+        CAL_closedloop_derivative_gain_table_Y_load
+        CAL_closedloop_enable_baro_min
+        CAL_closedloop_enable_ect_min
+        CAL_closedloop_enable_iat_min
+        CAL_closedloop_fuel_learn_baro_min
+        CAL_closedloop_fuel_learn_baro_min_40008FD1
+        CAL_closedloop_fuel_level_min
+        CAL_closedloop_hold_time
+        CAL_closedloop_integral_gain_ips
+        CAL_closedloop_integral_gain_scale_manual
+        CAL_closedloop_integral_gain_startup_duration
+        CAL_closedloop_integral_gain_table
+        CAL_closedloop_integral_gain_table_X_rpm
+        CAL_closedloop_integral_gain_table_Y_load
+        CAL_closedloop_integration_period
+        CAL_closedloop_low_rpm_stft_reset_rpm
+        CAL_closedloop_max_tipout_enleanment
+        CAL_closedloop_max_tipout_enleanment_4000D365
+        CAL_closedloop_max_tipout_enleanment_count
+        CAL_closedloop_o2_breakin_window_hours
+        CAL_closedloop_o2_lean_threshold
+        CAL_closedloop_o2_rich_threshold
+        CAL_closedloop_o2_sensor_voltage_switch_rich
+        CAL_closedloop_o2_sensor_voltage_switching_lean
+        CAL_closedloop_o2_switch_threshold
+        CAL_closedloop_o2_switch_threshold_X_rpm
+        CAL_closedloop_o2_warmup_time
+        CAL_closedloop_prop_gain_lean_slow_switch_scale
+        CAL_closedloop_prop_gain_rich_slow_switch_scale
+        CAL_closedloop_proportional_gain_lean_ips
+        CAL_closedloop_proportional_gain_lean_table
+        CAL_closedloop_proportional_gain_lean_table_X_rpm
+        CAL_closedloop_proportional_gain_lean_table_Y_load
+        CAL_closedloop_proportional_gain_rich_ips
+        CAL_closedloop_proportional_gain_rich_table
+        CAL_closedloop_proportional_gain_rich_table_X_rpm
+        CAL_closedloop_proportional_gain_rich_table_Y_load
+        CAL_closedloop_ramp_interval_scale
+        CAL_closedloop_stft_filter_unknown
+        CAL_closedloop_stft_increment_period
+        CAL_closedloop_stft_steady_state_holdoff_ticks
+        CAL_closedloop_tipout_holdoff_ticks
+        CAL_closedloop_tipout_rpm_threshold
+        CAL_closedloop_tps_correction_tour_manual
+        CAL_closedloop_tps_correction_tour_manual_X_unknown
+      /end REF_CHARACTERISTIC
+    /end GROUP
+    /begin GROUP G_Fuel_dfco "dfco"
+      /begin REF_CHARACTERISTIC
+        CAL_dfco_cyl_ramp_length
+        CAL_dfco_entry_min_runtime
+        CAL_dfco_entry_pedal_max
+        CAL_dfco_entry_pedal_max_clutch_coast
+        CAL_dfco_entry_rpm_clutch_coast
+        CAL_dfco_entry_rpm_ips
+        CAL_dfco_entry_rpm_ips_X_coolant_temp
+        CAL_dfco_entry_rpm_ips_alt
+        CAL_dfco_entry_rpm_ips_alt_X_coolant_temp
+        CAL_dfco_entry_rpm_manual
+        CAL_dfco_entry_rpm_manual_X_coolant_temp
+        CAL_dfco_entry_rpm_manual_alt
+        CAL_dfco_entry_rpm_manual_alt_X_coolant_temp
+        CAL_dfco_entry_speed_min
+        CAL_dfco_entry_temp_min
+        CAL_dfco_exit_pedal_min
+        CAL_dfco_exit_rpm_ingear_ips
+        CAL_dfco_exit_rpm_ingear_ips_X_coolant_temp
+        CAL_dfco_exit_rpm_ingear_manual
+        CAL_dfco_exit_rpm_ingear_manual_X_coolant_temp
+        CAL_dfco_exit_rpm_neutral
+        CAL_dfco_exit_rpm_neutral_X_coolant_temp
+        CAL_dfco_exit_speed_min_ips
+        CAL_dfco_exit_temp_max
+        CAL_dfco_pedal_ramp_step_interval
+        CAL_dfco_recovery_enrich_X_cut_duration
+        CAL_dfco_recovery_enrich_cooldown_ticks
+        CAL_dfco_recovery_enrich_decay
+        CAL_dfco_recovery_enrich_max_rpm
+        CAL_dfco_recovery_fuel_frac_vs_pedal
+        CAL_dfco_recovery_fuel_frac_vs_pedal_X_pedal_pos
+        CAL_dfco_rpm_offset_above_idle
+        CAL_dfco_vacuum_target
+      /end REF_CHARACTERISTIC
+    /end GROUP
+    /begin GROUP G_Fuel_fuel "fuel"
+      /begin REF_CHARACTERISTIC
+        CAL_fuel_level_change_threshold
+        CAL_fuel_level_debounce_window_high
+        CAL_fuel_level_debounce_window_low
+        CAL_fuel_level_filter_coeff_fall
+        CAL_fuel_level_filter_coeff_rise
+        CAL_fuel_level_stable_count
+        CAL_fuel_level_update_holdoff
+        CAL_fuel_level_wobble_threshold
+        CAL_fuel_reserve_size
+        CAL_fuel_sender_diag_level_lo
+        CAL_fuel_trim_integral_max
+        CAL_fuel_usage_density
+      /end REF_CHARACTERISTIC
+    /end GROUP
+    /begin GROUP G_Fuel_inj "inj"
+      /begin REF_CHARACTERISTIC
+        CAL_inj_afr_base
+        CAL_inj_afr_base_X_engine_speed
+        CAL_inj_afr_base_Y_engine_load
+        CAL_inj_afterstart_comp_air_temp
+        CAL_inj_afterstart_comp_air_temp_X_iat
+        CAL_inj_afterstart_comp_air_temp_Y_maf_accum
+        CAL_inj_afterstart_enrichment_coolant_ips
+        CAL_inj_afterstart_enrichment_coolant_ips_X_coolant
+        CAL_inj_afterstart_enrichment_coolant_ips_Y_maf_accum
+        CAL_inj_afterstart_enrichment_coolant_manual
+        CAL_inj_afterstart_enrichment_coolant_manual_X_coolant
+        CAL_inj_afterstart_enrichment_coolant_manual_Y_maf_accum
+        CAL_inj_angle
+        CAL_inj_angle_X_engine_speed
+        CAL_inj_angle_Y_engine_load
+        CAL_inj_bank_balance
+        CAL_inj_bank_balance_X_rpm
+        CAL_inj_bank_balance_Y_load
+        CAL_inj_comp_enrichment_per_degree_ign_retard
+        CAL_inj_comp_iat
+        CAL_inj_comp_iat_X_load
+        CAL_inj_comp_iat_Y_iat
+        CAL_inj_comp_power_enrich_from_ign_retard
+        CAL_inj_comp_startup_default
+        CAL_inj_cranking_enrich_mass_accum
+        CAL_inj_cranking_enrich_mass_accum_X_mass
+        CAL_inj_cranking_enrich_soak_time
+        CAL_inj_cranking_enrich_soak_time_X_time
+        CAL_inj_cranking_enrichment_air_temp
+        CAL_inj_cranking_enrichment_air_temp_X_airtemp
+        CAL_inj_cranking_enrichment_air_temp_Y_coolant_temp
+        CAL_inj_deadtime_base
+        CAL_inj_deadtime_base_X_voltage
+        CAL_inj_deadtime_base_Y_airtemp_maf
+        CAL_inj_efficiency
+        CAL_inj_efficiency_X_engine_speed
+        CAL_inj_efficiency_Y_engine_load
+        CAL_inj_flow_rate
+        CAL_inj_fuel_learn_lean_time_limit
+        CAL_inj_fuel_learn_offset_maf_max
+        CAL_inj_fuel_learn_offset_rpm_max
+        CAL_inj_fuel_learn_power_enrich_load_min
+        CAL_inj_fuel_learn_power_enrich_rpm_min
+        CAL_inj_fuel_learn_rich_time_limit
+        CAL_inj_fuel_learn_step_period
+        CAL_inj_fuel_learn_step_timeout
+        CAL_inj_fuel_learn_stft_lean_limit
+        CAL_inj_fuel_learn_stft_rich_limit
+        CAL_inj_fuel_learn_zone_1_offset_step
+        CAL_inj_fuel_learn_zone_2_load_max
+        CAL_inj_fuel_learn_zone_2_load_min
+        CAL_inj_fuel_learn_zone_2_maf_max
+        CAL_inj_fuel_learn_zone_2_maf_min
+        CAL_inj_fuel_learn_zone_2_max
+        CAL_inj_fuel_learn_zone_2_min
+        CAL_inj_fuel_learn_zone_3_load_min
+        CAL_inj_fuel_learn_zone_3_maf_min
+        CAL_inj_fuel_learn_zone_3_max
+        CAL_inj_fuel_learn_zone_3_min
+        CAL_inj_post_start_enrichment_decay_divisor
+        CAL_inj_soak_time_max
+        CAL_inj_soak_time_max_40009130
+        CAL_inj_startup_enrichment_offset
+        CAL_inj_startup_enrichment_offset_X_coolant_temp_engine_stopped
+        CAL_inj_stft_limit
+        CAL_inj_transient_us_per_count
+        CAL_inj_warmup_factor_ips
+        CAL_inj_warmup_factor_ips_X_load
+        CAL_inj_warmup_factor_ips_Y_coolant_temp
+        CAL_inj_warmup_factor_manual
+        CAL_inj_warmup_factor_manual_X_load
+        CAL_inj_warmup_factor_manual_Y_coolant_temp
+      /end REF_CHARACTERISTIC
+    /end GROUP
+    /begin GROUP G_Fuel_injtip "injtip"
+      /begin REF_CHARACTERISTIC
+        CAL_injtip_dfco_enable_speed
+        CAL_injtip_dfco_enable_temp
+        CAL_injtip_dfco_min_runtime
+        CAL_injtip_in_adj_gears
+        CAL_injtip_in_adj_gears_6
+        CAL_injtip_in_coolant_scale
+        CAL_injtip_in_coolant_scale_X_coolant_temp
+        CAL_injtip_in_decay_count
+        CAL_injtip_in_rpm_decay
+        CAL_injtip_in_rpm_decay_X_rpm
+        CAL_injtip_in_rpm_scale
+        CAL_injtip_in_rpm_scale_X_rpm
+        CAL_injtip_in_threshold
+        CAL_injtip_out_coolant_scale
+        CAL_injtip_out_coolant_scale_X_coolant_temp
+        CAL_injtip_out_decay_count
+        CAL_injtip_out_rpm_decay
+        CAL_injtip_out_rpm_decay_X_rpm
+        CAL_injtip_out_rpm_scale
+        CAL_injtip_out_rpm_scale_X_rpm
+        CAL_injtip_overrun_hysteresis_timer
+        CAL_injtip_tipout_decay_rate_divider
+      /end REF_CHARACTERISTIC
+    /end GROUP
+    /begin GROUP G_Fuel_lfb "lfb"
+      /begin REF_CHARACTERISTIC
+        CAL_lfb_brake_off_hold_ticks
+        CAL_lfb_clutch_threshold
+        CAL_lfb_detect_carspeed_min
+        CAL_lfb_pedal_override_rate
+        CAL_lfb_pedal_release_threshold
+        CAL_lfb_pulse_enable
+        CAL_lfb_pulse_toggle_period
+        CAL_lfb_release_rate
+        CAL_lfb_timer_entry
+        CAL_lfb_timer_hold
+        CAL_lfb_tps_max
+      /end REF_CHARACTERISTIC
+    /end GROUP
+    /begin GROUP G_Fuel_o2 "o2"
+      /begin REF_CHARACTERISTIC
+        CAL_o2_threshold
+        CAL_o2_threshold_postcat
+        CAL_o2_threshold_precat
+      /end REF_CHARACTERISTIC
+    /end GROUP
+    /begin GROUP G_Ignition "Ignition and knock" ROOT
+      /begin SUB_GROUP
+        G_Ignition_ign
+        G_Ignition_knock
+        G_Ignition_roughness
+      /end SUB_GROUP
+    /end GROUP
+    /begin GROUP G_Ignition_ign "ign"
+      /begin REF_CHARACTERISTIC
+        CAL_ign_advance_min
+        CAL_ign_advance_min_X_engine_speed
+        CAL_ign_advance_min_Y_engine_load
+        CAL_ign_advance_step_tps
+        CAL_ign_advance_step_tps_X_engine_speed
+        CAL_ign_advance_step_tps_Y_pedal_pos
+        CAL_ign_base_ips
+        CAL_ign_base_ips_X_rpm
+        CAL_ign_base_ips_Y_load
+        CAL_ign_base_manual
+        CAL_ign_base_manual_X_rpm
+        CAL_ign_base_manual_Y_load
+        CAL_ign_comp_ac_compressor_active
+        CAL_ign_comp_coldstart
+        CAL_ign_comp_coldstart_X_coolant_temp
+        CAL_ign_comp_coolant_engine_stopped_max
+        CAL_ign_comp_coolant_engine_stopped_min
+        CAL_ign_comp_coolant_ips_flags
+        CAL_ign_comp_coolant_ips_flags_X_coolant_temp
+        CAL_ign_comp_coolant_ips_noflags
+        CAL_ign_comp_coolant_ips_noflags_X_coolant_temp
+        CAL_ign_comp_coolant_manual_cam_base
+        CAL_ign_comp_coolant_manual_cam_base_X_coolant_temp
+        CAL_ign_comp_coolant_manual_cam_lowload
+        CAL_ign_comp_coolant_manual_cam_lowload_X_coolant_temp
+        CAL_ign_comp_engine_air
+        CAL_ign_comp_engine_air_X_air_temp
+        CAL_ign_comp_iat
+        CAL_ign_comp_iat_X_rpm
+        CAL_ign_comp_iat_Y_iat
+        CAL_ign_comp_iat_load_scaler
+        CAL_ign_comp_iat_load_scaler_X_load
+        CAL_ign_comp_idle_error_moving
+        CAL_ign_comp_idle_error_moving_X_idle_speed_error
+        CAL_ign_comp_idle_error_stationary
+        CAL_ign_comp_idle_error_stationary_X_idle_speed_error
+        CAL_ign_comp_idle_transient_max_advance
+        CAL_ign_comp_maf_accum
+        CAL_ign_comp_maf_accum_X_maf_accum
+        CAL_ign_comp_maf_accum_Y_tps
+        CAL_ign_comp_overtemp
+        CAL_ign_comp_overtemp_X_rpm
+        CAL_ign_comp_overtemp_coeff
+        CAL_ign_comp_overtemp_coeff_X_coolant_temp
+        CAL_ign_comp_speed_variation
+        CAL_ign_comp_speed_variation_X_rpm_delta
+        CAL_ign_comp_startup_ips
+        CAL_ign_comp_startup_ips_X_coolant_temp_engine_stopped
+        CAL_ign_comp_startup_ips_Y_maf_accumulated
+        CAL_ign_comp_startup_manual
+        CAL_ign_comp_startup_manual_X_maf_accum
+        CAL_ign_comp_tps_rate
+        CAL_ign_comp_tps_rate_X_tps_rate
+        CAL_ign_dfco_recovery_hold_time
+        CAL_ign_dwell_time
+        CAL_ign_dwell_time_X_rpm
+        CAL_ign_dwell_time_Y_ecu_voltage
+        CAL_ign_enable_lea_knock_retard
+        CAL_ign_fixed_ips
+        CAL_ign_fixed_manual
+        CAL_ign_fixed_timing_ips
+        CAL_ign_idle_recovery_period
+        CAL_ign_knock_safe
+        CAL_ign_knock_safe_X_rpm
+        CAL_ign_knock_safe_Y_load
+        CAL_ign_low_gear_number
+        CAL_ign_mbt_modeled
+        CAL_ign_mbt_modeled_X_rpm
+        CAL_ign_mbt_modeled_Y_load
+        CAL_ign_retard_recovery_step
+        CAL_ign_retard_recovery_step_X_engine_speed
+        CAL_ign_retard_recovery_step_Y_load
+        CAL_ign_retard_step_tps
+        CAL_ign_retard_step_tps_X_engine_speed
+        CAL_ign_retard_step_tps_Y_pedal_pos
+        CAL_ign_startup_comp_coolant_max
+        CAL_ign_startup_comp_coolant_min
+        CAL_ign_trim_per_cyl
+        CAL_ign_zero_rpm_threshold
+      /end REF_CHARACTERISTIC
+    /end GROUP
+    /begin GROUP G_Ignition_knock "knock"
+      /begin REF_CHARACTERISTIC
+        CAL_knock_agc_hysteresis_band
+        CAL_knock_agc_threshold
+        CAL_knock_baseline_min_clamp
+        CAL_knock_buffer_size
+        CAL_knock_buffer_size_X_rpm
+        CAL_knock_buffer_size_Y_load
+        CAL_knock_corr_limit
+        CAL_knock_detection_engine_speed_margin
+        CAL_knock_detection_engine_speed_max
+        CAL_knock_detection_engine_speed_min
+        CAL_knock_detection_load_margin_debounce
+        CAL_knock_detection_load_threshold
+        CAL_knock_detection_load_threshold_X_rpm
+        CAL_knock_dsp_nyquist_hz
+        CAL_knock_freq_bands
+        CAL_knock_ign_retard_decay_rate
+        CAL_knock_ign_retard_initial
+        CAL_knock_inhibit_timer_tps_rate
+        CAL_knock_inhibit_tps_max
+        CAL_knock_inhibit_tps_max_X_rpm
+        CAL_knock_inhibit_tps_rate1
+        CAL_knock_learning_enable_coolant_temp_min
+        CAL_knock_learning_load_threshold
+        CAL_knock_learning_load_threshold_X_rpm
+        CAL_knock_mode
+        CAL_knock_octane_scaler_decrement
+        CAL_knock_octane_scaler_increment
+        CAL_knock_octane_scaler_short_term_limit
+        CAL_knock_octane_scaler_shortterm_decrement
+        CAL_knock_octane_scaler_shortterm_multiplier
+        CAL_knock_octane_short_term_retard_max
+        CAL_knock_peak_threshold
+        CAL_knock_peak_threshold_X_engine_speed
+        CAL_knock_peak_threshold_Y_load
+        CAL_knock_retard1_limit
+        CAL_knock_retard1_step
+        CAL_knock_retard1_step_X_peak_over_threshold
+        CAL_knock_sampling_window
+        CAL_knock_sampling_window_X_rpm
+        CAL_knock_sampling_window_Y_load
+        CAL_knock_sensitivity
+        CAL_knock_sensitivity_X_engine_speed
+        CAL_knock_sensitivity_Y_engine_load
+        CAL_knock_sensor_b1_dc_bias_threshold
+        CAL_knock_threshold_obd_ii_check_enable_engine_speed
+        CAL_knock_threshold_obd_ii_check_enable_load
+        CAL_knock_threshold_obd_ii_check_enable_load_4000D3CD
+      /end REF_CHARACTERISTIC
+    /end GROUP
+    /begin GROUP G_Ignition_roughness "roughness"
+      /begin REF_CHARACTERISTIC
+        CAL_roughness_cycle_count_threshold
+        CAL_roughness_delta_rpm_smoothing_factor
+        CAL_roughness_enable_load
+        CAL_roughness_enable_rpm
+        CAL_roughness_ign_adv_max
+        CAL_roughness_ign_adv_min_sign_flipped
+        CAL_roughness_min_edge_count
+        CAL_roughness_peak_valley_imbalance_threshold
+        CAL_roughness_peak_valley_imblance_threshold
+        CAL_roughness_unknown2
+        CAL_roughness_unknown4
+        CAL_roughness_unknown5
+        CAL_roughness_unknown6
+        CAL_roughness_unknown7
+        CAL_roughness_unknown8
+      /end REF_CHARACTERISTIC
+    /end GROUP
+    /begin GROUP G_Airflow "Airflow and load" ROOT
+      /begin SUB_GROUP
+        G_Airflow_acis
+        G_Airflow_air
+        G_Airflow_airbox
+        G_Airflow_load
+        G_Airflow_maf
+        G_Airflow_sensor
+      /end SUB_GROUP
+    /end GROUP
+    /begin GROUP G_Airflow_acis "acis"
+      /begin REF_CHARACTERISTIC
+        CAL_acis_close_load
+        CAL_acis_close_rpm
+        CAL_acis_open_load
+        CAL_acis_open_rpm
+      /end REF_CHARACTERISTIC
+    /end GROUP
+    /begin GROUP G_Airflow_air "air"
+      /begin REF_CHARACTERISTIC
+        CAL_air_temp_intake_threshold
+      /end REF_CHARACTERISTIC
+    /end GROUP
+    /begin GROUP G_Airflow_airbox "airbox"
+      /begin REF_CHARACTERISTIC
+        CAL_airbox_flapper_engine_speed_sport
+        CAL_airbox_flapper_engine_speed_sport2
+        CAL_airbox_flapper_engine_speed_tour
+        CAL_airbox_flapper_engine_speed_tour2
+      /end REF_CHARACTERISTIC
+    /end GROUP
+    /begin GROUP G_Airflow_load "load"
+      /begin REF_CHARACTERISTIC
+        CAL_load_alphaN_base
+        CAL_load_alphaN_base_X_engine_speed
+        CAL_load_alphaN_base_Y_tps
+        CAL_load_alphaN_engine_off
+        CAL_load_alphaN_engine_off_X_tps
+        CAL_load_alphaN_hold_time
+        CAL_load_alphaN_learn_ratio_deadband
+        CAL_load_alphaN_learn_trim_limits
+        CAL_load_alphaN_max_rpm
+        CAL_load_alphaN_tps_rate_closing_threshold
+        CAL_load_alphaN_tps_rate_opening_threshold
+        CAL_load_filter_coeff
+        CAL_load_learning_enable_coolant_min
+        CAL_load_learning_engine_accel_max
+        CAL_load_learning_holdoff_delay
+        CAL_load_learning_min_maf_accumulated
+        CAL_load_learning_stabilization_delay
+        CAL_load_learning_tps_rate_max
+        CAL_load_map_estimate_intercept
+        CAL_load_map_estimate_intercept_X_load
+        CAL_load_map_estimate_intercept_Y_rpm
+        CAL_load_map_estimate_ve
+        CAL_load_map_estimate_ve_X_rpm
+        CAL_load_mass_per_stroke_raw_limit_1
+        CAL_load_mass_per_stroke_raw_limit_2
+        CAL_load_mass_per_stroke_raw_limit_3
+        CAL_load_obd_divisor_X_rpm
+        CAL_load_source_selection_threshold_by_tps
+        CAL_load_source_selection_threshold_by_tps_X_rpm
+        CAL_load_to_tps_mapping
+        CAL_load_to_tps_mapping_X_rpm
+        CAL_load_to_tps_mapping_Y_load
+      /end REF_CHARACTERISTIC
+    /end GROUP
+    /begin GROUP G_Airflow_maf "maf"
+      /begin REF_CHARACTERISTIC
+        CAL_maf_flow_1_limit
+        CAL_maf_flow_1_limit_0
+        CAL_maf_flow_1_limit_2
+        CAL_maf_flow_1_threshold_4
+      /end REF_CHARACTERISTIC
+    /end GROUP
+    /begin GROUP G_Airflow_sensor "sensor"
+      /begin REF_CHARACTERISTIC
+        CAL_sensor_P0106_min_tps_threshold
+        CAL_sensor_P0106_min_tps_threshold_X_rpm
+        CAL_sensor_ac_evap_temp_filter_alpha
+        CAL_sensor_ac_evap_temp_scaling
+        CAL_sensor_ac_evap_temp_scaling_X_voltage
+        CAL_sensor_accel_pedal_d_gain
+        CAL_sensor_accel_pedal_e_gain
+        CAL_sensor_accel_pedal_midpoint_voltage_max
+        CAL_sensor_accel_pedal_midpoint_voltage_range
+        CAL_sensor_accel_pedal_pos_d_threshold
+        CAL_sensor_accel_pedal_pos_e_threshold
+        CAL_sensor_adc_baro_limit
+        CAL_sensor_adc_baro_threshold
+        CAL_sensor_adc_ecu_voltage_threshold
+        CAL_sensor_adc_engine_air_threshold
+        CAL_sensor_adc_map_gain
+        CAL_sensor_adc_map_offset
+        CAL_sensor_airtemp_TMAF_temp
+        CAL_sensor_airtemp_not_wired
+        CAL_sensor_airtemp_not_wired_filter_alpha
+        CAL_sensor_airtemp_tmaf_filter_alpha
+        CAL_sensor_atmo_pressure_default
+        CAL_sensor_baro_gain
+        CAL_sensor_baro_offset
+        CAL_sensor_baro_sensor_failure_fallback
+        CAL_sensor_clutch_disengaged_threshold
+        CAL_sensor_clutch_engaged_threshold
+        CAL_sensor_coolant_filter_alpha
+        CAL_sensor_coolant_scaling
+        CAL_sensor_coolant_temp_fallback_value
+        CAL_sensor_coolant_voltage_threshold
+        CAL_sensor_evap_gain
+        CAL_sensor_evap_offset
+        CAL_sensor_fuel_level
+        CAL_sensor_fuel_level_X_voltage
+        CAL_sensor_fuel_level_sensor_voltage_threshold
+        CAL_sensor_fuel_pressure_sensor_unused
+        CAL_sensor_fuel_pressure_sensor_unused_X_voltage
+        CAL_sensor_iat_fallback
+        CAL_sensor_iat_voltage_threshold
+        CAL_sensor_intake_air_temp_voltage_threshold
+        CAL_sensor_knock_voltage_threshold
+        CAL_sensor_lat_accel_raw_threshold
+        CAL_sensor_lat_accel_smoothing_factor
+        CAL_sensor_maf_adc_avg_window_depth
+        CAL_sensor_maf_scaling
+        CAL_sensor_maf_scaling_X_voltage
+        CAL_sensor_map_avg_window_size
+        CAL_sensor_o2_afr_diag_scaling
+        CAL_sensor_o2_afr_diag_scaling_X_voltage
+        CAL_sensor_o2_heater_overcurrent_threshold_mA
+        CAL_sensor_o2_heater_softstart_duration
+        CAL_sensor_o2_heater_softstart_pwm_period
+        CAL_sensor_o2_heater_undercurrent_threshold
+        CAL_sensor_o2_lean_voltage_threshold
+        CAL_sensor_pps_correlation_enable_max
+        CAL_sensor_pps_correlation_max_delta
+        CAL_sensor_pps_unknown1
+        CAL_sensor_temp_diagnostic_startup_delay
+        CAL_sensor_tps_voltage_theshold1
+        CAL_sensor_tps_voltage_theshold2
+      /end REF_CHARACTERISTIC
+    /end GROUP
+    /begin GROUP G_Throttle "Throttle" ROOT
+      /begin SUB_GROUP
+        G_Throttle_etb
+        G_Throttle_throttle
+        G_Throttle_tps
+        G_Throttle_tps1
+        G_Throttle_tpssmooth
+        G_Throttle_tpstarget
+      /end SUB_GROUP
+    /end GROUP
+    /begin GROUP G_Throttle_etb "etb"
+      /begin REF_CHARACTERISTIC
+        CAL_etb_pid_i_clamp
+        CAL_etb_pid_kd
+        CAL_etb_pid_ki
+        CAL_etb_pid_kp
+        CAL_etb_pwm_period
+        CAL_etb_tps1_max_count
+        CAL_etb_tps2_max_count
+        CAL_etb_tps2_range_lo_frac
+      /end REF_CHARACTERISTIC
+    /end GROUP
+    /begin GROUP G_Throttle_throttle "throttle"
+      /begin REF_CHARACTERISTIC
+        CAL_throttle_model_torque_gain
+      /end REF_CHARACTERISTIC
+    /end GROUP
+    /begin GROUP G_Throttle_tps "tps"
+      /begin REF_CHARACTERISTIC
+        CAL_tps_accel_pedal_zero_calibrate_timer
+        CAL_tps_brake_safety_floor
+        CAL_tps_brake_wheeldecel_threshold
+        CAL_tps_brake_wheeldecel_tps_cut_threshold
+        CAL_tps_commanded_during_fault
+        CAL_tps_commanded_wamup_min
+        CAL_tps_decrement_base
+        CAL_tps_delta_neg_clamp
+        CAL_tps_delta_neg_threshold
+        CAL_tps_delta_rate_window_size
+        CAL_tps_idle_target_cranking
+        CAL_tps_idle_target_cranking_X_baro
+        CAL_tps_idle_target_cranking_Y_coolant
+        CAL_tps_limit_idle_request_max
+        CAL_tps_limit_misfire_single_bank
+        CAL_tps_limit_severe_misfire_1_cut
+        CAL_tps_limit_severe_misfire_multi_cut
+        CAL_tps_limit_severe_misfire_no_cut
+        CAL_tps_limit_warmup_coolant_max
+        CAL_tps_limit_warmup_stepsize
+        CAL_tps_obd_throttle_model_step_max_opening
+        CAL_tps_scaling_factor_rpm
+        CAL_tps_scaling_factor_rpm_X_rpm
+        CAL_tps_scaling_factor_rpm_prototype
+        CAL_tps_scaling_factor_rpm_prototype_X_rpm
+        CAL_tps_warmup_max
+      /end REF_CHARACTERISTIC
+    /end GROUP
+    /begin GROUP G_Throttle_tps1 "tps1"
+      /begin REF_CHARACTERISTIC
+        CAL_tps1_normalize_full_frac
+      /end REF_CHARACTERISTIC
+    /end GROUP
+    /begin GROUP G_Throttle_tpssmooth "tpssmooth"
+      /begin REF_CHARACTERISTIC
+        CAL_tpssmooth_accel_pedal_modes_enable
+        CAL_tpssmooth_decrement_by_delta
+        CAL_tpssmooth_decrement_by_delta_X_tps_delta
+        CAL_tpssmooth_decrement_comp_gears_ips
+        CAL_tpssmooth_decrement_comp_gears_manual
+        CAL_tpssmooth_decrement_cruise_scale
+        CAL_tpssmooth_increment_sport_driving
+        CAL_tpssmooth_increment_sport_driving_X_tps_rate
+        CAL_tpssmooth_increment_sport_shifting
+        CAL_tpssmooth_increment_sport_shifting_X_tps_rate
+        CAL_tpssmooth_increment_tour_driving
+        CAL_tpssmooth_increment_tour_driving_X_tps_rate
+        CAL_tpssmooth_increment_tour_parking
+        CAL_tpssmooth_increment_tour_parking_X_tps_rate
+        CAL_tpssmooth_increment_tour_shifting
+        CAL_tpssmooth_increment_tour_shifting_X_tps_rate
+        CAL_tpssmooth_parking_clutch_threshold
+        CAL_tpssmooth_parking_gear_max
+        CAL_tpssmooth_parking_pedal_max
+        CAL_tpssmooth_parking_speed_max
+        CAL_tpssmooth_parking_threshold_carspeed
+        CAL_tpssmooth_parking_threshold_tps
+        CAL_tpssmooth_rate_calc_window_size
+        CAL_tpssmooth_step_timer
+      /end REF_CHARACTERISTIC
+    /end GROUP
+    /begin GROUP G_Throttle_tpstarget "tpstarget"
+      /begin REF_CHARACTERISTIC
+        CAL_tpstarget_low_gear_tour_ips
+        CAL_tpstarget_low_gear_tour_ips_X_pps
+        CAL_tpstarget_low_gear_tour_manual
+        CAL_tpstarget_low_gear_tour_manual_X_pps
+        CAL_tpstarget_sport_ips
+        CAL_tpstarget_sport_ips_X_pps
+        CAL_tpstarget_sport_manual
+        CAL_tpstarget_sport_manual_X_pps
+        CAL_tpstarget_sport_shifting
+        CAL_tpstarget_sport_shifting_X_pps
+        CAL_tpstarget_tour_manual
+        CAL_tpstarget_tour_manual_X_pps
+        CAL_tpstarget_tour_shifting
+        CAL_tpstarget_tour_shifting_X_pps
+      /end REF_CHARACTERISTIC
+    /end GROUP
+    /begin GROUP G_Idle "Idle" ROOT
+      /begin REF_CHARACTERISTIC
+        CAL_idle_air_base_ips_ingear_sport
+        CAL_idle_air_base_ips_ingear_sport_X_rpm
+        CAL_idle_air_base_ips_ingear_tour
+        CAL_idle_air_base_ips_ingear_tour_X_rpm
+        CAL_idle_air_base_ips_neutral_sport
+        CAL_idle_air_base_ips_neutral_sport_X_rpm
+        CAL_idle_air_base_ips_neutral_tour
+        CAL_idle_air_base_ips_neutral_tour_X_rpm
+        CAL_idle_air_base_manual
+        CAL_idle_air_base_manual_X_rpm
+        CAL_idle_air_comp_bay_fan
+        CAL_idle_air_comp_bay_fan_X_time
+        CAL_idle_air_comp_fan_1
+        CAL_idle_air_comp_fan_1_X_time
+        CAL_idle_air_comp_fan_2
+        CAL_idle_air_comp_fan_2_X_time
+        CAL_idle_air_comp_low_load_cam
+        CAL_idle_air_comp_low_load_cam_X_cam_offset
+        CAL_idle_air_comp_low_load_cam_Y_idle_rpm
+        CAL_idle_air_comp_misfire
+        CAL_idle_air_comp_misfire_X_cyl_count
+        CAL_idle_air_control_unknown
+        CAL_idle_air_decay_period
+        CAL_idle_air_decay_period_X_phase
+        CAL_idle_air_fast_decay_period
+        CAL_idle_air_hi_rpm_adder
+        CAL_idle_air_hi_rpm_adder_X_rpm
+        CAL_idle_air_hi_rpm_adder_speed_min
+        CAL_idle_air_integral_step
+        CAL_idle_air_integral_step_X_speed_error
+        CAL_idle_air_prop_gain
+        CAL_idle_air_prop_gain_X_speed_error
+        CAL_idle_air_warmup_factor_ips
+        CAL_idle_air_warmup_factor_ips_X_coolant_temp
+        CAL_idle_air_warmup_factor_ips_Y_maf_accum
+        CAL_idle_air_warmup_factor_manual
+        CAL_idle_air_warmup_factor_manual_X_coolant_temp
+        CAL_idle_air_warmup_factor_manual_Y_maf_accumulated
+        CAL_idle_bypass_airflow_factor
+        CAL_idle_carspeed_comp_decay_step
+        CAL_idle_carspeed_comp_decay_step_ac
+        CAL_idle_comp_ac_load
+        CAL_idle_comp_ac_load_X_ac_load
+        CAL_idle_comp_baro
+        CAL_idle_comp_baro_X_baro
+        CAL_idle_comp_car_speed_ips
+        CAL_idle_comp_car_speed_ips_X_carspeed
+        CAL_idle_comp_car_speed_manual
+        CAL_idle_comp_car_speed_manual_X_carspeed
+        CAL_idle_comp_carspeed_ips
+        CAL_idle_comp_carspeed_ips_X_carspeed
+        CAL_idle_comp_carspeed_manual
+        CAL_idle_comp_carspeed_manual_X_carspeed
+        CAL_idle_comp_decay_period
+        CAL_idle_comp_decay_period_ac
+        CAL_idle_comp_ecu_voltage
+        CAL_idle_comp_ecu_voltage_X_voltage
+        CAL_idle_comp_iat
+        CAL_idle_comp_iat_X_iat
+        CAL_idle_comp_timer_carspeed_ips
+        CAL_idle_comp_timer_carspeed_ips_X_airtemp
+        CAL_idle_comp_timer_carspeed_ips_Y_time_above_speed
+        CAL_idle_comp_timer_carspeed_manual
+        CAL_idle_comp_timer_carspeed_manual_X_airtemp
+        CAL_idle_comp_timer_carspeed_manual_Y_time_above_speed
+        CAL_idle_control_entry_offset
+        CAL_idle_coolant_fallback_temp
+        CAL_idle_dashpot_decel_threshold
+        CAL_idle_dashpot_rpm_lift_max
+        CAL_idle_dashpot_rpm_lift_max_X_rpm
+        CAL_idle_exit_rpm_offset
+        CAL_idle_flow_adj1_maf_accum_max
+        CAL_idle_flow_integral_adj_max
+        CAL_idle_flow_integral_adj_max_40008E91
+        CAL_idle_high_rpm_transient_air_comp
+        CAL_idle_ign_control_entry_offset
+        CAL_idle_ign_control_exit_offset
+        CAL_idle_learn_ac_on_param
+        CAL_idle_learn_coolant_min
+        CAL_idle_learn_integral_max
+        CAL_idle_learn_integral_min
+        CAL_idle_learn_temp_range
+        CAL_idle_low_car_speed_enter
+        CAL_idle_low_car_speed_exit
+        CAL_idle_monitor_voltage_operating_range
+        CAL_idle_rpm_ramp_step
+        CAL_idle_rpm_ramp_step_ips
+        CAL_idle_sensor_fault_coolant_temp
+        CAL_idle_sensor_fault_coolant_temp_4000D382
+        CAL_idle_target_ips_ingear_sport
+        CAL_idle_target_ips_ingear_sport_X_coolant_temp
+        CAL_idle_target_ips_ingear_tour
+        CAL_idle_target_ips_ingear_tour_X_coolant_temp
+        CAL_idle_target_ips_neutral_sport
+        CAL_idle_target_ips_neutral_sport_X_coolant_temp
+        CAL_idle_target_ips_neutral_tour
+        CAL_idle_target_ips_neutral_tour_X_coolant_temp
+        CAL_idle_target_manual_sport
+        CAL_idle_target_manual_sport_X_coolant_temp
+        CAL_idle_target_manual_tour
+        CAL_idle_target_manual_tour_X_coolant_temp
+        CAL_idle_tps_from_air_demand
+        CAL_idle_tps_from_air_demand_X_idle_air
+        CAL_idle_tps_from_air_demand_Y_vacuum
+        CAL_idle_tps_max
+        CAL_idle_underspeed_latch_rpm_delta
+        CAL_idle_unknown10
+        CAL_idle_unknown2
+        CAL_idle_unknown3
+      /end REF_CHARACTERISTIC
+    /end GROUP
+    /begin GROUP G_Torque "Torque and limits" ROOT
+      /begin SUB_GROUP
+        G_Torque_overrev
+        G_Torque_racetc
+        G_Torque_revlimit
+        G_Torque_torque
+        G_Torque_wheel
+      /end SUB_GROUP
+    /end GROUP
+    /begin GROUP G_Torque_overrev "overrev"
+      /begin REF_CHARACTERISTIC
+        CAL_overrev_advisory_coolant_max
+        CAL_overrev_advisory_limit
+        CAL_overrev_advisory_limit_X_mass_air
+        CAL_overrev_advisory_margin_scale
+      /end REF_CHARACTERISTIC
+    /end GROUP
+    /begin GROUP G_Torque_racetc "racetc"
+      /begin REF_CHARACTERISTIC
+        CAL_racetc_slip_target_base
+        CAL_racetc_slip_target_base_X_dpm_level
+      /end REF_CHARACTERISTIC
+    /end GROUP
+    /begin GROUP G_Torque_revlimit "revlimit"
+      /begin REF_CHARACTERISTIC
+        CAL_revlimit_bounce_count_threshold
+        CAL_revlimit_d_flow_gain
+        CAL_revlimit_d_flow_gain_X_gear
+        CAL_revlimit_enforce_delay_after_start
+        CAL_revlimit_escalation_integrator_step
+        CAL_revlimit_escalation_integrator_step_X_gear
+        CAL_revlimit_exit_margin
+        CAL_revlimit_flow_correction_i_limit
+        CAL_revlimit_flow_correction_p_limit
+        CAL_revlimit_flow_integral_limit
+        CAL_revlimit_flow_slew_step
+        CAL_revlimit_hard_hysteresis
+        CAL_revlimit_i_flow_gain
+        CAL_revlimit_i_flow_gain_X_gear
+        CAL_revlimit_limp_mode_rpm_reduction
+        CAL_revlimit_maf_error_max
+        CAL_revlimit_maf_max_by_gear
+        CAL_revlimit_maf_max_by_gear_X_gear
+        CAL_revlimit_max_with_speedlimit
+        CAL_revlimit_offset_reset_timer
+        CAL_revlimit_p_flow_gain
+        CAL_revlimit_p_flow_gain_X_gear
+        CAL_revlimit_rpm_integral_limit
+        CAL_revlimit_speed_base_auto_gearbox_sport
+        CAL_revlimit_speed_base_auto_gearbox_sport_X_coolant
+        CAL_revlimit_speed_base_auto_gearbox_sport_Y_timer
+        CAL_revlimit_speed_base_auto_gearbox_tour
+        CAL_revlimit_speed_base_auto_gearbox_tour_X_coolant
+        CAL_revlimit_speed_base_auto_gearbox_tour_Y_timer
+        CAL_revlimit_speed_base_manual_gearbox_sport
+        CAL_revlimit_speed_base_manual_gearbox_sport_X_coolant
+        CAL_revlimit_speed_base_manual_gearbox_sport_Y_timer
+        CAL_revlimit_speed_base_manual_gearbox_tour
+        CAL_revlimit_speed_base_manual_gearbox_tour_X_coolant
+        CAL_revlimit_speed_base_manual_gearbox_tour_Y_timer
+        CAL_revlimit_startup_offset_decrement
+        CAL_revlimit_time_above_soft_threshold
+        CAL_revlimit_tps_cut_enable
+        CAL_revlimit_trim_per_gear
+        CAL_revlimit_trim_per_gear_X_gear
+      /end REF_CHARACTERISTIC
+    /end GROUP
+    /begin GROUP G_Torque_torque "torque"
+      /begin REF_CHARACTERISTIC
+        CAL_torque_engine_ac_load_base
+        CAL_torque_engine_ac_load_base_X_ac
+        CAL_torque_engine_ac_load_scaler
+        CAL_torque_engine_ac_load_scaler_X_rpm
+        CAL_torque_engine_friction_speed_component
+        CAL_torque_engine_friction_speed_component_X_rpm
+        CAL_torque_engine_friction_speed_component_Y_load
+        CAL_torque_engine_friction_temp_component
+        CAL_torque_engine_friction_temp_component_X_coolant_temp
+        CAL_torque_engine_friction_temp_component_Y_load
+        CAL_torque_estimate_min_ips
+        CAL_torque_ext_torque_limit_hold_count
+        CAL_torque_external_request_minimum
+        CAL_torque_external_request_minimum_X_engine_speed
+        CAL_torque_external_request_minimum_Y_torque
+        CAL_torque_hysteresis_threshold1
+        CAL_torque_ign_retard_base
+        CAL_torque_ign_retard_base_X_engine_speed
+        CAL_torque_ign_retard_base_Y_torque_reduction_factor
+        CAL_torque_limit_base_factor
+        CAL_torque_limit_base_factor_X_rpm
+        CAL_torque_limit_base_factor_Y_load
+        CAL_torque_limit_low_speed_min_torque
+        CAL_torque_limit_low_speed_rpm_threshold
+        CAL_torque_load_to_torque
+        CAL_torque_load_to_torque_X_engine_speed
+        CAL_torque_load_to_torque_Y_load
+        CAL_torque_spark_efficiency
+        CAL_torque_spark_efficiency_X_rpm
+        CAL_torque_spark_efficiency_Y_ign_retard_from_mbt
+        CAL_torque_spark_efficiency_slope
+        CAL_torque_spark_efficiency_slope_X_rpm
+        CAL_torque_spark_efficiency_slope_Y_load
+        CAL_torque_torque_to_load
+        CAL_torque_torque_to_load_X_engine_speed
+        CAL_torque_torque_to_load_Y_torque
+        CAL_torque_tps_gain
+      /end REF_CHARACTERISTIC
+    /end GROUP
+    /begin GROUP G_Torque_wheel "wheel"
+      /begin REF_CHARACTERISTIC
+        CAL_wheel_speed_front_accel_update_interval
+        CAL_wheel_speed_front_dvdt_scaling
+        CAL_wheel_speed_smoothing
+        CAL_wheel_speed_vss_pulses_per_rev
+        CAL_wheel_speed_vss_tire_circumference
+      /end REF_CHARACTERISTIC
+    /end GROUP
+    /begin GROUP G_Vvt "Variable valve timing" ROOT
+      /begin REF_CHARACTERISTIC
+        CAL_vvt_cam_park_offset_max
+        CAL_vvt_exhaust_advance_base
+        CAL_vvt_exhaust_advance_base_X_rpm
+        CAL_vvt_exhaust_advance_base_Y_load
+        CAL_vvt_exhaust_advance_base_low_load
+        CAL_vvt_exhaust_advance_base_low_load_X_rpm
+        CAL_vvt_exhaust_advance_base_low_load_Y_load
+        CAL_vvt_exhaust_advance_coolant_offset
+        CAL_vvt_exhaust_advance_coolant_offset_X_coolant_temp
+        CAL_vvt_intake_advance_base
+        CAL_vvt_intake_advance_base_X_rpm
+        CAL_vvt_intake_advance_base_Y_load
+        CAL_vvt_intake_advance_base_low_load
+        CAL_vvt_intake_advance_base_low_load_X_rpm
+        CAL_vvt_intake_advance_base_low_load_Y_load
+        CAL_vvt_intake_advance_coolant_offset
+        CAL_vvt_intake_advance_coolant_offset_X_coolant_temp
+        CAL_vvt_integral_gain
+        CAL_vvt_low_load_disable
+        CAL_vvt_low_load_ips_enable
+        CAL_vvt_low_load_map_enable_temp
+        CAL_vvt_p_gain
+        CAL_vvt_pwm_driver_divisor
+        CAL_vvt_start_timer
+        CAL_vvt_start_timer_X_coolant_temp
+        CAL_vvt_zero_target_timeout
+      /end REF_CHARACTERISTIC
+    /end GROUP
+    /begin GROUP G_Cooling "Cooling and temperatures" ROOT
+      /begin SUB_GROUP
+        G_Cooling_coolant
+        G_Cooling_cooling
+        G_Cooling_engine
+        G_Cooling_oil
+        G_Cooling_temp
+      /end SUB_GROUP
+    /end GROUP
+    /begin GROUP G_Cooling_coolant "coolant"
+      /begin REF_CHARACTERISTIC
+        CAL_coolant_temp_limit
+        CAL_coolant_temp_limit_0
+        CAL_coolant_temp_limit_1
+        CAL_coolant_temp_limit_2
+        CAL_coolant_temp_threshold
+        CAL_coolant_temp_threshold_1
+        CAL_coolant_temp_threshold_2
+      /end REF_CHARACTERISTIC
+    /end GROUP
+    /begin GROUP G_Cooling_cooling "cooling"
+      /begin REF_CHARACTERISTIC
+        CAL_cooling_afterrun_fan_timer_unknown
+        CAL_cooling_fan_1_afterrun_timer
+        CAL_cooling_fan_2_after_run_counter_threshold
+        CAL_cooling_fan_afterrun
+        CAL_cooling_fan_afterrun_X_air_temp
+        CAL_cooling_fan_afterrun_Y_coolant_temp
+        CAL_cooling_fan_air_temp_threshold
+        CAL_cooling_fan_bay_afterrun_heatsoak_duration
+        CAL_cooling_fan_bay_afterrun_heatsoak_window
+        CAL_cooling_fan_bay_afterrun_shutdown_duration
+        CAL_cooling_fan_bay_idle_stationary_dwell
+        CAL_cooling_fan_bay_idle_temp_low
+        CAL_cooling_fan_bay_off_temp_2min
+        CAL_cooling_fan_bay_off_temp_3min
+        CAL_cooling_fan_bay_restart_inhibit
+        CAL_cooling_fan_carspeed_min
+        CAL_cooling_fan_carspeed_min_1
+        CAL_cooling_fan_coolant_fall_check_period
+        CAL_cooling_fan_coolant_fall_threshold
+        CAL_cooling_fan_coolant_fall_window
+        CAL_cooling_fan_coolant_temp_threshold
+        CAL_cooling_fan_disable_carspeed
+        CAL_cooling_fan_engine_bay_aux_afterrun_timer
+        CAL_cooling_fan_engine_bay_run_duration
+        CAL_cooling_fan_high_iat
+        CAL_cooling_fan_high_off_coolant
+        CAL_cooling_fan_high_off_coolant_with_ac
+        CAL_cooling_fan_high_off_min_time
+        CAL_cooling_fan_high_on_coolant
+        CAL_cooling_fan_high_on_coolant_with_ac
+        CAL_cooling_fan_iat_low
+        CAL_cooling_fan_iat_mid
+        CAL_cooling_fan_iat_mid_timer_threshold
+        CAL_cooling_fan_low_off_engine_off
+        CAL_cooling_fan_low_off_engine_on
+        CAL_cooling_fan_low_on_engine_off
+        CAL_cooling_fan_low_on_engine_on
+        CAL_cooling_fan_low_rpm_hysteresis_threshold
+        CAL_cooling_fan_rpm_inhibit_off
+        CAL_cooling_fan_rpm_inhibit_on
+        CAL_cooling_fan_start_inhibit_time
+        CAL_cooling_recirc_airtemp_disable_engine_on
+        CAL_cooling_recirc_pump_enable_temp
+        CAL_cooling_recirc_pump_rpm_max_disable
+        CAL_cooling_recirc_pump_rpm_max_enable
+        CAL_cooling_recirc_pump_run_ambient_max
+        CAL_cooling_recirc_pump_run_ambient_min
+        CAL_cooling_recirc_pump_run_time_sec
+        CAL_cooling_recirc_pump_stopped_dwell
+        CAL_cooling_recirc_rpm_enable_engine_on
+      /end REF_CHARACTERISTIC
+    /end GROUP
+    /begin GROUP G_Cooling_engine "engine"
+      /begin REF_CHARACTERISTIC
+        CAL_engine_accel_lookback_teeth
+        CAL_engine_speed_3_limit
+        CAL_engine_speed_3_limit_0
+        CAL_engine_speed_3_threshold
+        CAL_engine_speed_3_threshold_0
+        CAL_engine_speed_3_threshold_2
+        CAL_engine_speed_3_threshold_3
+        CAL_engine_speed_3_threshold_4
+        CAL_engine_speed_avg_samples
+        CAL_engine_speed_calc_unknown2
+        CAL_engine_speed_coolant_temp_unknown7
+        CAL_engine_speed_filter_coeff_by_coolant
+        CAL_engine_speed_filter_coeff_by_coolant_X_coolant
+        CAL_engine_speed_filter_rise_coeff_sport
+        CAL_engine_speed_filter_rise_coeff_sport_X_rpm
+        CAL_engine_speed_filter_rise_coeff_sport_Y_coolant_temp
+        CAL_engine_speed_filter_rise_coeff_tour
+        CAL_engine_speed_filter_rise_coeff_tour_X_rpm
+        CAL_engine_speed_filter_rise_coeff_tour_Y_coolant_temp
+      /end REF_CHARACTERISTIC
+    /end GROUP
+    /begin GROUP G_Cooling_oil "oil"
+      /begin REF_CHARACTERISTIC
+        CAL_oil_pressure_switch_offset
+        CAL_oil_pressure_switch_voltage_scaling
+      /end REF_CHARACTERISTIC
+    /end GROUP
+    /begin GROUP G_Cooling_temp "temp"
+      /begin REF_CHARACTERISTIC
+        CAL_temp_engine_air_threshold
+        CAL_temp_engine_air_threshold_0
+      /end REF_CHARACTERISTIC
+    /end GROUP
+    /begin GROUP G_Emissions "Emissions and evaporative" ROOT
+      /begin SUB_GROUP
+        G_Emissions_cat
+        G_Emissions_evap
+        G_Emissions_exhaust
+        G_Emissions_misfire
+      /end SUB_GROUP
+    /end GROUP
+    /begin GROUP G_Emissions_cat "cat"
+      /begin REF_CHARACTERISTIC
+        CAL_cat_check_unknown4
+      /end REF_CHARACTERISTIC
+    /end GROUP
+    /begin GROUP G_Emissions_evap "evap"
+      /begin REF_CHARACTERISTIC
+        CAL_evap_canister_purge_solenoid_timer_init
+        CAL_evap_commanded_purge_unknown
+        CAL_evap_fuel_level_threshold_mid
+        CAL_evap_fuel_used_window_level_high
+        CAL_evap_fuel_used_window_level_low
+        CAL_evap_fuel_used_window_level_mid
+        CAL_evap_leak_test_baro_min
+        CAL_evap_leak_test_force_enable
+        CAL_evap_leak_test_fuel_level_max
+        CAL_evap_leak_test_fuel_level_min
+        CAL_evap_leak_test_pre_start_delay
+        CAL_evap_leak_test_purge_settle_delay
+        CAL_evap_leak_test_sample_count
+        CAL_evap_leak_test_settle_samples
+        CAL_evap_leak_test_stage4_dwell
+        CAL_evap_leak_vacuum_decay_sample
+        CAL_evap_pressure_deviation_max
+        CAL_evap_pressure_filter_coeff
+        CAL_evap_purge_conditioning_timer_100ms
+        CAL_evap_purge_duty_ramp_down_conditioning
+        CAL_evap_purge_duty_ramp_up_min
+        CAL_evap_purge_filter_alpha
+        CAL_evap_purge_flow_X_vacuum
+        CAL_evap_purge_flow_max_duty
+        CAL_evap_purge_flow_state_timer_init
+        CAL_evap_purge_flow_vacuum_min
+        CAL_evap_purge_flow_vapor_min
+        CAL_evap_purge_flow_vapor_min_leaktest
+        CAL_evap_purge_idle_duty_max
+        CAL_evap_purge_idle_lean_recovery_holdoff_ticks
+        CAL_evap_purge_idle_speed_error_deadband
+        CAL_evap_purge_idle_speed_error_deadband_alt
+        CAL_evap_purge_mass_ratio_stft_inhibit_threshold
+        CAL_evap_purge_min_inj_pulse_enter
+        CAL_evap_purge_min_inj_pulse_exit
+        CAL_evap_purge_min_load
+        CAL_evap_purge_min_load_active
+        CAL_evap_purge_power_enrich_suspend_hold
+        CAL_evap_purge_power_enrich_suspend_timeout
+        CAL_evap_purge_pressure_voltage_threshold
+        CAL_evap_purge_pressure_voltage_threshold_0
+        CAL_evap_purge_pwm_freq
+        CAL_evap_purge_stuck_open_test_passes
+        CAL_evap_purge_vacuum_min
+        CAL_evap_state_timer_threshold
+        CAL_evap_system_state_flags_param
+        CAL_evap_tank_vacuum_flow_threshold
+        CAL_evap_unknown2
+        CAL_evap_vacuum_threshold
+        CAL_evap_vapor_conc_max_for_fuel_learn
+      /end REF_CHARACTERISTIC
+    /end GROUP
+    /begin GROUP G_Emissions_exhaust "exhaust"
+      /begin REF_CHARACTERISTIC
+        CAL_exhaust_flap_load1
+        CAL_exhaust_flap_load2
+        CAL_exhaust_flap_position_tour
+        CAL_exhaust_flap_position_tour_X_rpm
+        CAL_exhaust_flap_position_tour_Y_accel_pps
+        CAL_exhaust_flap_position_tour_sport
+        CAL_exhaust_flap_position_tour_sport_X_rpm
+        CAL_exhaust_flap_position_tour_sport_Y_accel_pps
+        CAL_exhaust_flap_rpm1
+        CAL_exhaust_flap_rpm2
+        CAL_exhaust_flap_startup_delay
+      /end REF_CHARACTERISTIC
+    /end GROUP
+    /begin GROUP G_Emissions_misfire "misfire"
+      /begin REF_CHARACTERISTIC
+        CAL_misfire_base_threshold_ips
+        CAL_misfire_base_threshold_ips_X_rpm
+        CAL_misfire_base_threshold_ips_Y_load
+        CAL_misfire_base_threshold_manual
+        CAL_misfire_base_threshold_manual_X_rpm
+        CAL_misfire_base_threshold_manual_Y_load
+        CAL_misfire_cat_damage_limit
+        CAL_misfire_cat_damage_limit_X_rpm
+        CAL_misfire_cat_damage_limit_Y_load
+        CAL_misfire_comp_maf_ips
+        CAL_misfire_comp_maf_ips_X_coolant_temp
+        CAL_misfire_comp_maf_ips_Y_maf_accum
+        CAL_misfire_comp_maf_manual
+        CAL_misfire_comp_maf_manual_X_coolant_temp
+        CAL_misfire_comp_maf_manual_Y_maf_accum
+        CAL_misfire_detect_min_load_ips
+        CAL_misfire_detect_min_load_manual
+        CAL_misfire_emissions_limit
+        CAL_misfire_enable_conditions_hold
+        CAL_misfire_enable_coolant_max
+        CAL_misfire_enable_coolant_min
+        CAL_misfire_enable_rpm_max
+        CAL_misfire_enable_rpm_min
+        CAL_misfire_failed_bank_scaling
+        CAL_misfire_inhibit_tps_rate_declutched
+        CAL_misfire_inhibit_tps_rate_hold
+        CAL_misfire_inhibit_tps_rate_neg
+        CAL_misfire_inhibit_tps_rate_pos
+        CAL_misfire_per_cyl_learn_enable
+        CAL_misfire_rough_road_deviation_threshold
+        CAL_misfire_rough_road_hold
+        CAL_misfire_rough_road_speed_min
+        CAL_misfire_sensitivity_ips
+        CAL_misfire_sensitivity_ips_X_rpm
+        CAL_misfire_sensitivity_ips_Y_load
+        CAL_misfire_sensitivity_manual
+        CAL_misfire_sensitivity_manual_X_rpm
+        CAL_misfire_sensitivity_manual_Y_load
+      /end REF_CHARACTERISTIC
+    /end GROUP
+    /begin GROUP G_Diagnostics "OBD-II diagnostics" ROOT
+      /begin REF_CHARACTERISTIC
+        CAL_obd_P0171_learn_time_threshold
+        CAL_obd_P0171_ltft_limit
+        CAL_obd_P0172_learn_time_threshold
+        CAL_obd_P0172_ltft_limit
+        CAL_obd_P2170_pass_counter_max
+        CAL_obd_U0122_pass_counter_max
+        CAL_obd_ac_load_diag_rpm_min_div50
+        CAL_obd_ac_load_diag_tolerance_pct
+        CAL_obd_cat_monitor_init_counter_2
+        CAL_obd_evap_entry_settle_delay
+        CAL_obd_evap_fuel_level_noise_count_limit
+        CAL_obd_evap_fuel_level_noise_threshold
+        CAL_obd_evap_pressure_noise_count_limit
+        CAL_obd_evap_pressure_noise_threshold
+        CAL_obd_evap_refuel_level_rise_threshold
+        CAL_obd_evap_stability_window_samples
+        CAL_obd_fuel_learn_eng_speed_delta_max
+        CAL_obd_fuel_learn_inhibit_holdoff_ticks
+        CAL_obd_high_load_monitor_load_max
+        CAL_obd_ii_P0011
+        CAL_obd_ii_P0012
+        CAL_obd_ii_P0014
+        CAL_obd_ii_P0014_maturing_limit
+        CAL_obd_ii_P0015
+        CAL_obd_ii_P0015_maturing_limit
+        CAL_obd_ii_P0016
+        CAL_obd_ii_P0017
+        CAL_obd_ii_P0018
+        CAL_obd_ii_P0019
+        CAL_obd_ii_P0021
+        CAL_obd_ii_P0022
+        CAL_obd_ii_P0024
+        CAL_obd_ii_P0024_maturing_limit
+        CAL_obd_ii_P0025
+        CAL_obd_ii_P0071
+        CAL_obd_ii_P0071_air_temp_limit
+        CAL_obd_ii_P0071_maturing_limit
+        CAL_obd_ii_P0076
+        CAL_obd_ii_P0076_debounce_count
+        CAL_obd_ii_P0077
+        CAL_obd_ii_P0077_debounce_count
+        CAL_obd_ii_P0079
+        CAL_obd_ii_P0080
+        CAL_obd_ii_P0082
+        CAL_obd_ii_P0083
+        CAL_obd_ii_P0085
+        CAL_obd_ii_P0086
+        CAL_obd_ii_P0101
+        CAL_obd_ii_P0101_baro_min
+        CAL_obd_ii_P0101_idle_coolant_min
+        CAL_obd_ii_P0101_idle_dwell_min
+        CAL_obd_ii_P0101_idle_iat_max
+        CAL_obd_ii_P0101_load_tolerance_X_rpm
+        CAL_obd_ii_P0101_load_tolerance_pct
+        CAL_obd_ii_P0101_load_tolerance_pct_idle
+        CAL_obd_ii_P0101_maturing_limit
+        CAL_obd_ii_P0101_plausibility_enable
+        CAL_obd_ii_P0101_runtime_min
+        CAL_obd_ii_P0102
+        CAL_obd_ii_P0103
+        CAL_obd_ii_P0106
+        CAL_obd_ii_P0106_baro_corr_highload
+        CAL_obd_ii_P0106_baro_error_limits
+        CAL_obd_ii_P0106_highload_rpm_window
+        CAL_obd_ii_P0106_intake_pressure_drop
+        CAL_obd_ii_P0106_intake_pressure_drop_X_maf_flow
+        CAL_obd_ii_P0106_map_corr_highload_X_rpm
+        CAL_obd_ii_P0106_map_corr_highload_Y_load
+        CAL_obd_ii_P0106_maturing_limit
+        CAL_obd_ii_P0106_partload_rpm_window
+        CAL_obd_ii_P0106_partload_tps_rate_max
+        CAL_obd_ii_P0106_partload_tps_window
+        CAL_obd_ii_P0106_throttle_vacuum_rpm_hi
+        CAL_obd_ii_P0106_throttle_vacuum_rpm_hi_X_tps
+        CAL_obd_ii_P0106_throttle_vacuum_rpm_hi_Y_load
+        CAL_obd_ii_P0106_throttle_vacuum_rpm_lo
+        CAL_obd_ii_P0106_throttle_vacuum_rpm_lo_X_tps
+        CAL_obd_ii_P0106_throttle_vacuum_rpm_lo_Y_load
+        CAL_obd_ii_P0107
+        CAL_obd_ii_P0107_maturing_limit
+        CAL_obd_ii_P0108
+        CAL_obd_ii_P0108_maturing_limit
+        CAL_obd_ii_P0111
+        CAL_obd_ii_P0111_airflow_stage_time
+        CAL_obd_ii_P0111_high_airflow_time
+        CAL_obd_ii_P0111_iat_agreement_tol
+        CAL_obd_ii_P0111_iat_span_min
+        CAL_obd_ii_P0111_maf_debounce_time
+        CAL_obd_ii_P0111_maf_low_band
+        CAL_obd_ii_P0111_mass_air_min
+        CAL_obd_ii_P0111_maturing_limit
+        CAL_obd_ii_P0112
+        CAL_obd_ii_P0112_maturing_limit
+        CAL_obd_ii_P0113
+        CAL_obd_ii_P0113_maturing_limit
+        CAL_obd_ii_P0116
+        CAL_obd_ii_P0116_coolant_deviation_max
+        CAL_obd_ii_P0116_coolant_deviation_max_4000D2AF
+        CAL_obd_ii_P0116_min_runtime
+        CAL_obd_ii_P0117
+        CAL_obd_ii_P0117_coolant_voltage_low
+        CAL_obd_ii_P0117_fail_count
+        CAL_obd_ii_P0118
+        CAL_obd_ii_P0122
+        CAL_obd_ii_P0123
+        CAL_obd_ii_P0127
+        CAL_obd_ii_P0128
+        CAL_obd_ii_P0128_coolant_target
+        CAL_obd_ii_P0128_fail_count
+        CAL_obd_ii_P0128_heat_weight
+        CAL_obd_ii_P0128_heat_weight_X_load
+        CAL_obd_ii_P0128_iat_min
+        CAL_obd_ii_P0128_lowspeed_threshold
+        CAL_obd_ii_P0128_runtime_to_lowspeed_ratio_min
+        CAL_obd_ii_P0128_start_coolant_max
+        CAL_obd_ii_P0128_start_coolant_min
+        CAL_obd_ii_P0131
+        CAL_obd_ii_P0132
+        CAL_obd_ii_P0132_fail_count
+        CAL_obd_ii_P0133
+        CAL_obd_ii_P0133_min_coolant_temp
+        CAL_obd_ii_P0134
+        CAL_obd_ii_P0135
+        CAL_obd_ii_P0137
+        CAL_obd_ii_P0137_fail_count
+        CAL_obd_ii_P0138
+        CAL_obd_ii_P0138_fail_count
+        CAL_obd_ii_P0139
+        CAL_obd_ii_P0140
+        CAL_obd_ii_P0141
+        CAL_obd_ii_P0141_4000DA38
+        CAL_obd_ii_P0141_debounce_count
+        CAL_obd_ii_P0151
+        CAL_obd_ii_P0151_fail_count
+        CAL_obd_ii_P0152
+        CAL_obd_ii_P0152_fail_count
+        CAL_obd_ii_P0153
+        CAL_obd_ii_P0154
+        CAL_obd_ii_P0155
+        CAL_obd_ii_P0157
+        CAL_obd_ii_P0157_fail_count
+        CAL_obd_ii_P0158
+        CAL_obd_ii_P0158_fail_count
+        CAL_obd_ii_P0159
+        CAL_obd_ii_P0160
+        CAL_obd_ii_P0161
+        CAL_obd_ii_P0171
+        CAL_obd_ii_P0172
+        CAL_obd_ii_P0174
+        CAL_obd_ii_P0175
+        CAL_obd_ii_P0222
+        CAL_obd_ii_P0223
+        CAL_obd_ii_P0261
+        CAL_obd_ii_P0262
+        CAL_obd_ii_P0264
+        CAL_obd_ii_P0265
+        CAL_obd_ii_P0267
+        CAL_obd_ii_P0268
+        CAL_obd_ii_P0270
+        CAL_obd_ii_P0271
+        CAL_obd_ii_P0273
+        CAL_obd_ii_P0274
+        CAL_obd_ii_P0276
+        CAL_obd_ii_P0277
+        CAL_obd_ii_P0300
+        CAL_obd_ii_P0301
+        CAL_obd_ii_P0302
+        CAL_obd_ii_P0303
+        CAL_obd_ii_P0304
+        CAL_obd_ii_P0305
+        CAL_obd_ii_P0306
+        CAL_obd_ii_P0327
+        CAL_obd_ii_P0328
+        CAL_obd_ii_P0332
+        CAL_obd_ii_P0333
+        CAL_obd_ii_P0335
+        CAL_obd_ii_P0341
+        CAL_obd_ii_P0346
+        CAL_obd_ii_P0351
+        CAL_obd_ii_P0352
+        CAL_obd_ii_P0353
+        CAL_obd_ii_P0354
+        CAL_obd_ii_P0355
+        CAL_obd_ii_P0356
+        CAL_obd_ii_P0366
+        CAL_obd_ii_P0391
+        CAL_obd_ii_P0420
+        CAL_obd_ii_P0420_car_speed_max
+        CAL_obd_ii_P0420_car_speed_min
+        CAL_obd_ii_P0420_maf_max
+        CAL_obd_ii_P0420_maf_min
+        CAL_obd_ii_P0420_precat_switch_target_ips
+        CAL_obd_ii_P0420_precat_switch_target_ips_X_maf_flow
+        CAL_obd_ii_P0420_precat_switch_target_manual
+        CAL_obd_ii_P0420_precat_switch_target_manual_X_maf_flow
+        CAL_obd_ii_P0430
+        CAL_obd_ii_P0441
+        CAL_obd_ii_P0441_fail_count
+        CAL_obd_ii_P0442
+        CAL_obd_ii_P0444
+        CAL_obd_ii_P0445
+        CAL_obd_ii_P0446
+        CAL_obd_ii_P0446_fail_count
+        CAL_obd_ii_P0447
+        CAL_obd_ii_P0448
+        CAL_obd_ii_P0451
+        CAL_obd_ii_P0451_debounce_count
+        CAL_obd_ii_P0451_pressure_swing_min
+        CAL_obd_ii_P0452
+        CAL_obd_ii_P0453
+        CAL_obd_ii_P0455
+        CAL_obd_ii_P0456
+        CAL_obd_ii_P0461
+        CAL_obd_ii_P0462
+        CAL_obd_ii_P0463
+        CAL_obd_ii_P0480
+        CAL_obd_ii_P0481
+        CAL_obd_ii_P0482
+        CAL_obd_ii_P0500
+        CAL_obd_ii_P0500_car_speed_min
+        CAL_obd_ii_P0500_test_time
+        CAL_obd_ii_P0506
+        CAL_obd_ii_P0507
+        CAL_obd_ii_P050A
+        CAL_obd_ii_P050B
+        CAL_obd_ii_P050B_maturing_limit
+        CAL_obd_ii_P0523
+        CAL_obd_ii_P0537
+        CAL_obd_ii_P0538
+        CAL_obd_ii_P0562
+        CAL_obd_ii_P0562_sample_count
+        CAL_obd_ii_P0563
+        CAL_obd_ii_P0563_sample_count
+        CAL_obd_ii_P0564
+        CAL_obd_ii_P0571
+        CAL_obd_ii_P0571_brake_check_min_speed
+        CAL_obd_ii_P0578
+        CAL_obd_ii_P0578_fail_count
+        CAL_obd_ii_P0579
+        CAL_obd_ii_P0579_fail_count
+        CAL_obd_ii_P0579_switch_changes_max
+        CAL_obd_ii_P0579_window_time
+        CAL_obd_ii_P0601
+        CAL_obd_ii_P0606
+        CAL_obd_ii_P0610
+        CAL_obd_ii_P0616
+        CAL_obd_ii_P0617
+        CAL_obd_ii_P0628
+        CAL_obd_ii_P0629
+        CAL_obd_ii_P0630
+        CAL_obd_ii_P0638
+        CAL_obd_ii_P0638_fail_count
+        CAL_obd_ii_P0638_tps_error_max
+        CAL_obd_ii_P0646
+        CAL_obd_ii_P0647
+        CAL_obd_ii_P0661
+        CAL_obd_ii_P0662
+        CAL_obd_ii_P0685
+        CAL_obd_ii_P0685_voltage_delta
+        CAL_obd_ii_P0700
+        CAL_obd_ii_P0806
+        CAL_obd_ii_P0806_clutch_span_min
+        CAL_obd_ii_P0806_gear_changes_min
+        CAL_obd_ii_P0807
+        CAL_obd_ii_P0808
+        CAL_obd_ii_P0826
+        CAL_obd_ii_P0826_debounce_count
+        CAL_obd_ii_P0827
+        CAL_obd_ii_P0828
+        CAL_obd_ii_P1104
+        CAL_obd_ii_P1106
+        CAL_obd_ii_P1113
+        CAL_obd_ii_P1301
+        CAL_obd_ii_P1302
+        CAL_obd_ii_P1302_pass_holdoff
+        CAL_obd_ii_P1422
+        CAL_obd_ii_P1422_fail_threshold
+        CAL_obd_ii_P1562
+        CAL_obd_ii_P1809
+        CAL_obd_ii_P2100
+        CAL_obd_ii_P2102
+        CAL_obd_ii_P2103
+        CAL_obd_ii_P2104
+        CAL_obd_ii_P2105
+        CAL_obd_ii_P2106
+        CAL_obd_ii_P2107
+        CAL_obd_ii_P2108
+        CAL_obd_ii_P2119
+        CAL_obd_ii_P2122
+        CAL_obd_ii_P2123
+        CAL_obd_ii_P2127
+        CAL_obd_ii_P2128
+        CAL_obd_ii_P2135
+        CAL_obd_ii_P2138
+        CAL_obd_ii_P2170
+        CAL_obd_ii_P2171
+        CAL_obd_ii_P2171_debounce_count
+        CAL_obd_ii_P2173
+        CAL_obd_ii_P2173_alphaN_trim_limit
+        CAL_obd_ii_P2173_alphaN_trim_limit_X_rpm
+        CAL_obd_ii_P2173_alphaN_trim_limit_Y_tps
+        CAL_obd_ii_P2173_fail_count
+        CAL_obd_ii_P2173_load_difference_max
+        CAL_obd_ii_P2191
+        CAL_obd_ii_P2191_lean_confirm_time
+        CAL_obd_ii_P2192_rich_confirm_time
+        CAL_obd_ii_P2193
+        CAL_obd_ii_P219A
+        CAL_obd_ii_P219B
+        CAL_obd_ii_P2336
+        CAL_obd_ii_P2336_maturing_limit
+        CAL_obd_ii_P2337
+        CAL_obd_ii_P2337_maturing_limit
+        CAL_obd_ii_P2338
+        CAL_obd_ii_P2338_maturing_limit
+        CAL_obd_ii_P2339
+        CAL_obd_ii_P2339_maturing_limit
+        CAL_obd_ii_P2340
+        CAL_obd_ii_P2341
+        CAL_obd_ii_P2602
+        CAL_obd_ii_P2603
+        CAL_obd_ii_P2612
+        CAL_obd_ii_P2613
+        CAL_obd_ii_U0101
+        CAL_obd_ii_U0101_pass_counter_max
+        CAL_obd_ii_U0122
+        CAL_obd_ii_U0123
+        CAL_obd_ii_U0302
+        CAL_obd_ii_U0316
+        CAL_obd_ii_U0316_debounce_count
+        CAL_obd_ii_U0416
+        CAL_obd_ii_U0513
+        CAL_obd_ii_accel_pedal_correlation_max_diff
+        CAL_obd_ii_adc_maf_unknown1
+        CAL_obd_ii_brake_pedal_conflict_count
+        CAL_obd_ii_calc_load_wot_airmass
+        CAL_obd_ii_cat_check_tps_rate_max
+        CAL_obd_ii_cat_check_transient_blackout
+        CAL_obd_ii_cat_efficiency_ratio_max
+        CAL_obd_ii_cat_mon_post_dfco_holdoff_prescaler
+        CAL_obd_ii_cat_monitor_baro_min
+        CAL_obd_ii_cat_monitor_coolant_min_above_iat
+        CAL_obd_ii_cat_monitor_ect_min
+        CAL_obd_ii_cat_monitor_maf_min
+        CAL_obd_ii_cat_monitor_min_engine_runtime
+        CAL_obd_ii_cat_monitor_min_maf_accum_thresh
+        CAL_obd_ii_cat_monitor_min_maf_accum_thresh_X_coolant_temp
+        CAL_obd_ii_cat_monitor_stable_time
+        CAL_obd_ii_cat_monitor_window_time
+        CAL_obd_ii_cat_postcat_o2_lean_offset
+        CAL_obd_ii_cat_postcat_o2_rich_offset
+        CAL_obd_ii_cat_precat_o2_lean_thresh
+        CAL_obd_ii_cat_precat_o2_rich_thresh
+        CAL_obd_ii_cat_unknown10
+        CAL_obd_ii_cat_unknown11
+        CAL_obd_ii_cat_unknown2
+        CAL_obd_ii_cat_unknown3
+        CAL_obd_ii_cat_unknown6
+        CAL_obd_ii_cat_unknown9
+        CAL_obd_ii_commanded_evap_purge
+        CAL_obd_ii_commanded_evap_purge_X_duty
+        CAL_obd_ii_commanded_evap_purge_Y_vacuum
+        CAL_obd_ii_commanded_evap_purge_limit
+        CAL_obd_ii_commanded_evap_purge_limit_0
+        CAL_obd_ii_commanded_evap_purge_max
+        CAL_obd_ii_commanded_evap_purge_min
+        CAL_obd_ii_commanded_evap_purge_threshold
+        CAL_obd_ii_coolant_warmup_threshold_unknown
+        CAL_obd_ii_coolant_warmup_thresholds
+        CAL_obd_ii_crank_cam_error_count_max
+        CAL_obd_ii_drive_cycle_car_speed_min
+        CAL_obd_ii_drive_cycle_idle_time
+        CAL_obd_ii_drive_cycle_runtime
+        CAL_obd_ii_engine_speed_3_threshold_1
+        CAL_obd_ii_evap_purge_settle_debounce
+        CAL_obd_ii_evap_vapor_pressure_limit
+        CAL_obd_ii_freeze_frame_pid_list
+        CAL_obd_ii_fuel_learn_max_load_delta
+        CAL_obd_ii_fuel_trim_zone3_time_min
+        CAL_obd_ii_high_load_monitor_afr_max
+        CAL_obd_ii_high_load_monitor_load_min
+        CAL_obd_ii_idle_air_output_limit
+        CAL_obd_ii_idle_air_output_threshold
+        CAL_obd_ii_idle_error_fail_count
+        CAL_obd_ii_idle_learn_limit
+        CAL_obd_ii_knock_monitor_sample_count
+        CAL_obd_ii_knock_no_activity_count
+        CAL_obd_ii_mode06_o2_switch_time_max
+        CAL_obd_ii_mode06_o2_switch_time_min
+        CAL_obd_ii_mode08_evap_test_duration
+        CAL_obd_ii_mode2f_coil_test_interval
+        CAL_obd_ii_mode2f_coil_test_pulse_count
+        CAL_obd_ii_mode2f_injector_test_duration
+        CAL_obd_ii_mode2f_injector_test_interval
+        CAL_obd_ii_mode2f_injector_test_pulse_10us
+        CAL_obd_ii_mode2f_timeout
+        CAL_obd_ii_monitor_debounce_cycles
+        CAL_obd_ii_monitor_rpm_delta_max
+        CAL_obd_ii_o2_activity_rate_inband
+        CAL_obd_ii_o2_activity_rate_outband
+        CAL_obd_ii_o2_flatline_band
+        CAL_obd_ii_o2_imbalance_accum_cap
+        CAL_obd_ii_o2_imbalance_sample_count
+        CAL_obd_ii_o2_imbalance_sample_count_4000D3B8
+        CAL_obd_ii_o2_imbalance_sample_period
+        CAL_obd_ii_o2_imbalance_threshold
+        CAL_obd_ii_o2_l2r_time_max_asym
+        CAL_obd_ii_o2_lean_period_excess_max
+        CAL_obd_ii_o2_lean_time_baseline
+        CAL_obd_ii_o2_lean_time_baseline_X_maf
+        CAL_obd_ii_o2_monitor_window_time
+        CAL_obd_ii_o2_period_consistency_tol
+        CAL_obd_ii_o2_period_excess_max
+        CAL_obd_ii_o2_postcat_activity_min
+        CAL_obd_ii_o2_precat_activity_window
+        CAL_obd_ii_o2_precat_diag_timer
+        CAL_obd_ii_o2_r2l_time_max_asym
+        CAL_obd_ii_o2_response_alphaN_blackout
+        CAL_obd_ii_o2_response_car_speed_max
+        CAL_obd_ii_o2_response_car_speed_min
+        CAL_obd_ii_o2_response_load_stability_max
+        CAL_obd_ii_o2_rich_period_excess_max
+        CAL_obd_ii_o2_rich_time_baseline
+        CAL_obd_ii_o2_rich_time_baseline_X_maf
+        CAL_obd_ii_o2_sensor1_voltage_limit
+        CAL_obd_ii_o2_sensor1_voltage_threshold
+        CAL_obd_ii_o2_sensor2_voltage_limit
+        CAL_obd_ii_o2_sensor2_voltage_threshold
+        CAL_obd_ii_o2_sensors_present
+        CAL_obd_ii_o2_slow_response_arm_dwell
+        CAL_obd_ii_o2_slow_response_limit_lean_to_rich
+        CAL_obd_ii_o2_slow_response_limit_rich_to_lean
+        CAL_obd_ii_o2_slow_response_maf_limit_unknown
+        CAL_obd_ii_o2_slow_response_maf_limit_unknown2
+        CAL_obd_ii_o2_slow_response_runtime_limit_unknown
+        CAL_obd_ii_o2_slow_response_sample_count
+        CAL_obd_ii_o2_switch_time_min
+        CAL_obd_ii_o2_switch_time_threshold
+        CAL_obd_ii_o2_transition_count
+        CAL_obd_ii_p0127_fail_debounce_count
+        CAL_obd_ii_postcat_o2_voltage_bias
+        CAL_obd_ii_readiness_bit3_enable
+        CAL_obd_ii_rpm_unknown1
+        CAL_obd_ii_runtime_since_start_threshold_unknown
+        CAL_obd_ii_similar_cond_debounce_reload
+        CAL_obd_ii_similar_cond_load_tol
+        CAL_obd_ii_similar_cond_load_window
+        CAL_obd_ii_similar_cond_rpm_tol
+        CAL_obd_ii_standards_supported
+        CAL_obd_ii_switch_voltage_debounce
+        CAL_obd_ii_temp_unknown
+        CAL_obd_ii_temp_unknown2
+        CAL_obd_ii_tps_unknown1
+        CAL_obd_ii_unknown20
+        CAL_obd_ii_unknown22
+        CAL_obd_ii_unknown24
+        CAL_obd_ii_unknown24_4000DBF5
+        CAL_obd_ii_unknown25
+        CAL_obd_ii_unknown26
+        CAL_obd_ii_unknown5
+        CAL_obd_ii_unknown7
+        CAL_obd_ii_variant_enable
+        CAL_obd_ii_vvt_error_fail_count
+        CAL_obd_ii_vvt_exhaust_error_bank1_limit
+        CAL_obd_ii_vvt_monitor_min_runtime
+        CAL_obd_ii_vvt_ok_pass_count
+        CAL_obd_ii_warmup_temp_unknown
+        CAL_obd_ii_wheel_speed_correlation_rpm_max
+        CAL_obd_monitor_sentinel_init
+        CAL_obd_o2_precat_diag_init_counter
+        CAL_obd_o2_precat_diag_reset_counter
+        CAL_obd_o2_tps_transient_settle_ticks
+        CAL_obd_o2_tps_transient_threshold
+      /end REF_CHARACTERISTIC
+    /end GROUP
+    /begin GROUP G_Driveline "Transmission and driveline" ROOT
+      /begin SUB_GROUP
+        G_Driveline_clutch
+        G_Driveline_gear
+        G_Driveline_gsi
+        G_Driveline_ips
+      /end SUB_GROUP
+    /end GROUP
+    /begin GROUP G_Driveline_clutch "clutch"
+      /begin REF_CHARACTERISTIC
+        CAL_clutch_confidence_decrement
+        CAL_clutch_confidence_increment
+        CAL_clutch_confidence_increment_4000D3A7
+        CAL_clutch_pos_voltage_threshold
+        CAL_clutch_sensor_confidence_max
+        CAL_clutch_variance_threshold
+      /end REF_CHARACTERISTIC
+    /end GROUP
+    /begin GROUP G_Driveline_gear "gear"
+      /begin REF_CHARACTERISTIC
+        CAL_gear_advisory_upshift_rpm_gear1
+        CAL_gear_advisory_upshift_rpm_ips
+        CAL_gear_advisory_upshift_rpm_manual
+      /end REF_CHARACTERISTIC
+    /end GROUP
+    /begin GROUP G_Driveline_gsi "gsi"
+      /begin REF_CHARACTERISTIC
+        CAL_gsi_cornering_inhibit_hysteresis
+        CAL_gsi_cornering_inhibit_threshold
+        CAL_gsi_downshift_delay
+        CAL_gsi_downshift_idle_margin
+        CAL_gsi_downshift_rpm_offset
+        CAL_gsi_gear1_drive_away_speed
+        CAL_gsi_max_gear_rpm
+        CAL_gsi_max_gear_step
+        CAL_gsi_max_gear_step_4000D418
+        CAL_gsi_pedal_applied_hold_time
+        CAL_gsi_pedal_applied_threshold
+        CAL_gsi_power_rpm_limit
+        CAL_gsi_power_rpm_limit_X_power
+        CAL_gsi_rpm_per_kph_close_ratio
+        CAL_gsi_rpm_per_kph_ips
+        CAL_gsi_rpm_per_kph_standard
+        CAL_gsi_speed_offset_kph
+        CAL_gsi_steering_angle_inhibit
+        CAL_gsi_steering_rate_filter_coeff
+        CAL_gsi_steering_rate_term_max
+        CAL_gsi_upshift_delay
+      /end REF_CHARACTERISTIC
+    /end GROUP
+    /begin GROUP G_Driveline_ips "ips"
+      /begin REF_CHARACTERISTIC
+        CAL_ips_request_msg_id_nibble
+        CAL_ips_revmatch_convergence_rpm
+        CAL_ips_revmatch_convergence_rpm_X_rpm
+        CAL_ips_revmatch_p_gain
+        CAL_ips_revmatch_p_gain_X_rpm
+        CAL_ips_speed_match_d_gain
+        CAL_ips_speed_match_d_sample_ticks
+        CAL_ips_speed_match_p_gain
+        CAL_ips_speed_match_torque_max
+        CAL_ips_torque_reduction_slow_floor_nm
+        CAL_ips_torque_reduction_slow_scale_pct
+      /end REF_CHARACTERISTIC
+    /end GROUP
+    /begin GROUP G_Climate "Air conditioning" ROOT
+      /begin REF_CHARACTERISTIC
+        CAL_ac_compressor_power_offset
+        CAL_ac_compressor_soft_engage_time
+        CAL_ac_compressor_speed_filter_coeff
+        CAL_ac_evap_freeze_inhibit_delay
+        CAL_ac_evap_pid_derivative_filter_alpha
+        CAL_ac_evap_pid_integrator_limit
+        CAL_ac_evap_pid_kd
+        CAL_ac_evap_pid_ki_cold
+        CAL_ac_evap_pid_ki_cold_boost_delay
+        CAL_ac_evap_pid_ki_cold_boost_factor
+        CAL_ac_evap_pid_ki_warm
+        CAL_ac_evap_pid_update_period_cold
+        CAL_ac_evap_target_temp
+        CAL_ac_evap_temp_trend_period2
+        CAL_ac_evap_temp_voltage_high_threshold
+        CAL_ac_evap_temp_voltage_low_threshold
+        CAL_ac_evap_timer_ticks_5ms
+        CAL_ac_evap_timer_ticks_5ms2
+        CAL_ac_fan_startup_hold_time
+        CAL_ac_ign_comp_delay
+        CAL_ac_inhibit_carspeed2
+        CAL_ac_inhibit_coolant
+        CAL_ac_inhibit_cranking
+        CAL_ac_inhibit_evap_temp
+        CAL_ac_inhibit_rpm
+        CAL_ac_inhibit_rpm_cutoff
+        CAL_ac_inhibit_rpm_cutoff_min_hold
+        CAL_ac_inhibit_rpm_cutoff_min_hold_40008F57
+        CAL_ac_inhibit_rpm_cutoff_on_delay
+        CAL_ac_inhibit_tps
+        CAL_ac_load_limit
+        CAL_ac_load_limit_X_rpm
+        CAL_ac_load_ramp_steps
+        CAL_ac_load_slew_down_period
+        CAL_ac_load_slew_down_step
+        CAL_ac_load_slew_up_period_
+        CAL_ac_load_slew_up_step
+        CAL_ac_output_pwm_freq
+        CAL_ac_pwm_dc_divisor
+        CAL_ac_shutdown_delay
+        CAL_ac_startup_lockout_time
+        CAL_ac_tps_inhibit_timer
+        CAL_ac_unknown3
+      /end REF_CHARACTERISTIC
+    /end GROUP
+    /begin GROUP G_Cruise "Cruise control" ROOT
+      /begin REF_CHARACTERISTIC
+        CAL_cruise_accel_hold_step
+        CAL_cruise_airflow_fast_slew_time
+        CAL_cruise_airflow_slew_step
+        CAL_cruise_brake_standstill_timer
+        CAL_cruise_cancel_dfco_inhibit_time
+        CAL_cruise_decel_hold_step
+        CAL_cruise_derivative_clamp
+        CAL_cruise_derivative_gain_close_ratio
+        CAL_cruise_derivative_gain_close_ratio_X_gear
+        CAL_cruise_derivative_gain_ips
+        CAL_cruise_derivative_gain_ips_X_gear
+        CAL_cruise_derivative_gain_manual
+        CAL_cruise_derivative_gain_manual_X_gear
+        CAL_cruise_derivative_term_limit
+        CAL_cruise_feedforward_blend_threshold
+        CAL_cruise_integral_gain_close_ratio
+        CAL_cruise_integral_gain_close_ratio_X_gear
+        CAL_cruise_integral_gain_ips
+        CAL_cruise_integral_gain_ips_X_gear
+        CAL_cruise_integral_gain_manual
+        CAL_cruise_integral_gain_manual_X_gear
+        CAL_cruise_integral_gearchange_blend
+        CAL_cruise_integral_term_limit
+        CAL_cruise_integrator_accel_freeze
+        CAL_cruise_integrator_clamp
+        CAL_cruise_maf_feedforward
+        CAL_cruise_maf_feedforward_X_carspeed
+        CAL_cruise_override_coast_cancel_time
+        CAL_cruise_override_timeout
+        CAL_cruise_proportional_gain_close_ratio
+        CAL_cruise_proportional_gain_close_ratio_X_gear
+        CAL_cruise_proportional_gain_ips
+        CAL_cruise_proportional_gain_ips_X_gear
+        CAL_cruise_proportional_gain_manual
+        CAL_cruise_proportional_gain_manual_X_gear
+        CAL_cruise_proportional_term_limit
+        CAL_cruise_resume_pedal_handoff_threshold
+        CAL_cruise_rpm_max_ips
+        CAL_cruise_rpm_max_manual
+        CAL_cruise_rpm_min_ips
+        CAL_cruise_rpm_min_manual
+        CAL_cruise_speed_error_max
+        CAL_cruise_speed_filter_coeff
+        CAL_cruise_speed_limit
+        CAL_cruise_speed_tap_step
+        CAL_cruise_torque_request_braking
+        CAL_cruise_tps_accelerating_threshold
+        CAL_cruise_tps_override_threshold
+      /end REF_CHARACTERISTIC
+    /end GROUP
+    /begin GROUP G_Vehicle "Vehicle and body" ROOT
+      /begin SUB_GROUP
+        G_Vehicle_accessory
+        G_Vehicle_can
+        G_Vehicle_cluster
+        G_Vehicle_dca
+        G_Vehicle_tpms
+        G_Vehicle_vehicle
+      /end SUB_GROUP
+    /end GROUP
+    /begin GROUP G_Vehicle_accessory "accessory"
+      /begin REF_CHARACTERISTIC
+        CAL_accessory_output_rpm_inhibit_off
+        CAL_accessory_output_rpm_inhibit_on
+      /end REF_CHARACTERISTIC
+    /end GROUP
+    /begin GROUP G_Vehicle_can "can"
+      /begin REF_CHARACTERISTIC
+        CAL_can_lat_accel_standstill_timeout
+        CAL_can_yaw_data_timeout
+        CAL_can_yaw_monitor_startup_delay
+        CAL_can_yaw_timeout
+      /end REF_CHARACTERISTIC
+    /end GROUP
+    /begin GROUP G_Vehicle_cluster "cluster"
+      /begin REF_CHARACTERISTIC
+        CAL_cluster_fuel_level_warning_threshold
+        CAL_cluster_gear_advisory_lamp_type
+        CAL_cluster_overtemp_warning_light
+        CAL_cluster_shift_light_deadband_rpm
+        CAL_cluster_shiftlight_rpm_offset_ips
+        CAL_cluster_shiftlight_rpm_offset_ips_X_gear
+        CAL_cluster_shiftlight_rpm_offset_manual
+        CAL_cluster_shiftlight_rpm_offset_manual_X_gear
+      /end REF_CHARACTERISTIC
+    /end GROUP
+    /begin GROUP G_Vehicle_dca "dca"
+      /begin REF_CHARACTERISTIC
+        CAL_dca_activate_timer
+        CAL_dca_activate_tps_threshold
+        CAL_dca_enable_carspeed
+        CAL_dca_enable_steering_max
+        CAL_dca_enable_tps_margin
+        CAL_dca_enable_untested
+        CAL_dca_freerev_rpm
+        CAL_dca_freerev_rpm_tolerance
+        CAL_dca_freerev_wait_time
+        CAL_dca_stationary_wait_time
+        CAL_dca_tps_initial_offset
+        CAL_dca_tps_limit_ips
+        CAL_dca_tps_limit_ips2
+        CAL_dca_tps_limit_ips2_X_time
+        CAL_dca_tps_limit_ips_X_time
+        CAL_dca_tps_limit_manual
+        CAL_dca_tps_limit_manual_X_time
+        CAL_dca_tps_ramp_step_period
+      /end REF_CHARACTERISTIC
+    /end GROUP
+    /begin GROUP G_Vehicle_tpms "tpms"
+      /begin REF_CHARACTERISTIC
+        CAL_tpms_gen2_low_pressure_threshold_18_19
+        CAL_tpms_gen2_low_pressure_threshold_19_20
+        CAL_tpms_gen2_low_warn_18_19
+        CAL_tpms_gen2_low_warn_19_20
+        CAL_tpms_high_pressure_18_19
+        CAL_tpms_high_pressure_19_20
+        CAL_tpms_low_pressure_18_19
+        CAL_tpms_low_pressure_19_20
+        CAL_tpms_low_warn_offset_18_19
+        CAL_tpms_low_warn_offset_19_20
+        CAL_tpms_nominal_pressure_18_19
+        CAL_tpms_nominal_pressure_19_20
+        CAL_tpms_version
+      /end REF_CHARACTERISTIC
+    /end GROUP
+    /begin GROUP G_Vehicle_vehicle "vehicle"
+      /begin REF_CHARACTERISTIC
+        CAL_vehicle_moving_speed_min
+        CAL_vehicle_speed_limit
+        CAL_vehicle_speed_limit_enforce
+        CAL_vehicle_speed_limit_ramp_step
+      /end REF_CHARACTERISTIC
+    /end GROUP
+    /begin GROUP G_Other "Other" ROOT
+      /begin SUB_GROUP
+        G_Other_base
+        G_Other_bootloader
+        G_Other_ecu
+        G_Other_lea
+        G_Other_logger
+        G_Other_misc
+        G_Other_prog
+        G_Other_unknown15
+        G_Other_unknown4
+        G_Other_unused
+        G_Other_unused1
+        G_Other_unused2
+        G_Other_unused3
+        G_Other_unused5
+      /end SUB_GROUP
+    /end GROUP
+    /begin GROUP G_Other_base "base"
+      /begin REF_CHARACTERISTIC
+        CAL_base
+      /end REF_CHARACTERISTIC
+    /end GROUP
+    /begin GROUP G_Other_bootloader "bootloader"
+      /begin REF_CHARACTERISTIC
+        CAL_bootloader_rx_buffer_threshold
+      /end REF_CHARACTERISTIC
+    /end GROUP
+    /begin GROUP G_Other_ecu "ecu"
+      /begin REF_CHARACTERISTIC
+        CAL_ecu_2gr_cylinder_air_mass_mg
+        CAL_ecu_2gr_cylinder_air_mass_mg_obd_ii
+        CAL_ecu_accel_pedal_pressed_threshold
+        CAL_ecu_accel_pedal_released_threshold
+        CAL_ecu_brake_or_clutch_inactive_timer
+        CAL_ecu_data_base
+        CAL_ecu_engine_speed_decel_hysteresis_rpm
+        CAL_ecu_engine_speed_target_sport
+        CAL_ecu_engine_speed_target_sport_X_pps
+        CAL_ecu_engine_speed_target_tour
+        CAL_ecu_engine_speed_target_tour_X_pps
+        CAL_ecu_gear_close_ratio
+        CAL_ecu_gear_close_ratio_topgear
+        CAL_ecu_gear_long_ratio
+        CAL_ecu_gear_long_ratio_topgear
+        CAL_ecu_ign_off_relay_hold_time
+        CAL_ecu_ign_threshold
+        CAL_ecu_learning_x_axis_stability_threshold
+        CAL_ecu_learning_y_axis_stability_threshold
+        CAL_ecu_obd_engine_off_gate_delay
+        CAL_ecu_starter_max_engage_after_run
+        CAL_ecu_system_voltage_threshold
+        CAL_ecu_thermostat_diag_maf_threshold_ips
+        CAL_ecu_thermostat_diag_maf_threshold_manual
+        CAL_ecu_unlock_magic
+      /end REF_CHARACTERISTIC
+    /end GROUP
+    /begin GROUP G_Other_lea "lea"
+      /begin REF_CHARACTERISTIC
+        CAL_lea_misfire_baseline_set
+      /end REF_CHARACTERISTIC
+    /end GROUP
+    /begin GROUP G_Other_logger "logger"
+      /begin REF_CHARACTERISTIC
+        CAL_logger_high_speed_logger_enable
+      /end REF_CHARACTERISTIC
+    /end GROUP
+    /begin GROUP G_Other_misc "misc"
+      /begin REF_CHARACTERISTIC
+        CAL_misc_engine_detection_off
+        CAL_misc_engine_detection_on
+        CAL_misc_engine_running_confirm_delay
+      /end REF_CHARACTERISTIC
+    /end GROUP
+    /begin GROUP G_Other_prog "prog"
+      /begin REF_CHARACTERISTIC
+        CAL_prog_version
+      /end REF_CHARACTERISTIC
+    /end GROUP
+    /begin GROUP G_Other_unknown15 "unknown15"
+      /begin REF_CHARACTERISTIC
+        CAL_unknown15
+      /end REF_CHARACTERISTIC
+    /end GROUP
+    /begin GROUP G_Other_unknown4 "unknown4"
+      /begin REF_CHARACTERISTIC
+        CAL_unknown4
+      /end REF_CHARACTERISTIC
+    /end GROUP
+    /begin GROUP G_Other_unused "unused"
+      /begin REF_CHARACTERISTIC
+        CAL_unused_array1
+        CAL_unused_array2
+        CAL_unused_array3
+        CAL_unused_array4
+        CAL_unused_array5
+        CAL_unused_array6_
+        CAL_unused_array7
+        CAL_unused_end_of_range
+        CAL_unused_large1
+      /end REF_CHARACTERISTIC
+    /end GROUP
+    /begin GROUP G_Other_unused1 "unused1"
+      /begin REF_CHARACTERISTIC
+        CAL_unused1
+      /end REF_CHARACTERISTIC
+    /end GROUP
+    /begin GROUP G_Other_unused2 "unused2"
+      /begin REF_CHARACTERISTIC
+        CAL_unused2
+      /end REF_CHARACTERISTIC
+    /end GROUP
+    /begin GROUP G_Other_unused3 "unused3"
+      /begin REF_CHARACTERISTIC
+        CAL_unused3
+      /end REF_CHARACTERISTIC
+    /end GROUP
+    /begin GROUP G_Other_unused5 "unused5"
+      /begin REF_CHARACTERISTIC
+        CAL_unused5
+      /end REF_CHARACTERISTIC
+    /end GROUP
   /end MODULE
 /end PROJECT

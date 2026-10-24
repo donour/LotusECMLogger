@@ -387,6 +387,32 @@ generated file into CANape or INCA.
   - **Sync controls.** Start/Stop Live Sync (with a confirmation naming the backup), Hold edits + Apply, Refresh
     from ECU, and Send File / Take ECU Values while comparing. Live sync needs the ECU identified as the file's
     build.
+
+  *Editor rebuilt 2026-10-24 after the owner's RaiderLite* (`~/source/repos/RaiderLite`, the owner's own GPL
+  RomRaider-style editor; its plotting code is the owner's, so it was ported here). It replaces the flat list and
+  plain grid described above:
+  - **Tree.** The generator writes subsystem GROUPs (`CalibrationGroups`: Fuel and injection › inj / injtip /
+    closedloop…, Ignition and knock, Throttle, Idle, …) that the owner can rearrange in the A2L.
+    `CalibrationTree` builds the browser from ROOT GROUPs and SUB_GROUPs. A2Ls without groups use the same name
+    rules, and anything not listed goes under "Ungrouped". There is a filter box, kinds (tables, axes, values,
+    all) and "Changed only"; changed items are bold.
+  - **Grid.** `CalibrationGrid`, after RaiderLite's `TableGrid`:
+    - frozen bold axis cells, RaiderLite's min → max heat colours, and red/blue borders on raised/lowered cells;
+    - a corner mark for ECU sync state (orange pending, blue writing, red failed) and a "Changes" view;
+    - selecting only axis points edits the shared AXIS_PTS item;
+    - typing starts value entry instead of editing in place.
+  - **Value toolbar.** RaiderLite's `StepField`s: Fine (one raw count by default) and Coarse (10×), each with −/+;
+    Value with Set; then Multiply, Interpolate (both / vertical / horizontal, by axis position), Smooth, Revert
+    (to the file), Undo, Redo, Copy and Paste.
+  - **Keyboard.** RaiderLite's shortcuts: Ctrl(+Shift)+Up/Down, `[` `]` `+` `_` `*`, Shift+I/V/H, Ctrl+C/V/Z/Y,
+    and Ctrl+G for the graph.
+  - **Status line.** X, Y, value, raw (hex), address and ECU state of the current cell.
+  - **Graph.** RaiderLite's Direct2D plotting (Vortice 3.8.3, GDI+ fallback; `LOTUS_GDI_GRAPHS=1` forces GDI+):
+    - lines per row (or per column when transposed), or a 3D surface you drag to rotate;
+    - beside a map, below a curve; the file's values are dashed behind a changed curve;
+    - selection is linked both ways; right-click copies the graph as an image.
+    The UI test checks that Direct2D draws in this x86 app. Rendered against the stock B132E0091.CRP, the AFR base
+    map matches RaiderLite's view of the same calibration.
 - **6e, live operating point.** Stream each table's `InputQuantity` measurements over DAQ (alongside the
   edits, through the shared `CcpMaster`). Highlight the active cell and the four cells being interpolated,
   with a trail of recent hits. Tables with `NO_INPUT_QUANTITY` can be edited but show no cursor.

@@ -215,9 +215,17 @@ namespace LotusECMLogger.Services.A2l
                     AxisPts = axisPts,
                     Characteristics = characteristics,
                     Alignment = alignment,
+                    Groups = module.Children.Where(c => c.Keyword == "GROUP").Select(ReadGroup).ToList(),
                     Diagnostics = diagnostics,
                 };
             }
+
+            private static A2lGroup ReadGroup(Node node) => new(node.Name(0),
+                node.Tokens.Count > 1 && node.Tokens[1].Kind == TokenKind.String ? node.Tokens[1].Text : "", node.Has("ROOT"),
+                Names(node, "REF_CHARACTERISTIC"), Names(node, "SUB_GROUP"));
+
+            private static List<string> Names(Node node, string block) =>
+                node.Children.Where(c => c.Keyword == block).SelectMany(c => c.Tokens).Select(t => t.Text).ToList();
 
             private Dictionary<string, T> Collect<T>(string keyword, Func<Node, T?> read, Func<T, string> key) where T : class
             {

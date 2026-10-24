@@ -274,6 +274,10 @@ namespace LotusECMLogger.Services.A2l
         public bool IsVirtual => VirtualInputs.Count > 0;
     }
 
+    /// <summary>A GROUP: a named folder of calibration items and other groups; ROOT groups are top-level.</summary>
+    public sealed record A2lGroup(string Name, string LongIdentifier, bool Root, IReadOnlyList<string> Characteristics,
+        IReadOnlyList<string> SubGroups);
+
     /// <summary>A parser finding that does not stop the file loading.</summary>
     public sealed record A2lDiagnostic(int Line, string Message)
     {
@@ -294,6 +298,8 @@ namespace LotusECMLogger.Services.A2l
         public IReadOnlyDictionary<string, A2lCompuMethod> CompuMethods { get; init; } = new Dictionary<string, A2lCompuMethod>();
         public IReadOnlyDictionary<string, A2lRecordLayout> RecordLayouts { get; init; } = new Dictionary<string, A2lRecordLayout>();
         public IReadOnlyDictionary<A2lDataType, int> Alignment { get; init; } = new Dictionary<A2lDataType, int>();
+        /// <summary>GROUPs in file order.</summary>
+        public IReadOnlyList<A2lGroup> Groups { get; init; } = [];
         public IReadOnlyList<A2lDiagnostic> Diagnostics { get; init; } = [];
 
         /// <summary>The conversion a name refers to; unknown names resolve to an unusable placeholder.</summary>

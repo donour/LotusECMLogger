@@ -147,20 +147,21 @@ public class CcpControlUiTests
         await panel.OpenCalibrationAsync(file);
         Assert.Contains("A2L C132E0278.a2l", log.Text);
         Assert.True(panel.SelectItem(table));
-        var grid = Find<DataGridView>(control, _ => true);
-        Assert.Equal((8, 8), (grid.ColumnCount, grid.RowCount));
-
-        void SelectCells(params (int X, int Y)[] cells)
+        var grid = panel.Grid!;
+        Assert.Equal((9, 9), (grid.ColumnCount, grid.RowCount)); // 8 × 8 plus the axis row and column
+        // The graph draws on the GPU through Direct2D (this app is x86), unless GDI+ is forced.
+        var plot = panel.GraphPane.Plot;
+        if (Environment.GetEnvironmentVariable("LOTUS_GDI_GRAPHS") != "1")
         {
-            grid.ClearSelection();
-            foreach (var (x, y) in cells) grid.Rows[y].Cells[x].Selected = true;
+            await Until(() => plot.LastDrawMilliseconds > 0, "a Direct2D frame");
+            Assert.True(plot.UsingDirect2D);
         }
-        var operand = Find<TextBox>(control, t => t.PlaceholderText == "value");
+
+        void SelectCells(params (int X, int Y)[] cells) => grid.SelectData(cells);
 
         // Offline: 50 ms is raw 10; nothing reaches the ECU yet.
         SelectCells((3, 5));
-        operand.Text = "50";
-        await Click("Set");
+        panel.ApplyValue("50");
         Assert.Equal(10, panel.Image!.ReadRaw(A2lItem(table), 3, 5));
         Assert.Equal(0, Ecu(3, 5));
 
@@ -174,14 +175,18 @@ public class CcpControlUiTests
 
         // Live: an edit, its undo, and a pasted block are written as they happen.
         SelectCells((0, 0));
-        operand.Text = "25";
-        await Click("Set");
+        panel.ApplyValue("25");
         await Until(() => Ecu(0, 0) == 5 && panel.Session!.PendingBytes == 0, "the live edit");
-        await Click("Undo");
+        panel.RunCommand(GridCommand.Undo);
         await Until(() => Ecu(0, 0) == 0, "the undo to reach the ECU");
         panel.PasteBlock("10\t20\r\n30\t40");
         await Until(() => (Ecu(0, 0), Ecu(1, 0), Ecu(0, 1), Ecu(1, 1)) == (2, 4, 6, 8), "the pasted block");
-        Assert.Equal("ECU in sync.", Find<Label>(control, l => l.Text.StartsWith("ECU in sync")).Text);
+        await Until(() => Descendants(control).OfType<Label>().Any(l => l.Text == "ECU in sync."), "the sync label to settle");
+
+        // The fine step is one raw count (5 ms), applied to the whole selection.
+        SelectCells((0, 0), (1, 0));
+        panel.RunCommand(GridCommand.IncrementFine);
+        await Until(() => (Ecu(0, 0), Ecu(1, 0)) == (3, 5), "the fine step");
 
         // Save As keeps the edits in a new file; the source is untouched.
         string tuned = Path.Combine(directory, "tuned.bin");

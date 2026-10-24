@@ -65,6 +65,37 @@ namespace LotusECMLogger.Services.Tuning
             }).ToList();
         }
 
+        /// <summary>Fills each row of the range linearly between its first and last cell (Horizontal interpolate).</summary>
+        public static IReadOnlyList<CellValue> InterpolateRows(double[,] values, CellRange range, IReadOnlyList<double>? xAxis = null)
+        {
+            if (range.Width < 2) throw new ArgumentException("Select at least two cells across a row.");
+            var cells = new List<CellValue>();
+            for (int y = range.Y0; y <= range.Y1; y++)
+                cells.AddRange(Interpolate(values, range with { Y0 = y, Y1 = y }, xAxis, null));
+            return cells;
+        }
+
+        /// <summary>Fills each column of the range linearly between its first and last cell (Vertical interpolate).</summary>
+        public static IReadOnlyList<CellValue> InterpolateColumns(double[,] values, CellRange range, IReadOnlyList<double>? yAxis = null)
+        {
+            if (range.Height < 2) throw new ArgumentException("Select at least two cells down a column.");
+            var cells = new List<CellValue>();
+            for (int x = range.X0; x <= range.X1; x++)
+                cells.AddRange(Interpolate(values, range with { X0 = x, X1 = x }, null, yAxis));
+            return cells;
+        }
+
+        /// <summary>
+        /// The physical size of one raw count, the natural fine step: 5 for a 5 ms-per-count table. Verbal tables and
+        /// conversions that are not linear step by 1.
+        /// </summary>
+        public static double RawStep(A2l.A2lCompuMethod conversion)
+        {
+            if (conversion.Problem is not null || conversion.Kind == A2l.A2lConversionKind.VerbalTable) return 1;
+            double step = Math.Abs(conversion.ToPhysical(1) - conversion.ToPhysical(0));
+            return double.IsFinite(step) && step > 0 ? step : 1;
+        }
+
         private static double[] Positions(IReadOnlyList<double>? axis, int from, int to)
         {
             var indices = Enumerable.Range(from, to - from + 1).Select(i => (double)i).ToArray();

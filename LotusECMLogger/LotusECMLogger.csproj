@@ -23,6 +23,9 @@
 
   <ItemGroup>
     <PackageReference Include="J2534-Sharp.Core" Version="2.0.4" />
+    <!-- Direct2D graphs in the CCP Tuning tab (ported from RaiderLite); GDI+ is the fallback. -->
+    <PackageReference Include="Vortice.Direct2D1" Version="3.8.3" />
+    <PackageReference Include="Vortice.DXGI" Version="3.8.3" />
   </ItemGroup>
 
   <ItemGroup>
