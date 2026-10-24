@@ -72,6 +72,19 @@ public class TransportTests
     }
 
     [Fact]
+    public void ASimulatedReadKeepsItsTimeoutWhileCatchingUpAfterAStall()
+    {
+        // A stall (GC, a busy machine) leaves virtual time far behind: at 200× a second is 200,000 virtual ms. The
+        // read must still return within about its timeout, or replies queued elsewhere wait past the command timeout.
+        using var slave = new FakeCcpSlave();
+        using var transport = new SimulatedCcpTransport(slave, speedFactor: 200);
+        Thread.Sleep(1000);
+        var timer = System.Diagnostics.Stopwatch.StartNew();
+        transport.Read(5);
+        Assert.InRange(timer.ElapsedMilliseconds, 0, 40);
+    }
+
+    [Fact]
     public void PausedSimulatedTransportOnlyAdvancesOnRequest()
     {
         using var slave = new FakeCcpSlave();

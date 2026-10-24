@@ -80,7 +80,9 @@ public sealed class SimulatedCcpTransport : ICcpTransport
                 {
                     _ecu.AdvanceMilliseconds(1);
                     _virtualMilliseconds++;
-                    continue;
+                    // After a stall, catching up can take far longer than the timeout; the next read carries on,
+                    // so frames queued by the caller (a test's scripted replies) are not held up behind it.
+                    if (_wall.ElapsedMilliseconds < deadline) continue;
                 }
             }
             if (_wall.ElapsedMilliseconds >= deadline) return [];
