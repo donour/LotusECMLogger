@@ -87,6 +87,21 @@ C# port of `hc08_patcher/hc08_tps_sync.py`; the spec and test vectors are in `hc
 - Deliberate divergence from the Python/spec: an rpm axis mismatch is not an error. The CAL axis is converted to HC08 units (never copied raw) and written over the HC08 axis, then the tables are compared on it. Both axes, and the converted one, must be strictly increasing
 - UI: `Hc08TpsPatchDialog` (Tools > HC08 TPS Table Patch…); tests: `Hc08TpsPatcherTests` (synthetic images reproduce the spec's vectors)
 
+### A2L tables (CCP live tuning, Phase 6)
+
+`LotusECMLogger/Services/A2l` reads and drafts ASAP2 files; the design and status are in `CCP-client-plan.md` §4 and §6.
+- **`A2lGenerator`** drafts an A2L from a build's symbol catalog:
+  - `CAL_x` + `CAL_x_X_*`/`CAL_x_Y_*` become a CURVE/MAP with COM_AXIS, `ROW_DIR` (X fastest, as the firmware's
+    `lut[y * size_x + x]`);
+  - every axis is `NO_INPUT_QUANTITY`; inputs are added by hand after checking the decompile.
+- **`A2lTool generate <build>… --out-dir LotusECMLogger/config/a2l`** writes the files (it keeps existing ones unless
+  `--force`). **`A2lTool check <file>`** lists what the app will refuse.
+- **`A2lParser`** is a tolerant subset reader built on a generic `/begin … /end` tree. **`A2lLayout.Resolve`** turns
+  items into `A2lCalibrationItem`s (`CellAddress(x, y)`, axes, conversion). Anything unsupported is unavailable with
+  a reason and never defaulted. Conversions without an inverse are read-only.
+- **`A2lFormula`** evaluates FORM formulas, including C bit operators.
+- **Tests:** `LotusECMLogger.Ccp.Tests/A2lTests.cs` pins the map layout against two firmware lookups.
+
 ### UI Components
 
 #### MainWindow - Top-Level Tabs

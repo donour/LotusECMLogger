@@ -6,7 +6,8 @@ Design notes for adding a CCP 2.1 master to LotusECMLogger. The ECU side is desc
 **Status (2026-10-12): Phases 1–5 implemented in code (protocol core, firmware-backed GT430 simulator,
 `CcpMaster`, high-speed logger ported onto it with AEM as a separate source, shared session host, CCP tab, guarded
 calibration writes) plus diagnostics tooling (trace, statistics, variable watch, memory diff, self-test). Phases 1–5
-verified on a car 2026-10-24 (2011 Evora NA, B132E0091), including the J2534 latency fix. Next: an A2L generator (before Phase 6), then Phase 6. Scope narrowed to T6
+verified on a car 2026-10-24 (2011 Evora NA, B132E0091), including the J2534 latency fix. Phase 6 started 2026-10-24:
+the A2L generator and the 6a reader are done (§4); next is 6b, the calibration image. Scope narrowed to T6
 2011+ for now (§2).**
 The protocol core, target/build profiles, transport contract, J2534 transport and deterministic fake slave
 are implemented. Cross-platform tests exercise the command sequence, firmware quirks and runtime-registry format.
@@ -286,8 +287,39 @@ the enable byte is not offered. The A2L `MEMORY_SEGMENT` source for the range ar
 `NO_INPUT_QUANTITY`; the owner adds verified `InputQuantity` bindings. The record layout for X-fastest storage
 must be pinned by a test against a known table before generated files are trusted (§7).
 
+*Done 2026-10-24.* `Services/A2l/A2lGenerator.cs`, run by `A2lTool generate <build>… --out-dir LotusECMLogger/config/a2l`
+(it keeps existing files unless `--force`, since they may carry hand-added inputs; `A2lTool check <file>` reports
+what the app will refuse and why). Drafts are committed for B13200091, B132E0091 and C132E0278 in
+`LotusECMLogger/config/a2l/`. What the generator writes:
+- Tables become CURVE/MAP with `COM_AXIS` → `AXIS_PTS`, with `ROW_DIR` storage (X fastest). Other `CAL_` arrays become
+  VAL_BLK, `char` arrays ASCII, and scalars VALUE. Values whose size was inferred from the next address are
+  `READ_ONLY`.
+- Non-calibration RAM scalars become MEASUREMENTs, for the owner's `InputQuantity` bindings.
+- One RAT_FUNC `COMPU_METHOD` per distinct scaling, named after the catalog type.
+- Duplicate catalog names get an `_<address>` suffix, and anything left out or downgraded is listed in a comment
+  at the top of the file.
+
+**Layout pin:** `A2lTests.GeneratedMapsPutEachCellWhereTheFirmwareLookupReadsIt` checks every cell address against
+`lut[y * size_x + x]` from `lookup_3D_uint8_interpolated`, for two tables:
+- `CAL_injtip_transient_throttle_response_time` (8 × 8, `C132E0278.c:10986`);
+- `CAL_ign_comp_manifold_temp`, which is non-square (`size_x` 16 on `_X_engine_speed`, `size_y` 12; `:15810`), so it
+  also proves which axis is X.
+
+The `ROW_DIR` reading (X fastest when X labels the columns) follows ASAM's example as shown in Intrepid's ASAP2
+guide, and `RowDirStoresXFastestAndColumnDirStoresYFastest` encodes it. It is still to be confirmed by loading a
+generated file into CANape or INCA.
+
+**Found while generating:**
+- `CAL_ecu_cvn` sits at CAL+0x61D8 on B13200091/B132E0091. These are the two bytes past the RAM range in the CRP
+  chunk (0x61DA): the F7CA found there is what the catalog calls the CVN, not part of calibration RAM.
+- C132E0278's catalog types `CAL_idle_air_warmup_factor_ips` as 1 byte and its Y axis as a scalar. The firmware
+  looks it up as 16 × 8 (`:28116`, X coolant 0x4000E190, Y 0x4000E1A0, data 0x4000E1A8), so the catalog needs
+  `[128]` and `[8]`. Until then it is written as a VALUE.
+- `uchar` is now a 1-byte base type in `ChannelTypeParser`; before, its size was inferred from the address gap.
+
 **Phase 6 sub-phases**
-- **6a, A2L reader.** See §6.
+- **6a, A2L reader.** See §6. *Done 2026-10-24* (`A2lParser`, `A2lLayout`, `A2lFormula`; `A2lTests`). Not yet read:
+  `IF_DATA ASAP1B_CCP` (the generator does not write it; the built-in target profile is used).
 - **6b, calibration image.** `CalibrationImage` loads a raw CAL-region image or a 64 KB Snapshots calibration
   download (detected by size); offset = address − CAL_base. Undo/redo; tracks bytes changed against the
   original file. **Save As only**, with a backup; the source file is never overwritten.
@@ -375,6 +407,20 @@ No existing .NET parser was evaluated for license or maintenance. It reads:
 
 Tests use a small hand-written sample A2L until real files are supplied.
 
+*As built:*
+- **Supported subset.** Everything listed above except `IF_DATA ASAP1B_CCP`, plus ASCII, `FIX_AXIS_PAR_DIST` and
+  `FIX_AXIS_PAR_LIST`, and STD_AXIS records laid out by Position with alignment.
+- **Refused, so the item is unavailable with a reason:**
+  - record layouts with anything beyond FNC_VALUES, AXIS_PTS_X/Y and FIX_NO_AXIS_PTS (for example NO_AXIS_PTS_X or
+    ALTERNATE_*);
+  - non-DIRECT addressing;
+  - BIT_MASK or an address extension on calibration items;
+  - RAT_FUNC with quadratic terms;
+  - unknown byte orders and data types.
+- **Read-only:** conversions with no inverse (FORM without FORMULA_INV) and READ_ONLY items.
+- **Formulas:** they take C operators, including `>>` and `&`, which answers that question in §7.
+- **`A2lCalibrationItem.CellAddress(x, y)`** is the single place that turns a cell into an address.
+
 **What the supplied A2L files should contain:**
 
 | A2L item | Used for | If missing |
@@ -407,11 +453,10 @@ A vendor `IF_DATA` block (ignored by other tools) could carry these later withou
 - **Runtime variable registry:** validate table header/count, the zero terminator and semantic index
   bindings against each actual firmware image before replacing inferred channel sizes. The decoder
   is implemented; the simulation driver reads the full registry over CCP; hardware-session discovery and catalog reconciliation remain Phase 2 work.
-- **A2L map storage order:** which `RECORD_LAYOUT` index mode (`ROW_DIR` / `COLUMN_DIR`) matches the
-  firmware's X-fastest layout. Pin it with a test against a known table such as
-  `CAL_injtip_transient_throttle_response_time` (8 × 8).
-- **A2L formulas:** whether ASAP2 formula syntax supports `>>`, `&` and similar, which type B inputs need. If
-  not, those inputs fall back to `NO_INPUT_QUANTITY`.
+- **A2L map storage order:** pinned 2026-10-24. `ROW_DIR` with the first AXIS_DESCR as X is what the firmware
+  reads (§4, "Before Phase 6: A2L generator"). Still to confirm: that CANape/INCA read `ROW_DIR` the same way.
+- **A2L formulas:** our reader evaluates `>>`, `&`, `|`, `^` and `~`, so type B inputs can be expressed as VIRTUAL
+  measurements. Whether other tools accept those operators is unverified.
 - **Reflash checksum:** whether the flash/CRP path needs a checksum fixed when an edited calibration file is
   reflashed. Check before Save As output is used for reflashing.
 

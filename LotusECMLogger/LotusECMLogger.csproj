@@ -98,6 +98,10 @@
     <None Update="config\**\*.csv">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <!-- Drafted per build by A2lTool, then reviewed by hand (CCP-client-plan.md, Phase 6) -->
+    <None Update="config\**\*.a2l">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Update="Properties\Settings.settings">
       <Generator>SettingsSingleFileGenerator</Generator>
       <LastGenOutput>Settings.Designer.cs</LastGenOutput>

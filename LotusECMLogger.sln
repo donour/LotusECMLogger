@@ -19,6 +19,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LotusECMLogger.Ccp.Tests", 
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CcpSimulator", "CcpSimulator\CcpSimulator.csproj", "{B5135EE2-ADEE-4C09-9057-E9576C892D15}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "A2lTool", "A2lTool\A2lTool.csproj", "{766EEB40-2C58-47AF-A3FA-230431DD88CA}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -125,6 +127,18 @@ Global
 		{B5135EE2-ADEE-4C09-9057-E9576C892D15}.Release|x86.Build.0 = Release|Any CPU
 		{B5135EE2-ADEE-4C09-9057-E9576C892D15}.Release|x64.ActiveCfg = Release|Any CPU
 		{B5135EE2-ADEE-4C09-9057-E9576C892D15}.Release|x64.Build.0 = Release|Any CPU
+		{766EEB40-2C58-47AF-A3FA-230431DD88CA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{766EEB40-2C58-47AF-A3FA-230431DD88CA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{766EEB40-2C58-47AF-A3FA-230431DD88CA}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{766EEB40-2C58-47AF-A3FA-230431DD88CA}.Debug|x86.Build.0 = Debug|Any CPU
+		{766EEB40-2C58-47AF-A3FA-230431DD88CA}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{766EEB40-2C58-47AF-A3FA-230431DD88CA}.Debug|x64.Build.0 = Debug|Any CPU
+		{766EEB40-2C58-47AF-A3FA-230431DD88CA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{766EEB40-2C58-47AF-A3FA-230431DD88CA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{766EEB40-2C58-47AF-A3FA-230431DD88CA}.Release|x86.ActiveCfg = Release|Any CPU
+		{766EEB40-2C58-47AF-A3FA-230431DD88CA}.Release|x86.Build.0 = Release|Any CPU
+		{766EEB40-2C58-47AF-A3FA-230431DD88CA}.Release|x64.ActiveCfg = Release|Any CPU
+		{766EEB40-2C58-47AF-A3FA-230431DD88CA}.Release|x64.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
