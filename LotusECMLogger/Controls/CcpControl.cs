@@ -40,6 +40,12 @@ namespace LotusECMLogger.Controls
         private readonly CcpTrafficPanel trafficPanel;
         private readonly CcpSelfTestPanel selfTestPanel;
         private readonly CcpTuningPanel tuningPanel;
+        // Compact layout for the Tuning page: the log becomes a one-line strip that opens the full log.
+        private readonly Panel logStrip = new() { Dock = DockStyle.Bottom, Height = 24, Visible = false };
+        private readonly Button logToggle = new() { Dock = DockStyle.Left, AutoSize = true, FlatStyle = FlatStyle.Flat };
+        private readonly Label lastLogLabel = new() { Dock = DockStyle.Fill, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft, ForeColor = SystemColors.GrayText };
+        private bool logExpanded;
+        private int expandedHeaderHeight;
 
         /// <summary>Design-time constructor: lays out the control and opens nothing.</summary>
         public CcpControl()
@@ -74,6 +80,15 @@ namespace LotusECMLogger.Controls
             var tuningPage = new TabPage("Tuning") { Name = "tuningPage", UseVisualStyleBackColor = true };
             tuningPage.Controls.Add(tuningPanel);
             subTabs.TabPages.Insert(1, tuningPage);
+            // The info list keeps its height, so the header can shrink and grow without anchoring drift.
+            infoListView.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            logToggle.FlatAppearance.BorderSize = 0;
+            logToggle.Click += (_, _) => { logExpanded = !logExpanded; ApplyPageLayout(); };
+            logStrip.Controls.Add(lastLogLabel);
+            logStrip.Controls.Add(logToggle);
+            Controls.Add(logStrip);
+            Controls.SetChildIndex(logStrip, Controls.GetChildIndex(logTextBox)); // docked just above the log
+            subTabs.SelectedIndexChanged += (_, _) => ApplyPageLayout();
             ConfirmWrite = text => MessageBox.Show(this, text, "Write calibration RAM", MessageBoxButtons.YesNo,
                 MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2) == DialogResult.Yes;
             ShowInfo();
@@ -576,7 +591,8 @@ namespace LotusECMLogger.Controls
             (stateLabel.Text, stateLabel.ForeColor) = state switch
             {
                 null => ("Not connected", SystemColors.ControlText),
-                CcpSessionState.Connected => (host?.LeaseCount > 1 ? "Connected (shared with High-Speed Log)" : "Connected", GoodColor),
+                CcpSessionState.Connected => ((host?.LeaseCount > 1 ? "Connected (shared with High-Speed Log)" : "Connected") +
+                    (identification?.Build is { } build ? $" · {build.Build}" : ""), GoodColor),
                 CcpSessionState.Uncertain => ($"Uncertain: {Master!.StateReason}. Reconnect before memory access.", WarnColor),
                 CcpSessionState.Faulted => ($"Adapter failed: {Master!.StateReason}", BadColor),
                 _ => ("Session closed", SystemColors.ControlText),
@@ -651,9 +667,28 @@ namespace LotusECMLogger.Controls
             return text.ToString();
         }
 
+        /// <summary>
+        /// The Tuning page gets the room: the header shrinks to its button row and the log to a one-line strip
+        /// (which opens the full log). Every other page has the full header and log.
+        /// </summary>
+        private void ApplyPageLayout()
+        {
+            bool compact = subTabs.SelectedTab?.Name == "tuningPage";
+            SuspendLayout();
+            if (compact && infoListView.Visible) expandedHeaderHeight = connectionPanel.Height;
+            noteLabel.Visible = infoListView.Visible = !compact;
+            connectionPanel.Height = compact ? connectButton.Bottom + connectButton.Top / 2 : Math.Max(expandedHeaderHeight, connectionPanel.Height);
+            logStrip.Visible = compact;
+            logTextBox.Visible = !compact || logExpanded;
+            logToggle.Text = logExpanded ? "\u25BE Log" : "\u25B8 Log";
+            ResumeLayout(true);
+        }
+
         public void Log(string message)
         {
-            if (!IsGone) logTextBox.AppendText($"{DateTime.Now:HH:mm:ss}  {message}\r\n");
+            if (IsGone) return;
+            logTextBox.AppendText($"{DateTime.Now:HH:mm:ss}  {message}\r\n");
+            lastLogLabel.Text = message;
         }
 
         protected override void Dispose(bool disposing)

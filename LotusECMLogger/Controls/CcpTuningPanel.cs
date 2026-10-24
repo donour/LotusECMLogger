@@ -29,7 +29,7 @@ namespace LotusECMLogger.Controls
         private readonly Button openButton = new() { Text = "Open Calibration…", AutoSize = true };
         private readonly Button openA2lButton = new() { Text = "Open A2L…", AutoSize = true };
         private readonly Button saveAsButton = new() { Text = "Save As…", AutoSize = true };
-        private readonly Label fileLabel = new() { AutoSize = true, Padding = new Padding(6, 6, 0, 0) };
+        private readonly Label fileLabel = new() { Dock = DockStyle.Top, Height = 20, AutoEllipsis = true, ForeColor = SystemColors.GrayText, Padding = new Padding(2, 3, 0, 0) };
         private readonly Button startButton = new() { Text = "Start Live Sync", AutoSize = true };
         private readonly Button stopButton = new() { Text = "Stop Sync", AutoSize = true };
         private readonly CheckBox holdBox = new() { Text = "Hold edits", AutoSize = true, Padding = new Padding(4, 5, 0, 0) };
@@ -123,14 +123,16 @@ namespace LotusECMLogger.Controls
             coarseField.ToolTipText = "Coarse step";
             valueField.ToolTipText = "Type a value, then Enter to set the selection, or Multiply";
 
-            var fileBar = Bar(openButton, openA2lButton, saveAsButton, fileLabel);
-            var syncBar = Bar(startButton, stopButton, holdBox, applyButton, refreshButton, sendButton, takeButton, syncLabel);
+            // One bar for files and sync; sync buttons show only when they apply, so it stays one row.
+            var topBar = Bar(openButton, openA2lButton, saveAsButton, new Label { Width = 12 }, startButton, stopButton, holdBox,
+                applyButton, refreshButton, sendButton, takeButton, syncLabel);
             var filterBar = Bar(kindBox, changedBox);
             filterBar.Dock = DockStyle.Top;
             var browser = new Panel { Dock = DockStyle.Fill };
             browser.Controls.Add(tree);
             browser.Controls.Add(filterBar);
             browser.Controls.Add(searchBox);
+            browser.Controls.Add(fileLabel);
 
             var valueBar = Bar(Caption("Fine"), fineField, Caption("Coarse"), coarseField, Caption("Value"), valueField, multiplyButton,
                 undoButton, redoButton, copyButton, pasteButton);
@@ -151,9 +153,8 @@ namespace LotusECMLogger.Controls
             split.Panel1.Controls.Add(browser);
             split.Panel2.Controls.Add(editor);
             Controls.Add(split);
-            syncBar.Dock = fileBar.Dock = DockStyle.Top;
-            Controls.Add(syncBar);
-            Controls.Add(fileBar);
+            topBar.Dock = DockStyle.Top;
+            Controls.Add(topBar);
 
             Confirm = text => MessageBox.Show(this, text, "Live tuning", MessageBoxButtons.YesNo, MessageBoxIcon.Warning,
                 MessageBoxDefaultButton.Button2) == DialogResult.Yes;
@@ -163,7 +164,11 @@ namespace LotusECMLogger.Controls
             saveAsButton.Click += (_, _) => BrowseSaveAs();
             startButton.Click += async (_, _) => await StartSyncAsync();
             stopButton.Click += async (_, _) => await StopSyncAsync();
-            holdBox.CheckedChanged += (_, _) => { if (session is not null) session.Mode = holdBox.Checked ? LiveTuningMode.Hold : LiveTuningMode.Live; };
+            holdBox.CheckedChanged += (_, _) =>
+            {
+                if (session is not null) session.Mode = holdBox.Checked ? LiveTuningMode.Hold : LiveTuningMode.Live;
+                UpdateState();
+            };
             applyButton.Click += async (_, _) => await RunSessionAsync("Apply edits", (s, ct) => s.ApplyAsync(null, ct));
             refreshButton.Click += async (_, _) => await RunSessionAsync("Refresh from ECU", (s, ct) => s.RefreshAsync(null, ct));
             sendButton.Click += async (_, _) => await SendFileAsync();
@@ -891,14 +896,19 @@ namespace LotusECMLogger.Controls
             refreshButton.Enabled = idle && session is not null && context.IsConnected;
             sendButton.Enabled = takeButton.Enabled = idle && status is LiveTuningStatus.Comparing or LiveTuningStatus.Syncing
                 && session!.PendingBytes > 0;
+            startButton.Visible = session is null;
+            stopButton.Visible = refreshButton.Visible = session is not null;
+            applyButton.Visible = session is not null && holdBox.Checked;
+            sendButton.Visible = takeButton.Visible = status == LiveTuningStatus.Comparing;
             graphBox.Enabled = current is not null && GraphData.CanGraph(current);
             changesBox.Enabled = grid is not null;
             UpdateEditButtons();
 
             fileLabel.Text = image is null ? "No calibration open."
-                : $"{Path.GetFileName(image.SourcePath ?? image.Build.Build)} · {image.Build.Build} · " +
-                  $"{(a2lPath is null ? "no A2L" : Path.GetFileName(a2lPath))} · {image.ChangedByteCount:N0} byte(s) changed" +
+                : $"{Path.GetFileName(image.SourcePath ?? image.Build.Build)} · {image.ChangedByteCount:N0} B changed" +
                   (image.HasUnsavedChanges ? " · unsaved" : "");
+            toolTip.SetToolTip(fileLabel, image is null ? "" : $"{image.SourcePath} ({image.Build.Build})\n" +
+                $"A2L: {a2lPath ?? "none"}\n{image.ChangedByteCount:N0} byte(s) changed from the file{(image.HasUnsavedChanges ? ", not saved" : "")}");
             (syncLabel.Text, syncLabel.ForeColor) = status switch
             {
                 null => (context.IsConnected ? "Not syncing." : "Offline: connect to sync with the ECU.", SystemColors.GrayText),

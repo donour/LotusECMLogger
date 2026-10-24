@@ -134,14 +134,20 @@ public class CcpControlUiTests
         async Task Click(string text)
         {
             var button = ButtonWithText(control, text);
-            await Until(() => button.Enabled, $"{text} to be enabled");
+            await Until(() => button.Enabled && button.Visible, $"{text} to be shown and enabled");
             button.PerformClick();
         }
 
         Named<Button>(control, "connectButton").PerformClick();
         await Until(() => control.Identification?.Build is not null, "identification");
         var tabs = Named<TabControl>(control, "subTabs");
+        var header = Named<Panel>(control, "connectionPanel");
+        int fullHeader = header.Height;
         tabs.SelectedTab = tabs.TabPages["tuningPage"];
+        // The Tuning page takes the room: a one-row header and a one-line log strip.
+        Assert.True(header.Height < fullHeader / 2);
+        Assert.False(Named<ListView>(control, "infoListView").Visible);
+        Assert.False(log.Visible);
 
         // Open the file; the build's A2L comes from config/a2l.
         await panel.OpenCalibrationAsync(file);
