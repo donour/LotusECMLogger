@@ -118,7 +118,6 @@ namespace LotusECMLogger.Controls
             [
                 $"App:      LotusECMLogger {Application.ProductVersion}",
                 $"OS:       {Environment.OSVersion.VersionString}",
-                $"Adapter:  send while reading {(Properties.Settings.Default.CcpSendWhileReading ? "on" : "off")} (setting at save time)",
             ]));
             context.Log($"Saved the self-test report to {dialog.FileName}.");
         }

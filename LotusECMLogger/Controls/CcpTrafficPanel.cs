@@ -22,11 +22,6 @@ namespace LotusECMLogger.Controls
         private readonly CheckBox pauseBox = new() { Text = "Pause", AutoSize = true };
         private readonly Button clearButton = new() { Text = "Clear View", AutoSize = true };
         private readonly Button saveButton = new() { Text = "Save Trace…", AutoSize = true };
-        private readonly CheckBox sendWhileReadingBox = new()
-        {
-            Text = "Send while reading (experimental; applies when the adapter is next opened)", AutoSize = true,
-            Padding = new Padding(0, 3, 0, 0),
-        };
         private readonly System.Windows.Forms.Timer refreshTimer = new() { Interval = 500 };
         private CcpMaster? shown;
         private long lastSequence;
@@ -46,13 +41,6 @@ namespace LotusECMLogger.Controls
             bar.Controls.AddRange([pauseBox, clearButton, saveButton,
                 new Label { AutoSize = true, ForeColor = SystemColors.GrayText, Padding = new Padding(8, 6, 0, 0),
                     Text = "DAQ frames are counted above, not traced." }]);
-            var adapterBar = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, Padding = new Padding(4, 0, 4, 2) };
-            adapterBar.Controls.Add(sendWhileReadingBox);
-            new ToolTip().SetToolTip(sendWhileReadingBox,
-                "Lets commands go to the J2534 adapter while the receive thread is waiting on it, removing one wait per " +
-                "command. Most J2534 DLLs allow calls from two threads; if yours misbehaves, turn this off.");
-            sendWhileReadingBox.Checked = Properties.Settings.Default.CcpSendWhileReading;
-            sendWhileReadingBox.CheckedChanged += (_, _) => SendWhileReadingChanged();
             var split = new SplitContainer { Dock = DockStyle.Fill, Orientation = Orientation.Horizontal };
             // Allocations need a few rows; give the trace the rest once the page has its real height.
             split.HandleCreated += (_, _) => split.SplitterDistance = Math.Clamp(split.Height / 3, 80, 160);
@@ -60,7 +48,6 @@ namespace LotusECMLogger.Controls
             split.Panel2.Controls.Add(traceView);
             split.Panel2.Controls.Add(bar);
             Controls.Add(split);
-            Controls.Add(adapterBar);
             Controls.Add(statsLabel);
 
             clearButton.Click += (_, _) => traceView.Items.Clear();
@@ -68,16 +55,6 @@ namespace LotusECMLogger.Controls
             refreshTimer.Tick += (_, _) => { if (Visible) RefreshView(); };
             refreshTimer.Start();
             RefreshView();
-        }
-
-        private void SendWhileReadingChanged()
-        {
-            Properties.Settings.Default.CcpSendWhileReading = sendWhileReadingBox.Checked;
-            Properties.Settings.Default.Save();
-            context.Log($"Send while reading {(sendWhileReadingBox.Checked ? "on" : "off")}. " +
-                (context.Master is null
-                    ? "It applies when you next connect."
-                    : "It applies the next time the adapter opens: disconnect here and stop the High-Speed Log, then reconnect."));
         }
 
         private void RefreshView()
