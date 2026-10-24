@@ -115,7 +115,7 @@ namespace LotusECMLogger.Services
 
             switch (t)
             {
-                case "uint8_t": case "undefined1": case "bool": case "byte": case "char":
+                case "uint8_t": case "undefined1": case "bool": case "byte": case "char": case "uchar":
                     return new ParsedChannelType { Size = 1, Unit = "raw", Confidence = TypeConfidence.BaseType };
                 case "uint16_t": case "undefined2": case "ushort": case "word":
                     return new ParsedChannelType { Size = 2, Unit = "raw", Confidence = TypeConfidence.BaseType };
