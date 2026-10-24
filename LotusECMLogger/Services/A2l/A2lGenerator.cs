@@ -6,7 +6,7 @@ using LotusECMLogger.Services.Ccp;
 namespace LotusECMLogger.Services.A2l
 {
     public sealed record A2lGenerationResult(string Text, IReadOnlyList<string> Warnings, int Values, int Blocks,
-        int Curves, int Maps, int AxisPts, int Measurements);
+        int Curves, int Maps, int AxisPts, int Measurements, int Inputs);
 
     /// <summary>
     /// Drafts an A2L for one build from its symbol catalog (CCP-client-plan.md, "Before Phase 6"). Tables follow
@@ -29,7 +29,11 @@ namespace LotusECMLogger.Services.A2l
             public string BaseType => Regex.Replace(Entry.RawType, @"(\[\d+\])+$", "").Trim();
         }
 
-        public static A2lGenerationResult Generate(SymbolCatalog catalog, CcpBuildProfile build)
+        /// <param name="inputs">Reviewed axis inputs (<see cref="AxisInputs.Load"/>): AXIS_PTS name → the expression its
+        /// lookup passes. A plain variable becomes the axis's InputQuantity; an expression becomes a VIRTUAL
+        /// measurement whose FORM formula reads the variables' raw values as X1, X2, ….</param>
+        public static A2lGenerationResult Generate(SymbolCatalog catalog, CcpBuildProfile build,
+            IReadOnlyDictionary<string, string>? inputs = null)
         {
             ArgumentNullException.ThrowIfNull(catalog);
             ArgumentNullException.ThrowIfNull(build);
@@ -80,6 +84,10 @@ namespace LotusECMLogger.Services.A2l
             foreach (var name in isAxis)
                 if (!byName[name].Type.IsArray) warnings.Add($"{name}: named like an axis but is a scalar.");
 
+            var virtuals = new StringBuilder();
+            var inputOf = BindInputs(inputs, isAxis, byName, measurements, virtuals, warnings);
+            string Input(string axis) => inputOf.GetValueOrDefault(axis, "NO_INPUT_QUANTITY");
+
             var text = new StringBuilder();
             int values = 0, blocks = 0, curves = 0, maps = 0, axisCount = 0;
             var body = new StringBuilder();
@@ -87,13 +95,13 @@ namespace LotusECMLogger.Services.A2l
             {
                 if (isAxis.Contains(s.Name) && s.Type.IsArray)
                 {
-                    WriteAxisPts(body, s, compu);
+                    WriteAxisPts(body, s, compu, Input(s.Name));
                     axisCount++;
                     continue;
                 }
                 if (axesOf.TryGetValue(s.Name, out var axes) && TableShape(s, axes, warnings) is { } shape)
                 {
-                    WriteTable(body, s, shape.X, shape.Y, compu);
+                    WriteTable(body, s, shape.X, shape.Y, compu, Input);
                     if (shape.Y is null) curves++; else maps++;
                     continue;
                 }
@@ -101,13 +109,17 @@ namespace LotusECMLogger.Services.A2l
                 WritePlain(body, s, compu);
             }
             foreach (var s in measurements) WriteMeasurement(body, s, compu);
+            body.Append(virtuals);
             WriteGroups(body, calibration.Select(s => s.Name));
 
             text.Append("ASAP2_VERSION 1 61\n");
             text.Append("/*\n");
             text.Append(CultureInfo.InvariantCulture, $" * Drafted by LotusECMLogger A2lGenerator v{Version} from the {catalog.Name} symbol catalog for {build.Build}.\n");
-            text.Append(" * Every axis has NO_INPUT_QUANTITY: add an InputQuantity only after checking the lookup in the decompile\n");
-            text.Append(" * (scope, conditions, input transforms; CCP-client-plan.md section 5).\n");
+            if (inputOf.Count == 0)
+                text.Append(" * Every axis has NO_INPUT_QUANTITY: add an InputQuantity only after checking the lookup in the decompile\n");
+            else
+                text.Append(CultureInfo.InvariantCulture, $" * {inputOf.Count} axes have an InputQuantity from the reviewed <build>.inputs.csv; the rest have\n * NO_INPUT_QUANTITY. Bind more only after checking the lookup in the decompile\n");
+            text.Append(" * (scope, conditions, input transforms; CCP-client-plan.md section 5). Inputs are raw values, as the lookups compare them.\n");
             text.Append(" * Maps are ROW_DIR: the first AXIS_DESCR is X, stored fastest, as the firmware reads lut[y * size_x + x].\n");
             if (warnings.Count > 0)
             {
@@ -132,7 +144,7 @@ namespace LotusECMLogger.Services.A2l
             compu.Write(text);
             text.Append(body);
             text.Append("  /end MODULE\n/end PROJECT\n");
-            return new A2lGenerationResult(text.ToString(), warnings, values, blocks, curves, maps, axisCount, measurements.Count);
+            return new A2lGenerationResult(text.ToString(), warnings, values, blocks, curves, maps, axisCount, measurements.Count, inputOf.Count);
         }
 
         /// <summary>
@@ -211,24 +223,73 @@ namespace LotusECMLogger.Services.A2l
             return (x, y);
         }
 
-        private static void WriteAxisPts(StringBuilder text, Symbol s, CompuMethods compu)
+        private static void WriteAxisPts(StringBuilder text, Symbol s, CompuMethods compu, string input)
         {
             var (method, lower, upper) = Scaling(s, compu);
-            text.Append(CultureInfo.InvariantCulture, $"    /begin AXIS_PTS {s.Name} \"{LongIdentifier(s)}\" 0x{s.Address:X8} NO_INPUT_QUANTITY RL_AXIS_{DataType(s).Keyword()} 0 {method} {s.Count} {N(lower)} {N(upper)}\n");
+            text.Append(CultureInfo.InvariantCulture, $"    /begin AXIS_PTS {s.Name} \"{LongIdentifier(s)}\" 0x{s.Address:X8} {input} RL_AXIS_{DataType(s).Keyword()} 0 {method} {s.Count} {N(lower)} {N(upper)}\n");
             text.Append("    /end AXIS_PTS\n");
         }
 
-        private static void WriteTable(StringBuilder text, Symbol s, Symbol x, Symbol? y, CompuMethods compu)
+        private static void WriteTable(StringBuilder text, Symbol s, Symbol x, Symbol? y, CompuMethods compu, Func<string, string> input)
         {
             var (method, lower, upper) = Scaling(s, compu);
             text.Append(CultureInfo.InvariantCulture, $"    /begin CHARACTERISTIC {s.Name} \"{LongIdentifier(s)}\" {(y is null ? "CURVE" : "MAP")} 0x{s.Address:X8} RL_VALUE_{DataType(s).Keyword()} 0 {method} {N(lower)} {N(upper)}\n");
             foreach (var axis in y is null ? new[] { x } : new[] { x, y })
             {
                 var (axisMethod, axisLower, axisUpper) = Scaling(axis, compu);
-                text.Append(CultureInfo.InvariantCulture, $"      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY {axisMethod} {axis.Count} {N(axisLower)} {N(axisUpper)}\n");
+                text.Append(CultureInfo.InvariantCulture, $"      /begin AXIS_DESCR COM_AXIS {input(axis.Name)} {axisMethod} {axis.Count} {N(axisLower)} {N(axisUpper)}\n");
                 text.Append(CultureInfo.InvariantCulture, $"        AXIS_PTS_REF {axis.Name}\n      /end AXIS_DESCR\n");
             }
             text.Append("    /end CHARACTERISTIC\n");
+        }
+
+        /// <summary>
+        /// Resolves reviewed axis inputs to InputQuantity names: a plain variable is its MEASUREMENT; an expression gets
+        /// a VIRTUAL measurement <c>V_&lt;axis&gt;</c> with a FORM conversion over the variables' raw values. Inputs that
+        /// name an unknown axis or variable, or do not parse, are reported and left unbound.
+        /// </summary>
+        private static Dictionary<string, string> BindInputs(IReadOnlyDictionary<string, string>? inputs, HashSet<string> isAxis,
+            Dictionary<string, Symbol> byName, List<Symbol> measurements, StringBuilder virtuals, List<string> warnings)
+        {
+            var bound = new Dictionary<string, string>(StringComparer.Ordinal);
+            if (inputs is null) return bound;
+            var variables = measurements.Select(m => m.Name).ToHashSet(StringComparer.Ordinal);
+            foreach (var (axis, expression) in inputs.OrderBy(i => i.Key, StringComparer.Ordinal))
+            {
+                if (!isAxis.Contains(axis) || !byName[axis].Type.IsArray)
+                {
+                    warnings.Add($"Input for {axis}: not an axis in this catalog; ignored.");
+                    continue;
+                }
+                var names = Regex.Matches(expression, @"\b[A-Za-z_]\w*\b").Select(m => m.Value).Distinct(StringComparer.Ordinal).ToList();
+                var unknown = names.Where(n => !variables.Contains(n)).ToList();
+                if (names.Count == 0 || unknown.Count > 0)
+                {
+                    warnings.Add($"Input for {axis}: '{expression}' {(names.Count == 0 ? "names no variable" : $"uses {string.Join(", ", unknown)}, not a measurement")}; left unbound.");
+                    continue;
+                }
+                if (names.Count == 1 && expression.Trim() == names[0])
+                {
+                    bound[axis] = names[0];
+                    continue;
+                }
+                string formula = expression;
+                for (int i = 0; i < names.Count; i++)
+                    formula = Regex.Replace(formula, $@"\b{Regex.Escape(names[i])}\b", $"X{i + 1}");
+                if (!A2lFormula.TryParse(formula, out _, out var error))
+                {
+                    warnings.Add($"Input for {axis}: '{expression}' does not parse ({error}); left unbound.");
+                    continue;
+                }
+                string name = "V_" + axis;
+                bound[axis] = name;
+                string described = expression.Replace("\"", "'");
+                virtuals.Append(CultureInfo.InvariantCulture, $"    /begin MEASUREMENT {name} \"Input of {axis}: {described}\" SLONG CM_{name} 0 0 -2147483648 2147483647\n");
+                virtuals.Append(CultureInfo.InvariantCulture, $"      /begin VIRTUAL {string.Join(" ", names)} /end VIRTUAL\n    /end MEASUREMENT\n");
+                virtuals.Append(CultureInfo.InvariantCulture, $"    /begin COMPU_METHOD CM_{name} \"raw input of {axis}\" FORM \"%8.0\" \"\"\n");
+                virtuals.Append(CultureInfo.InvariantCulture, $"      /begin FORMULA \"{formula}\" /end FORMULA\n    /end COMPU_METHOD\n");
+            }
+            return bound;
         }
 
         private static void WritePlain(StringBuilder text, Symbol s, CompuMethods compu)

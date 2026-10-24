@@ -113,6 +113,12 @@ public class CcpControlUiTests
         using var slave = new FakeCcpSlave();
         uint cal = Gt430.CalibrationBase;
         slave.Load(cal, Encoding.ASCII.GetBytes("C132E0278 test calibration"));
+        // CAL_cooling_fan_afterrun: X axis (air temp) 40, 60, … 180; Y axis (coolant) 0, 10, … 70, raw. The A2L binds
+        // its inputs to temp_engine_air and coolant_temp, which the cursor streams over DAQ.
+        slave.Load(A2lItem(Fan + "_X_air_temp").Address, Enumerable.Range(0, 8).Select(i => (byte)(40 + 20 * i)).ToArray());
+        slave.Load(A2lItem(Fan + "_Y_coolant_temp").Address, Enumerable.Range(0, 8).Select(i => (byte)(10 * i)).ToArray());
+        slave.Load(0x4000183A, [90]); // temp_engine_air: halfway between points 2 and 3
+        slave.Load(0x40001836, [30]); // coolant_temp: on point 3
         string directory = Path.Combine(Path.GetTempPath(), "ccp-ui-tuning-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(directory);
         string file = Path.Combine(directory, "stock.bin");
@@ -194,6 +200,12 @@ public class CcpControlUiTests
         panel.RunCommand(GridCommand.IncrementFine);
         await Until(() => (Ecu(0, 0), Ecu(1, 0)) == (3, 5), "the fine step");
 
+        // The live cursor: where the ECU is reading the fan table, from its streamed inputs.
+        Assert.True(panel.SelectItem(Fan));
+        await Until(() => panel.Grid?.OperatingPoint is { X: { } x, Y: { } y } && x == new AxisPosition(2, 0.5) && y == new AxisPosition(3, 0),
+            "the live cursor");
+        Assert.Contains("Live", Descendants(control).OfType<Label>().Single(l => l.Text.StartsWith("Live")).Text);
+
         // Save As keeps the edits in a new file; the source is untouched.
         string tuned = Path.Combine(directory, "tuned.bin");
         panel.SaveAs(tuned);
@@ -215,6 +227,8 @@ public class CcpControlUiTests
         await Until(() => host.LeaseCount == 0, "the session to close");
         Directory.Delete(directory, recursive: true);
     });
+
+    private const string Fan = "CAL_cooling_fan_afterrun";
 
     private static LotusECMLogger.Services.A2l.A2lCalibrationItem A2lItem(string name) =>
         LotusECMLogger.Services.A2l.A2lLayout.Resolve(LotusECMLogger.Services.A2l.A2lParser.ParseFile(

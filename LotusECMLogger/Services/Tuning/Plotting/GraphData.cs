@@ -3,6 +3,9 @@ using LotusECMLogger.Services.A2l;
 
 namespace LotusECMLogger.Services.Tuning.Plotting;
 
+/// <summary>The live operating point on a graph, in axis positions, with the table's value there.</summary>
+public sealed record GraphCursor(double? X, double? Y, double? Value);
+
 /// <summary>One axis of a graph: where each column or row sits, and how to label it.</summary>
 public sealed class GraphAxis
 {
@@ -155,6 +158,25 @@ public sealed class GraphData
         Labels = IndexLabels(count),
         Categorical = true,
     };
+
+    /// <summary>
+    /// Where an operating point sits on this graph: each bound axis's position, interpolated between its points, and
+    /// the table's value there once every axis of the table is bound.
+    /// </summary>
+    public GraphCursor? CursorAt(OperatingPointSample sample)
+    {
+        static double Position(GraphAxis axis, AxisPosition p)
+        {
+            int i = Math.Clamp(p.Index, 0, axis.Count - 1), j = Math.Min(i + 1, axis.Count - 1);
+            return axis.Positions[i] + (axis.Positions[j] - axis.Positions[i]) * p.Fraction;
+        }
+        double? x = sample.X is { } px ? Position(X, px) : null;
+        double? y = Y is not null && sample.Y is { } py ? Position(Y, py) : null;
+        if (x is null && y is null) return null;
+        double? value = sample.X is { } vx && (Y is null || sample.Y is not null)
+            ? OperatingPoint.Interpolate(Values, vx, Y is null ? null : sample.Y) : null;
+        return new GraphCursor(x, y, value);
+    }
 
     /// <summary>The same map with X and Y swapped (one line per column instead of per row).</summary>
     public GraphData Transposed()

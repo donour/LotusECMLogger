@@ -9,6 +9,9 @@ namespace LotusECMLogger.Controls.Plotting;
 internal sealed class LinesView(GraphData data, float scale, Func<int, int, bool> isSelected)
 {
     private readonly List<(PointF P, int I, int J)> _points = [];
+
+    /// <summary>The live operating point, in this view's axis positions.</summary>
+    public GraphCursor? Cursor { get; set; }
     private RectangleF _plot;
 
     private float S(float v) => v * scale;
@@ -112,6 +115,16 @@ internal sealed class LinesView(GraphData data, float scale, Func<int, int, bool
         {
             if (isSelected(i, j))
                 r.DrawCircle(p, S(5), PlotStyle.Selection, S(2));
+        }
+        if (Cursor is { } cursor && cursor.X is { } cx)
+        {
+            r.Line(new PointF(X(cx), top), new PointF(X(cx), bottom), PlotStyle.Cursor, S(1.5f), dashed: true);
+            if (cursor.Value is { } v)
+            {
+                var at = new PointF(X(cx), Y(v));
+                r.FillCircle(at, S(5), PlotStyle.Cursor);
+                r.DrawCircle(at, S(5), Color.White, S(1.5f));
+            }
         }
         r.PopClip();
 

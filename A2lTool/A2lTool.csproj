@@ -17,6 +17,10 @@
     <Compile Include="../LotusECMLogger/Services/SymbolCatalog.cs" Link="Catalog/%(Filename)%(Extension)" />
     <Compile Include="../LotusECMLogger/Services/SymbolCatalogLoader.cs" Link="Catalog/%(Filename)%(Extension)" />
     <Compile Include="../LotusECMLogger/Services/ChannelTypeParser.cs" Link="Catalog/%(Filename)%(Extension)" />
+    <Compile Include="../LotusECMLogger/Services/CcpVariableCatalog.cs" Link="Catalog/%(Filename)%(Extension)" />
+    <Compile Include="../LotusECMLogger/Services/CcpVariableWatch.cs" Link="Catalog/%(Filename)%(Extension)" />
+    <Compile Include="../LotusECMLogger/Models/HighSpeedChannel.cs" Link="Catalog/%(Filename)%(Extension)" />
+    <Compile Include="../LotusECMLogger/Services/HighSpeedLogPlanner.cs" Link="Catalog/%(Filename)%(Extension)" />
     <None Include="../LotusECMLogger/config/highSpeedLogger/database/*.csv" LinkBase="config/highSpeedLogger/database"
           CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>

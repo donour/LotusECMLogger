@@ -8,7 +8,8 @@ Design notes for adding a CCP 2.1 master to LotusECMLogger. The ECU side is desc
 calibration writes) plus diagnostics tooling (trace, statistics, variable watch, memory diff, self-test). Phases 1–5
 verified on a car 2026-10-24 (2011 Evora NA, B132E0091), including the J2534 latency fix. Phase 6 started 2026-10-24:
 the A2L generator, the 6a reader, the 6b calibration image, 6c live sync and the 6d editor are done in code (§4);
-not yet used on a car. Next: a car check of live tuning, then 6e, the live operating point. Scope narrowed to T6
+not yet used on a car; 6e, the live operating point, is done in code too. Next: a car check of live tuning and the
+cursor, and review of the drafted axis inputs. Scope narrowed to T6
 2011+ for now (§2).**
 The protocol core, target/build profiles, transport contract, J2534 transport and deterministic fake slave
 are implemented. Cross-platform tests exercise the command sequence, firmware quirks and runtime-registry format.
@@ -416,6 +417,33 @@ generated file into CANape or INCA.
 - **6e, live operating point.** Stream each table's `InputQuantity` measurements over DAQ (alongside the
   edits, through the shared `CcpMaster`). Highlight the active cell and the four cells being interpolated,
   with a trail of recent hits. Tables with `NO_INPUT_QUANTITY` can be edited but show no cursor.
+  *Done in code 2026-10-24*; not yet used on a car. As built:
+  - **Inputs are raw.** The lookups compare raw inputs with raw axis points after their own truncation
+    (`lookup_3D_uint8_interpolated` uses `input & 0xff`; the 8-bit 2D lookup and `lookup_3D_uint8` take a byte).
+    So a binding is the expression the lookup sees, mask included, and the cursor places it on the raw axis.
+    A VIRTUAL measurement's FORM formula therefore reads its inputs' raw values as X1…Xn.
+  - **Drafting.** `A2lTool extract-inputs <decompile.c> <build> --out-dir LotusECMLogger/config/a2l` writes
+    `<build>.inputs.csv` (`AxisInputs`). It walks every `lookup_*` call, matches the axis argument to an AXIS_PTS by
+    name, and keeps an input only when every call site agrees and it uses nothing but the catalog's RAM
+    variables, numbers and `>> << & | ^ + - * / ~`. Casts are dropped unless they narrow more than the lookup does,
+    and the lookup's mask is added unless an unsigned variable already fits. Locals, constants, array/struct
+    accesses, calls, conditionals, offset axis pointers (`CAL_x + 5`) and disagreeing call sites are listed as
+    skipped.
+  - **Coverage.** Drafted from `t6-patch/disassembly/evora/B13200091/B13200091.c` (213 of 281 axes) and
+    `references/C132E0278.c` (132 of 324). Spot-checked: AFR base, ignition base, injector efficiency/angle and
+    warm-up use `engine_speed_3` × `load_mass_per_stroke` or `coolant_temp`, all unsigned bytes.
+  - **Review.** The CSVs are drafts: delete wrong rows, then `A2lTool generate … --force` (it reads
+    `<build>.inputs.csv` beside the A2L). A plain variable becomes the axis's InputQuantity; an expression
+    becomes `V_<axis>`, a VIRTUAL MEASUREMENT with a FORM formula.
+  - **Limitation: gearbox-specific tables.** Tables looked up only for one gearbox (`COD[0] >> 13 & 7` choosing
+    the IPS or manual table) still show a cursor on the other variant: it marks where the lookup would read.
+  - **Runtime.** `LiveCursor` streams the bound axes' variables with `CcpVariableWatch` (20 Hz). It evaluates
+    VIRTUAL formulas and places each input on the image's raw axis (`OperatingPoint.Locate`: clamped at the ends,
+    repeated points give fraction 0).
+  - **Display.** The Tuning grid outlines the cells being interpolated, with a dot at the exact point and a fading
+    trail; one bound axis draws a line across the grid. The graph draws a dashed line and a dot on the lines view,
+    or a dot on the surface. A live line under the grid gives each input (physical and raw) and the interpolated
+    value. The Cursor switch frees the DAQ lists, e.g. for the High-Speed Log.
 
 ## 5. Live tuning: findings that shape the design
 

@@ -28,6 +28,7 @@ public sealed class PlotControl : Control
     private bool _surfaceMode;
     private bool _transposed;
     private Func<int, int, bool> _selected = (_, _) => false;
+    private GraphCursor? _cursor;
 
     // Direct2D state; null when using GDI+. RAIDERLITE_GDI_GRAPHS=1 forces GDI+ (e.g. for a misbehaving driver).
     private ID2D1HwndRenderTarget? _target;
@@ -99,12 +100,27 @@ public sealed class PlotControl : Control
         _lines = _shown != null ? new LinesView(_shown, scale, LinesTransposed ? (i, j) => _selected(j, i) : (i, j) => _selected(i, j)) : null;
         // The surface keeps the table's orientation; transposing only affects the lines.
         _surface = _data != null && _surfaceMode ? SurfaceView.TryCreate(_data, Camera, scale, (i, j) => _selected(i, j)) : null;
+        ApplyCursor();
         Invalidate();
     }
 
     private bool LinesTransposed => _transposed && _data is { IsMap: true };
 
     /// <summary>Which cells (x, y) are selected in the grid; their points are ringed.</summary>
+    /// <summary>The live operating point, in the data's axis positions (as given, not transposed); null hides it.</summary>
+    public void SetCursor(GraphCursor? cursor)
+    {
+        _cursor = cursor;
+        ApplyCursor();
+        Invalidate();
+    }
+
+    private void ApplyCursor()
+    {
+        if (_lines != null) _lines.Cursor = _cursor is { } c && LinesTransposed ? c with { X = c.Y, Y = c.X } : _cursor;
+        if (_surface != null) _surface.Cursor = _cursor;
+    }
+
     public void SetSelection(Func<int, int, bool> isSelected)
     {
         _selected = isSelected;

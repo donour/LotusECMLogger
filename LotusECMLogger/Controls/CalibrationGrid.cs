@@ -45,6 +45,9 @@ namespace LotusECMLogger.Controls
         private double min, max;
         private double[]? xAxis, yAxis;
         private bool paintFailed;
+        private OperatingPointSample? cursor;
+        private readonly List<(double X, double Y)> trail = [];
+        private const int TrailLength = 24;
 
         public CalibrationGrid(CalibrationImage image, A2lCalibrationItem item, Func<uint, int, CalibrationSyncState?> syncState)
         {
@@ -451,6 +454,100 @@ namespace LotusECMLogger.Controls
                 return;
             }
             base.OnKeyPress(e);
+        }
+
+        // ── Live operating point ─────────────────────────────────────────────────────────────────────────
+
+        /// <summary>The live operating point drawn over the grid; null hides it and clears the trail.</summary>
+        public OperatingPointSample? OperatingPoint => cursor;
+
+        public void SetCursor(OperatingPointSample? sample)
+        {
+            cursor = sample;
+            if (sample is null) trail.Clear();
+            else if (sample.X is not null || sample.Y is not null)
+            {
+                var at = (sample.X?.At ?? double.NaN, sample.Y?.At ?? double.NaN);
+                if (trail.Count == 0 || trail[^1] != at) trail.Add(at);
+                if (trail.Count > TrailLength) trail.RemoveAt(0);
+            }
+            Invalidate();
+        }
+
+        /// <summary>The on-screen rectangle of data cell (x, y), or null when it is scrolled out of view.</summary>
+        private Rectangle? DataCellBounds(int x, int y)
+        {
+            if (Find(CellRole.Data, Math.Clamp(x, 0, item.CountX - 1), Math.Clamp(y, 0, item.CountY - 1)) is not { } at) return null;
+            var bounds = GetCellDisplayRectangle(at.X, at.Y, false);
+            return bounds.IsEmpty ? null : bounds;
+        }
+
+        /// <summary>The pixel centre of a fractional data position, interpolated between neighbouring cell centres.</summary>
+        private PointF? CentreOf(double x, double y)
+        {
+            int x0 = (int)Math.Floor(x), y0 = (int)Math.Floor(y);
+            if (DataCellBounds(x0, y0) is not { } a) return null;
+            var b = DataCellBounds(x0 + 1, y0) ?? a;
+            var c = DataCellBounds(x0, y0 + 1) ?? a;
+            float cx = a.X + a.Width / 2f + (float)(x - x0) * ((b.X + b.Width / 2f) - (a.X + a.Width / 2f));
+            float cy = a.Y + a.Height / 2f + (float)(y - y0) * ((c.Y + c.Height / 2f) - (a.Y + a.Height / 2f));
+            return new PointF(cx, cy);
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            base.OnPaint(e);
+            if (cursor is not { } sample || item.Kind is not (A2lItemKind.Map or A2lItemKind.Curve) || paintFailed) return;
+            try
+            {
+                PaintCursor(e.Graphics, sample);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"CalibrationGrid: drawing the cursor failed: {ex}");
+                cursor = null;
+            }
+        }
+
+        private void PaintCursor(Graphics g, OperatingPointSample sample)
+        {
+            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            bool curve = item.Kind == A2lItemKind.Curve;
+            var x = sample.X;
+            var y = curve ? new AxisPosition(0, 0) : sample.Y;
+            using var pen = new Pen(PlotStyle.Cursor, 2);
+            // Data area: below the frozen X axis row, right of the frozen Y axis column.
+            var first = DataCellBounds(0, 0);
+            int top = first?.Top ?? (HasXAxis && RowCount > 0 ? Rows[0].Height : 0);
+            int left = item.Kind == A2lItemKind.Map && ColumnCount > 0 ? Columns[0].Width : 0;
+            var area = Rectangle.FromLTRB(left, top, ClientSize.Width, ClientSize.Height);
+            g.SetClip(area);
+
+            if (x is { } px && y is { } py)
+            {
+                // The cells the lookup interpolates between, then the trail and the point itself.
+                int x1 = px.Fraction > 0 ? px.Index + 1 : px.Index, y1 = py.Fraction > 0 ? py.Index + 1 : py.Index;
+                if (DataCellBounds(px.Index, py.Index) is { } a && DataCellBounds(x1, y1) is { } b)
+                    g.DrawRectangle(pen, Rectangle.FromLTRB(a.Left + 1, a.Top + 1, b.Right - 2, b.Bottom - 2));
+                for (int i = 0; i < trail.Count - 1; i++)
+                {
+                    var (tx, ty) = trail[i];
+                    if (double.IsNaN(tx) || (!curve && double.IsNaN(ty)) || CentreOf(tx, curve ? 0 : ty) is not { } t) continue;
+                    using var fade = new SolidBrush(Color.FromArgb(40 + 160 * i / trail.Count, PlotStyle.Cursor));
+                    g.FillEllipse(fade, t.X - 2.5f, t.Y - 2.5f, 5, 5);
+                }
+                if (CentreOf(px.At, py.At) is { } p)
+                {
+                    using var fill = new SolidBrush(PlotStyle.Cursor);
+                    g.FillEllipse(fill, p.X - 5, p.Y - 5, 10, 10);
+                    g.DrawEllipse(Pens.White, p.X - 5, p.Y - 5, 10, 10);
+                }
+            }
+            else if (x is { } onlyX && CentreOf(onlyX.At, 0) is { } vx)
+                g.DrawLine(pen, vx.X, area.Top, vx.X, area.Bottom);       // only X is bound: the column band
+            else if (y is { } onlyY && CentreOf(0, onlyY.At) is { } hy)
+                g.DrawLine(pen, area.Left, hy.Y, area.Right, hy.Y);       // only Y is bound: the row band
+            g.ResetClip();
         }
 
         protected override void OnGotFocus(EventArgs e)

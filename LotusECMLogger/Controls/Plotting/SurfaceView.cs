@@ -15,6 +15,9 @@ internal sealed class SurfaceView
     private readonly float scale;
     private readonly Func<int, int, bool> isSelected;
     private readonly List<(PointF P, int I, int J)> _points = [];
+
+    /// <summary>The live operating point, in the data's axis positions.</summary>
+    public GraphCursor? Cursor { get; set; }
     private RectangleF _area;
 
     private float S(float v) => v * scale;
@@ -111,6 +114,18 @@ internal sealed class SurfaceView
                     r.DrawCircle(p, S(3.5f), Color.White, S(1));
                 }
             }
+        }
+
+        if (Cursor is { X: { } cx, Y: { } cy, Value: { } cv })
+        {
+            static double Along(GraphAxis axis, double position)
+            {
+                double min = axis.Positions.Min(), max = axis.Positions.Max();
+                return max == min ? 0.5 : Math.Clamp((position - min) / (max - min), 0, 1);
+            }
+            var at = P(Along(data.X, cx), Along(yAxis, cy), Math.Clamp(Fz(cv), 0, 1));
+            r.FillCircle(at, S(5), PlotStyle.Cursor);
+            r.DrawCircle(at, S(5), Color.White, S(1.5f));
         }
 
         // Value axis on the leftmost floor corner, drawn after the surface so it stays readable.

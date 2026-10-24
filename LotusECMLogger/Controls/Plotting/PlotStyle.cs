@@ -15,6 +15,8 @@ internal static class PlotStyle
     public static readonly Color Original = Color.FromArgb(150, 150, 150);
     public static readonly Color Crosshair = Color.FromArgb(150, 150, 160);
     public static readonly Color ReadoutBack = Color.FromArgb(245, 255, 255, 255);
+    /// <summary>The live operating point (magenta: apart from the heat colours and the orange "pending" mark).</summary>
+    public static readonly Color Cursor = Color.FromArgb(220, 0, 140);
 
     /// <summary>Low and high ends of the heat map, the selection, and the borders of raised and lowered cells.</summary>
     public static readonly Color MinColor = Color.FromArgb(153, 153, 255);

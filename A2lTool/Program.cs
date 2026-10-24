@@ -7,8 +7,11 @@ using LotusECMLogger.Services.Tuning;
 const string Usage = """
     Usage:
       A2lTool generate <build>... [--out-dir <dir>] [--force]
-          Drafts <build>.a2l from the build's symbol catalog. Existing files are kept unless --force:
-          they may carry hand-added InputQuantity bindings.
+          Drafts <build>.a2l from the build's symbol catalog. Existing files are kept unless --force: they may
+          carry hand edits. Axis inputs come from <out-dir>/<build>.inputs.csv when that file exists.
+      A2lTool extract-inputs <decompile.c> <build> [--out-dir <dir>] [--force]
+          Drafts <build>.inputs.csv: each axis's input as its lookup calls pass it, where every call site agrees
+          and the input is plain RAM variables. Review it against the decompile, then regenerate the A2L.
       A2lTool check <file.a2l>... [--image <calibration .bin or .CRP>]
           Parses each file as the app will and lists what is unavailable or read-only, and why. With --image, also
           checks the A2L against that calibration (EPK, segment) and lists axes whose points decrease in it.
@@ -22,6 +25,7 @@ try
     {
         "generate" => Generate(args[1..]),
         "check" => Check(args[1..]),
+        "extract-inputs" => ExtractInputs(args[1..]),
         _ => Fail(Usage + string.Join(", ", CcpBuildProfile.Known.Select(b => b.Build))),
     };
 }
@@ -63,13 +67,46 @@ static int Generate(string[] args)
             failures++;
             continue;
         }
-        var result = A2lGenerator.Generate(catalog, build);
+        string inputsPath = Path.Combine(outDir, build.Build + ".inputs.csv");
+        var inputs = File.Exists(inputsPath) ? AxisInputs.Load(inputsPath) : null;
+        var result = A2lGenerator.Generate(catalog, build, inputs);
         File.WriteAllText(path, result.Text, new UTF8Encoding(encoderShouldEmitUTF8Identifier: true));
         Console.WriteLine($"{path}: {result.Maps} maps, {result.Curves} curves, {result.AxisPts} axes, {result.Blocks} blocks, " +
-            $"{result.Values} values, {result.Measurements} measurements, {result.Warnings.Count} warning(s).");
+            $"{result.Values} values, {result.Measurements} measurements, {result.Inputs} axis inputs, {result.Warnings.Count} warning(s).");
         foreach (var warning in result.Warnings) Console.WriteLine("  " + warning);
     }
     return failures == 0 ? 0 : 1;
+}
+
+static int ExtractInputs(string[] args)
+{
+    string outDir = ".";
+    bool force = false;
+    var positional = new List<string>();
+    for (int i = 0; i < args.Length; i++)
+    {
+        switch (args[i])
+        {
+            case "--out-dir" when i + 1 < args.Length: outDir = args[++i]; break;
+            case "--force": force = true; break;
+            default: positional.Add(args[i]); break;
+        }
+    }
+    if (positional.Count != 2) return Fail(Usage);
+    var build = CcpBuildProfile.Known.FirstOrDefault(b => b.Build == positional[1]);
+    var catalog = build is null ? null : SymbolCatalogLoader.LoadByName(build.Catalog);
+    if (build is null || catalog is null) return Fail($"{positional[1]}: unknown build or no symbol catalog.");
+    string path = Path.Combine(outDir, build.Build + ".inputs.csv");
+    if (File.Exists(path) && !force) return Fail($"{path} exists; not overwritten (use --force): it may hold your review.");
+
+    // The axes are the generated A2L's AXIS_PTS, so every binding names one.
+    var axes = A2lParser.Parse(A2lGenerator.Generate(catalog, build).Text).AxisPts.Keys.ToHashSet(StringComparer.Ordinal);
+    var (bound, skipped) = AxisInputs.Extract(File.ReadAllText(positional[0]), axes, AxisInputs.Variables(catalog));
+    Directory.CreateDirectory(outDir);
+    File.WriteAllText(path, AxisInputs.Format(bound, Path.GetFileName(positional[0])));
+    Console.WriteLine($"{path}: {bound.Count} of {axes.Count} axes bound; {skipped.Count} looked up but left unbound:");
+    foreach (var s in skipped) Console.WriteLine($"  {s.Axis}: {s.Reason}");
+    return 0;
 }
 
 static int Check(string[] args)
