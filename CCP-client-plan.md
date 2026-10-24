@@ -5,8 +5,8 @@ Design notes for adding a CCP 2.1 master to LotusECMLogger. The ECU side is desc
 
 **Status (2026-10-12): Phases 1–5 implemented in code (protocol core, firmware-backed GT430 simulator,
 `CcpMaster`, high-speed logger ported onto it with AEM as a separate source, shared session host, CCP tab, guarded
-calibration writes) plus diagnostics tooling (trace, statistics, variable watch, memory diff, self-test). Nothing
-since Phase 1 has run on a car yet. Next: an A2L generator (before Phase 6), then Phase 6. Scope narrowed to T6
+calibration writes) plus diagnostics tooling (trace, statistics, variable watch, memory diff, self-test). First car
+session 2026-10-24 (2011 Evora NA, B132E0091): connect, identify, self-test and memory reads work; J2534 latency fixed. Next: an A2L generator (before Phase 6), then Phase 6. Scope narrowed to T6
 2011+ for now (§2).**
 The protocol core, target/build profiles, transport contract, J2534 transport and deterministic fake slave
 are implemented. Cross-platform tests exercise the command sequence, firmware quirks and runtime-registry format.
@@ -417,9 +417,15 @@ A vendor `IF_DATA` block (ignored by other tools) could carry these later withou
 
 **Needs hardware** (`CCP-support.md` §12)
 - BUILD_CHKSUM reply timing on real ECUs (sets `ChecksumPassTimeout`; 20 ms per 256-byte pass is a guess).
-- J2534 receive pattern and command latency. `J2534CcpTransport.Read` waits for one message, then drains,
-  and yields its I/O lock to waiting senders. Measure UPLOAD round trips (a 27 KB CAL read is ~5,400 commands);
-  if the adapter's DLL is thread-safe, sending without the read lock may cut latency further.
+- ~~J2534 receive pattern and command latency.~~ Resolved on a 2011 Evora NA (B132E0091), 2026-10-24. Blocking
+  `ReadMsgs(1, 5 ms)` under the I/O lock: 32 ms per command (self-test: min 17, mean 32, p95 36 ms; 25 KB CAL
+  read in 160 s). With the Windows timer at 1 ms: 20 ms. Sending without our lock: 59 ms (the DLL holds its own
+  lock through the wait). Polling with zero-timeout reads and 1 ms sleeps outside the lock: about 1.7 ms per
+  command (5,000-byte read in 1.7 s, previously 20.6 s). ECU side: the 0x350 RX handlers are interrupt handlers
+  that dispatch and write the CRM mailbox immediately, so the ECU adds well under 1 ms.
+- First car self-test (same car, before the polling fix): all checks passed except latency; DAQ event rates
+  99.7/49.9/19.9/10/2/1 Hz, checksum matches read-back at about 1 ms per 256-byte pass, 753-entry registry
+  "T6-V00BU 18/12/2014", 0 timeouts, strays or malformed frames across 7,251 commands.
 - TEST/CONNECT to a non-zero station address. The master only ever uses station 0x0000, so this should not
   arise.
 - One live logging re-check after the Phase 3 port, including concurrent reads and AEM polling.
