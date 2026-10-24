@@ -155,7 +155,7 @@ public sealed class CcpMasterMemoryTests : IDisposable
     }
 
     [Fact]
-    public async Task IdentifiesThe2011EvoraNaCalibrationAsTheB13200091Layout()
+    public async Task IdentifiesThe2011EvoraNaCalibration()
     {
         // As read from a 2011 Evora NA on 2026-10-24.
         _simulation.With(s =>
@@ -166,7 +166,7 @@ public sealed class CcpMasterMemoryTests : IDisposable
         await ConnectAsync();
         var identification = await _master.IdentifyAsync();
         Assert.Equal("B132E0091", identification.Build?.Build);
-        Assert.Equal("B13200091", identification.Build?.Catalog);
+        Assert.Equal("B132E0091", identification.Build?.Catalog);
         Assert.Equal((0x40008E24u, 0x61D8u, 0x40008E4Au, 0x000C02E4u),
             (identification.Build!.CalibrationBase, identification.Build.CalibrationSize,
              identification.Build.EnableByteAddress!.Value, identification.Build.SymbolEntriesAddress!.Value));

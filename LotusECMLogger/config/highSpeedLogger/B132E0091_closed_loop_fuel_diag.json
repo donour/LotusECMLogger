@@ -1,6 +1,6 @@
 {
-  // Closed-loop fuel diagnostics for the B13200091 ECU. Narrow, purpose-built companion to
-  // B13200091_fuel_diagnostics.json: instead of the whole injection pipeline it traces only the
+  // Closed-loop fuel diagnostics for the B132E0091 ECU. Narrow, purpose-built companion to
+  // B132E0091_fuel_diagnostics.json: instead of the whole injection pipeline it traces only the
   // load-model → closed-loop-trim path, so the fast channels can run at 50 Hz.
   //
   // What it answers:
@@ -30,9 +30,9 @@
   //     are unchecked by default — enable them to cross-check the internal 16-bit trims above.
   //
   // 4 rate groups (50/20/5/1 Hz), 8 frames, ~280 frames/s ≈ 6% of the 500 kbit/s bus.
-  "name": "Closed-Loop Fuel Diag (B13200091)",
+  "name": "Closed-Loop Fuel Diag (B132E0091)",
   "description": "Load model selection (MAF vs alpha-N) and closed-loop response: both load calcs, the selected load and its mass-per-stroke table axis, MAF flow + raw sensor volts, AFR target, pre-cat O2 voltages, STFT/LTFT per bank, alpha-N trim and tip-in enrichment.",
-  "ecuVersion": "B13200091",
+  "ecuVersion": "B132E0091",
   "channels": [
     // ── 50 Hz: axes, load models, MAF, O2 and short-term trims ───────────────────────────────────
     // Ordered to pack the ECU's 7-byte frames tightly (5 frames).

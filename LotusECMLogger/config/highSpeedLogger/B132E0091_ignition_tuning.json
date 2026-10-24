@@ -1,10 +1,10 @@
 {
-  // Ignition/knock tuning preset for the B13200091 ECU. Built around the per-cylinder view: what
+  // Ignition/knock tuning preset for the B132E0091 ECU. Built around the per-cylinder view: what
   // timing each cylinder actually got, how much knock retard it is carrying, how far over the knock
   // threshold its last event peaked, and where the learned octane scaler has settled.
   //
   // Scalar channels reference symbols by name (address/size/scale/unit resolved from
-  // database/B13200091.csv). Per-cylinder values live in [6] arrays that the catalog hides from
+  // database/B132E0091.csv). Per-cylinder values live in [6] arrays that the catalog hides from
   // logging, so they are listed as explicit address channels at base + index*element_size:
   //   obd_ii_ign_adv_per_cylinder  i16_angle_1/4[6]      @ 0x40001796  (2 B, deg = raw/4)
   //   knock_ign_retard2            u8_angle_1/4deg[6]    @ 0x40001c28  (1 B, deg = raw/4)
@@ -17,9 +17,9 @@
   // the knock-event group: raising just those channels to 100 Hz doubles their resolution without
   // adding an ECU group (still 5 frames), at ~16% bus load — worth it when hunting individual
   // detonation events, unnecessary for steady-state timing sweeps.
-  "name": "Ignition Tuning (B13200091)",
+  "name": "Ignition Tuning (B132E0091)",
   "description": "Per-cylinder ignition advance, knock retard and knock peak, plus the timing chain (base/MBT/knock-safe/final), RPM/TPS/load/AFR target, engine torque, and per-cylinder octane scalers at 1 Hz.",
-  "ecuVersion": "B13200091",
+  "ecuVersion": "B132E0091",
   "channels": [
     // ── 50 Hz: axes + per-cylinder timing & knock ────────────────────────────────────────────────
     { "symbol": "engine_speed_16bit",     "rate": 50 }, // X axis of the ignition maps (1 rpm/count)

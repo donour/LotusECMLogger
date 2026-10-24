@@ -1,5 +1,5 @@
 {
-  // Fuel/injection diagnostics preset for the B13200091 ECU: traces the AFR pipeline from the
+  // Fuel/injection diagnostics preset for the B132E0091 ECU: traces the AFR pipeline from the
   // load/temp axes through target/enrichment, knock PE contribution, flow conversion and pulse
   // width to the closed-loop trims. Port of C132E0278_fuel_diagnostics.json with these deltas:
   //   - No TMAP sensor: airflow comes from the MAF (maf_flow_1, plus its raw sensor voltage
@@ -13,16 +13,16 @@
   //   - Single afr_target node: no afr_target2/afr_commanded split on this ECU.
   //   - Per-cylinder knock retard lives in a [6] array (knock_ign_retard2); knock_ign_retard_sum
   //     (total, 1/4-deg) is logged instead.
-  // All channels resolve from database/B13200091.csv; most scale/unit metadata is derived from the
+  // All channels resolve from database/B132E0091.csv; most scale/unit metadata is derived from the
   // encoded catalog types. Only the remaining `undefined*` entries (ign_comp_rpm, obd_ii_ltft_bank_1/2)
   // carry inline overrides — those marked "assumed" are unverified on this firmware, sanity-check
   // against a known reading before trusting them.
   //
   // 4 rate groups (20/10/5/1 Hz), ~140 frames/s ≈ 3-4% of the 500 kbit/s bus — headroom to raise
   // the pulse-width/duty channels to 50-100 Hz for transient work (edit per-channel before Start).
-  "name": "Fuel Diagnostics (B13200091)",
+  "name": "Fuel Diagnostics (B132E0091)",
   "description": "Injection pipeline: load/temp axes, AFR target, knock enrichment, flow conversion, pulse widths, duty cycle, bank trims, O2 feedback.",
-  "ecuVersion": "B13200091",
+  "ecuVersion": "B132E0091",
   "channels": [
     // ── Axes ─────────────────────────────────────────────────────────────────────────────────────
     {

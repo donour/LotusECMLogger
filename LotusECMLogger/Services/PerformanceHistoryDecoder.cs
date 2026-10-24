@@ -21,9 +21,8 @@ namespace LotusECMLogger.Services
         {
             string id = calibrationId.ToUpperInvariant();
 
-            if (id.Contains("B13200091", StringComparison.Ordinal) ||
-                id.Contains("B132E0091", StringComparison.Ordinal))
-                return new(PerformanceHistoryVariant.EvoraS1, "Evora S1 (B13200091)", null, 6);
+            if (id.Contains("B132E0091", StringComparison.Ordinal))
+                return new(PerformanceHistoryVariant.EvoraS1, "Evora S1 (B132E0091)", null, 6);
             if (id.Contains("C132E0271", StringComparison.Ordinal))
                 return new(PerformanceHistoryVariant.Evora400, "Evora 400 (C132E0271)", 0x033A, 6);
             if (id.Contains("C132E0278", StringComparison.Ordinal))

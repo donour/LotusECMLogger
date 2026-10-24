@@ -330,7 +330,7 @@ namespace LotusECMLogger
             AddBulletPoint("J2534 device and OBD-II connection: The same hardware used elsewhere in the app. High-speed logging communicates over raw CAN at 500 kbit/s.");
             AddBulletPoint("Firmware with the channel-logger facility: Not every ECU/firmware includes the high-speed channel-logger. Standard locked production calibrations generally do not. Use the 'Test Connection' button (below) or the 'HS LOGGER' indicator on the Extended Vehicle Information tab to confirm the facility is present before relying on it.");
             AddBulletPoint("Diagnostic CAN bus enabled: The calibration setting CAL_ecu_flexcan_diag_bus_select must be non-zero. If the diagnostic bus is disabled, the ECU will not respond to the logger commands even on capable firmware.");
-            AddBulletPoint("A symbol database for your firmware version: The app ships databases for the supported firmware versions (for example C132E0278 and B13200091) and uses them to resolve each channel's address, size, scaling, and unit. Presets and the 'Add Channels...' browser are populated from this database.");
+            AddBulletPoint("A symbol database for your firmware version: The app ships databases for the supported firmware versions (for example C132E0278 and B132E0091) and uses them to resolve each channel's address, size, scaling, and unit. Presets and the 'Add Channels...' browser are populated from this database.");
 
             AddSubheading("Test Connection:");
             AddParagraph("Click 'Test Connection' before logging to verify the ECU supports high-speed logging. It opens a short session and sends an identify request, then reports one of:");
@@ -568,7 +568,7 @@ namespace LotusECMLogger
             AddBulletPoint("Logging stopped: the read needs the J2534 device to itself, so the button is disabled while a logging session is running.");
 
             AddSubheading("Vehicle Coverage:");
-            AddParagraph("The protocol was reverse-engineered from Evora firmware B13200091 and is present across the T6e family, including calibrations E132E0288, C132E0278, and C132E0271. Attempting the read on an ECU without the service is harmless - it simply does not answer.");
+            AddParagraph("The protocol was reverse-engineered from Evora firmware B132E0091 and is present across the T6e family, including calibrations E132E0288, C132E0278, and C132E0271. Attempting the read on an ECU without the service is harmless - it simply does not answer.");
         }
 
         private void ShowEmissionsHelp()

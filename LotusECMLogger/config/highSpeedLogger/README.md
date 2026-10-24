@@ -8,7 +8,7 @@ picked two ways:
 
 ## Symbol catalog (`database/`)
 
-`database/<ECU>.csv` is a Ghidra symbol export for one ECU (e.g. `C132E0278.csv`, `B13200091.csv`).
+`database/<ECU>.csv` is a Ghidra symbol export for one ECU (e.g. `C132E0278.csv`, `B132E0091.csv`).
 The app loads the matching catalog for a preset's `ecuVersion`, keeps the loggable **RAM Data Labels**
 (`0x40000000`–`0x4000FFFF`), and derives each channel's metadata from the CSV's **`Data Type`** column:
 

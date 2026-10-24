@@ -108,7 +108,7 @@ New code goes under `LotusECMLogger/Services/Ccp/`.
   four zero bytes (DLC 4), receive a four-byte big-endian entries pointer on 0x7A0, then read six-byte
   records until a six-zero-byte terminator. This is the unlock-gated raw-memory interface, not CCP.
   The T6 RX handler selects this behavior by DLC 4; it does not require the four payload bytes to be zero.
-- Decompile-confirmed entry pointers: B13200091 0x000C02E4, C132E0278 0x000CE984,
+- Decompile-confirmed entry pointers: B132E0091 0x000C02E4, C132E0278 0x000CE984,
   E132E0288 0x000D2EF4. `CcpBuildProfile.SymbolEntriesAddress` holds only these verified fallbacks.
   Once CCP is enabled, read the same flash registry through SET_MTA/UPLOAD using the matched profile,
   without opening an additional RMA session or requiring the RMA unlock. Read the 44 bytes preceding
@@ -117,7 +117,7 @@ New code goes under `LotusECMLogger/Services/Ccp/`.
   validates T6 flash/RAM ranges, and retains indexes, aliases and exact byte sizes. Synthetic tests
   exercise the supplied layout. The real C132E0278 CRP additionally confirms 753 entries, their sizes,
   and the six-zero-byte terminator at 0xCFB2A.
-- The B13200091 freeze-frame code uses `entries[(pid & 0x3ff)]` and reads the exported size to select
+- The B132E0091 freeze-frame code uses `entries[(pid & 0x3ff)]` and reads the exported size to select
   1/2/4-byte captures. This establishes diagnostic use; the registry is not merely unused linker residue.
   The existing Python client also uses indexes 253/254 to locate CAL RAM and its size, and documents
   RPM at index 31. The GT430 image disproves that binding: index 31 is one byte at 0x40001769,
@@ -289,7 +289,7 @@ must be pinned by a test against a known table before generated files are truste
 
 *Done 2026-10-24.* `Services/A2l/A2lGenerator.cs`, run by `A2lTool generate <build>… --out-dir LotusECMLogger/config/a2l`
 (it keeps existing files unless `--force`, since they may carry hand-added inputs; `A2lTool check <file>` reports
-what the app will refuse and why). Drafts are committed for B13200091, B132E0091 and C132E0278 in
+what the app will refuse and why). Drafts are committed for B132E0091 and C132E0278 in
 `LotusECMLogger/config/a2l/`. What the generator writes:
 - Tables become CURVE/MAP with `COM_AXIS` → `AXIS_PTS`, with `ROW_DIR` storage (X fastest). Other `CAL_` arrays become
   VAL_BLK, `char` arrays ASCII, and scalars VALUE. Values whose size was inferred from the next address are
@@ -310,7 +310,7 @@ guide, and `RowDirStoresXFastestAndColumnDirStoresYFastest` encodes it. It is st
 generated file into CANape or INCA.
 
 **Found while generating:**
-- `CAL_ecu_cvn` sits at CAL+0x61D8 on B13200091/B132E0091. These are the two bytes past the RAM range in the CRP
+- `CAL_ecu_cvn` sits at CAL+0x61D8 on B132E0091. These are the two bytes past the RAM range in the CRP
   chunk (0x61DA): the F7CA found there is what the catalog calls the CVN, not part of calibration RAM.
 - C132E0278's catalog types `CAL_idle_air_warmup_factor_ips` as 1 byte and its Y axis as a scalar. The firmware
   looks it up as 16 × 8 (`:28116`, X coolant 0x4000E190, Y 0x4000E1A0, data 0x4000E1A8), so the catalog needs
@@ -350,7 +350,7 @@ at boot (`C132E0278.c:10144`).
 **The symbol catalogs already describe table structure by naming convention.** A table is a flat array
 `CAL_name`, with axes `CAL_name_X_<qty>` and optionally `CAL_name_Y_<qty>`; the data length is X × Y. For
 example `CAL_inj_warmup_factor_ips` is `u8_factor_1/64[192]` with a 12-entry load X axis and a 16-entry
-coolant Y axis. C132E0278 has 235 X axes and 90 Y axes; B13200091 has 199 and 76. This is useful when writing
+coolant Y axis. C132E0278 has 235 X axes and 90 Y axes; B132E0091 has 199 and 76. This is useful when writing
 A2L files, though the app itself will read tables from the A2L.
 
 **2D tables store X fastest.** `lookup_3D_uint8_interpolated` reads `lut[y * size_x + x]`

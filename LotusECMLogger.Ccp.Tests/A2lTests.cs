@@ -62,7 +62,6 @@ public sealed class A2lTests
     }
 
     [Theory]
-    [InlineData("B13200091")]
     [InlineData("B132E0091")]
     [InlineData("C132E0278")]
     public void GeneratedFilesLoadCompletelyAndStayInsideCalibrationRam(string name)

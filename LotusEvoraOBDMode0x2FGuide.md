@@ -2,7 +2,7 @@
 
 ## For the Lotus Evora ECU (T6e Platform)
 
-This guide covers UDS Service 0x2F as defined by ISO 14229-1 and its specific implementation on the Lotus Evora T6e engine ECU (firmware variants E132E0288 / C132E0278 / B13200091).
+This guide covers UDS Service 0x2F as defined by ISO 14229-1 and its specific implementation on the Lotus Evora T6e engine ECU (firmware variants E132E0288 / C132E0278 / B132E0091).
 
 ---
 

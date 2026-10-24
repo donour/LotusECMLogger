@@ -78,7 +78,7 @@ public class FakeCcpSlaveTests
     }
 
     [Theory]
-    [InlineData("C132E0278")] [InlineData("B13200091")] [InlineData("C132F0395")]
+    [InlineData("C132E0278")] [InlineData("B132E0091")] [InlineData("C132F0395")]
     public void DownloadsAdvanceMtaButLeaveReplyDataStale(string build)
     {
         using var slave = new FakeCcpSlave(CcpBuildProfile.Known.Single(p => p.Build == build));

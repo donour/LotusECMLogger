@@ -44,7 +44,7 @@
   // dropping it to 20 Hz roughly halves the load.
   "name": "A/C Compressor Diagnosis (B132E0091)",
   "description": "A/C compressor control trace: button request through inhibit flags and timers to engage request, compressor state and clutch relay; evaporator-temperature PID terms driving compressor duty and load; and the idle, torque and ignition compensation applied on engagement.",
-  "ecuVersion": "B13200091",
+  "ecuVersion": "B132E0091",
   "channels": [
     // ══ TIER 1 — 50 Hz — control decision and immediate effect ══════════════════════════════════
     {

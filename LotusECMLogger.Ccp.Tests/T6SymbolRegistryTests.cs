@@ -63,7 +63,7 @@ public class T6SymbolRegistryTests
     [Fact]
     public void VerifiedProfilePointersAgreeWithRawMemoryDispatchers()
     {
-        Assert.Equal((uint)0xC02E4, CcpBuildProfile.Known.Single(p => p.Build == "B13200091").SymbolEntriesAddress);
+        Assert.Equal((uint)0xC02E4, CcpBuildProfile.Known.Single(p => p.Build == "B132E0091").SymbolEntriesAddress);
         uint entries = CcpBuildProfile.Known.Single(p => p.Build == "C132E0278").SymbolEntriesAddress!.Value;
         Assert.Equal((uint)0xCE958, entries - T6SymbolRegistry.HeaderSize);
         Assert.Equal((uint)0xD2EF4, CcpBuildProfile.Known.Single(p => p.Build == "E132E0288").SymbolEntriesAddress);

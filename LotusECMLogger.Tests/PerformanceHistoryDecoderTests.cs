@@ -14,7 +14,7 @@ namespace LotusECMLogger.Tests
         }
 
         [Theory]
-        [InlineData("B13200091", "EvoraS1")]
+        [InlineData("B132E0091", "EvoraS1")]
         [InlineData("cal C132E0271 US", "Evora400")]
         [InlineData("C132E0278", "EvoraGt430")]
         [InlineData("E132E0288_2021", "EvoraGt")]
@@ -128,7 +128,7 @@ namespace LotusECMLogger.Tests
         {
             var payloads = new Dictionary<ushort, byte[]> { [0x0341] = U32(10) };
 
-            PerformanceHistorySnapshot result = PerformanceHistoryDecoder.Decode("B13200091", payloads);
+            PerformanceHistorySnapshot result = PerformanceHistoryDecoder.Decode("B132E0091", payloads);
 
             Assert.Null(result.DistanceKm);
             Assert.Equal("ECU band 6", Assert.Single(result.Usage).Band);

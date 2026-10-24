@@ -1,6 +1,6 @@
 ﻿ASAP2_VERSION 1 61
 /*
- * Drafted by LotusECMLogger A2lGenerator v1 from the B13200091 symbol catalog for B132E0091.
+ * Drafted by LotusECMLogger A2lGenerator v1 from the B132E0091 symbol catalog for B132E0091.
  * Every axis has NO_INPUT_QUANTITY: add an InputQuantity only after checking the lookup in the decompile
  * (scope, conditions, input transforms; CCP-client-plan.md section 5).
  * Maps are ROW_DIR: the first AXIS_DESCR is X, stored fastest, as the firmware reads lut[y * size_x + x].

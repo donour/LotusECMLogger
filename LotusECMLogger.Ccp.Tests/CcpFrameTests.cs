@@ -127,7 +127,7 @@ public class CcpFrameTests
         Assert.False(CcpTarget.IpsTcu.HasEnableByte);
         var profile = CcpBuildProfile.Known.Single(p => p.Build == "C132E0278");
         Assert.Equal((uint)0x4000E028, profile.CalibrationBase + profile.ProgramVersionOffset!.Value);
-        Assert.Null(CcpBuildProfile.Known.Single(p => p.Build == "B13200091").ProgramVersionOffset);
+        Assert.Null(CcpBuildProfile.Known.Single(p => p.Build == "B132E0091").ProgramVersionOffset);
         Assert.True(profile.ContainsCalibrationRange(profile.CalibrationBase, (int)profile.CalibrationSize));
         Assert.False(profile.ContainsCalibrationRange(profile.CalibrationBase, (int)profile.CalibrationSize + 1));
         Assert.False(profile.ContainsCalibrationRange(profile.CalibrationBase - 1, 2));

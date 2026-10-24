@@ -1,7 +1,7 @@
 {
   // Fuel-learning / adaptation trace for the 2011 Evora NA (Fed) ECU.
   //
-  // Companion to B13200091_closed_loop_fuel_diag.json. That preset answers "is the loop closed and
+  // Companion to B132E0091_closed_loop_fuel_diag.json. That preset answers "is the loop closed and
   // what is it reacting to right now"; this one answers "what is the ECU keeping from that
   // reaction" — the filtered STFT a learn step is taken from, the LTFT pair and the zone they are
   // being learned into, and the LEA_* cells and injector offsets they eventually settle into.
@@ -44,7 +44,7 @@
   // other traffic.
   "name": "Fuel Learning / Adaptation (B132E0091)",
   "description": "Fuel adaptation trace on a MAF X-axis: STFT -> filtered STFT -> LTFT correction chain, pre-trim and OBD-reported injector pulse widths, the active fuel learning zone, and the LEA learned cells and injector dead-time offsets they settle into, with closed-loop status and purge/enrichment gating.",
-  "ecuVersion": "B13200091",
+  "ecuVersion": "B132E0091",
   "channels": [
     // ══ TIER 1 — 20 Hz — the measurement itself ═════════════════════════════════════════════════
     // Ordered to pack the ECU's 7-byte frames tightly (6 frames). Adjacency here is a packing

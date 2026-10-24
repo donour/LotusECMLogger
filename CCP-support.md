@@ -75,22 +75,22 @@ the decompiled code of that build. Items marked *(inferred)* follow from identic
 | Program (Ghidra) | Vehicle / notes | CCP ID string | CRO (cmd) / DTO (resp+data) | Bus / gate | DAQ lists × ODTs | DAQ table layout |
 |---|---|---|---|---|---|---|
 | `C132E0044.fullbin.dump` | 2010 Evora NA | `Ccp_GD8` | **0x200 / 0x201** | FlexCAN A only; **no enable byte** | **1 × 10** | 8-byte {addr,size} entries, list stride 0x238 |
-| `B13200091` | 2011 Evora NA (US) | `Ccp_T6` | 0x350 / 0x351 | A or C, cal byte `CAL_base+0x26` | 10 × 12 | 8-byte {addr,size} entries, list stride 0x2A8 |
-| `C132E0077.fullbin` | 2016 Evora image | `Ccp_T6` | 0x350 / 0x351 | as B13200091 | 10 × 12 | as B13200091 |
-| `BLOWN-MOTOR-…C132E0077….MPC` | 2016 Evora, third-party-modified B13200091 | `Ccp_T6` | 0x350 / 0x351 | as B13200091 | 10 × 12 | as B13200091 |
+| `B132E0091` | 2011 Evora NA (US) | `Ccp_T6` | 0x350 / 0x351 | A or C, cal byte `CAL_base+0x26` | 10 × 12 | 8-byte {addr,size} entries, list stride 0x2A8 |
+| `C132E0077.fullbin` | 2016 Evora image | `Ccp_T6` | 0x350 / 0x351 | as B132E0091 | 10 × 12 | as B132E0091 |
+| `BLOWN-MOTOR-…C132E0077….MPC` | 2016 Evora, third-party-modified B132E0091 | `Ccp_T6` | 0x350 / 0x351 | as B132E0091 | 10 × 12 | as B132E0091 |
 | `C132E0271.fullbin` | 2017 Evora 400 (US) | `Ccp_T6` | 0x350 / 0x351 | A or C, cal byte `CAL_base+0x298` | 10 × 12 | split arrays (addr u32[], size u8[]), list stride 0x1AC |
 | `A132E0263.fullbin` | 2017 Evora GT430 | `Ccp_T6` | 0x350 / 0x351 | as C132E0271 | 10 × 12 | as C132E0271 |
 | `C132E0278.fullbin` (+3 patched copies) | 2019 Evora GT430 (UK) | `Ccp_T6` | 0x350 / 0x351 | as C132E0271 | 10 × 12 | as C132E0271 |
 | `E132E0288` | 2020–21 Evora GT (US) | `Ccp_T6` | 0x350 / 0x351 | as C132E0271 | 10 × 12 | as C132E0271 |
 | `A138E0112.prog.bin` | Exige 410 | `Ccp_T6` | 0x350 / 0x351 | as C132E0271 | 10 × 12 | as C132E0271 |
-| `C132F0395.fullbin` | **IPS gearbox TCU** | `Ccp_TCU` | **0x360 / 0x361** | A and C; **no gate in RX handler** | 10 × 12 | as B13200091 (stride 0x2A8) |
+| `C132F0395.fullbin` | **IPS gearbox TCU** | `Ccp_TCU` | **0x360 / 0x361** | A and C; **no gate in RX handler** | 10 × 12 | as B132E0091 (stride 0x2A8) |
 | `emira`, `emira_8900689277A.bdc` | Emira V6 (MPC5777C, different codebase) | `Ccp_G12` string present | **not located** | — | — | — |
 | HC08 ETB monitor, Bosch ABS/ESP | — | none | — | — | — | — |
 
 Notes:
-- **C132E0077 vs B13200091:** the application region 0x40000–0xCFFFF of `C132E0077.fullbin` is byte-identical to
-  `B13200091` (same MD5). It is the same program software with a different calibration.
-- **BLOWN-MOTOR image:** B13200091 with modifications. The dev-mode unlock string compared in `copyCAL2RAM` was
+- **C132E0077 vs B132E0091:** the application region 0x40000–0xCFFFF of `C132E0077.fullbin` is byte-identical to
+  `B132E0091` (same MD5). It is the same program software with a different calibration.
+- **BLOWN-MOTOR image:** B132E0091 with modifications. The dev-mode unlock string compared in `copyCAL2RAM` was
   changed from `"WTF?"` to **`"FAST"`**, there is an added code blob near 0xCABA0, and the HC08CODE marker is
   zeroed. The CCP code is unchanged.
 - **Same protocol everywhere:** the command set, reply format, error codes and CAN mailboxes are identical
@@ -124,7 +124,7 @@ It is read live by the RX handlers, the TX functions and the 2 kHz scheduler:
 | 1 | CCP on **FlexCAN A**: the vehicle/OBD-II bus (J1962 pins 6/14) |
 | 2 | CCP on **FlexCAN C**: the second CAN bus (not on the OBD connector) |
 
-Location: `CAL_base + 0x26` (0x40008E4A) in B13200091/C132E0077, and `CAL_base + 0x298` (0x400088EC) in
+Location: `CAL_base + 0x26` (0x40008E4A) in B132E0091/C132E0077, and `CAL_base + 0x298` (0x400088EC) in
 C132E0271, A132E0263, C132E0278, E132E0288 and A138E0112. Turning it on means changing that byte in the
 calibration and reflashing the calibration (normal tuning flow); its stock value depends on the calibration.
 The 2010 car and the TCU have **no** such byte (the CCP handler is always active).
@@ -194,7 +194,7 @@ These are the standard CCP codes.
   element 0–7, but each ODT has 7 slots (the spec allows "up to 7 element references").
   **Element 7 overwrites element 0 of the next ODT.** Use elements 0–6 only. *(verified, all builds)*
 - **Event channels** (byte 5 of START_STOP): 10 event channels (0–9), each a countdown in the 2 kHz timer ISR.
-  For B13200091 the documented base rates are **100, 100, 50, 50, 20, 20, 10, 10, 2, 1 Hz** for events 0–9.
+  For B132E0091 the documented base rates are **100, 100, 50, 50, 20, 20, 10, 10, 2, 1 Hz** for events 0–9.
   The same 10-slot structure exists in every 2011+ build and the TCU; the reload constants were not
   re-verified per build *(inferred)*. The prescaler (bytes 6–7, 0 is treated as 1) divides further.
   **2010 C132E0044:** one event channel (0), ticked from the **100 Hz** section of the timer ISR *(verified)*.
@@ -210,7 +210,7 @@ These are the standard CCP codes.
 
 ## 6. Memory access, writes and security
 
-What the code does *(verified in A138E0112, C132E0278, B13200091; same code in the other builds)*:
+What the code does *(verified in A138E0112, C132E0278, B132E0091; same code in the other builds)*:
 
 - **Arbitrary addresses:** SET_MTA / SHORT_UP / WRITE_DAQ take any 32-bit address. The address extension byte
   is discarded (`chlog_decode_address` returns the raw address).
@@ -251,7 +251,7 @@ Recommendations:
 | Build | CAL_base / size | Enable byte | CCP ID string (RAM) | DAQ table base | CCP state flags | Dispatcher | RX handler(s) |
 |---|---|---|---|---|---|---|---|
 | C132E0044 (2010) | 0x40002768 / 0x4874 | — | 0x40001330 `Ccp_GD8` | ≈0x40009FD4 (`chlog_channel_table`) | `chlog_state_flags` | 0x92C4C | 0x961C8 (0x200) |
-| B13200091 / C132E0077 | 0x40008E24 / 0x61D8 | 0x40008E4A (+0x26) | 0x40001490 | 0x400068FC | 0x40006528 | 0xA4540 | 0xA8FEC (A), 0xAC54C (C) |
+| B132E0091 / C132E0077 | 0x40008E24 / 0x61D8 | 0x40008E4A (+0x26) | 0x40001490 | 0x400068FC | 0x40006528 | 0xA4540 | 0xA8FEC (A), 0xAC54C (C) |
 | C132E0271 | 0x40008654 / 0x69AC | 0x400088EC (+0x298) | 0x40001588 | 0x40006AB0 | 0x400066D8 | 0xB0F40 | 0xB3FB8 (A), 0xB693C (C) |
 | A132E0263 | 0x40008654 / 0x69AC | 0x400088EC | 0x40001588 | 0x40006C70 | 0x40006898 | 0xAF318 | 0xB2390 (A), 0xB4FA0 (C) |
 | C132E0278 | 0x40008654 / 0x69AC | 0x400088EC | 0x40001588 | 0x40006C80 | 0x400068A8 | 0xAFDCC | 0xB2E44 (A), 0xB5A54 (C) |
@@ -282,11 +282,11 @@ The access path is independently corroborated in `LotusECU-T4e`:
 - The T6 raw-memory handler's DLC-4 branch returns an entries pointer, not the header; the request's
   four data bytes are not tested. Five/six-byte requests remain ordinary block reads. This path needs
   `ecu_unlocked`; it is separate from the CCP enable gate. Do not pad the query to DLC 8.
-- Entry pointers in the decompiles are 0x000C02E4 (B13200091), 0x000CE984 (C132E0278),
+- Entry pointers in the decompiles are 0x000C02E4 (B132E0091), 0x000CE984 (C132E0278),
   and 0x000D2EF4 (E132E0288). For C132E0278, entries − 0x2C = 0x000CE958,
   matching the exported `ecu_prog_version` symbol. Read these flash bytes over CCP when enabled,
   using a correctly identified build; no new CCP enumeration opcode is needed.
-- B13200091's `obd_ii_data_buffer_update` indexes the table with the configured freeze-frame PID
+- B132E0091's `obd_ii_data_buffer_update` indexes the table with the configured freeze-frame PID
   masked to ten bits, strides six bytes, and uses the byte at entry+4 for 1/2/4-byte capture.
   The registry therefore has diagnostic consumers; it is not merely unused linking information.
 
@@ -304,10 +304,10 @@ Ghidra global or marks a region writable.
 ### Live variables: why one A2L per build is needed
 
 Selected channels, from aligned code references of paired functions (agree/total votes in
-[`ccp/ram_variable_map.tsv`](ccp/ram_variable_map.tsv); 945 variables). B13200091 values are that program's
+[`ccp/ram_variable_map.tsv`](ccp/ram_variable_map.tsv); 945 variables). B132E0091 values are that program's
 own analyst labels.
 
-| Variable (type) | B13200091 | C132E0271 | A132E0263 | C132E0278 | E132E0288 | A138E0112 |
+| Variable (type) | B132E0091 | C132E0271 | A132E0263 | C132E0278 | E132E0288 | A138E0112 |
 |---|---|---|---|---|---|---|
 | engine_speed_16bit (u16 rpm) | 0x4000163A | 0x4000175A | 0x40001762 | 0x40001762 | 0x400018D2 | 0x400017DA |
 | obd_ii_engine_speed (u16 rpm/4) | 0x4000163C | 0x4000175C | 0x40001764 | 0x40001764 | 0x400018D4 | 0x400017DC |
@@ -338,7 +338,7 @@ in `ChannelLogger.md` and the `t6_dev_mode_can_logging` notes. Summary:
 |---|---|---|
 | Request IDs | 0x50/0x51/0x52 read 32/16/8-bit, 0x53 block read, 0x54–0x57 RAM write (FlexCAN A MB15) | 0x60… (MB15) |
 | Reply ID | 0x7A0 (MB16; MB0 on 2010) | 0x7B0 (MB16) |
-| Gate | `ecu_unlocked` = calibration bytes `"WTF?"` at `CAL_base`+0x61D4 (B13200091: 0x4000EFF8) / +0x69A6 (2017+: 0x4000EFFA); 2010: 0x40006FD6 | `tcu_unlocked` |
+| Gate | `ecu_unlocked` = calibration bytes `"WTF?"` at `CAL_base`+0x61D4 (B132E0091: 0x4000EFF8) / +0x69A6 (2017+: 0x4000EFFA); 2010: 0x40006FD6 | `tcu_unlocked` |
 | Address limits | reads: RAM 0x40000000–0x4000FFFD or flash < 0xFFFFD; writes: RAM only | same |
 
 The BLOWN-MOTOR image changes the unlock string to `"FAST"`.
@@ -411,7 +411,7 @@ Live calibration write (engine off): `SET_MTA 0 → <CAL address>`, then `DNLOAD
 
 Function addresses per build (names as labelled in each Ghidra program):
 
-| Function | B13200091 | C132E0278 | A138E0112 | C132E0044 | C132F0395 (TCU) |
+| Function | B132E0091 | C132E0278 | A138E0112 | C132E0044 | C132F0395 (TCU) |
 |---|---|---|---|---|---|
 | Command dispatcher | `chlog_command_dispatch` 0xA4540 | 0xAFDCC | `logger_command_dispatch_0x350` 0xB12C8 | `chlog_command_dispatch` 0x92C4C | `chlog_command_handler` 0x51358 |
 | GET_DAQ_SIZE (list init) | `chlog_group_init` 0xA3E00 | 0xAF660 | 0xB0B5C | 0x92530 | 0x50C14 |
@@ -464,7 +464,7 @@ EFI's changes to the driver:
 - **Integration:** the calibration enable/bus-select byte and dual FlexCAN A/C routing.
 - **Event channels:** 10 event channels ticked from the 2 kHz ISR.
 - **DAQ list layout (2017+ builds):** split address and size arrays (stride 0x1AC) instead of Vector's
-  `{ptr,siz}` entries (stride 0x2A8, kept in B13200091 and the TCU).
+  `{ptr,siz}` entries (stride 0x2A8, kept in B132E0091 and the TCU).
 - **Session byte:** the extra 0x08 TX-drain bit.
 - **CONNECT:** only stops DAQ when it wasn't already connected.
 - **BUILD_CHKSUM:** no ≥64 KiB range check.
@@ -478,7 +478,7 @@ EFI's changes to the driver:
    and additional target profiles with a real CCP master. Existing DAQ logging has separate validation.
 2. **Enable byte in stock calibrations:** whether `CAL_logger_high_speed_logger_enable` is 0 on production cars.
    The Exige 410 image has no calibration.
-3. **Event rates per build:** the 100/100/50/50/20/20/10/10/2/1 Hz figures come from B13200091 only.
+3. **Event rates per build:** the 100/100/50/50/20/20/10/10/2/1 Hz figures come from B132E0091 only.
 4. **FlexCAN C bitrate and bus wiring per vehicle.**
 5. **Emira:** `Ccp_G12` is in the image, but no dispatcher has been located (different VLE codebase, MPC5777C).
 6. **TCU:** confirm that 0x360/0x361 are actually configured and reachable on the vehicle buses.
@@ -502,7 +502,7 @@ Checked on 2026-10-05 against two references:
 - the **ASAP CCP 2.1 specification** (H. Kleinknecht, 18 Feb 1999);
 - the **Vector Informatik CCP driver 1.42** source (`CCP.C`/`CCP.H`, Oct 2003).
 
-Firmware facts come from the decompiled dispatchers of A138E0112, C132E0278, B13200091 and C132E0044.
+Firmware facts come from the decompiled dispatchers of A138E0112, C132E0278, B132E0091 and C132E0044.
 
 Method:
 - **Spec:** text extracted from the PDF.
@@ -528,7 +528,7 @@ Method:
 | 4 | Parameter layouts | spec positions: station address word at bytes 2–3 (Intel), address extension at byte 3, GET_DAQ_SIZE DTO-ID at 4–7, WRITE_DAQ sizes {1,2,4}, START_STOP mode/list/last/event/prescaler at 2/3/4/5/6–7 | different (no CTR; e.g. XCP DAQ uses SET_DAQ_LIST_MODE) | free choice | every implemented command matches the spec position for position, including fields the firmware **ignores** (address extension, DTO-ID) | H0; an in-house protocol would not reserve fields it never uses |
 | 5 | EXCHANGE_ID semantics | reply `[len, type, avail mask, prot mask, x]`, CAL = bit 0, DAQ = bit 1; MTA0 set to the ID, read back with UPLOAD | GET_ID 0xFA, different layout | — | `[len, 0, 0x03, 0x00, 0x8E]`, MTA0 → "Ccp_T6" | H0 |
 | 6 | Mandatory command set | all 11 non-optional CCP commands present | — | — | CONNECT, GET_CCP_VERSION, EXCHANGE_ID, SET_MTA, DNLOAD, UPLOAD, GET_DAQ_SIZE, SET_DAQ_PTR, WRITE_DAQ, START_STOP, DISCONNECT all present | H0 |
-| 7 | Code-level identity with a known CCP stack | — | — | none expected | Vector driver 1.42 fingerprints: EXCHANGE_ID byte 7 = 0x8E = `CCP_DRIVER_VERSION` 142; CONNECT reply `Crm[3]=0xFE`; SET_MTA accepts only `mta < CCP_MAX_MTA-1`; `comIdx>7` element bug; overrun bit-7 PID logic and "skip list if queue can't hold it"; queue = `CCP_MAX_ODT×CCP_MAX_DAQ` (120; 10 on 2010); 256-byte checksum blocks with the n=0 wrap; `ccp_t` field order and `SS_*`/`DAQ_FLAG_*` values; `ccpDaqList_t` padding giving B13200091's 0x2A8 stride | H0; rules out an independent implementation |
+| 7 | Code-level identity with a known CCP stack | — | — | none expected | Vector driver 1.42 fingerprints: EXCHANGE_ID byte 7 = 0x8E = `CCP_DRIVER_VERSION` 142; CONNECT reply `Crm[3]=0xFE`; SET_MTA accepts only `mta < CCP_MAX_MTA-1`; `comIdx>7` element bug; overrun bit-7 PID logic and "skip list if queue can't hold it"; queue = `CCP_MAX_ODT×CCP_MAX_DAQ` (120; 10 on 2010); 256-byte checksum blocks with the n=0 wrap; `ccp_t` field order and `SS_*`/`DAQ_FLAG_*` values; `ccpDaqList_t` padding giving B132E0091's 0x2A8 stride | H0; rules out an independent implementation |
 
 ### Version: 2.1 rather than 2.0 or older
 
@@ -568,7 +568,7 @@ The overrun bit is a CANape feature. A master that checks the MTA0 returned by D
 
 ## 14. Static cross-check, 2026-10-07
 
-The sibling `LotusECU-T4e` exports for C132E0278, B13200091 and C132F0395 reproduce
+The sibling `LotusECU-T4e` exports for C132E0278, B132E0091 and C132F0395 reproduce
 the command/version mapping, shared memory pointers, unchecked transfer lengths, delayed checksums,
 DAQ queue reset and element-index bug described above. C132E0278 symbols confirm CAL_base
 0x40008654, enable byte 0x400088EC and CAL_prog_version 0x4000E028 (+0x59D4).
@@ -579,7 +579,7 @@ different expressions), but renamed locals are misclassified as globals. Scope a
 verification are required before using those classifications to select DAQ measurements.
 
 The runtime registry was subsequently located using the supplied 0x000C02B8/+0x2C layout.
-Independent source evidence is `lib/ltacc.py` (`read_varptr_list`), B13200091
+Independent source evidence is `lib/ltacc.py` (`read_varptr_list`), B132E0091
 `obd_ii_data_buffer_update`/raw-memory RX, and the C132E0278/E132E0288 DLC-4 pointer replies.
 
 

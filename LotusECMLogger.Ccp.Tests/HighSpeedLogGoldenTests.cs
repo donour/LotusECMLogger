@@ -19,10 +19,10 @@ public class HighSpeedLogGoldenTests
 {
     public static TheoryData<string> Presets => new()
     {
-        "B13200091_closed_loop_fuel_diag.json", "B13200091_fuel_diagnostics.json", "B13200091_ignition_tuning.json",
+        "B132E0091_closed_loop_fuel_diag.json", "B132E0091_fuel_diagnostics.json", "B132E0091_ignition_tuning.json",
         "B132E0091_ac_diagnosis.json", "B132E0091_dyno_tuning.json", "B132E0091_fuel_learning.json",
         "C132E0278_dpm_diagnostics.json", "C132E0278_fuel_diagnostics.json", "C132E0278_throttle_diagnostics.json",
-        "b13200091-sample.json", "c132e0278-sample.json",
+        "b132e0091-sample.json", "c132e0278-sample.json",
     };
 
     [Theory]

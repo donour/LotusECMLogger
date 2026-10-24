@@ -1,13 +1,13 @@
 {
-  // Sample preset for the B13200091 ECU. Scalar channels reference symbols by name; the app resolves
+  // Sample preset for the B132E0091 ECU. Scalar channels reference symbols by name; the app resolves
   // each one's address, size, scale, offset and unit from
-  // config/highSpeedLogger/database/B13200091.csv (parsed from the Ghidra "Data Type"). Per-cylinder
+  // config/highSpeedLogger/database/B132E0091.csv (parsed from the Ghidra "Data Type"). Per-cylinder
   // values live in [6] arrays the catalog hides, so they are listed as explicit address channels
   // (base + element offset, with defaultSelected so they start checked). Use "Add Channels…" in the
   // High-Speed Log tab to browse the full catalog.
-  "name": "Sample (B13200091)",
+  "name": "Sample (B132E0091)",
   "description": "Engine speed, TPS, pedal, per-cylinder ignition advance & knock retard, AFR, MAF, load, IAT.",
-  "ecuVersion": "B13200091",
+  "ecuVersion": "B132E0091",
   "channels": [
     { "symbol": "engine_speed_16bit",    "rate": 100 },
     { "symbol": "tps_8bit",              "rate": 100 },

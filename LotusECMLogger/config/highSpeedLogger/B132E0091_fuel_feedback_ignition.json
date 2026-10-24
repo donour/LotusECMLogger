@@ -1,5 +1,5 @@
 {
-  // Fuel feedback + ignition/knock trace for the B13200091 ECU (2011 Evora NA).
+  // Fuel feedback + ignition/knock trace for the B132E0091 ECU (2011 Evora NA).
   //
   // What it answers:
   //   - Which load model is the ECU on right now? load_source_is_alphaN is the flag (true =
@@ -28,7 +28,7 @@
   // 4 rate groups (50/20/5/1 Hz), ~1200 samples/s, roughly 250 frames/s ≈ 6-7% of the 500 kbit/s bus.
   "name": "Fuel Feedback + Ignition/Knock (B132E0091)",
   "description": "Closed-loop fuel feedback (AFR target, pre-cat O2, STFT/LTFT and closed-loop status per bank), the fuel calculation chain (efficiency, fuel mass, pulse widths, duty, dead time, warmup/purge/power-enrichment gating) alongside spark (base, compensations, final, knock-safe ceiling, MBT margin) and knock retard, with the MAF vs alpha-N load source flag and both load calculations.",
-  "ecuVersion": "B13200091",
+  "ecuVersion": "B132E0091",
   "channels": [
     // ── 50 Hz: axes and load source ──────────────────────────────────────────────────────────────
     {

@@ -1,19 +1,19 @@
 {
-  // Dyno power-run preset for the B13200091 ECU. Built for a stationary dyno pull: per-cylinder
+  // Dyno power-run preset for the B132E0091 ECU. Built for a stationary dyno pull: per-cylinder
   // ignition/knock at full resolution, the fault/limiter channels that can silently cap a power
   // number (misfire, torque reduction, rev limit), the MAF-vs-Alpha-N load cross-check, VVT tracking,
   // and closed-loop fuel trims — everything needed to explain a dip or a flat spot on the graph.
   //
   // Per-cylinder [6] symbols are hidden from logging by the catalog (arrays aren't loggable as a
   // single channel), so they are expanded to one explicit address channel per cylinder, base +
-  // index*element_size, following the convention in B13200091_ignition_tuning.json:
+  // index*element_size, following the convention in B132E0091_ignition_tuning.json:
   //   knock_retard_per_cyl              short[6]         @ 0x400059f4 (2 B signed, raw counts)
   //   obd_ii_ign_adv_per_cylinder       i16_angle_1/4[6] @ 0x40001796 (2 B signed, deg = raw/4)
   //   ign_knock_retard                  u8_angle_1/4deg[6] @ 0x40001c20 (1 B, deg = raw/4, learned/persistent)
   //   ign_knock_retard_octane_margin    u8_angle_1/4deg[6] @ 0x40001c28 (1 B, deg = raw/4, active/instantaneous)
   // Cylinder order is the array index (1-6), not the firing order.
   //
-  // No symbol named "torque_reduction_applied" exists in the B13200091 catalog. The closest direct
+  // No symbol named "torque_reduction_applied" exists in the B132E0091 catalog. The closest direct
   // signal for "is the ECU actively pulling torque back right now" is torque_limit_active_cyl_cut_count
   // (nonzero = cylinders are being cut) — used in its place below.
   //
@@ -29,7 +29,7 @@
   // the engine off per this folder's README, then use Test Connection before a real pull.
   "name": "Dyno Power Tuning (B132E0091)",
   "description": "Dyno power-run trace: per-cylinder ignition advance and knock (active + learned), misfire/torque-reduction/rev-limit channels, MAF-vs-Alpha-N load, throttle, AFR target, closed-loop fuel trims, and VVT tracking.",
-  "ecuVersion": "B13200091",
+  "ecuVersion": "B132E0091",
   "channels": [
     // ── 50 Hz ─────────────────────────────────────────────────────────────────────────────────────
     {

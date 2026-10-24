@@ -1,6 +1,6 @@
 {
-  // Fuel/injection diagnostics plus the idle air controller, for the B13200091 ECU. The fuel channels
-  // are the same as B13200091_fuel_diagnostics.json (see that file for the deltas from the C132E0278
+  // Fuel/injection diagnostics plus the idle air controller, for the B132E0091 ECU. The fuel channels
+  // are the same as B132E0091_fuel_diagnostics.json (see that file for the deltas from the C132E0278
   // port). The idle section is added to diagnose an idle controller that never engages ("hung"): the
   // engine must drop below idle_control_entry_rpm before obd_ii_idle_status goes nonzero, and until
   // then the integral term stays at 0 and the air command is open-loop.
@@ -17,7 +17,7 @@
   // about 200 frames/s, or ~5-6% of the 500 kbit/s bus.
   "name": "Fuel & Idle Diagnostics (B132E0091)",
   "description": "Injection pipeline (load/temp axes, AFR target, knock enrichment, flow conversion, pulse widths, duty cycle, STFT/LTFT per bank, O2 feedback, fuel learning zones idle/off-idle/2/3 per bank) plus the idle air controller: target, entry rpm, air command, PI integral, status, learned idle air and misfire count.",
-  "ecuVersion": "B13200091",
+  "ecuVersion": "B132E0091",
   "channels": [
     // ── Axes ─────────────────────────────────────────────────────────────────────────────────────
     {
