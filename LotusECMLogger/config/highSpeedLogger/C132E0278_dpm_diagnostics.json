@@ -51,11 +51,11 @@
     { "symbol": "dpm_slip_error_raw",       "rate": 50 },                    // slip - target; vs CAL_dpm_intervention_threshold
     { "symbol": "dpm_slip_error_filtered",  "rate": 50 },                    // After CAL_dpm_slip_filter_coeff[speed] filter
     { "symbol": "dpm_slip_filter_accumulator", "rate": 50, "unit": "raw" },   // Filter internal state (undefined4)
-    { "symbol": "dpm_torque_cut_factor",    "rate": 10, "scale": 0.39215686, "unit": "%" }, // Proportional cut: CAL_dpm_torque_cut_factor[speed][slip] (val/255)
+    { "symbol": "dpm_torque_cut_p_term",    "rate": 10, "scale": 0.39215686, "unit": "%" }, // Proportional cut: CAL_dpm_torque_cut_factor[speed][slip] (val/255)
     { "symbol": "dpm_slip_integral_accumulator", "rate": 50, "signed": true, "unit": "raw" }, // Integral (tire/surface adaptation); high byte -> cut
     { "symbol": "dpm_integral_update_timer", "rate": 20 },                    // CAL_dpm_integral_update_period pacing (ms = val*5)
-    { "symbol": "dpm_torque_cut_accumulated", "rate": 50 },                  // Integral contribution to cut (val/255)
-    { "symbol": "dpm_torque_cut_total",     "rate": 20 },                    // Total commanded torque cut, P + I (val/255)
+    { "symbol": "dpm_torque_cut_i_term",    "rate": 50 },                    // Integral contribution to cut (val/255)
+    { "symbol": "dpm_torque_cut_fraction",  "rate": 20 },                    // Total commanded torque cut, P + I (val/255)
 
     // ── Torque out ───────────────────────────────────────────────────────────────────────────────
     { "symbol": "dpm_torque_when_tc_activated", "rate": 50 },                 // Torque snapshot at intervention start (Nm)

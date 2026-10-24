@@ -85,12 +85,12 @@
       "rate": 10
     }, // Coolant ignition comp (deg = val/4)
     {
-      "symbol": "ign_comp_rpm",
+      "symbol": "ign_comp_overtemp_base",
       "rate": 10,
       "signed": true,
       "scale": 0.25,
       "unit": "deg"
-    }, // RPM ignition comp (assumed i16 1/4-deg)
+    }, // Over-temperature ignition comp base, i16 1/4-deg (0x40001396; formerly catalogued as ign_comp_rpm)
     {
       "symbol": "ign_comp_iat",
       "rate": 5

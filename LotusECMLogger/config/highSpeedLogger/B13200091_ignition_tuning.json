@@ -75,7 +75,7 @@
     { "symbol": "ign_mode",          "rate": 10 }, // Which timing strategy is running
     { "symbol": "ign_comp_coolant",  "rate": 10 }, // Coolant timing comp (deg)
     { "symbol": "ign_comp_iat",      "rate": 10 }, // IAT timing comp (deg)
-    { "symbol": "ign_comp_rpm",      "rate": 10 }, // RPM timing comp (deg)
+    { "symbol": "ign_comp_overtemp_base", "rate": 10 }, // Over-temperature timing comp base (deg); formerly ign_comp_rpm
 
     { "symbol": "coolant_temp",            "rate": 1 },
     { "symbol": "airtemp_ambient",         "rate": 1 }, // Charge-air heating — the usual cause of a moving knock limit

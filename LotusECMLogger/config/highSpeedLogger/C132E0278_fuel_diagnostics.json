@@ -32,8 +32,8 @@
     { "symbol": "ign_comp_iat",          "rate": 5 },                        // Subtracted from retard before PE
 
     // ── Temp factors ─────────────────────────────────────────────────────────────────────────────
-    { "symbol": "inj_warmup_factor_ips", "rate": 5 },          // x val/64, floor 1.0 — CAL_inj_enrichment_factor_load_n_coolant_{manual|ips}
-    { "symbol": "inj_comp_air_temp",     "rate": 5 },                         // Air-temp compensation factor (val/100)
+    { "symbol": "inj_warmup_factor",     "rate": 5 },          // x val/64, floor 1.0 — CAL_inj_enrichment_factor_load_n_coolant_{manual|ips}
+    { "symbol": "inj_deadtime_comp_iat", "rate": 5 },                         // Injector dead-time air-temp compensation (val/100)
 
     // ── Flow conversion ──────────────────────────────────────────────────────────────────────────
     { "symbol": "inj_efficiency",        "rate": 5 },                        // CAL_inj_efficiency lookup + test trim (val/100, clamped 100..255)
