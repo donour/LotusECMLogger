@@ -32,8 +32,9 @@
     <Compile Include="../LotusECMLogger/Services/SymbolCatalog.cs" Link="HighSpeedLog/%(Filename)%(Extension)" />
     <Compile Include="../LotusECMLogger/Services/SymbolCatalogLoader.cs" Link="HighSpeedLog/%(Filename)%(Extension)" />
     <Compile Include="../LotusECMLogger/Services/ChannelTypeParser.cs" Link="HighSpeedLog/%(Filename)%(Extension)" />
-    <!-- A2L generator and reader (Phase 6a). -->
+    <!-- A2L generator and reader (Phase 6a) and the calibration image (6b). -->
     <Compile Include="../LotusECMLogger/Services/A2l/*.cs" Link="A2l/%(Filename)%(Extension)" />
+    <Compile Include="../LotusECMLogger/Services/Tuning/*.cs" Link="Tuning/%(Filename)%(Extension)" />
     <!-- The presets and symbol catalogs, found through the same discovery path the app uses. -->
     <None Include="../LotusECMLogger/config/highSpeedLogger/**/*.json;../LotusECMLogger/config/highSpeedLogger/**/*.csv"
           LinkBase="config/highSpeedLogger" CopyToOutputDirectory="PreserveNewest" />

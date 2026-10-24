@@ -101,8 +101,9 @@ public sealed class CcpCalibrationWriter
 
     /// <summary>
     /// A calibration chunk extracted from a CRP can be this many bytes longer than the build's CAL RAM range: on
-    /// B132E0091 the chunk is 0x61DA bytes against a 0x61D8-byte range, ending in the 4-byte unlock field and a
-    /// 2-byte constant (F7CA in both the stock and a tuned CRP). Only the range is ever written.
+    /// B132E0091 the chunk is 0x61DA bytes against a 0x61D8-byte range, ending in the 4-byte unlock field and the
+    /// 2 bytes the catalog names <c>CAL_ecu_cvn</c> (F7CA in both the stock and a tuned CRP). Only the range is ever
+    /// written.
     /// </summary>
     public const int CrpTrailingBytes = 2;
 
@@ -111,19 +112,23 @@ public sealed class CcpCalibrationWriter
     /// CRP (up to <see cref="CrpTrailingBytes"/> longer), or a 64 KB Snapshots calibration download. Only the first
     /// CAL-size bytes are used. Its calibration ID must match the build.
     /// </summary>
-    public byte[] CalibrationImageFromFile(byte[] file)
+    public byte[] CalibrationImageFromFile(byte[] file) => CalibrationImageFromFile(_build, file);
+
+    /// <inheritdoc cref="CalibrationImageFromFile(byte[])"/>
+    public static byte[] CalibrationImageFromFile(CcpBuildProfile build, byte[] file)
     {
+        ArgumentNullException.ThrowIfNull(build);
         ArgumentNullException.ThrowIfNull(file);
-        int size = checked((int)_build.CalibrationSize);
+        int size = checked((int)build.CalibrationSize);
         bool accepted = file.Length == SnapshotCalibrationSize || (file.Length >= size && file.Length <= size + CrpTrailingBytes);
         if (!accepted)
-            throw new InvalidDataException($"A {_build.Build} calibration file has {size:N0} bytes (raw image), up to " +
+            throw new InvalidDataException($"A {build.Build} calibration file has {size:N0} bytes (raw image), up to " +
                 $"{size + CrpTrailingBytes:N0} (extracted from a CRP) or {SnapshotCalibrationSize:N0} (Snapshots download); " +
                 $"this one has {file.Length:N0}.");
         var image = file.AsSpan(0, size).ToArray();
         string? id = CalibrationId(image);
-        if (id != _build.Build)
-            throw new InvalidDataException($"The file's calibration ID is {id ?? "unreadable"}; the ECU is {_build.Build}. " +
+        if (id != build.Build)
+            throw new InvalidDataException($"The file's calibration ID is {id ?? "unreadable"}; the ECU is {build.Build}. " +
                 "Writing another build's calibration would corrupt this one.");
         return image;
     }

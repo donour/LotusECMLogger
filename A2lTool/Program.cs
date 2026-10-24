@@ -2,14 +2,16 @@ using System.Text;
 using LotusECMLogger.Services;
 using LotusECMLogger.Services.A2l;
 using LotusECMLogger.Services.Ccp;
+using LotusECMLogger.Services.Tuning;
 
 const string Usage = """
     Usage:
       A2lTool generate <build>... [--out-dir <dir>] [--force]
           Drafts <build>.a2l from the build's symbol catalog. Existing files are kept unless --force:
           they may carry hand-added InputQuantity bindings.
-      A2lTool check <file.a2l>...
-          Parses each file as the app will and lists what is unavailable or read-only, and why.
+      A2lTool check <file.a2l>... [--image <calibration .bin or .CRP>]
+          Parses each file as the app will and lists what is unavailable or read-only, and why. With --image, also
+          checks the A2L against that calibration (EPK, segment) and lists axes whose points decrease in it.
     Builds:
     """;
 
@@ -70,8 +72,16 @@ static int Generate(string[] args)
     return failures == 0 ? 0 : 1;
 }
 
-static int Check(string[] files)
+static int Check(string[] args)
 {
+    CalibrationImage? image = null;
+    var files = new List<string>();
+    for (int i = 0; i < args.Length; i++)
+    {
+        if (args[i] == "--image" && i + 1 < args.Length) image = CalibrationImage.Load(args[++i]);
+        else files.Add(args[i]);
+    }
+    int failures = 0;
     foreach (var file in files)
     {
         var module = A2lParser.ParseFile(file);
@@ -96,7 +106,29 @@ static int Check(string[] files)
         foreach (var u in resolved.Unavailable) Console.WriteLine($"  unavailable {u.Name}: {u.Reason}");
         foreach (var r in items.Where(i => !i.IsEditable).OrderBy(i => i.Name, StringComparer.Ordinal))
             Console.WriteLine($"  read-only {r.Name}: {r.ReadOnlyReason}");
+        if (image is not null) failures += CheckImage(resolved, image);
     }
+    return failures == 0 ? 0 : 1;
+}
+
+// Stock axes must not decrease (the lookups walk them upwards), so a decreasing axis in a real calibration points at
+// a wrong address, size or byte order in the A2L, or at an axis the firmware does not use.
+static int CheckImage(A2lResolvedModule resolved, CalibrationImage image)
+{
+    Console.WriteLine($"  image {image.SourcePath} ({image.Format}): {image.CalibrationIdText}");
+    var problems = image.CheckAgainst(resolved);
+    foreach (var problem in problems) Console.WriteLine($"  image: {problem}");
+    if (problems.Count > 0) return 1;
+    var axes = resolved.Items.Values.Where(i => i.Kind == A2lItemKind.AxisPts).OrderBy(i => i.Address).ToList();
+    int decreasing = 0;
+    foreach (var axis in axes)
+    {
+        var points = Enumerable.Range(0, axis.CountX).Select(i => image.ReadRaw(axis, i)).ToArray();
+        if (!points.Zip(points.Skip(1)).Any(p => p.Second < p.First)) continue;
+        decreasing++;
+        Console.WriteLine($"  decreasing axis {axis.Name} @0x{axis.Address:X8}: raw [{string.Join(", ", points)}]");
+    }
+    Console.WriteLine($"  axes: {axes.Count - decreasing} of {axes.Count} non-decreasing in this calibration");
     return 0;
 }
 

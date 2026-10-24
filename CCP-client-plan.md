@@ -7,7 +7,7 @@ Design notes for adding a CCP 2.1 master to LotusECMLogger. The ECU side is desc
 `CcpMaster`, high-speed logger ported onto it with AEM as a separate source, shared session host, CCP tab, guarded
 calibration writes) plus diagnostics tooling (trace, statistics, variable watch, memory diff, self-test). Phases 1–5
 verified on a car 2026-10-24 (2011 Evora NA, B132E0091), including the J2534 latency fix. Phase 6 started 2026-10-24:
-the A2L generator and the 6a reader are done (§4); next is 6b, the calibration image. Scope narrowed to T6
+the A2L generator, the 6a reader and the 6b calibration image are done (§4); next is 6c, live sync. Scope narrowed to T6
 2011+ for now (§2).**
 The protocol core, target/build profiles, transport contract, J2534 transport and deterministic fake slave
 are implemented. Cross-platform tests exercise the command sequence, firmware quirks and runtime-registry format.
@@ -312,6 +312,12 @@ generated file into CANape or INCA.
 **Found while generating:**
 - `CAL_ecu_cvn` sits at CAL+0x61D8 on B132E0091. These are the two bytes past the RAM range in the CRP
   chunk (0x61DA): the F7CA found there is what the catalog calls the CVN, not part of calibration RAM.
+- **Checked against real calibrations** with `A2lTool check <a2l> --image <CRP>`. Every one of B132E0091's 281
+  axes is non-decreasing in the stock B132E0091.CRP, as are 323 of C132E0278's 324 in C132E0278.CRP.
+- **The exception is a catalog error.** C132E0278's `CAL_ign_comp_coldstart_X_coolant_temp` is labelled at
+  0x40008D09, but the firmware looks `CAL_ign_comp_coldstart` up with that label + 5 as its axis (`:15744`), so
+  the real 8-point axis is at 0x40008D0E. The 5 bytes at 0x40008D09 are another table, looked up on the 5-point
+  axis at 0x40008D04 (`:28676`). Until the catalog is fixed, the draft gives that table the wrong axis.
 - C132E0278's catalog types `CAL_idle_air_warmup_factor_ips` as 1 byte and its Y axis as a scalar. The firmware
   looks it up as 16 × 8 (`:28116`, X coolant 0x4000E190, Y 0x4000E1A0, data 0x4000E1A8), so the catalog needs
   `[128]` and `[8]`. Until then it is written as a VALUE.
@@ -323,6 +329,19 @@ generated file into CANape or INCA.
 - **6b, calibration image.** `CalibrationImage` loads a raw CAL-region image or a 64 KB Snapshots calibration
   download (detected by size); offset = address − CAL_base. Undo/redo; tracks bytes changed against the
   original file. **Save As only**, with a backup; the source file is never overwritten.
+  *Done 2026-10-24* (`Services/Tuning/CalibrationImage.cs`; `CalibrationImageTests`). As built:
+  - **Loading.** It also opens a CRP calibration chunk (up to 2 bytes past the range) and a `.CRP` itself (the
+    calibration chunk is extracted). With no build given, the calibration ID picks the build profile.
+  - **Saving.** Save As writes the layout it loaded, so a Snapshots tail or a CRP chunk's trailing CVN is kept (a
+    `.CRP` is saved as its chunk). An existing target is backed up first, and the file is written through a
+    temporary name.
+  - **Editing.** `SetPhysical`/`SetRaw` go through `A2lCalibrationItem.CellAddress` and the item's conversion. Each
+    is one undo step and is all-or-nothing: A2L limits, raw range, read-only items and the CCP enable byte are
+    checked before any byte changes.
+  - **Axes.** An edit that would put an axis point below its predecessor is refused. Equal neighbours are allowed,
+    because the lookups handle repeated points and stock axes contain them.
+  - **Change tracking.** `Changed` reports the exact byte spans of every edit, undo and redo, for 6c to send to the
+    ECU. `CheckAgainst(a2l)` compares EPK, segment and item ranges with the image.
 - **6c, live sync** (`LiveTuningSession` on the shared `CcpMaster`).
   - On start, read the whole CAL region (about 27 KB on 2017+ builds) and compare it with the file. The user
     then sends the file to the ECU, takes the ECU's values into the editor, or cancels.

@@ -101,6 +101,14 @@ C# port of `hc08_patcher/hc08_tps_sync.py`; the spec and test vectors are in `hc
   a reason and never defaulted. Conversions without an inverse are read-only.
 - **`A2lFormula`** evaluates FORM formulas, including C bit operators.
 - **Tests:** `LotusECMLogger.Ccp.Tests/A2lTests.cs` pins the map layout against two firmware lookups.
+- **`A2lTool check <a2l> --image <.bin or .CRP>`** also checks the A2L against a real calibration (EPK, segment) and
+  lists axes whose points decrease in it.
+- **`Services/Tuning/CalibrationImage`** (Phase 6b) is the calibration file being edited:
+  - offset = address − CAL_base; it loads raw, CRP-chunk, 64 KB Snapshots and `.CRP` files and saves the same
+    layout back (Save As only, never over the source, backing up an existing target);
+  - A2L-based physical/raw cell edits are atomic undo steps, refusing read-only items, out-of-limit values,
+    decreasing axis points and the CCP enable byte;
+  - `Changed` reports the byte spans each edit, undo and redo touched.
 
 ### UI Components
 
