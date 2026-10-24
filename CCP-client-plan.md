@@ -7,7 +7,8 @@ Design notes for adding a CCP 2.1 master to LotusECMLogger. The ECU side is desc
 `CcpMaster`, high-speed logger ported onto it with AEM as a separate source, shared session host, CCP tab, guarded
 calibration writes) plus diagnostics tooling (trace, statistics, variable watch, memory diff, self-test). Phases 1–5
 verified on a car 2026-10-24 (2011 Evora NA, B132E0091), including the J2534 latency fix. Phase 6 started 2026-10-24:
-the A2L generator, the 6a reader and the 6b calibration image are done (§4); next is 6c, live sync. Scope narrowed to T6
+the A2L generator, the 6a reader, the 6b calibration image and 6c live sync are done in code (§4); next is 6d,
+the editor UI. Scope narrowed to T6
 2011+ for now (§2).**
 The protocol core, target/build profiles, transport contract, J2534 transport and deterministic fake slave
 are implemented. Cross-platform tests exercise the command sequence, firmware quirks and runtime-registry format.
@@ -349,6 +350,24 @@ generated file into CANape or INCA.
   - Changed bytes are grouped into contiguous runs, written with DNLOAD and read back. Each cell shows in
     sync / pending / failed.
   - Axis edits that would make an axis non-increasing are blocked (the lookups require increasing raw axes).
+  *Done in code 2026-10-24* (`Services/Tuning/LiveTuningSession.cs`; `LiveTuningSessionTests` against the fake slave);
+  not yet run on a car. As built:
+  - **Start.** The session reads the region, refuses another build's ECU, and saves the read as a `ccp-backup_…bin`
+    that Restore Backup understands. It starts *Comparing* when the file differs, else *Syncing*. Edits made while
+    comparing are only staged. `TakeEcuValues` is one undo step on the image.
+  - **Writing.** Every image change (edit, undo, redo) is copied into the session's target on the editing thread.
+    Live mode then writes it in the background, one batch at a time. Each batch is checked first with one
+    BUILD_CHKSUM of the region against what the session last wrote. A mismatch (another tool's write, or a reboot
+    restoring flash) stops sync instead of overwriting. Runs are merged up to 4 bytes apart, as in Phase 5.
+  - **Engine running.** Cell edits are written with the engine running, since that is what live tuning is for.
+    Sending the whole file is refused while `engine_speed_16bit` is above zero, because a multi-run write is not
+    atomic.
+  - **Enable byte.** It is never written: the ECU's value wins, and `EnableByteDiffers` reports a file that
+    disagrees.
+  - **Failures.** A failed or unverified write, or the CCP session leaving Connected, stops sync and marks the
+    failed run's bytes *Failed*. Nothing more is written until `RefreshAsync` re-reads the region (after a
+    reconnect).
+  - **Cell states.** `StateOf(item, x, y)` reports InSync / Pending / Writing / Failed.
 - **6d, editor UI** (a sub-tab of the CCP tab). Table browser with search, units filter and "changed" markers.
   Grid with heatmap colouring and axis headers in real units. Selection operations: set, add, multiply,
   percent change, interpolate, smooth. Paste from Excel, undo/redo, comparison against the original file.

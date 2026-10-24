@@ -156,7 +156,7 @@ public sealed class CcpCalibrationWriter
                 $"0x{address:X8}+{data.Length:N0} is outside {_build.Build}'s calibration RAM " +
                 $"0x{range.Start:X8}–0x{range.Start + range.Length - 1:X8}.");
 
-        double? rpm = await ReadEngineSpeedAsync(cancellationToken).ConfigureAwait(false);
+        double? rpm = _engineSpeed is { } symbol ? await ReadEngineSpeedAsync(_master, symbol, cancellationToken).ConfigureAwait(false) : null;
         if (rpm > 0)
             throw new InvalidOperationException($"The engine is turning ({rpm:0} rpm). Calibration writes need the engine off.");
 
@@ -195,7 +195,7 @@ public sealed class CcpCalibrationWriter
         if (now != CcpFrame.AdditiveChecksum(current))
             throw new InvalidOperationException("The region changed on the ECU since the write was prepared. Prepare it again.");
 
-        string backupPath = SaveBackup(plan.Address, current);
+        string backupPath = SaveBackup(_backupDirectory, _build, plan.Address, current);
         int written = 0, bytes = 0;
         var target = plan.Target.ToArray();
         try
@@ -218,22 +218,25 @@ public sealed class CcpCalibrationWriter
         return new CcpWriteResult(plan, backupPath, written);
     }
 
-    private async Task<double?> ReadEngineSpeedAsync(CancellationToken ct)
+    /// <summary>Reads the engine speed (big-endian, unsigned) from the build's symbol.</summary>
+    public static async Task<double> ReadEngineSpeedAsync(CcpMaster master, CcpEngineSpeedSymbol symbol, CancellationToken ct = default)
     {
-        if (_engineSpeed is not { } symbol) return null;
-        var raw = await _master.ReadAsync(symbol.Address, symbol.Size, cancellationToken: ct).ConfigureAwait(false);
+        ArgumentNullException.ThrowIfNull(master);
+        var raw = await master.ReadAsync(symbol.Address, symbol.Size, cancellationToken: ct).ConfigureAwait(false);
         long value = 0;
         foreach (byte b in raw) value = value << 8 | b;
         return value * symbol.Scale;
     }
 
-    private string SaveBackup(uint address, byte[] bytes)
+    /// <summary>Saves a backup of a region under a self-describing name: Restore reads the address back from it.</summary>
+    public static string SaveBackup(string directory, CcpBuildProfile build, uint address, byte[] bytes)
     {
-        // Self-describing name: Restore reads the address back from it.
-        Directory.CreateDirectory(_backupDirectory);
+        ArgumentException.ThrowIfNullOrWhiteSpace(directory);
+        ArgumentNullException.ThrowIfNull(build);
+        Directory.CreateDirectory(directory);
         string name = string.Create(CultureInfo.InvariantCulture,
-            $"ccp-backup_{_build.Build}_{address:X8}_{bytes.Length}_{DateTime.Now:yyyyMMdd-HHmmss-fff}.bin");
-        string path = Path.Combine(_backupDirectory, name);
+            $"ccp-backup_{build.Build}_{address:X8}_{bytes.Length}_{DateTime.Now:yyyyMMdd-HHmmss-fff}.bin");
+        string path = Path.Combine(directory, name);
         File.WriteAllBytes(path, bytes);
         return path;
     }

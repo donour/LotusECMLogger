@@ -109,6 +109,13 @@ C# port of `hc08_patcher/hc08_tps_sync.py`; the spec and test vectors are in `hc
   - A2L-based physical/raw cell edits are atomic undo steps, refusing read-only items, out-of-limit values,
     decreasing axis points and the CCP enable byte;
   - `Changed` reports the byte spans each edit, undo and redo touched.
+- **`Services/Tuning/LiveTuningSession`** (Phase 6c) keeps ECU calibration RAM in step with an image over the shared
+  `CcpMaster`:
+  - it reads and compares on start (send the file / take the ECU's values), then writes every image change in Live
+    mode, or on Apply in Hold mode, as read-back-verified runs;
+  - a checksum before each batch catches changes made outside the session, and any failure stops sync until a
+    refresh;
+  - the enable byte is never written; sending a whole file needs the engine off.
 
 ### UI Components
 

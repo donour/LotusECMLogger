@@ -269,12 +269,17 @@ namespace LotusECMLogger.Services.Tuning
             }
         }
 
-        /// <summary>Replaces bytes directly, e.g. to take the ECU's values into the editor. One undo step.</summary>
-        public void WriteBytes(uint address, ReadOnlySpan<byte> bytes, string description)
+        /// <summary>Replaces bytes directly. One undo step.</summary>
+        public void WriteBytes(uint address, ReadOnlySpan<byte> bytes, string description) =>
+            WriteBytes([(address, bytes.ToArray())], description);
+
+        /// <summary>Replaces several byte ranges as one undo step, e.g. to take the ECU's values into the editor.</summary>
+        public void WriteBytes(IReadOnlyList<(uint Address, byte[] Bytes)> writes, string description)
         {
+            ArgumentNullException.ThrowIfNull(writes);
             ArgumentException.ThrowIfNullOrWhiteSpace(description);
-            Offset(address, bytes.Length);
-            Apply(description, [(address, bytes.ToArray())]);
+            foreach (var (address, bytes) in writes) Offset(address, bytes.Length);
+            Apply(description, writes);
         }
 
         private static void RequireEditable(A2lCalibrationItem item)
