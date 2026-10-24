@@ -384,7 +384,7 @@
     },
     {
       "symbol": "airtemp_tmaf",
-      "rate": 11
+      "rate": 1
     },
     {
       "symbol": "engine_operating_state_flags",
