@@ -8,38 +8,33 @@ namespace LotusECMLogger.Services.Ccp;
 /// <summary>
 /// Owns one raw-CAN channel/device. CcpMaster shares this transport between consumers.
 /// <para>
-/// While open it raises the Windows timer resolution to 1 ms. On a 2011 Evora (2026-10-24) commands took 17–37 ms
-/// round trip at the default 15.6 ms resolution, as if each short J2534 read wait rounded up to a timer tick: the
-/// send waits out the reader's current wait, then the reply waits out the next one.
-/// </para>
-/// <para>
-/// Experiment: with LOTUS_CCP_SEND_WHILE_READING=1, sends no longer wait for the reader's lock, which removes one of
-/// those waits. That calls the DLL from two threads at once; J2534 DLLs commonly allow it, but it is not verified
-/// for every adapter, so it is opt-in.
+/// Reads never block inside the DLL: <see cref="Read"/> polls with zero-timeout reads and sleeps outside the I/O lock
+/// between polls, with the Windows timer raised to 1 ms while the transport is open. Measured on a 2011 Evora
+/// (2026-10-24): a blocking ReadMsgs(1, 5 ms) loop cost 32 ms per command at the default timer resolution and 20 ms at
+/// 1 ms, because each send waited out the reader's wait and the reply then waited out the next one. Letting sends
+/// bypass our lock made it 59 ms: that DLL serialises calls internally and holds its own lock through the wait.
 /// </para>
 /// </summary>
 public sealed class J2534CcpTransport : ICcpTransport
 {
     private const uint TimerResolutionMs = 1;
-    private static readonly bool SendWhileReading = Environment.GetEnvironmentVariable("LOTUS_CCP_SEND_WHILE_READING") == "1";
+    private const int MaxMessagesPerRead = 32;
 
     private readonly object _ioLock = new();
-    private readonly object _sendLock = new();
     private readonly bool _timerRaised;
     private readonly J2534Session _session;
     private readonly J2534Channel _channel;
     private readonly HashSet<uint> _receiveIds;
     private bool _disposed;
     private int _reading;
-    private int _sendsWaiting;
+
     public CcpTarget Target { get; }
 
     private J2534CcpTransport(CcpTarget target, J2534Session session, J2534Channel channel)
     {
         (Target, _session, _channel, _receiveIds) = (target, session, channel, [target.DtoId]);
         _timerRaised = timeBeginPeriod(TimerResolutionMs) == 0;
-        Debug.WriteLine($"CCP J2534: timer resolution {(_timerRaised ? "raised to 1 ms" : "unchanged")}, " +
-            $"send while reading {(SendWhileReading ? "on" : "off")}.");
+        Debug.WriteLine($"CCP J2534: timer resolution {(_timerRaised ? "raised to 1 ms" : "unchanged")}.");
     }
 
     [DllImport("winmm.dll")] private static extern uint timeBeginPeriod(uint milliseconds);
@@ -103,32 +98,16 @@ public sealed class J2534CcpTransport : ICcpTransport
         var message = new byte[4 + payload.Length];
         BinaryPrimitives.WriteUInt32BigEndian(message, canId);
         payload.CopyTo(message.AsSpan(4));
-        if (SendWhileReading)
-        {
-            lock (_sendLock)
-            {
-                ObjectDisposedException.ThrowIf(_disposed, this);
-                _channel.SendMessage(message).ThrowIfError();
-            }
-            return;
-        }
         Locked(() => _channel.SendMessage(message).ThrowIfError());
     }
 
-    // Senders announce themselves so the receive loop yields the lock between reads instead of
-    // re-acquiring it immediately (Monitor is not fair) and delaying commands by a full read timeout.
     private void Locked(Action action)
     {
-        Interlocked.Increment(ref _sendsWaiting);
-        try
+        lock (_ioLock)
         {
-            lock (_ioLock)
-            {
-                ObjectDisposedException.ThrowIf(_disposed, this);
-                action();
-            }
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            action();
         }
-        finally { Interlocked.Decrement(ref _sendsWaiting); }
     }
 
     public IReadOnlyList<CcpReceivedFrame> Read(int timeoutMilliseconds, CancellationToken cancellationToken = default)
@@ -139,25 +118,28 @@ public sealed class J2534CcpTransport : ICcpTransport
             throw new InvalidOperationException("CCP requires a single receive loop.");
         try
         {
-            var spin = new SpinWait();
-            while (Volatile.Read(ref _sendsWaiting) > 0) spin.SpinOnce();
+            long deadline = Environment.TickCount64 + timeoutMilliseconds;
             var frames = new List<CcpReceivedFrame>();
-            lock (_ioLock)
+            while (true)
             {
-                ObjectDisposedException.ThrowIf(_disposed, this);
-                // Wait for one message (J2534 returns as soon as NumMsgs arrive), then drain without waiting,
-                // so a reply is seen as soon as it arrives rather than when the timeout expires.
-                if (Collect(_channel.ReadMessages(1, timeoutMilliseconds), frames))
-                    Collect(_channel.ReadMessages(32, 0), frames);
+                // Zero-timeout reads return at once with whatever the DLL has buffered, so the lock is held only
+                // briefly and a waiting send goes out within one poll.
+                lock (_ioLock)
+                {
+                    ObjectDisposedException.ThrowIf(_disposed, this);
+                    while (Collect(_channel.ReadMessages(MaxMessagesPerRead, 0), frames) == MaxMessagesPerRead) { }
+                }
+                // Once consumed, return the batch even if cancellation arrives: the owner routes it first.
+                if (frames.Count > 0 || cancellationToken.IsCancellationRequested || Environment.TickCount64 >= deadline)
+                    return frames;
+                Thread.Sleep(1); // ~1 ms with the raised timer resolution; outside the lock, so sends are not delayed
             }
-            // Once consumed, return the batch even if cancellation arrived during the native read.
-            // The owner can route these frames before ending the receive loop.
-            return frames;
         }
         finally { Volatile.Write(ref _reading, 0); }
     }
 
-    private bool Collect(GetMessagesResult result, List<CcpReceivedFrame> frames)
+    /// <summary>Adds the batch's admitted frames and returns how many messages the DLL delivered.</summary>
+    private int Collect(GetMessagesResult result, List<CcpReceivedFrame> frames)
     {
         // TIMEOUT may still carry a partial batch: preserve it. Other failures are not silent timeouts.
         if (!result.IsSuccess && !result.IsTimeout && !result.IsBufferEmpty)
@@ -171,13 +153,12 @@ public sealed class J2534CcpTransport : ICcpTransport
             if (!_receiveIds.Contains(canId)) continue;
             frames.Add(new(data.AsMemory(4).ToArray(), message.Timestamp, canId));
         }
-        return result.Messages.Length > 0;
+        return result.Messages.Length;
     }
 
     public void Dispose()
     {
         lock (_ioLock)
-        lock (_sendLock)
         {
             if (_disposed) return;
             _disposed = true;
