@@ -13,7 +13,7 @@ public sealed class CcpMasterSessionTests : IDisposable
     {
         _simulation = new SimulatedCcpTransport(_slave, speedFactor: 50);
         _script = new ScriptedTransport(_simulation);
-        _master = new CcpMaster(_script, new CcpMasterOptions { CommandTimeout = TimeSpan.FromMilliseconds(150) });
+        _master = new CcpMaster(_script, new CcpMasterOptions { CommandTimeout = TimeSpan.FromMilliseconds(500) });
     }
 
     public void Dispose()

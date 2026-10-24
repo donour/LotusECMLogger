@@ -23,7 +23,8 @@ public sealed class CcpCalibrationWriterTests : IDisposable
         _slave.Load(Cal + 0x100, Enumerable.Range(0, 64).Select(i => (byte)i).ToArray());
         _simulation = new SimulatedCcpTransport(_slave, speedFactor: 200);
         _script = new ScriptedTransport(_simulation);
-        _master = new CcpMaster(_script, new CcpMasterOptions { CommandTimeout = TimeSpan.FromMilliseconds(150) });
+        // Generous: PrepareAsync of a whole image reads ~5,400 commands, and the suite runs in parallel.
+        _master = new CcpMaster(_script, new CcpMasterOptions { CommandTimeout = TimeSpan.FromSeconds(1) });
         _writer = new CcpCalibrationWriter(_master, Gt430, CcpBuildSource.Identified, _backups, Rpm);
         _master.ConnectAsync().GetAwaiter().GetResult();
     }

@@ -294,7 +294,7 @@ namespace LotusECMLogger.Controls
         private static SymbolAddressLookup? SymbolLookupFor(CcpBuildProfile? build)
         {
             if (build is null) return null;
-            try { return SymbolCatalogLoader.LoadByName(build.Build) is { } catalog ? new SymbolAddressLookup(catalog) : null; }
+            try { return SymbolCatalogLoader.LoadByName(build.Catalog) is { } catalog ? new SymbolAddressLookup(catalog) : null; }
             catch (Exception ex)
             {
                 Debug.WriteLine($"CcpControl: no symbol catalog for {build.Build}: {ex.Message}");
@@ -359,7 +359,7 @@ namespace LotusECMLogger.Controls
         {
             try
             {
-                var entry = SymbolCatalogLoader.LoadByName(build.Build)?.Resolve("engine_speed_16bit");
+                var entry = SymbolCatalogLoader.LoadByName(build.Catalog)?.Resolve("engine_speed_16bit");
                 if (entry is null || entry.Type.Size is not (1 or 2 or 4) || entry.Type.Signed) return null;
                 return new CcpEngineSpeedSymbol(entry.Address, entry.Type.Size, entry.Type.Scale);
             }

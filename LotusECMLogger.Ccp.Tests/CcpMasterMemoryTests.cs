@@ -17,7 +17,7 @@ public sealed class CcpMasterMemoryTests : IDisposable
     {
         _simulation = new SimulatedCcpTransport(_slave, speedFactor: 200);
         _script = new ScriptedTransport(_simulation);
-        _master = new CcpMaster(_script, new CcpMasterOptions { CommandTimeout = TimeSpan.FromMilliseconds(150) });
+        _master = new CcpMaster(_script, new CcpMasterOptions { CommandTimeout = TimeSpan.FromMilliseconds(500) });
     }
 
     public void Dispose()
@@ -152,6 +152,25 @@ public sealed class CcpMasterMemoryTests : IDisposable
         Assert.Equal("LOTUS EVORA GT430 MAN MY19 ROW", identification.CalibrationDescription);
         Assert.Equal("T6-EVORA-GT430-V000E 24/01/2018", identification.RegistryBuildId);
         Assert.Equal("V0001", identification.RegistryVersion);
+    }
+
+    [Fact]
+    public async Task IdentifiesThe2011EvoraNaCalibrationAsTheB13200091Layout()
+    {
+        // As read from a 2011 Evora NA on 2026-10-24.
+        _simulation.With(s =>
+        {
+            s.Load(0x40008E24, Encoding.ASCII.GetBytes("B132E0091       03-09-2015 11:45"));
+            s.Load(0x000C02E4 - 44, Encoding.ASCII.GetBytes("T6-V00BU 18/12/2014 Lotus Eng"));
+        });
+        await ConnectAsync();
+        var identification = await _master.IdentifyAsync();
+        Assert.Equal("B132E0091", identification.Build?.Build);
+        Assert.Equal("B13200091", identification.Build?.Catalog);
+        Assert.Equal((0x40008E24u, 0x61D8u, 0x40008E4Au, 0x000C02E4u),
+            (identification.Build!.CalibrationBase, identification.Build.CalibrationSize,
+             identification.Build.EnableByteAddress!.Value, identification.Build.SymbolEntriesAddress!.Value));
+        Assert.StartsWith("T6-V00BU", identification.RegistryBuildId);
     }
 
     [Fact]

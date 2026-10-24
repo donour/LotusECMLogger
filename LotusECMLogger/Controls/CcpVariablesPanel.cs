@@ -101,7 +101,7 @@ namespace LotusECMLogger.Controls
             {
                 if (context.Registry is null && build.SymbolEntriesAddress is not null)
                     context.Registry = await context.Master!.ReadSymbolRegistryAsync(build, cancellationToken: ct);
-                var catalog = SymbolCatalogLoader.LoadByName(build.Build);
+                var catalog = SymbolCatalogLoader.LoadByName(build.Catalog);
                 all = CcpVariableCatalog.Build(catalog, context.Registry, build);
                 loadedFor = build;
                 context.Log($"Variables: {all.Count:N0} for {build.Build} (catalog {(catalog is null ? "missing" : $"{catalog.Entries.Count:N0} symbols")}, " +

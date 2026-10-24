@@ -158,7 +158,7 @@ public class FirmwareSimulatorTests
     {
         using var slave = new FakeCcpSlave();
         var script = new ScriptedTransport(new SimulatedCcpTransport(slave, speedFactor: 50));
-        using var master = new CcpMaster(script, new CcpMasterOptions { CommandTimeout = TimeSpan.FromMilliseconds(100) });
+        using var master = new CcpMaster(script, new CcpMasterOptions { CommandTimeout = TimeSpan.FromMilliseconds(500) });
         await master.ConnectAsync();
         var report = await CcpSelfTest.RunAsync(master, new CcpSelfTestOptions { LatencySamples = 5 },
             new SyncProgress<CcpCheckResult>(r => { if (r.Name == "Variable table") script.Drop = _ => true; }));

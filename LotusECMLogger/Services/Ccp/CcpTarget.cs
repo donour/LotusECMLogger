@@ -46,8 +46,11 @@ public sealed class CcpTarget
 /// <summary>Static-analysis profiles, not evidence that the connected ECU matches a selected build.</summary>
 public sealed record CcpBuildProfile(string Build, CcpTarget Target, uint CalibrationBase,
     uint CalibrationSize, uint? EnableByteAddress = null, uint? ProgramVersionOffset = null,
-    uint? SymbolEntriesAddress = null)
+    uint? SymbolEntriesAddress = null, string? CatalogName = null)
 {
+    /// <summary>The symbol catalog (config/highSpeedLogger/database) describing this build's RAM.</summary>
+    public string Catalog => CatalogName ?? Build;
+
     public bool ContainsCalibrationRange(uint address, int length) => length > 0 &&
         address >= CalibrationBase && (ulong)address + (uint)length <= (ulong)CalibrationBase + CalibrationSize;
 
@@ -56,6 +59,11 @@ public sealed record CcpBuildProfile(string Build, CcpTarget Target, uint Calibr
         new CcpBuildProfile("C132E0044", CcpTarget.Evora2010, 0x40002768, 0x4874),
         new CcpBuildProfile("B13200091", CcpTarget.T6, 0x40008E24, 0x61D8, 0x40008E4A,
             SymbolEntriesAddress: 0x000C02E4),
+        // 2011 Evora NA. Its calibration ID is B132E0091; the program has B13200091's layout: verified 2026-10-24
+        // against the official B132E0091.CRP (registry "T6-V00BU 18/12/2014" at 0xC02B8, 753 entries, terminator)
+        // and on a car (calibration ID at 0x40008E24, CCP answering).
+        new CcpBuildProfile("B132E0091", CcpTarget.T6, 0x40008E24, 0x61D8, 0x40008E4A,
+            SymbolEntriesAddress: 0x000C02E4, CatalogName: "B13200091"),
         new CcpBuildProfile("C132E0077", CcpTarget.T6, 0x40008E24, 0x61D8, 0x40008E4A),
         new CcpBuildProfile("C132E0271", CcpTarget.T6, 0x40008654, 0x69AC, 0x400088EC),
         new CcpBuildProfile("A132E0263", CcpTarget.T6, 0x40008654, 0x69AC, 0x400088EC),

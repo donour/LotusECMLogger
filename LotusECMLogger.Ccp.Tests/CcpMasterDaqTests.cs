@@ -14,7 +14,7 @@ public sealed class CcpMasterDaqTests : IDisposable
     {
         _simulation = new SimulatedCcpTransport(_slave, speedFactor: 20);
         _script = new ScriptedTransport(_simulation);
-        _master = new CcpMaster(_script, new CcpMasterOptions { CommandTimeout = TimeSpan.FromMilliseconds(150) });
+        _master = new CcpMaster(_script, new CcpMasterOptions { CommandTimeout = TimeSpan.FromMilliseconds(500) });
         _simulation.With(s => { s.Load(Rpm, [0x12, 0x34]); s.Load(Coolant, [0x80]); });
     }
 

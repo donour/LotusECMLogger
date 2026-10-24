@@ -11,7 +11,7 @@ public sealed class CcpTraceTests : IDisposable
     public CcpTraceTests()
     {
         _script = new ScriptedTransport(new SimulatedCcpTransport(_slave, speedFactor: 50));
-        _master = new CcpMaster(_script, new CcpMasterOptions { CommandTimeout = TimeSpan.FromMilliseconds(150) });
+        _master = new CcpMaster(_script, new CcpMasterOptions { CommandTimeout = TimeSpan.FromMilliseconds(500) });
     }
 
     public void Dispose()

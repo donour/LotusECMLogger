@@ -15,7 +15,7 @@ internal sealed class LoggerHarness : IDisposable
             Script = new ScriptedTransport(Simulation);
             Interlocked.Increment(ref _transportsOpened);
             return Script;
-        }, new CcpMasterOptions { CommandTimeout = TimeSpan.FromMilliseconds(150) });
+        }, new CcpMasterOptions { CommandTimeout = TimeSpan.FromMilliseconds(500) });
         Service = new HighSpeedLogService(Host);
         CsvPath = Path.Combine(Path.GetTempPath(), $"hsl-test-{Guid.NewGuid():N}.csv");
     }

@@ -15,7 +15,7 @@ public sealed class CcpSessionHostTests : IDisposable
             var transport = new ScriptedTransport(new SimulatedCcpTransport(_slave, speedFactor: 50));
             lock (_opened) _opened.Add(transport);
             return transport;
-        }, new CcpMasterOptions { CommandTimeout = TimeSpan.FromMilliseconds(150) });
+        }, new CcpMasterOptions { CommandTimeout = TimeSpan.FromMilliseconds(500) });
     }
 
     public void Dispose()
