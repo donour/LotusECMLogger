@@ -426,6 +426,9 @@ A vendor `IF_DATA` block (ignored by other tools) could carry these later withou
 - First car self-test (same car, before the polling fix): all checks passed except latency; DAQ event rates
   99.7/49.9/19.9/10/2/1 Hz, checksum matches read-back at about 1 ms per 256-byte pass, 753-entry registry
   "T6-V00BU 18/12/2014", 0 timeouts, strays or malformed frames across 7,251 commands.
+- Self-test after the polling fix (same car and adapter, `dc1f739`): all checks PASS in 15.9 s. Latency min 1.07,
+  mean 1.78, p95 2.67 ms (session max 102.5 ms, a single outlier); CAL read 25,048 B in 8.8 s; registry 1.6 s;
+  checksum about 1.3 ms per pass; DAQ rates unchanged; 0 timeouts, strays or malformed frames across 7,318 commands.
 - TEST/CONNECT to a non-zero station address. The master only ever uses station 0x0000, so this should not
   arise.
 - One live logging re-check after the Phase 3 port, including concurrent reads and AEM polling.
