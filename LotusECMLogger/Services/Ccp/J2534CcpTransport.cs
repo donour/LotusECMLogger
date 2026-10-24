@@ -1,12 +1,31 @@
 using System.Buffers.Binary;
+using System.Diagnostics;
+using System.Runtime.InteropServices;
 using SAE.J2534;
 
 namespace LotusECMLogger.Services.Ccp;
 
-/// <summary>Owns one raw-CAN channel/device. CcpMaster shares this transport between consumers.</summary>
+/// <summary>
+/// Owns one raw-CAN channel/device. CcpMaster shares this transport between consumers.
+/// <para>
+/// While open it raises the Windows timer resolution to 1 ms. On a 2011 Evora (2026-10-24) commands took 17–37 ms
+/// round trip at the default 15.6 ms resolution, as if each short J2534 read wait rounded up to a timer tick: the
+/// send waits out the reader's current wait, then the reply waits out the next one.
+/// </para>
+/// <para>
+/// Experiment: with LOTUS_CCP_SEND_WHILE_READING=1, sends no longer wait for the reader's lock, which removes one of
+/// those waits. That calls the DLL from two threads at once; J2534 DLLs commonly allow it, but it is not verified
+/// for every adapter, so it is opt-in.
+/// </para>
+/// </summary>
 public sealed class J2534CcpTransport : ICcpTransport
 {
+    private const uint TimerResolutionMs = 1;
+    private static readonly bool SendWhileReading = Environment.GetEnvironmentVariable("LOTUS_CCP_SEND_WHILE_READING") == "1";
+
     private readonly object _ioLock = new();
+    private readonly object _sendLock = new();
+    private readonly bool _timerRaised;
     private readonly J2534Session _session;
     private readonly J2534Channel _channel;
     private readonly HashSet<uint> _receiveIds;
@@ -16,7 +35,15 @@ public sealed class J2534CcpTransport : ICcpTransport
     public CcpTarget Target { get; }
 
     private J2534CcpTransport(CcpTarget target, J2534Session session, J2534Channel channel)
-        => (Target, _session, _channel, _receiveIds) = (target, session, channel, [target.DtoId]);
+    {
+        (Target, _session, _channel, _receiveIds) = (target, session, channel, [target.DtoId]);
+        _timerRaised = timeBeginPeriod(TimerResolutionMs) == 0;
+        Debug.WriteLine($"CCP J2534: timer resolution {(_timerRaised ? "raised to 1 ms" : "unchanged")}, " +
+            $"send while reading {(SendWhileReading ? "on" : "off")}.");
+    }
+
+    [DllImport("winmm.dll")] private static extern uint timeBeginPeriod(uint milliseconds);
+    [DllImport("winmm.dll")] private static extern uint timeEndPeriod(uint milliseconds);
 
     public static J2534CcpTransport Open(CcpTarget target)
     {
@@ -76,6 +103,15 @@ public sealed class J2534CcpTransport : ICcpTransport
         var message = new byte[4 + payload.Length];
         BinaryPrimitives.WriteUInt32BigEndian(message, canId);
         payload.CopyTo(message.AsSpan(4));
+        if (SendWhileReading)
+        {
+            lock (_sendLock)
+            {
+                ObjectDisposedException.ThrowIf(_disposed, this);
+                _channel.SendMessage(message).ThrowIfError();
+            }
+            return;
+        }
         Locked(() => _channel.SendMessage(message).ThrowIfError());
     }
 
@@ -141,10 +177,12 @@ public sealed class J2534CcpTransport : ICcpTransport
     public void Dispose()
     {
         lock (_ioLock)
+        lock (_sendLock)
         {
             if (_disposed) return;
             _disposed = true;
             _session.Dispose();
+            if (_timerRaised) timeEndPeriod(TimerResolutionMs);
         }
     }
 }
