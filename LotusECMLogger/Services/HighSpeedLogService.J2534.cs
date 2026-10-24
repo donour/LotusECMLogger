@@ -11,7 +11,11 @@ namespace LotusECMLogger.Services
         /// </summary>
         public HighSpeedLogService() : this(CreateJ2534Host(), ownsHost: true) { }
 
-        /// <summary>A session host on the first J2534 adapter (raw CAN, 500 kbit/s) using the T6 CCP IDs.</summary>
-        public static CcpSessionHost CreateJ2534Host() => new(() => J2534CcpTransport.Open(CcpTarget.T6));
+        /// <summary>
+        /// A session host on the first J2534 adapter (raw CAN, 500 kbit/s) using the T6 CCP IDs.
+        /// <paramref name="sendWhileReading"/> is read each time the host opens the adapter.
+        /// </summary>
+        public static CcpSessionHost CreateJ2534Host(Func<bool>? sendWhileReading = null) =>
+            new(() => J2534CcpTransport.Open(CcpTarget.T6, sendWhileReading?.Invoke() ?? false));
     }
 }

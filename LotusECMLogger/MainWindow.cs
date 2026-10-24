@@ -17,7 +17,8 @@ namespace LotusECMLogger
 
         // One CCP session (and J2534 adapter) shared by the CCP tab, the high-speed logger and the Vehicle Info
         // probe; it opens on first use and closes when the last of them lets go.
-        private readonly CcpSessionHost ccpHost = HighSpeedLogService.CreateJ2534Host();
+        private readonly CcpSessionHost ccpHost =
+            HighSpeedLogService.CreateJ2534Host(() => Properties.Settings.Default.CcpSendWhileReading);
         private readonly TabPage ccpTab = new("CCP") { Name = "ccpTab", UseVisualStyleBackColor = true };
         private CcpControl? ccpControl;
 

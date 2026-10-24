@@ -13,15 +13,14 @@ namespace LotusECMLogger.Services.Ccp;
 /// send waits out the reader's current wait, then the reply waits out the next one.
 /// </para>
 /// <para>
-/// Experiment: with LOTUS_CCP_SEND_WHILE_READING=1, sends no longer wait for the reader's lock, which removes one of
-/// those waits. That calls the DLL from two threads at once; J2534 DLLs commonly allow it, but it is not verified
-/// for every adapter, so it is opt-in.
+/// Experiment (the CCP tab's "Send while reading" setting): sends no longer wait for the reader's lock, which
+/// removes one of those waits. That calls the DLL from two threads at once; J2534 DLLs commonly allow it, but it is
+/// not verified for every adapter, so it is opt-in.
 /// </para>
 /// </summary>
 public sealed class J2534CcpTransport : ICcpTransport
 {
     private const uint TimerResolutionMs = 1;
-    private static readonly bool SendWhileReading = Environment.GetEnvironmentVariable("LOTUS_CCP_SEND_WHILE_READING") == "1";
 
     private readonly object _ioLock = new();
     private readonly object _sendLock = new();
@@ -34,9 +33,12 @@ public sealed class J2534CcpTransport : ICcpTransport
     private int _sendsWaiting;
     public CcpTarget Target { get; }
 
-    private J2534CcpTransport(CcpTarget target, J2534Session session, J2534Channel channel)
+    /// <summary>Sends bypass the reader's lock (experimental; see the class remarks).</summary>
+    public bool SendWhileReading { get; }
+
+    private J2534CcpTransport(CcpTarget target, J2534Session session, J2534Channel channel, bool sendWhileReading)
     {
-        (Target, _session, _channel, _receiveIds) = (target, session, channel, [target.DtoId]);
+        (Target, _session, _channel, _receiveIds, SendWhileReading) = (target, session, channel, [target.DtoId], sendWhileReading);
         _timerRaised = timeBeginPeriod(TimerResolutionMs) == 0;
         Debug.WriteLine($"CCP J2534: timer resolution {(_timerRaised ? "raised to 1 ms" : "unchanged")}, " +
             $"send while reading {(SendWhileReading ? "on" : "off")}.");
@@ -45,7 +47,7 @@ public sealed class J2534CcpTransport : ICcpTransport
     [DllImport("winmm.dll")] private static extern uint timeBeginPeriod(uint milliseconds);
     [DllImport("winmm.dll")] private static extern uint timeEndPeriod(uint milliseconds);
 
-    public static J2534CcpTransport Open(CcpTarget target)
+    public static J2534CcpTransport Open(CcpTarget target, bool sendWhileReading = false)
     {
         ArgumentNullException.ThrowIfNull(target);
         var session = J2534Session.Open();
@@ -53,7 +55,7 @@ public sealed class J2534CcpTransport : ICcpTransport
         {
             var channel = session.OpenCan();
             channel.StartMessageFilter(PassFilter(target.DtoId)).ThrowIfError();
-            return new(target, session, channel);
+            return new(target, session, channel, sendWhileReading);
         }
         catch
         {
