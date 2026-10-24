@@ -5,8 +5,8 @@ Design notes for adding a CCP 2.1 master to LotusECMLogger. The ECU side is desc
 
 **Status (2026-10-12): Phases 1–5 implemented in code (protocol core, firmware-backed GT430 simulator,
 `CcpMaster`, high-speed logger ported onto it with AEM as a separate source, shared session host, CCP tab, guarded
-calibration writes) plus diagnostics tooling (trace, statistics, variable watch, memory diff, self-test). First car
-session 2026-10-24 (2011 Evora NA, B132E0091): connect, identify, self-test and memory reads work; J2534 latency fixed. Next: an A2L generator (before Phase 6), then Phase 6. Scope narrowed to T6
+calibration writes) plus diagnostics tooling (trace, statistics, variable watch, memory diff, self-test). Phases 1–5
+verified on a car 2026-10-24 (2011 Evora NA, B132E0091), including the J2534 latency fix. Next: an A2L generator (before Phase 6), then Phase 6. Scope narrowed to T6
 2011+ for now (§2).**
 The protocol core, target/build profiles, transport contract, J2534 transport and deterministic fake slave
 are implemented. Cross-platform tests exercise the command sequence, firmware quirks and runtime-registry format.
@@ -430,8 +430,9 @@ A vendor `IF_DATA` block (ignored by other tools) could carry these later withou
   mean 1.78, p95 2.67 ms (session max 102.5 ms, a single outlier); CAL read 25,048 B in 8.8 s; registry 1.6 s;
   checksum about 1.3 ms per pass; DAQ rates unchanged; 0 timeouts, strays or malformed frames across 7,318 commands.
 - Same session: calibration read/save/compare, the variable watch, and the ported High-Speed Log (with AEM, with and
-  without the CCP tab sharing the session) all worked. This is Phase 3's live-car re-check. Still to do on a car:
-  the guarded write (refused while the engine turns; engine-off write, read-back, Restore Backup).
+  without the CCP tab sharing the session) all worked. This is Phase 3's live-car re-check. The guarded write also
+  worked: refused while the engine turned, then an engine-off single-byte write, read-back and Restore Backup.
+  Phases 1–5 are now verified on a car.
 - TEST/CONNECT to a non-zero station address. The master only ever uses station 0x0000, so this should not
   arise.
 - One live logging re-check after the Phase 3 port, including concurrent reads and AEM polling.
