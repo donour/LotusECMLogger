@@ -7,8 +7,8 @@ Design notes for adding a CCP 2.1 master to LotusECMLogger. The ECU side is desc
 `CcpMaster`, high-speed logger ported onto it with AEM as a separate source, shared session host, CCP tab, guarded
 calibration writes) plus diagnostics tooling (trace, statistics, variable watch, memory diff, self-test). Phases 1–5
 verified on a car 2026-10-24 (2011 Evora NA, B132E0091), including the J2534 latency fix. Phase 6 started 2026-10-24:
-the A2L generator, the 6a reader, the 6b calibration image and 6c live sync are done in code (§4); next is 6d,
-the editor UI. Scope narrowed to T6
+the A2L generator, the 6a reader, the 6b calibration image, 6c live sync and the 6d editor are done in code (§4);
+not yet used on a car. Next: a car check of live tuning, then 6e, the live operating point. Scope narrowed to T6
 2011+ for now (§2).**
 The protocol core, target/build profiles, transport contract, J2534 transport and deterministic fake slave
 are implemented. Cross-platform tests exercise the command sequence, firmware quirks and runtime-registry format.
@@ -371,6 +371,22 @@ generated file into CANape or INCA.
 - **6d, editor UI** (a sub-tab of the CCP tab). Table browser with search, units filter and "changed" markers.
   Grid with heatmap colouring and axis headers in real units. Selection operations: set, add, multiply,
   percent change, interpolate, smooth. Paste from Excel, undo/redo, comparison against the original file.
+  *Done in code 2026-10-24* (`Controls/CcpTuningPanel.cs`, the CCP tab's **Tuning** page beside Memory; operations in
+  `Services/Tuning/TableEdits.cs`, tested by `TableEditsTests`; end to end in `CcpControlUiTests`). As built:
+  - **Opening.** Open Calibration loads any `CalibrationImage` format. The build's A2L is taken from
+    `config/a2l/<build>.a2l` (or opened by hand) only if `CheckAgainst` finds no problem.
+  - **Browser.** Filters by kind (tables, axes, values), unit, "changed", and name or description.
+  - **Grid.** Maps show Y as rows and X as columns, with axis values in physical units as headers; VAL_BLKs wrap at
+    16. The heatmap is pastel blue to red. Bold marks cells that differ from the file, and the text colour gives
+    the sync state (orange pending, blue writing, red failed). A "Change from file" view shows the differences.
+    The cell tooltip shows raw, file and ECU state.
+  - **Editing.** Typing in a cell, Ctrl+C/Ctrl+V (tab-separated, current or invariant culture), Ctrl+Z/Ctrl+Y, and
+    selection operations. Set/Add/Multiply/+% and Smooth (3 × 3 mean) act on the selected cells. Interpolate fills
+    the selection's bounding range linearly or bilinearly from its corners, by axis position when the axis
+    increases there. Every operation is one undo step and all-or-nothing.
+  - **Sync controls.** Start/Stop Live Sync (with a confirmation naming the backup), Hold edits + Apply, Refresh
+    from ECU, and Send File / Take ECU Values while comparing. Live sync needs the ECU identified as the file's
+    build.
 - **6e, live operating point.** Stream each table's `InputQuantity` measurements over DAQ (alongside the
   edits, through the shared `CcpMaster`). Highlight the active cell and the four cells being interpolated,
   with a trail of recent hits. Tables with `NO_INPUT_QUANTITY` can be edited but show no cursor.

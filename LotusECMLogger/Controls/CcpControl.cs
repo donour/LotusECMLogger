@@ -39,6 +39,7 @@ namespace LotusECMLogger.Controls
         private readonly CcpVariablesPanel variablesPanel;
         private readonly CcpTrafficPanel trafficPanel;
         private readonly CcpSelfTestPanel selfTestPanel;
+        private readonly CcpTuningPanel tuningPanel;
 
         /// <summary>Design-time constructor: lays out the control and opens nothing.</summary>
         public CcpControl()
@@ -68,6 +69,11 @@ namespace LotusECMLogger.Controls
             variablesPage.Controls.Add(variablesPanel);
             trafficPage.Controls.Add(trafficPanel);
             selfTestPage.Controls.Add(selfTestPanel);
+            // Live tuning sits next to Memory, where the raw calibration writes are.
+            tuningPanel = new CcpTuningPanel(this) { Dock = DockStyle.Fill };
+            var tuningPage = new TabPage("Tuning") { Name = "tuningPage", UseVisualStyleBackColor = true };
+            tuningPage.Controls.Add(tuningPanel);
+            subTabs.TabPages.Insert(1, tuningPage);
             ConfirmWrite = text => MessageBox.Show(this, text, "Write calibration RAM", MessageBoxButtons.YesNo,
                 MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2) == DialogResult.Yes;
             ShowInfo();
@@ -100,6 +106,11 @@ namespace LotusECMLogger.Controls
                 UpdateUIState();
             }
         }
+
+        /// <summary>The Tuning page, for UI tests.</summary>
+        internal CcpTuningPanel TuningPanel => tuningPanel;
+
+        string ICcpTabContext.BackupDirectory => BackupDirectory;
 
         public CcpMaster? Master => lease?.Master;
         public bool IsConnected => Master?.State == CcpSessionState.Connected;

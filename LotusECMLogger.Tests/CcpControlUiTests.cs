@@ -4,6 +4,7 @@ using System.Text;
 using LotusECMLogger.Controls;
 using LotusECMLogger.Services.Ccp;
 using LotusECMLogger.Services.Ccp.Simulation;
+using LotusECMLogger.Services.Tuning;
 
 namespace LotusECMLogger.Tests;
 
@@ -104,6 +105,109 @@ public class CcpControlUiTests
         Named<Button>(control, "disconnectButton").PerformClick();
         await Until(() => host.LeaseCount == 0 && host.Master is null, "the session to close");
     });
+
+    [Fact]
+    public void TheTuningTabEditsATableAndKeepsTheEcuInStep() => RunInMessageLoop(async form =>
+    {
+        const string table = "CAL_injtip_transient_throttle_response_time"; // u8, 5 ms per count, 8 × 8
+        using var slave = new FakeCcpSlave();
+        uint cal = Gt430.CalibrationBase;
+        slave.Load(cal, Encoding.ASCII.GetBytes("C132E0278 test calibration"));
+        string directory = Path.Combine(Path.GetTempPath(), "ccp-ui-tuning-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        string file = Path.Combine(directory, "stock.bin");
+        File.WriteAllBytes(file, Enumerable.Range(0, (int)Gt430.CalibrationSize).Select(i => slave.Peek(cal + (uint)i)).ToArray());
+
+        SimulatedCcpTransport? transport = null;
+        using var host = new CcpSessionHost(() => transport = new SimulatedCcpTransport(slave, speedFactor: 20),
+            new CcpMasterOptions { CommandTimeout = TimeSpan.FromMilliseconds(300) });
+        var control = new CcpControl(host) { Dock = DockStyle.Fill, BackupDirectory = Path.Combine(directory, "backups") };
+        form.Controls.Add(control);
+        var log = Named<TextBox>(control, "logTextBox");
+        var panel = control.TuningPanel;
+        var confirmations = new List<string>();
+        panel.Confirm = text => { confirmations.Add(text); return true; };
+        Task Until(Func<bool> condition, string what, int seconds = 15) =>
+            WaitUntil(() => !control.IsBusy && condition(), what, log, seconds);
+        byte Ecu(int x, int y) => transport!.With(s => s.Peek(0x40008A9A + (uint)(y * 8 + x)));
+        // Button states follow a queued refresh, so wait for each to be enabled before clicking it.
+        async Task Click(string text)
+        {
+            var button = ButtonWithText(control, text);
+            await Until(() => button.Enabled, $"{text} to be enabled");
+            button.PerformClick();
+        }
+
+        Named<Button>(control, "connectButton").PerformClick();
+        await Until(() => control.Identification?.Build is not null, "identification");
+        var tabs = Named<TabControl>(control, "subTabs");
+        tabs.SelectedTab = tabs.TabPages["tuningPage"];
+
+        // Open the file; the build's A2L comes from config/a2l.
+        await panel.OpenCalibrationAsync(file);
+        Assert.Contains("A2L C132E0278.a2l", log.Text);
+        Assert.True(panel.SelectItem(table));
+        var grid = Find<DataGridView>(control, _ => true);
+        Assert.Equal((8, 8), (grid.ColumnCount, grid.RowCount));
+
+        void SelectCells(params (int X, int Y)[] cells)
+        {
+            grid.ClearSelection();
+            foreach (var (x, y) in cells) grid.Rows[y].Cells[x].Selected = true;
+        }
+        var operand = Find<TextBox>(control, t => t.PlaceholderText == "value");
+
+        // Offline: 50 ms is raw 10; nothing reaches the ECU yet.
+        SelectCells((3, 5));
+        operand.Text = "50";
+        await Click("Set");
+        Assert.Equal(10, panel.Image!.ReadRaw(A2lItem(table), 3, 5));
+        Assert.Equal(0, Ecu(3, 5));
+
+        // Start live sync: the edit makes the file differ, so the user picks a side. Send the file.
+        await Click("Start Live Sync");
+        await Until(() => panel.Session?.Status == LiveTuningStatus.Comparing, "the comparison");
+        await Click("Send File to ECU");
+        await Until(() => panel.Session?.Status == LiveTuningStatus.Syncing && Ecu(3, 5) == 10, "the file to reach the ECU");
+        Assert.Equal(2, confirmations.Count); // starting sync and sending the file
+        Assert.Single(Directory.GetFiles(Path.Combine(directory, "backups"), "ccp-backup_*.bin"));
+
+        // Live: an edit, its undo, and a pasted block are written as they happen.
+        SelectCells((0, 0));
+        operand.Text = "25";
+        await Click("Set");
+        await Until(() => Ecu(0, 0) == 5 && panel.Session!.PendingBytes == 0, "the live edit");
+        await Click("Undo");
+        await Until(() => Ecu(0, 0) == 0, "the undo to reach the ECU");
+        panel.PasteBlock("10\t20\r\n30\t40");
+        await Until(() => (Ecu(0, 0), Ecu(1, 0), Ecu(0, 1), Ecu(1, 1)) == (2, 4, 6, 8), "the pasted block");
+        Assert.Equal("ECU in sync.", Find<Label>(control, l => l.Text.StartsWith("ECU in sync")).Text);
+
+        // Save As keeps the edits in a new file; the source is untouched.
+        string tuned = Path.Combine(directory, "tuned.bin");
+        panel.SaveAs(tuned);
+        Assert.Equal(6, File.ReadAllBytes(tuned)[0x40008A9A - (int)cal + 8]);
+        Assert.Equal(0, File.ReadAllBytes(file)[0x40008A9A - (int)cal + 8]);
+
+        if (Environment.GetEnvironmentVariable("CCP_UI_RENDER_DIR") is { Length: > 0 } dir)
+        {
+            Directory.CreateDirectory(dir);
+            await Task.Delay(200);
+            using var bitmap = new Bitmap(form.Width, form.Height);
+            form.DrawToBitmap(bitmap, new Rectangle(Point.Empty, form.Size));
+            bitmap.Save(Path.Combine(dir, "ccp_tuningPage.png"));
+        }
+
+        await Click("Stop Sync");
+        await Until(() => panel.Session is null, "sync to stop");
+        Named<Button>(control, "disconnectButton").PerformClick();
+        await Until(() => host.LeaseCount == 0, "the session to close");
+        Directory.Delete(directory, recursive: true);
+    });
+
+    private static LotusECMLogger.Services.A2l.A2lCalibrationItem A2lItem(string name) =>
+        LotusECMLogger.Services.A2l.A2lLayout.Resolve(LotusECMLogger.Services.A2l.A2lParser.ParseFile(
+            Path.Combine(AppContext.BaseDirectory, "config", "a2l", "C132E0278.a2l"))).Items[name];
 
     private static byte[] Registry(params (uint Address, byte Size)[] entries)
     {

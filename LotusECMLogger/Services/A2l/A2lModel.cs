@@ -153,10 +153,10 @@ namespace LotusECMLogger.Services.A2l
                 case A2lConversionKind.RationalFunction:
                 {
                     // Quadratic forms (a or d non-zero) are refused when parsed, leaving raw = (b·p + c)/(e·p + f),
-                    // so p = (c − f·raw)/(e·raw − b).
+                    // so p = (f·raw − c)/(b − e·raw). (Written this way round, raw 0 gives +0, not −0.)
                     var (b, c, e, f) = (Coefficients[1], Coefficients[2], Coefficients[4], Coefficients[5]);
-                    double denominator = e * raw - b;
-                    return denominator == 0 ? double.NaN : (c - f * raw) / denominator;
+                    double denominator = b - e * raw;
+                    return denominator == 0 ? double.NaN : (f * raw - c) / denominator;
                 }
                 case A2lConversionKind.Formula:
                     return Formula!.Evaluate([raw]);
