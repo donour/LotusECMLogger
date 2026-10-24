@@ -100,16 +100,26 @@ public sealed class CcpCalibrationWriter
     public CcpMemoryRange CalibrationRange => CcpMemoryRange.Calibration(_build);
 
     /// <summary>
-    /// Takes a calibration file: a raw CAL-region image (exactly the CAL size) or a 64 KB Snapshots calibration
-    /// download (its first CAL-size bytes). Its calibration ID must match the build.
+    /// A calibration chunk extracted from a CRP can be this many bytes longer than the build's CAL RAM range: on
+    /// B132E0091 the chunk is 0x61DA bytes against a 0x61D8-byte range, ending in the 4-byte unlock field and a
+    /// 2-byte constant (F7CA in both the stock and a tuned CRP). Only the range is ever written.
+    /// </summary>
+    public const int CrpTrailingBytes = 2;
+
+    /// <summary>
+    /// Takes a calibration file: a raw CAL-region image (exactly the CAL size), a calibration chunk extracted from a
+    /// CRP (up to <see cref="CrpTrailingBytes"/> longer), or a 64 KB Snapshots calibration download. Only the first
+    /// CAL-size bytes are used. Its calibration ID must match the build.
     /// </summary>
     public byte[] CalibrationImageFromFile(byte[] file)
     {
         ArgumentNullException.ThrowIfNull(file);
         int size = checked((int)_build.CalibrationSize);
-        if (file.Length != size && file.Length != SnapshotCalibrationSize)
-            throw new InvalidDataException($"A {_build.Build} calibration file has {size:N0} bytes (raw image) or " +
-                $"{SnapshotCalibrationSize:N0} bytes (Snapshots download); this one has {file.Length:N0}.");
+        bool accepted = file.Length == SnapshotCalibrationSize || (file.Length >= size && file.Length <= size + CrpTrailingBytes);
+        if (!accepted)
+            throw new InvalidDataException($"A {_build.Build} calibration file has {size:N0} bytes (raw image), up to " +
+                $"{size + CrpTrailingBytes:N0} (extracted from a CRP) or {SnapshotCalibrationSize:N0} (Snapshots download); " +
+                $"this one has {file.Length:N0}.");
         var image = file.AsSpan(0, size).ToArray();
         string? id = CalibrationId(image);
         if (id != _build.Build)

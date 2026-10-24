@@ -388,7 +388,11 @@ namespace LotusECMLogger.Controls
             await RunAsync("Write calibration file", async ct =>
             {
                 var writer = CreateWriter(build);
-                var image = writer.CalibrationImageFromFile(await File.ReadAllBytesAsync(dialog.FileName, ct));
+                var file = await File.ReadAllBytesAsync(dialog.FileName, ct);
+                var image = writer.CalibrationImageFromFile(file);
+                if (file.Length > image.Length && file.Length != CcpCalibrationWriter.SnapshotCalibrationSize)
+                    Log($"{Path.GetFileName(dialog.FileName)} has {file.Length - image.Length} byte(s) beyond {build.Build}'s calibration " +
+                        "RAM range (a CRP calibration chunk); those are not written.");
                 await WriteAsync(writer, build.CalibrationBase, image, wholeImage: true, Path.GetFileName(dialog.FileName), ct);
             });
         }

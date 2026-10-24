@@ -130,6 +130,11 @@ public sealed class CcpCalibrationWriterTests : IDisposable
         Assert.Equal(image, _writer.CalibrationImageFromFile(snapshot));
 
         Assert.Throws<InvalidDataException>(() => _writer.CalibrationImageFromFile(image[..^1]));
+
+        // A CRP calibration chunk: two trailing bytes past the RAM range, which are ignored.
+        byte[] crpChunk = [.. image, 0xF7, 0xCA];
+        Assert.Equal(image, _writer.CalibrationImageFromFile(crpChunk));
+        Assert.Throws<InvalidDataException>(() => _writer.CalibrationImageFromFile([.. crpChunk, 0]));
         var other = (byte[])image.Clone();
         Encoding.ASCII.GetBytes("C132E0271 ").CopyTo(other, 0);
         Assert.Contains("C132E0271", Assert.Throws<InvalidDataException>(() => _writer.CalibrationImageFromFile(other)).Message);
