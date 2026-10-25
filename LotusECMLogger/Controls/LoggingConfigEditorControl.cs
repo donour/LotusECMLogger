@@ -794,11 +794,11 @@ namespace LotusECMLogger.Controls
             return $"0x{value:X}";
         }
 
-        private static bool TryParseUIntValue(string? text, out uint value)
+        private static bool TryParseUIntValue(string text, out uint value)
         {
             value = 0;
 
-            var normalized = text?.Trim();
+            var normalized = text.Trim();
             if (string.IsNullOrWhiteSpace(normalized))
             {
                 return false;
@@ -817,7 +817,7 @@ namespace LotusECMLogger.Controls
             return uint.TryParse(normalized, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out value);
         }
 
-        private static bool TryParseByteValue(string? text, out byte value)
+        private static bool TryParseByteValue(string text, out byte value)
         {
             value = 0;
 
@@ -830,10 +830,10 @@ namespace LotusECMLogger.Controls
             return true;
         }
 
-        private static bool TryParseByteList(string? text, out byte[] values)
+        private static bool TryParseByteList(string text, out byte[] values)
         {
             values = Array.Empty<byte>();
-            var tokens = (text ?? string.Empty)
+            var tokens = text
                 .Split([',', ';', ' ', '\t', '\r', '\n'], StringSplitOptions.RemoveEmptyEntries);
 
             if (tokens.Length == 0)

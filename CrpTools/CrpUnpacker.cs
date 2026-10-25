@@ -286,7 +286,7 @@ namespace LotusECMLogger
             }
 
             // Plain ECU data begins after the 12-byte encryption header.
-            int baseOffset = 12;
+            const int baseOffset = 12;
 
             chunk.EcuId = TextEncoding.GetString(plain, baseOffset, 32).TrimEnd();
             chunk.EcuAddress = ReadUInt32BE(plain, baseOffset + 32);

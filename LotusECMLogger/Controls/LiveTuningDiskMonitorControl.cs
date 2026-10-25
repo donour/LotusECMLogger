@@ -660,14 +660,14 @@ namespace LotusECMLogger.Controls
             }
 
             // Remove any 0x prefix if present
-            hexString = hexString.Trim();
-            if (hexString.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
+            string digits = hexString.Trim();
+            if (digits.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
             {
-                hexString = hexString[2..];
+                digits = digits[2..];
             }
 
             // Try to parse as hex
-            return uint.TryParse(hexString, System.Globalization.NumberStyles.HexNumber, null, out address);
+            return uint.TryParse(digits, System.Globalization.NumberStyles.HexNumber, null, out address);
         }
 
         private static string GenerateFilePath(string directory, uint baseAddress)

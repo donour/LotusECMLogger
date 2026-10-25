@@ -93,9 +93,9 @@ namespace LotusECMLogger.Controls
         /// <summary>Tooltips don't wrap on their own; break long lines at about 90 characters.</summary>
         private static string Wrap(string text)
         {
-            if (text.Length > 1500) text = text[..1500] + "…";
+            string shown = text.Length > 1500 ? text[..1500] + "…" : text;
             var lines = new List<string>();
-            foreach (var paragraph in text.Split('\n'))
+            foreach (var paragraph in shown.Split('\n'))
             {
                 var line = new System.Text.StringBuilder();
                 foreach (var word in paragraph.Split(' '))

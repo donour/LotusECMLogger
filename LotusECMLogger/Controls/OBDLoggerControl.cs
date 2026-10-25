@@ -13,7 +13,7 @@ namespace LotusECMLogger.Controls
         private const uint ES_CONTINUOUS = 0x80000000u;
         private const uint ES_SYSTEM_REQUIRED = 0x00000001u;
 
-        public readonly int LogFileToUIRatio = 8; // UI update every 8th log entry
+        public const int LogFileToUIRatio = 8; // UI update every 8th log entry
 
         /// <summary>
         /// Event fired when logger state changes (started/stopped)
@@ -35,7 +35,7 @@ namespace LotusECMLogger.Controls
         }
 
         private J2534LoggingService? logger;
-        private ConcurrentDictionary<string, LiveDataStat> liveData = new();
+        private readonly ConcurrentDictionary<string, LiveDataStat> liveData = new();
         private DateTime lastUpdateTime = DateTime.Now;
         private DateTime lastListViewUpdate = DateTime.MinValue;
         private string selectedObdConfigName = "NO CONFIG";

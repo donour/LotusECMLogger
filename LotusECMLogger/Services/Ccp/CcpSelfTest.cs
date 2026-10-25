@@ -73,11 +73,10 @@ public static class CcpSelfTest
         IProgress<CcpCheckResult>? progress = null, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(master);
-        options ??= new CcpSelfTestOptions();
         var started = DateTime.Now;
         var total = Stopwatch.StartNew();
         var checks = new List<CcpCheckResult>();
-        var context = new Context(master, options);
+        var context = new Context(master, options ?? new CcpSelfTestOptions());
 
         var steps = new (string Name, Func<Context, CancellationToken, Task<(CcpCheckStatus, string)>> Run)[]
         {

@@ -130,7 +130,7 @@ namespace LotusECMLogger
         {
             var configs = new List<string>();
             
-            var configDir = "config\\obdLogger";
+            const string configDir = "config\\obdLogger";
             if (Directory.Exists(configDir))
             {
                 var files = Directory.GetFiles(configDir, "*.json");

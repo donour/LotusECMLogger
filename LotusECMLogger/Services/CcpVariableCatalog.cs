@@ -29,7 +29,7 @@ namespace LotusECMLogger.Services
         public const int MaxExpandedArray = 16;
 
         /// <summary>RAM variables in address order. Calibration symbols are included and flagged.</summary>
-        public static IReadOnlyList<CcpVariable> Build(SymbolCatalog? catalog, T6SymbolRegistry? registry, CcpBuildProfile? build)
+        public static IReadOnlyList<CcpVariable> Build(SymbolCatalog? catalog, T6SymbolRegistry? registry, CcpBuildProfile build)
         {
             var variables = new List<CcpVariable>();
             var registryByAddress = registry?.Entries.Where(e => e.IsRam).GroupBy(e => e.Address).ToDictionary(g => g.Key, g => g.First())
@@ -63,9 +63,9 @@ namespace LotusECMLogger.Services
             return variables.Where(v => v.Address is >= RamStart and < RamEnd).OrderBy(v => v.Address).ThenBy(v => v.Name).ToList();
         }
 
-        private static bool IsCalibration(string name, uint address, CcpBuildProfile? build) =>
+        private static bool IsCalibration(string name, uint address, CcpBuildProfile build) =>
             name.StartsWith("CAL_", StringComparison.Ordinal) || name.StartsWith("LEA_", StringComparison.Ordinal) ||
-            build is not null && build.ContainsCalibrationRange(address, 1);
+            build.ContainsCalibrationRange(address, 1);
     }
 
     /// <summary>

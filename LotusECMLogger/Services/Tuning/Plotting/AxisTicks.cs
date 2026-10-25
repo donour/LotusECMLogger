@@ -8,23 +8,19 @@ public static class AxisTicks
 
     public static Ticks Compute(double min, double max, int maxTicks = 6)
     {
-        if (!double.IsFinite(min) || !double.IsFinite(max))
-            (min, max) = (0, 1);
-        if (min > max)
-            (min, max) = (max, min);
-        if (min == max)
+        var (low, high) = !double.IsFinite(min) || !double.IsFinite(max) ? (0.0, 1.0) : (Math.Min(min, max), Math.Max(min, max));
+        if (low == high)
         {
             // A flat line: open a small range around it.
-            double pad = min == 0 ? 1 : Math.Abs(min) * 0.1;
-            min -= pad;
-            max += pad;
+            double pad = low == 0 ? 1 : Math.Abs(low) * 0.1;
+            (low, high) = (low - pad, high + pad);
         }
-        maxTicks = Math.Max(2, maxTicks);
+        int ticks = Math.Max(2, maxTicks);
 
-        double range = NiceNumber(max - min, round: false);
-        double step = NiceNumber(range / (maxTicks - 1), round: true);
-        double lo = Math.Floor(min / step) * step;
-        double hi = Math.Ceiling(max / step) * step;
+        double range = NiceNumber(high - low, round: false);
+        double step = NiceNumber(range / (ticks - 1), round: true);
+        double lo = Math.Floor(low / step) * step;
+        double hi = Math.Ceiling(high / step) * step;
 
         var values = new List<double>();
         // Guard against floating point creep; at most a few dozen ticks.

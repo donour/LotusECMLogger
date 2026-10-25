@@ -289,7 +289,7 @@ namespace LotusECMLogger.Services
 
         public void StopTelemetryMonitor()
         {
-            Thread? thread;
+            Thread thread;
             lock (_deviceLock)
             {
                 // Keyed on the thread, not on _monitoring: a monitor that stopped itself after an
@@ -302,7 +302,7 @@ namespace LotusECMLogger.Services
             }
 
             // Joined outside the lock: the loop takes the device lock on its way out.
-            thread?.Join(TimeSpan.FromSeconds(3));
+            thread.Join(TimeSpan.FromSeconds(3));
 
             lock (_deviceLock)
             {

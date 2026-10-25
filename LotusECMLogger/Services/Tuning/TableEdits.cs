@@ -129,12 +129,12 @@ namespace LotusECMLogger.Services.Tuning
         /// </summary>
         public static double[,] ParseBlock(string text, CultureInfo? culture = null)
         {
-            culture ??= CultureInfo.CurrentCulture;
+            var numbers = culture ?? CultureInfo.CurrentCulture;
             var lines = text.Replace("\r\n", "\n").Split('\n').Where(l => l.Trim().Length > 0).ToList();
             if (lines.Count == 0) throw new FormatException("The clipboard holds no numbers.");
             bool tabs = lines.Any(l => l.Contains('\t'));
             // A comma is a separator only when the culture's decimal mark is not a comma.
-            char separator = tabs ? '\t' : culture.NumberFormat.NumberDecimalSeparator == "," ? ';' : ',';
+            char separator = tabs ? '\t' : numbers.NumberFormat.NumberDecimalSeparator == "," ? ';' : ',';
             var rows = lines.Select(l => l.Split(separator).Select(s => s.Trim()).ToArray()).ToList();
             int width = rows.Max(r => r.Length);
             var block = new double[rows.Count, width];
@@ -147,7 +147,7 @@ namespace LotusECMLogger.Services.Tuning
             return block;
 
             double? ParseNumber(string s) =>
-                double.TryParse(s, NumberStyles.Float, culture, out double v) ? v
+                double.TryParse(s, NumberStyles.Float, numbers, out double v) ? v
                 : double.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out v) ? v : null;
         }
 
@@ -170,7 +170,7 @@ namespace LotusECMLogger.Services.Tuning
         private static readonly Regex FormatRe = new(@"%\s*\d*\.(\d+)", RegexOptions.Compiled);
 
         /// <summary>Decimal places from an A2L FORMAT such as "%8.3", or null when it gives none.</summary>
-        public static int? Decimals(string? a2lFormat) =>
-            a2lFormat is not null && FormatRe.Match(a2lFormat) is { Success: true } m ? Math.Min(6, int.Parse(m.Groups[1].Value, CultureInfo.InvariantCulture)) : null;
+        public static int? Decimals(string a2lFormat) =>
+            FormatRe.Match(a2lFormat) is { Success: true } m ? Math.Min(6, int.Parse(m.Groups[1].Value, CultureInfo.InvariantCulture)) : null;
     }
 }

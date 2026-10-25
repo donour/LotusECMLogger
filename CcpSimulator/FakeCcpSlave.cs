@@ -29,7 +29,7 @@ public sealed class FakeCcpSlave : ICcpTransport
     private uint _mta0, _mta1;
     private int _checksumRemaining;
     private (int list, int odt, int element)? _daqPointer;
-    private uint _idAddress = 0x40001000;
+    private readonly uint _idAddress = 0x40001000;
     private readonly T6FirmwareImage? _firmware;
     public byte Bus { get; private set; } = 1;
     private bool Enabled => _profile.EnableByteAddress is not uint enable || Peek(enable) == Bus;

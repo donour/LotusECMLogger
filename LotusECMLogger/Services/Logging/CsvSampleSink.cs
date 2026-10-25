@@ -222,13 +222,12 @@ namespace LotusECMLogger.Services.Logging
             // "K" renders nothing at all for an unspecified-kind DateTime, which would quietly drop
             // the offset and leave the column ambiguous. Every producer stamps rows with
             // DateTime.Now, so reading an unspecified one as local is what it already meant.
-            if (timestamp.Kind == DateTimeKind.Unspecified)
-                timestamp = DateTime.SpecifyKind(timestamp, DateTimeKind.Local);
+            var stamp = timestamp.Kind == DateTimeKind.Unspecified ? DateTime.SpecifyKind(timestamp, DateTimeKind.Local) : timestamp;
 
-            if (timestamp.TryFormat(cell, out int written, TimestampFormat, CultureInfo.InvariantCulture))
+            if (stamp.TryFormat(cell, out int written, TimestampFormat, CultureInfo.InvariantCulture))
                 _rowBuilder.Append(cell[..written]);
             else
-                _rowBuilder.Append(timestamp.ToString(TimestampFormat, CultureInfo.InvariantCulture));
+                _rowBuilder.Append(stamp.ToString(TimestampFormat, CultureInfo.InvariantCulture));
 
             _rowBuilder.Append(',');
             AppendNumber(cell, relativeTimeMs, "F3");

@@ -29,7 +29,7 @@ namespace LotusECMLogger.Services
     {
         private readonly static byte[] ECM_HEADER = [0x00, 0x00, 0x07, 0xE0];
 
-        private J2534Channel _channel;
+        private readonly J2534Channel _channel;
 
         public Iso15765Service(J2534Channel channel)
         {
@@ -205,7 +205,7 @@ namespace LotusECMLogger.Services
         {
             var codes = new List<DiagnosticTroubleCode>();
 
-            int payloadStart = 5; // after the 4-byte header and the SID at data[4]
+            const int payloadStart = 5; // after the 4-byte header and the SID at data[4]
             int payloadLength = data.Length - payloadStart;
             if (payloadLength <= 0)
                 return codes;

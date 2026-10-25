@@ -93,16 +93,16 @@ namespace LotusECMLogger.Services.Tuning
             CalibrationFileFormat? format = null)
         {
             ArgumentNullException.ThrowIfNull(file);
-            build ??= CcpBuildProfile.Known.FirstOrDefault(p => p.Build == CcpCalibrationWriter.CalibrationId(file))
+            var profile = build ?? CcpBuildProfile.Known.FirstOrDefault(p => p.Build == CcpCalibrationWriter.CalibrationId(file))
                 ?? throw new InvalidDataException($"No known build has the calibration ID " +
                     $"{CcpCalibrationWriter.CalibrationId(file) ?? "(unreadable)"}; choose the build by hand.");
-            var image = CcpCalibrationWriter.CalibrationImageFromFile(build, file);
+            var image = CcpCalibrationWriter.CalibrationImageFromFile(profile, file);
             var detected = file.Length == image.Length ? CalibrationFileFormat.RawImage
                 : file.Length == CcpCalibrationWriter.SnapshotCalibrationSize ? CalibrationFileFormat.SnapshotDownload
                 : CalibrationFileFormat.CrpChunk;
             if (format == CalibrationFileFormat.Crp && detected == CalibrationFileFormat.SnapshotDownload)
                 throw new InvalidDataException("A CRP calibration chunk cannot be 64 KB.");
-            return new CalibrationImage(build, (byte[])file.Clone(), image, format ?? detected, sourcePath);
+            return new CalibrationImage(profile, (byte[])file.Clone(), image, format ?? detected, sourcePath);
         }
 
         // ── Reading ──────────────────────────────────────────────────────────────────────────────────────────

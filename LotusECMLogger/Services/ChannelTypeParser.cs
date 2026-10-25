@@ -90,9 +90,9 @@ namespace LotusECMLogger.Services
         private static readonly Regex UnitDivRe =
             new(@"^(?<unit>[a-zA-Z]+)_div(?<den>\d+)$", RegexOptions.Compiled);
 
-        public static ParsedChannelType Parse(string? rawType)
+        public static ParsedChannelType Parse(string rawType)
         {
-            string t = (rawType ?? string.Empty).Trim();
+            string t = rawType.Trim();
 
             // Strip (possibly multi-dimensional) array suffixes, e.g. "uint32_t[6][64]" → 384 elements.
             int arrayLen = 0;

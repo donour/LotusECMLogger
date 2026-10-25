@@ -41,11 +41,13 @@ namespace LotusECMLogger.Services
         /// <see cref="ArgumentException"/> for an empty/invalid selection and
         /// <see cref="InvalidOperationException"/> when the program exceeds the ECU's capacity.
         /// </summary>
-        public static LoggingPlan Plan(IReadOnlyList<(HighSpeedChannel channel, int rateHz)> selected,
-            CcpTarget? target = null)
+        public static LoggingPlan Plan(IReadOnlyList<(HighSpeedChannel channel, int rateHz)> selected) =>
+            Plan(selected, CcpTarget.T6);
+
+        public static LoggingPlan Plan(IReadOnlyList<(HighSpeedChannel channel, int rateHz)> selected, CcpTarget target)
         {
             ArgumentNullException.ThrowIfNull(selected);
-            target ??= CcpTarget.T6;
+            ArgumentNullException.ThrowIfNull(target);
             if (selected.Count == 0)
                 throw new ArgumentException("Select at least one channel to log.", nameof(selected));
 

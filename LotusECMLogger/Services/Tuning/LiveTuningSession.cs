@@ -90,16 +90,16 @@ namespace LotusECMLogger.Services.Tuning
         {
             ArgumentNullException.ThrowIfNull(master);
             ArgumentNullException.ThrowIfNull(image);
-            options ??= new LiveTuningOptions();
+            var settings = options ?? new LiveTuningOptions();
             if (image.Build.Target != master.Target)
                 throw new ArgumentException($"{image.Build.Build} is a {image.Build.Target.Name} build; the session is {master.Target.Name}.", nameof(image));
             var ecu = await master.ReadAsync(image.BaseAddress, image.Size, progress, cancellationToken).ConfigureAwait(false);
             string? id = CcpCalibrationWriter.CalibrationId(ecu);
             if (id != image.Build.Build)
                 throw new InvalidDataException($"The ECU's calibration is {id ?? "unreadable"}; the file is {image.Build.Build}.");
-            string? backup = options.BackupDirectory is { } directory
+            string? backup = settings.BackupDirectory is { } directory
                 ? CcpCalibrationWriter.SaveBackup(directory, image.Build, image.BaseAddress, ecu) : null;
-            return new LiveTuningSession(master, image, ecu, backup, options);
+            return new LiveTuningSession(master, image, ecu, backup, settings);
         }
 
         public LiveTuningStatus Status { get { lock (_lock) return _status; } }

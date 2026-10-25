@@ -7,7 +7,7 @@ namespace LotusECMLogger.Services
 {
     internal class J2534LoggingService : IDisposable
     {
-        public readonly int LogFileToUIRatio = 8; // UI update every 8th log entry
+        public const int LogFileToUIRatio = 8; // UI update every 8th log entry
         public event Action<List<LiveDataReading>>? DataLogged;
         public event Action<Exception>? ExceptionOccurred;
 
