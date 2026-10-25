@@ -37,10 +37,10 @@ namespace LotusECMLogger.Services.A2l
         {
             ArgumentNullException.ThrowIfNull(catalog);
             ArgumentNullException.ThrowIfNull(build);
-            var warnings = new List<string>();
             var compu = new CompuMethods();
 
-            var symbols = UniqueSymbols(catalog, warnings);
+            var (symbols, renames) = UniqueSymbols(catalog);
+            var warnings = new List<string>(renames);
             var calibration = new List<Symbol>();
             var measurements = new List<Symbol>();
             foreach (var s in symbols)
@@ -84,8 +84,8 @@ namespace LotusECMLogger.Services.A2l
             foreach (var name in isAxis)
                 if (!byName[name].Type.IsArray) warnings.Add($"{name}: named like an axis but is a scalar.");
 
-            var virtuals = new StringBuilder();
-            var inputOf = BindInputs(inputs, isAxis, byName, measurements, virtuals, warnings);
+            var (inputOf, virtuals, inputWarnings) = BindInputs(inputs, isAxis, byName, measurements);
+            warnings.AddRange(inputWarnings);
             string Input(string axis) => inputOf.GetValueOrDefault(axis, "NO_INPUT_QUANTITY");
 
             var text = new StringBuilder();
@@ -99,11 +99,16 @@ namespace LotusECMLogger.Services.A2l
                     axisCount++;
                     continue;
                 }
-                if (axesOf.TryGetValue(s.Name, out var axes) && TableShape(s, axes, warnings) is { } shape)
+                if (axesOf.TryGetValue(s.Name, out var axes))
                 {
-                    WriteTable(body, s, shape.X, shape.Y, compu, Input);
-                    if (shape.Y is null) curves++; else maps++;
-                    continue;
+                    var (shape, problem) = TableShape(s, axes);
+                    if (problem is not null) warnings.Add(problem);
+                    if (shape is { } table)
+                    {
+                        WriteTable(body, s, table.X, table.Y, compu, Input);
+                        if (table.Y is null) curves++; else maps++;
+                        continue;
+                    }
                 }
                 if (s.Type.IsArray) blocks++; else values++;
                 WritePlain(body, s, compu);
@@ -185,42 +190,41 @@ namespace LotusECMLogger.Services.A2l
             }
         }
 
-        private static List<Symbol> UniqueSymbols(SymbolCatalog catalog, List<string> warnings)
+        /// <summary>The catalog's symbols with A2L identifiers, a repeated name suffixed by its address (each reported).</summary>
+        private static (List<Symbol> Symbols, List<string> Warnings) UniqueSymbols(SymbolCatalog catalog)
         {
             var result = new List<Symbol>();
+            var warnings = new List<string>();
             var used = new HashSet<string>(StringComparer.Ordinal);
             foreach (var entry in catalog.Entries.DistinctBy(e => (e.Name, e.Address)).OrderBy(e => e.Address).ThenBy(e => e.Name, StringComparer.Ordinal))
             {
-                string name = Identifier(entry.Name);
-                if (!used.Add(name))
+                string identifier = Identifier(entry.Name);
+                string name = used.Add(identifier) ? identifier : $"{identifier}_{entry.Address:X8}";
+                if (name != identifier)
                 {
-                    string renamed = $"{name}_{entry.Address:X8}";
-                    warnings.Add($"{entry.Name}: also at another address; this one (0x{entry.Address:X8}) is named {renamed}.");
-                    name = renamed;
+                    warnings.Add($"{entry.Name}: also at another address; this one (0x{entry.Address:X8}) is named {name}.");
                     used.Add(name);
                 }
                 result.Add(new Symbol(name, entry.Address, entry));
             }
-            return result;
+            return (result, warnings);
         }
 
-        private static (Symbol X, Symbol? Y)? TableShape(Symbol table, (List<Symbol> X, List<Symbol> Y) axes, List<string> warnings)
+        /// <summary>A table's axes, or null with the reason (when there is one) it is written without them.</summary>
+        private static ((Symbol X, Symbol? Y)? Shape, string? Warning) TableShape(Symbol table, (List<Symbol> X, List<Symbol> Y) axes)
         {
-            void Problem(string why) =>
-                warnings.Add($"{table.Name}: {why}; written as a {(table.Type.IsArray ? "VAL_BLK" : "VALUE")} without axes.");
+            string Problem(string why) =>
+                $"{table.Name}: {why}; written as a {(table.Type.IsArray ? "VAL_BLK" : "VALUE")} without axes.";
             var xs = axes.X.Where(a => a.Type.IsArray).ToList();
             var ys = axes.Y.Where(a => a.Type.IsArray).ToList();
-            if (xs.Count == 0 && ys.Count == 0) return null;
-            if (xs.Count != 1 || ys.Count > 1) { Problem($"{xs.Count} X and {ys.Count} Y axes"); return null; }
+            if (xs.Count == 0 && ys.Count == 0) return (null, null);
+            if (xs.Count != 1 || ys.Count > 1) return (null, Problem($"{xs.Count} X and {ys.Count} Y axes"));
             var x = xs[0];
             var y = ys.FirstOrDefault();
             int cells = x.Count * (y?.Count ?? 1);
             if (cells != table.Count)
-            {
-                Problem(y is null ? $"{table.Count} values for a {x.Count}-point axis" : $"{table.Count} values for {x.Count} × {y.Count} axes");
-                return null;
-            }
-            return (x, y);
+                return (null, Problem(y is null ? $"{table.Count} values for a {x.Count}-point axis" : $"{table.Count} values for {x.Count} × {y.Count} axes"));
+            return ((x, y), null);
         }
 
         private static void WriteAxisPts(StringBuilder text, Symbol s, CompuMethods compu, string input)
@@ -248,11 +252,14 @@ namespace LotusECMLogger.Services.A2l
         /// a VIRTUAL measurement <c>V_&lt;axis&gt;</c> with a FORM conversion over the variables' raw values. Inputs that
         /// name an unknown axis or variable, or do not parse, are reported and left unbound.
         /// </summary>
-        private static Dictionary<string, string> BindInputs(IReadOnlyDictionary<string, string>? inputs, HashSet<string> isAxis,
-            Dictionary<string, Symbol> byName, List<Symbol> measurements, StringBuilder virtuals, List<string> warnings)
+        /// <returns>Each bound axis's InputQuantity, the VIRTUAL measurements' A2L text, and the warnings.</returns>
+        private static (Dictionary<string, string> Bound, string Virtuals, List<string> Warnings) BindInputs(
+            IReadOnlyDictionary<string, string>? inputs, HashSet<string> isAxis, Dictionary<string, Symbol> byName, List<Symbol> measurements)
         {
             var bound = new Dictionary<string, string>(StringComparer.Ordinal);
-            if (inputs is null) return bound;
+            var virtuals = new StringBuilder();
+            var warnings = new List<string>();
+            if (inputs is null) return (bound, "", warnings);
             var variables = measurements.Select(m => m.Name).ToHashSet(StringComparer.Ordinal);
             foreach (var (axis, expression) in inputs.OrderBy(i => i.Key, StringComparer.Ordinal))
             {
@@ -289,7 +296,7 @@ namespace LotusECMLogger.Services.A2l
                 virtuals.Append(CultureInfo.InvariantCulture, $"    /begin COMPU_METHOD CM_{name} \"raw input of {axis}\" FORM \"%8.0\" \"\"\n");
                 virtuals.Append(CultureInfo.InvariantCulture, $"      /begin FORMULA \"{formula}\" /end FORMULA\n    /end COMPU_METHOD\n");
             }
-            return bound;
+            return (bound, virtuals.ToString(), warnings);
         }
 
         private static void WritePlain(StringBuilder text, Symbol s, CompuMethods compu)

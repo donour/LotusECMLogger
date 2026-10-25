@@ -5,10 +5,10 @@ namespace LotusECMLogger
 {
     internal class LiveDataReading
     {
-        public String name = "None";
-        public double value_f;
-        public long value_l;
-        public string? ecuSource; // Optional: which ECU this reading came from
+        public string name { get; init; } = "None";
+        public double value_f { get; init; }
+        public long value_l { get; init; }
+        public string? ecuSource { get; init; } // Optional: which ECU this reading came from
 
         public override string ToString()
         {
@@ -167,7 +167,7 @@ namespace LotusECMLogger
         private static List<LiveDataReading> ParseStandardObdResponse(byte[] data, ECUDefinition? ecu, bool prefixWithEcuName)
         {
             int obd_mode = data[4] - 0x40;
-            List<LiveDataReading> results = obd_mode switch
+            List<LiveDataReading> decoded = obd_mode switch
             {
                 0x01 => DecodePidSequence(data, ObdPidDecoders.Mode01, ObdPidDecoders.Mode01StandardWidths, "Mode01"),
                 0x09 => DecodePidSequence(data, ObdPidDecoders.Mode09, null, "Mode09"),
@@ -175,22 +175,18 @@ namespace LotusECMLogger
                 _ => UnknownMode(obd_mode),
             };
 
-            // Apply prefix and ecuSource to all readings if in multi-ECU mode
+            // Label every reading with its ECU (and prefix its name) in multi-ECU mode
             string prefix = (prefixWithEcuName && ecu != null) ? $"{ecu.Name}:" : "";
             string? ecuSource = ecu?.Name;
-            if (prefixWithEcuName || ecuSource != null)
+            if (!prefixWithEcuName && ecuSource == null)
+                return decoded;
+            return decoded.Select(reading => new LiveDataReading
             {
-                foreach (var reading in results)
-                {
-                    if (prefixWithEcuName && !string.IsNullOrEmpty(prefix))
-                    {
-                        reading.name = $"{prefix}{reading.name}";
-                    }
-                    reading.ecuSource = ecuSource;
-                }
-            }
-
-            return results;
+                name = prefix + reading.name,
+                value_f = reading.value_f,
+                value_l = reading.value_l,
+                ecuSource = ecuSource,
+            }).ToList();
         }
 
         /// <summary>

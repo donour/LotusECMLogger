@@ -16,8 +16,9 @@ namespace LotusECMLogger.Services.A2l
         /// <summary>Parses the first MODULE of an A2L document.</summary>
         public static A2lModule Parse(string text, string? source = null)
         {
-            var diagnostics = new List<A2lDiagnostic>();
-            var root = new Tree(Tokenize(text), diagnostics).Root;
+            var tree = new Tree(Tokenize(text));
+            var diagnostics = new List<A2lDiagnostic>(tree.Diagnostics);
+            var root = tree.Root;
             var project = root.Children.FirstOrDefault(c => c.Keyword == "PROJECT") ?? root;
             var modules = project.Children.Where(c => c.Keyword == "MODULE").ToList();
             if (modules.Count == 0) throw new InvalidDataException($"{source ?? "The A2L"} has no MODULE.");
@@ -132,14 +133,15 @@ namespace LotusECMLogger.Services.A2l
         private sealed class Tree
         {
             private readonly List<Token> _tokens;
-            private readonly List<A2lDiagnostic> _diagnostics;
+            private readonly List<A2lDiagnostic> _diagnostics = [];
             private int _at;
 
             public Node Root { get; } = new("", 0);
+            public IReadOnlyList<A2lDiagnostic> Diagnostics => _diagnostics;
 
-            public Tree(List<Token> tokens, List<A2lDiagnostic> diagnostics)
+            public Tree(List<Token> tokens)
             {
-                (_tokens, _diagnostics) = (tokens, diagnostics);
+                _tokens = tokens;
                 Fill(Root);
             }
 
@@ -177,8 +179,11 @@ namespace LotusECMLogger.Services.A2l
 
         // ── Building the module ──────────────────────────────────────────────────────────────────────────────
 
-        private sealed class ModuleBuilder(Node module, List<A2lDiagnostic> diagnostics)
+        /// <param name="earlier">Diagnostics from tokenizing and the tree, which the module's own follow.</param>
+        private sealed class ModuleBuilder(Node module, IEnumerable<A2lDiagnostic> earlier)
         {
+            private readonly List<A2lDiagnostic> diagnostics = [.. earlier];
+
             private static readonly Dictionary<A2lDataType, int> DefaultAlignment = new()
             {
                 [A2lDataType.UByte] = 1, [A2lDataType.SByte] = 1, [A2lDataType.UWord] = 2, [A2lDataType.SWord] = 2,
@@ -248,13 +253,12 @@ namespace LotusECMLogger.Services.A2l
 
             private (A2lByteOrder, IReadOnlyDictionary<A2lDataType, int>) ReadModCommon(Node? common)
             {
-                var alignment = new Dictionary<A2lDataType, int>(DefaultAlignment);
                 if (common is null)
                 {
                     diagnostics.Add(new(module.Line, "No MOD_COMMON: assuming BYTE_ORDER MSB_FIRST (the MPC5534 is big-endian)."));
-                    return (A2lByteOrder.MsbFirst, alignment);
+                    return (A2lByteOrder.MsbFirst, DefaultAlignment);
                 }
-                ApplyAlignment(common, alignment);
+                var alignment = WithAlignment(common, DefaultAlignment);
                 if (common.Option("BYTE_ORDER", 1) is not [var order])
                 {
                     diagnostics.Add(new(common.Line, "MOD_COMMON has no BYTE_ORDER: assuming MSB_FIRST (the MPC5534 is big-endian)."));
@@ -269,8 +273,10 @@ namespace LotusECMLogger.Services.A2l
                 return (parsed.Value, alignment);
             }
 
-            private static void ApplyAlignment(Node node, Dictionary<A2lDataType, int> alignment)
+            /// <summary>The alignments a node's ALIGNMENT_* options set, over the ones it inherits.</summary>
+            private static Dictionary<A2lDataType, int> WithAlignment(Node node, IReadOnlyDictionary<A2lDataType, int> inherited)
             {
+                var alignment = new Dictionary<A2lDataType, int>(inherited);
                 foreach (var (keyword, types) in new (string, A2lDataType[])[]
                 {
                     ("ALIGNMENT_BYTE", [A2lDataType.UByte, A2lDataType.SByte]),
@@ -284,6 +290,7 @@ namespace LotusECMLogger.Services.A2l
                     if (node.Option(keyword, 1) is [var value])
                         foreach (var type in types) alignment[type] = Math.Max(1, (int)Integer(value));
                 }
+                return alignment;
             }
 
             private static A2lByteOrder? ParseByteOrder(string text) => text switch
@@ -389,8 +396,7 @@ namespace LotusECMLogger.Services.A2l
 
             private static A2lRecordLayout ReadRecordLayout(Node node, IReadOnlyDictionary<A2lDataType, int> moduleAlignment)
             {
-                var alignment = new Dictionary<A2lDataType, int>(moduleAlignment);
-                ApplyAlignment(node, alignment);
+                var alignment = WithAlignment(node, moduleAlignment);
                 string? problem = null;
                 A2lLayoutItem? values = null, axisX = null, axisY = null;
                 var mode = A2lIndexMode.RowDir;
