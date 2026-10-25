@@ -84,23 +84,22 @@ namespace LotusECMLogger.Services
             IReadOnlyDictionary<ushort, byte[]> payloads)
         {
             PerformanceHistoryProfile profile = PerformanceHistoryProfile.Resolve(calibrationId);
-            var usage = new List<PerformanceUsageBucket>();
+            var lateralSixth = profile.LateralAccelerationBands == 6
+                ? UsageBucket(payloads, "Lateral acceleration", 6, LateralAccelerationRanges[5], 0x0341) : null;
+            var usage = Usage(payloads, "Throttle position", 0x0301, ThrottleRanges)
+                .Concat(Usage(payloads, "Engine speed", 0x0309, EngineSpeedRanges))
+                .Concat(Usage(payloads, "Vehicle speed", 0x0311, VehicleSpeedRanges))
+                .Concat(Usage(payloads, "Coolant temperature", 0x031A, CoolantTemperatureRanges))
+                .Concat(Usage(payloads, "Lateral acceleration", 0x033B,
+                    LateralAccelerationRanges[..Math.Min(5, profile.LateralAccelerationBands)]))
+                .Concat(lateralSixth is null ? [] : [lateralSixth])
+                .ToList();
 
-            AddUsage(usage, payloads, "Throttle position", 0x0301, ThrottleRanges);
-            AddUsage(usage, payloads, "Engine speed", 0x0309, EngineSpeedRanges);
-            AddUsage(usage, payloads, "Vehicle speed", 0x0311, VehicleSpeedRanges);
-            AddUsage(usage, payloads, "Coolant temperature", 0x031A, CoolantTemperatureRanges);
-            AddUsage(usage, payloads, "Lateral acceleration", 0x033B,
-                LateralAccelerationRanges[..Math.Min(5, profile.LateralAccelerationBands)]);
-            if (profile.LateralAccelerationBands == 6)
-                AddUsageBucket(usage, payloads, "Lateral acceleration", 6,
-                    LateralAccelerationRanges[5], 0x0341);
-
-            var events = new List<PerformanceHistoryEvent>();
-            AddTopRpmEvents(events, payloads);
-            AddTopSpeedEvents(events, payloads);
-            AddDetailedEvents(events, payloads, "Low oil pressure", 0x0342);
-            AddDetailedEvents(events, payloads, "High lateral-G", 0x0351);
+            var events = TopRpmEvents(payloads)
+                .Concat(TopSpeedEvents(payloads))
+                .Concat(DetailedEvents(payloads, "Low oil pressure", 0x0342))
+                .Concat(DetailedEvents(payloads, "High lateral-G", 0x0351))
+                .ToList();
 
             double? distance = profile.DistancePid switch
             {
@@ -137,41 +136,36 @@ namespace LotusECMLogger.Services
             };
         }
 
-        private static void AddUsage(
-            List<PerformanceUsageBucket> target,
+        private static IEnumerable<PerformanceUsageBucket> Usage(
             IReadOnlyDictionary<ushort, byte[]> payloads,
             string category,
             ushort firstPid,
             IReadOnlyList<string> ranges)
         {
             for (int i = 0; i < ranges.Count; i++)
-                AddUsageBucket(target, payloads, category, i + 1, ranges[i], (ushort)(firstPid + i));
+                if (UsageBucket(payloads, category, i + 1, ranges[i], (ushort)(firstPid + i)) is { } bucket)
+                    yield return bucket;
         }
 
-        private static void AddUsageBucket(
-            List<PerformanceUsageBucket> target,
+        /// <summary>One usage band, or null when its PID was not read.</summary>
+        private static PerformanceUsageBucket? UsageBucket(
             IReadOnlyDictionary<ushort, byte[]> payloads,
             string category,
             int band,
             string range,
-            ushort pid)
-        {
-            if (ReadU32(payloads, pid) is not uint samples)
-                return;
+            ushort pid) =>
+            ReadU32(payloads, pid) is uint samples
+                ? new PerformanceUsageBucket
+                {
+                    Category = category,
+                    Band = $"ECU band {band}",
+                    Range = range,
+                    Pid = pid,
+                    Samples = samples,
+                }
+                : null;
 
-            target.Add(new PerformanceUsageBucket
-            {
-                Category = category,
-                Band = $"ECU band {band}",
-                Range = range,
-                Pid = pid,
-                Samples = samples,
-            });
-        }
-
-        private static void AddTopRpmEvents(
-            List<PerformanceHistoryEvent> target,
-            IReadOnlyDictionary<ushort, byte[]> payloads)
+        private static IEnumerable<PerformanceHistoryEvent> TopRpmEvents(IReadOnlyDictionary<ushort, byte[]> payloads)
         {
             ushort[] rpmPids = [0x031E, 0x031F, 0x0321, 0x0322, 0x0323];
             ushort[] temperaturePids = [0x0324, 0x0326, 0x0328, 0x032A, 0x032C];
@@ -183,7 +177,7 @@ namespace LotusECMLogger.Services
                     continue;
 
                 byte? temperatureRaw = ReadByteTail(payloads, temperaturePids[i]);
-                target.Add(new PerformanceHistoryEvent
+                yield return new PerformanceHistoryEvent
                 {
                     Category = "Highest engine speed",
                     Rank = 5 - i,
@@ -192,13 +186,11 @@ namespace LotusECMLogger.Services
                     ContextValue = temperatureRaw is byte raw ? raw * 5.0 / 8.0 - 40.0 : null,
                     ContextUnit = temperatureRaw.HasValue ? "°C coolant" : null,
                     EngineRuntime = ReadCounterTime(payloads, runtimePids[i]),
-                });
+                };
             }
         }
 
-        private static void AddTopSpeedEvents(
-            List<PerformanceHistoryEvent> target,
-            IReadOnlyDictionary<ushort, byte[]> payloads)
+        private static IEnumerable<PerformanceHistoryEvent> TopSpeedEvents(IReadOnlyDictionary<ushort, byte[]> payloads)
         {
             // Firmware keeps this list in ascending order, so PID 0x0333 is rank 1.
             for (int i = 0; i < 5; i++)
@@ -206,18 +198,17 @@ namespace LotusECMLogger.Services
                 if (ReadU16(payloads, (ushort)(0x032F + i)) is not ushort speed)
                     continue;
 
-                target.Add(new PerformanceHistoryEvent
+                yield return new PerformanceHistoryEvent
                 {
                     Category = "Highest vehicle speed",
                     Rank = 5 - i,
                     Value = speed,
                     Unit = "km/h",
-                });
+                };
             }
         }
 
-        private static void AddDetailedEvents(
-            List<PerformanceHistoryEvent> target,
+        private static IEnumerable<PerformanceHistoryEvent> DetailedEvents(
             IReadOnlyDictionary<ushort, byte[]> payloads,
             string category,
             ushort firstPid)
@@ -234,7 +225,7 @@ namespace LotusECMLogger.Services
                 if (!duration.HasValue && !speed.HasValue && !rpm.HasValue && !peakG.HasValue && !runtime.HasValue)
                     continue;
 
-                target.Add(new PerformanceHistoryEvent
+                yield return new PerformanceHistoryEvent
                 {
                     Category = category,
                     Rank = 3 - i,
@@ -248,7 +239,7 @@ namespace LotusECMLogger.Services
                     ContextValue = peakG / 100.0,
                     ContextUnit = "g peak lateral",
                     EngineRuntime = runtime,
-                });
+                };
             }
         }
 

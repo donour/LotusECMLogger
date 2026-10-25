@@ -20,7 +20,7 @@ namespace LotusECMLogger
     internal static class ObdPidDecoders
     {
         /// <summary>Turns one PID's payload into zero or more readings.</summary>
-        internal delegate void PidDecode(ReadOnlySpan<byte> payload, List<LiveDataReading> results);
+        internal delegate LiveDataReading[] PidDecode(ReadOnlySpan<byte> payload);
 
         /// <summary>Turns one PID's payload into a single numeric value.</summary>
         internal delegate double PidValue(ReadOnlySpan<byte> payload);
@@ -30,11 +30,11 @@ namespace LotusECMLogger
 
         /// <summary>A PID that yields exactly one named reading.</summary>
         private static PidDecoder Scalar(byte width, string name, PidValue value) =>
-            new(width, (payload, results) => results.Add(new LiveDataReading
+            new(width, payload => [new LiveDataReading
             {
                 name = name,
                 value_f = value(payload),
-            }));
+            }]);
 
         private static int U16(ReadOnlySpan<byte> p) => (p[0] << 8) | p[1];
         private static short I16(ReadOnlySpan<byte> p) => (short)((p[0] << 8) | p[1]);
@@ -75,19 +75,19 @@ namespace LotusECMLogger
         }.ToFrozenDictionary();
 
         /// <summary>Wide-range oxygen sensor: AB is the equivalence ratio, CD the sensor voltage.</summary>
-        private static PidDecoder OxygenSensor(int sensor) => new(4, (p, results) =>
-        {
-            results.Add(new LiveDataReading
+        private static PidDecoder OxygenSensor(int sensor) => new(4, p =>
+        [
+            new LiveDataReading
             {
                 name = $"O2SensorLambda{sensor}",
                 value_f = 2.0 / 65536.0 * U16(p),
-            });
-            results.Add(new LiveDataReading
+            },
+            new LiveDataReading
             {
                 name = $"O2SensorVoltage{sensor}",
                 value_f = 8.0 / 65536.0 * U16(p[2..]),
-            });
-        });
+            },
+        ]);
 
         /// <summary>
         /// Payload widths for the standard J1979 Mode 01 PIDs this decoder does not interpret. A PID
@@ -131,11 +131,11 @@ namespace LotusECMLogger
 
         public static readonly FrozenDictionary<byte, PidDecoder> Mode09 = new Dictionary<byte, PidDecoder>
         {
-            [0x00] = new(4, (p, results) => results.Add(new LiveDataReading
+            [0x00] = new(4, p => [new LiveDataReading
             {
                 name = "SupportedPIDs_01_20",
                 value_l = (uint)((p[0] << 24) | (p[1] << 16) | (p[2] << 8) | p[3]),
-            })),
+            }]),
         }.ToFrozenDictionary();
 
         // ── Mode 22: manufacturer extensions ─────────────────────────────────────────────
@@ -216,31 +216,32 @@ namespace LotusECMLogger
         /// </summary>
         public static IReadOnlyList<LiveDataReading> DecodeMode22Payload(ushort pid, ReadOnlySpan<byte> payload)
         {
-            var results = new List<LiveDataReading>();
-            if (Mode22.TryGetValue(pid, out PidDecoder? decoder) && payload.Length >= decoder.Width)
-                decoder.Decode(payload[..decoder.Width], results);
-            return results;
+            return Mode22.TryGetValue(pid, out PidDecoder? decoder) && payload.Length >= decoder.Width
+                ? decoder.Decode(payload[..decoder.Width])
+                : [];
         }
 
         /// <summary>Per-cylinder knock retard, one byte each at quarter-degree resolution.</summary>
         private static PidDecoder KnockRetard(int firstCylinder, int cylinders) =>
-            new((byte)cylinders, (p, results) =>
+            new((byte)cylinders, p =>
             {
+                var readings = new LiveDataReading[cylinders];
                 for (int i = 0; i < cylinders; i++)
                 {
-                    results.Add(new LiveDataReading
+                    readings[i] = new LiveDataReading
                     {
                         name = $"KnockSparkRetardCylinder {firstCylinder + i}",
                         value_f = p[i] / 4.0,
-                    });
+                    };
                 }
+                return readings;
             });
 
         /// <summary>Wideband calibration: u16 slope (4096 = 1.0x) then i16 offset in ADC counts.</summary>
-        private static PidDecoder WidebandCalibration(int bank) => new(4, (p, results) =>
-        {
-            results.Add(new LiveDataReading { name = $"WBCalSlope{bank}", value_f = (ushort)U16(p) });
-            results.Add(new LiveDataReading { name = $"WBCalOffset{bank}", value_f = I16(p[2..]) });
-        });
+        private static PidDecoder WidebandCalibration(int bank) => new(4, p =>
+        [
+            new LiveDataReading { name = $"WBCalSlope{bank}", value_f = (ushort)U16(p) },
+            new LiveDataReading { name = $"WBCalOffset{bank}", value_f = I16(p[2..]) },
+        ]);
     }
 }

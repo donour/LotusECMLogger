@@ -166,25 +166,14 @@ namespace LotusECMLogger
         /// </summary>
         private static List<LiveDataReading> ParseStandardObdResponse(byte[] data, ECUDefinition? ecu, bool prefixWithEcuName)
         {
-            List<LiveDataReading> results = [];
             int obd_mode = data[4] - 0x40;
-
-            switch (obd_mode)
+            List<LiveDataReading> results = obd_mode switch
             {
-                case 0x01:
-                    DecodePidSequence(data, results, ObdPidDecoders.Mode01,
-                        ObdPidDecoders.Mode01StandardWidths, "Mode01");
-                    break;
-                case 0x09:
-                    DecodePidSequence(data, results, ObdPidDecoders.Mode09, null, "Mode09");
-                    break;
-                case 0x22:
-                    DecodeMode22(data, results);
-                    break;
-                default:
-                    Debug.WriteLine($"Unknown OBD-II mode: {obd_mode:X2}");
-                    break;
-            }
+                0x01 => DecodePidSequence(data, ObdPidDecoders.Mode01, ObdPidDecoders.Mode01StandardWidths, "Mode01"),
+                0x09 => DecodePidSequence(data, ObdPidDecoders.Mode09, null, "Mode09"),
+                0x22 => DecodeMode22(data),
+                _ => UnknownMode(obd_mode),
+            };
 
             // Apply prefix and ecuSource to all readings if in multi-ECU mode
             string prefix = (prefixWithEcuName && ecu != null) ? $"{ecu.Name}:" : "";
@@ -215,13 +204,13 @@ namespace LotusECMLogger
         /// <paramref name="skipWidths"/> keeps that outcome rare: it carries widths for standard PIDs
         /// this decoder does not interpret, so those are stepped over instead of ending the frame.
         /// </remarks>
-        private static void DecodePidSequence(
+        private static List<LiveDataReading> DecodePidSequence(
             byte[] data,
-            List<LiveDataReading> results,
             FrozenDictionary<byte, ObdPidDecoders.PidDecoder> decoders,
             FrozenDictionary<byte, byte>? skipWidths,
             string modeName)
         {
+            var results = new List<LiveDataReading>();
             int idx = 5;
             while (idx < data.Length)
             {
@@ -232,9 +221,9 @@ namespace LotusECMLogger
                     // A truncated payload ends the frame: the bytes for the PIDs behind it are not
                     // there either, so there is nothing further to locate.
                     if (data.Length < idx + 1 + decoder.Width)
-                        return;
+                        return results;
 
-                    decoder.Decode(data.AsSpan(idx + 1, decoder.Width), results);
+                    results.AddRange(decoder.Decode(data.AsSpan(idx + 1, decoder.Width)));
                     idx += 1 + decoder.Width;
                 }
                 else if (skipWidths is not null && skipWidths.TryGetValue(pid, out byte width))
@@ -244,30 +233,36 @@ namespace LotusECMLogger
                 else
                 {
                     Debug.WriteLine($"Unknown OBD {modeName}: {pid:X2} - stopping frame decode");
-                    return;
+                    return results;
                 }
             }
+            return results;
+        }
+
+        private static List<LiveDataReading> UnknownMode(int mode)
+        {
+            Debug.WriteLine($"Unknown OBD-II mode: {mode:X2}");
+            return [];
         }
 
         /// <summary>
         /// Decodes a Mode 22 response. Its PID is two bytes and one response carries one PID, so
         /// unlike Mode 01 there is no cursor to walk.
         /// </summary>
-        private static void DecodeMode22(byte[] data, List<LiveDataReading> results)
+        private static List<LiveDataReading> DecodeMode22(byte[] data)
         {
             const int idx = 5;
             if (data.Length < idx + 2)
-                return;
+                return [];
 
             ushort pid = (ushort)((data[idx] << 8) | data[idx + 1]);
             if (!ObdPidDecoders.Mode22.TryGetValue(pid, out ObdPidDecoders.PidDecoder? decoder))
             {
                 Debug.WriteLine($"Unknown OBD-II mode 22 PID: {pid:X4}");
-                return;
+                return [];
             }
 
-            if (data.Length >= idx + 2 + decoder.Width)
-                decoder.Decode(data.AsSpan(idx + 2, decoder.Width), results);
+            return data.Length >= idx + 2 + decoder.Width ? [.. decoder.Decode(data.AsSpan(idx + 2, decoder.Width))] : [];
         }
     }
 }

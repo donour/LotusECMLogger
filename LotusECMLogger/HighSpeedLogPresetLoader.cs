@@ -119,10 +119,9 @@ namespace LotusECMLogger
             if (catalog == null && json.Channels.Any(c => !string.IsNullOrWhiteSpace(c.Symbol)))
                 warnings.Add($"No symbol catalog for ECU '{ecuVersion}'; symbol-referenced channels were skipped.");
 
-            var channels = json.Channels
-                .Select(c => ConvertChannel(c, catalog, ecuVersion, warnings))
-                .OfType<HighSpeedChannel>()
-                .ToList();
+            var converted = json.Channels.Select(c => ConvertChannel(c, catalog, ecuVersion)).ToList();
+            warnings.AddRange(converted.Select(c => c.Warning).OfType<string>());
+            var channels = converted.Select(c => c.Channel).OfType<HighSpeedChannel>().ToList();
 
             return new HighSpeedLogPreset
             {
@@ -134,24 +133,22 @@ namespace LotusECMLogger
             };
         }
 
-        private static HighSpeedChannel? ConvertChannel(HighSpeedChannelJson c, SymbolCatalog? catalog, string ecuVersion, List<string> warnings)
+        /// <summary>The channel, or why it was skipped (nothing when the missing catalog already explains it).</summary>
+        private static (HighSpeedChannel? Channel, string? Warning) ConvertChannel(HighSpeedChannelJson c, SymbolCatalog? catalog, string ecuVersion)
         {
             int rate = c.Rate ?? c.DefaultRate ?? 10;
 
             if (!string.IsNullOrWhiteSpace(c.Symbol))
             {
                 if (catalog == null)
-                    return null; // covered by the single catalog-missing warning
+                    return (null, null); // covered by the single catalog-missing warning
 
                 var entry = catalog.Resolve(c.Symbol!);
                 if (entry == null)
-                {
-                    warnings.Add($"Symbol '{c.Symbol}' not found in catalog '{ecuVersion}'.");
-                    return null;
-                }
+                    return (null, $"Symbol '{c.Symbol}' not found in catalog '{ecuVersion}'.");
 
                 var t = entry.Type;
-                return new HighSpeedChannel
+                return (new HighSpeedChannel
                 {
                     Name = c.Name ?? entry.Name,
                     Address = entry.Address,
@@ -164,16 +161,13 @@ namespace LotusECMLogger
                     DefaultSelected = c.DefaultSelected ?? true,
                     SourceSymbol = entry.Name,
                     Category = t.Category,
-                };
+                }, null);
             }
 
             if (string.IsNullOrWhiteSpace(c.Address))
-            {
-                warnings.Add($"Channel '{c.Name ?? "(unnamed)"}' has neither a symbol nor an address; skipped.");
-                return null;
-            }
+                return (null, $"Channel '{c.Name ?? "(unnamed)"}' has neither a symbol nor an address; skipped.");
 
-            return new HighSpeedChannel
+            return (new HighSpeedChannel
             {
                 Name = c.Name ?? "Channel",
                 Address = ParseAddress(c.Address!),
@@ -184,7 +178,7 @@ namespace LotusECMLogger
                 Unit = c.Unit ?? string.Empty,
                 DefaultRate = rate,
                 DefaultSelected = c.DefaultSelected ?? false,
-            };
+            }, null);
         }
 
         private static uint ParseAddress(string address)

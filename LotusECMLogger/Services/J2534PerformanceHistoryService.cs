@@ -57,7 +57,7 @@ namespace LotusECMLogger.Services
             // source because some calibrations leave one of the two identifiers blank.
             byte[] mode09 = new Iso15765Service(channel)
                 .GetPID(OBDIIMode.RequestVehicleInformation, 0x04);
-            AddIdentifier(identifiers, mode09);
+            if (Identifier(mode09) is { } fromMode09) identifiers.Add(fromMode09);
 
             ushort[] pids = [0x021C, 0x021D, 0x021E, 0x021F, 0x0221, 0x0222, 0x0223, 0x0224];
             var mode22 = new List<byte>(32);
@@ -67,20 +67,16 @@ namespace LotusECMLogger.Services
                 if (chunk != null)
                     mode22.AddRange(chunk);
             }
-            AddIdentifier(identifiers, [.. mode22]);
+            if (Identifier([.. mode22]) is { } fromMode22) identifiers.Add(fromMode22);
 
             return string.Join(" / ", identifiers.Distinct(StringComparer.OrdinalIgnoreCase));
         }
 
-        private static void AddIdentifier(ICollection<string> target, byte[] bytes)
+        /// <summary>The ASCII identifier in a payload, or null when it is empty or blank.</summary>
+        private static string? Identifier(byte[] bytes)
         {
-            if (bytes.Length == 0)
-                return;
-
-            string value = Encoding.ASCII.GetString(bytes)
-                .TrimEnd('\0', '\xFF', ' ', '\r', '\n', '\t');
-            if (!string.IsNullOrWhiteSpace(value))
-                target.Add(value);
+            string value = Encoding.ASCII.GetString(bytes).TrimEnd('\0', '\xFF', ' ', '\r', '\n', '\t');
+            return string.IsNullOrWhiteSpace(value) ? null : value;
         }
 
         private static byte[]? ReadMode22Payload(J2534Channel channel, ushort pid, int payloadLength)
@@ -122,20 +118,25 @@ namespace LotusECMLogger.Services
         private static IReadOnlyDictionary<ushort, int> BuildDataPidMap()
         {
             var result = new SortedDictionary<ushort, int>();
+            void AddRange(ushort first, ushort last, int width)
+            {
+                for (ushort pid = first; pid <= last; pid++)
+                    result[pid] = width;
+            }
 
-            AddRange(result, 0x0301, 0x0318, 4);
-            AddRange(result, 0x031A, 0x031F, 4);
-            AddRange(result, 0x0321, 0x0323, 4);
+            AddRange(0x0301, 0x0318, 4);
+            AddRange(0x031A, 0x031F, 4);
+            AddRange(0x0321, 0x0323, 4);
             foreach (ushort pid in new ushort[] { 0x0324, 0x0326, 0x0328, 0x032A, 0x032C })
                 result[pid] = 4; // Coolant bytes are zero-extended to four bytes by the firmware.
             foreach (ushort pid in new ushort[] { 0x0325, 0x0327, 0x0329, 0x032B, 0x032E })
                 result[pid] = 4;
-            AddRange(result, 0x032F, 0x0333, 2);
-            AddRange(result, 0x0334, 0x0337, 1);
+            AddRange(0x032F, 0x0333, 2);
+            AddRange(0x0334, 0x0337, 1);
             result[0x0338] = 4;
             result[0x0339] = 2;
             result[0x033A] = 5; // S2 firmware prepends the request length to the distance value.
-            AddRange(result, 0x033B, 0x033F, 4);
+            AddRange(0x033B, 0x033F, 4);
             result[0x0341] = 4;
 
             for (ushort first = 0x0342; first <= 0x0351; first += 0x000F)
@@ -156,10 +157,5 @@ namespace LotusECMLogger.Services
             return result;
         }
 
-        private static void AddRange(IDictionary<ushort, int> target, ushort first, ushort last, int width)
-        {
-            for (ushort pid = first; pid <= last; pid++)
-                target[pid] = width;
-        }
     }
 }

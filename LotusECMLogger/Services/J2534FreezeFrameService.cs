@@ -37,7 +37,9 @@ namespace LotusECMLogger.Services
                 var warnings = new List<string>();
                 var entries = new List<FreezeFrameEntry>();
 
-                foreach (byte pid in QuerySupportedPids(iso, frame, warnings))
+                var (supportedPids, pidWarning) = QuerySupportedPids(iso, frame);
+                if (pidWarning is not null) warnings.Add(pidWarning);
+                foreach (byte pid in supportedPids)
                 {
                     var (response, pidNrc) = iso.ReadFreezeFrameRaw(pid, frame);
                     if (response == null)
@@ -69,9 +71,10 @@ namespace LotusECMLogger.Services
         /// page flags the next) to find the data PIDs present in the frame. Failure here
         /// degrades to a warning: the triggering DTC alone is still worth showing.
         /// </summary>
-        private static List<byte> QuerySupportedPids(Iso15765Service iso, byte frame, List<string> warnings)
+        private static (List<byte> Pids, string? Warning) QuerySupportedPids(Iso15765Service iso, byte frame)
         {
             var supported = new List<int>();
+            string? warning = null;
 
             for (int basePid = 0x00; basePid <= 0xE0; basePid += 0x20)
             {
@@ -80,9 +83,9 @@ namespace LotusECMLogger.Services
                 {
                     if (basePid == 0x00)
                     {
-                        warnings.Add(nrc is byte c
+                        warning = nrc is byte c
                             ? $"supported-PID query failed (NRC 0x{c:X2})"
-                            : "supported-PID query failed (no response)");
+                            : "supported-PID query failed (no response)";
                     }
                     break;
                 }
@@ -94,10 +97,10 @@ namespace LotusECMLogger.Services
             }
 
             // 0x02 was read separately; multiples of 0x20 only select the next bitmask page.
-            return supported
+            return (supported
                 .Where(pid => pid != 0x02 && pid % 0x20 != 0)
                 .Select(pid => (byte)pid)
-                .ToList();
+                .ToList(), warning);
         }
     }
 }

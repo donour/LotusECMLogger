@@ -111,33 +111,36 @@ namespace LotusECMLogger.Services
                 });
             }
 
-            InferUnknownSizes(entries);
-            return new SymbolCatalog(CatalogNameFromPath(filePath), entries);
+            return new SymbolCatalog(CatalogNameFromPath(filePath), WithInferredSizes(entries));
         }
 
-        /// <summary>Fills in <c>Size == 0</c> entries from the gap to the next symbol address (clamped to 1/2/4).</summary>
-        private static void InferUnknownSizes(List<SymbolEntry> entries)
+        /// <summary>
+        /// The entries with each <c>Size == 0</c> one sized from the gap to the next symbol address (clamped to 1/2/4),
+        /// in the same order.
+        /// </summary>
+        private static List<SymbolEntry> WithInferredSizes(List<SymbolEntry> entries)
         {
             var ordered = entries.OrderBy(e => e.Address).ToList();
+            var inferred = new Dictionary<SymbolEntry, int>();
             for (int i = 0; i < ordered.Count; i++)
             {
                 if (ordered[i].Type.Size != 0)
                     continue;
-
                 long gap = i + 1 < ordered.Count ? ordered[i + 1].Address - ordered[i].Address : 4;
-                int size = gap >= 4 ? 4 : gap >= 2 ? 2 : 1;
-                // SymbolEntry.Type is init-only; replace the entry's parsed type with the inferred size.
-                int idx = entries.IndexOf(ordered[i]);
-                entries[idx] = new SymbolEntry
-                {
-                    Name = ordered[i].Name,
-                    Address = ordered[i].Address,
-                    RawType = ordered[i].RawType,
-                    Namespace = ordered[i].Namespace,
-                    Comment = ordered[i].Comment,
-                    Type = ordered[i].Type with { Size = size, Confidence = TypeConfidence.Inferred },
-                };
+                inferred[ordered[i]] = gap >= 4 ? 4 : gap >= 2 ? 2 : 1;
             }
+            // SymbolEntry.Type is init-only: an inferred size makes a new entry.
+            return entries.Select(e => inferred.TryGetValue(e, out int size)
+                ? new SymbolEntry
+                {
+                    Name = e.Name,
+                    Address = e.Address,
+                    RawType = e.RawType,
+                    Namespace = e.Namespace,
+                    Comment = e.Comment,
+                    Type = e.Type with { Size = size, Confidence = TypeConfidence.Inferred },
+                }
+                : e).ToList();
         }
 
         private static string? ResolveSymbolsDir()
