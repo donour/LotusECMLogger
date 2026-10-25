@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using LotusECMLogger.Services.Logging;
 using SAE.J2534;
 using System.Diagnostics;
@@ -995,7 +996,7 @@ namespace LotusECMLogger.Services
 				cancellationToken.ThrowIfCancellationRequested();
 
 				int offset = word * 4;
-				WriteAddressBigEndian(wordFrame, baseAddress + (uint)offset);
+				BinaryPrimitives.WriteUInt32BigEndian(wordFrame.AsSpan(4), baseAddress + (uint)offset);
 				image.AsSpan(offset, 4).CopyTo(wordFrame.AsSpan(8, 4));
 
 				channel.SendMessage(wordFrame).ThrowIfError();
@@ -1017,7 +1018,7 @@ namespace LotusECMLogger.Services
 			{
 				cancellationToken.ThrowIfCancellationRequested();
 
-				WriteAddressBigEndian(byteFrame, baseAddress + (uint)offset);
+				BinaryPrimitives.WriteUInt32BigEndian(byteFrame.AsSpan(4), baseAddress + (uint)offset);
 				byteFrame[8] = image[offset];
 
 				channel.SendMessage(byteFrame).ThrowIfError();
@@ -1088,15 +1089,6 @@ namespace LotusECMLogger.Services
 				MismatchCount = mismatchCount,
 				SampleMismatchAddresses = sampleMismatches
 			};
-		}
-
-		/// <summary>Writes an address into a frame's 4-byte address field in big-endian order.</summary>
-		private static void WriteAddressBigEndian(byte[] frame, uint address)
-		{
-			frame[4] = (byte)((address >> 24) & 0xFF);
-			frame[5] = (byte)((address >> 16) & 0xFF);
-			frame[6] = (byte)((address >> 8) & 0xFF);
-			frame[7] = (byte)(address & 0xFF);
 		}
 
 		public async Task WriteWordAsync(uint address, uint value)

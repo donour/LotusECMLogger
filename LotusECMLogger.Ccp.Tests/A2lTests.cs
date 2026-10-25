@@ -292,12 +292,10 @@ public sealed class A2lTests
     [Fact]
     public void RawValuesRoundTripInBothByteOrders()
     {
-        var bytes = new byte[2];
-        A2lDataType.UWord.WriteRaw(bytes, 0x1234, A2lByteOrder.MsbFirst);
+        var bytes = A2lDataType.UWord.EncodeRaw(0x1234, A2lByteOrder.MsbFirst);
         Assert.Equal(0x1234, BinaryPrimitives.ReadUInt16BigEndian(bytes));
         Assert.Equal(0x3412, A2lDataType.UWord.ReadRaw(bytes, A2lByteOrder.MsbLast));
-        A2lDataType.SWord.WriteRaw(bytes, -2.4, A2lByteOrder.MsbFirst);
-        Assert.Equal(-2.0, A2lDataType.SWord.ReadRaw(bytes, A2lByteOrder.MsbFirst));
-        Assert.Throws<ArgumentOutOfRangeException>(() => A2lDataType.UByte.WriteRaw(bytes, 256, A2lByteOrder.MsbFirst));
+        Assert.Equal(-2.0, A2lDataType.SWord.ReadRaw(A2lDataType.SWord.EncodeRaw(-2.4, A2lByteOrder.MsbFirst), A2lByteOrder.MsbFirst));
+        Assert.Throws<ArgumentOutOfRangeException>(() => A2lDataType.UByte.EncodeRaw(256, A2lByteOrder.MsbFirst));
     }
 }

@@ -80,9 +80,16 @@ namespace LotusECMLogger.Services
                 SingleReader = true,
                 FullMode = BoundedChannelFullMode.Wait, // TryWrite fails (counted) instead of evicting silently
             });
-            public volatile CcpSessionLease? Lease;
-            public volatile CcpDaqSubscription? Daq;
-            public volatile AemWidebandSource? Aem;
+            // Each is attached once while the session starts and read by StopAsync on another thread, hence volatile.
+            private volatile CcpSessionLease? _lease;
+            private volatile CcpDaqSubscription? _daq;
+            private volatile AemWidebandSource? _aem;
+            public CcpSessionLease? Lease => _lease;
+            public CcpDaqSubscription? Daq => _daq;
+            public AemWidebandSource? Aem => _aem;
+            public void Attach(CcpSessionLease lease) => _lease = lease;
+            public void Attach(CcpDaqSubscription daq) => _daq = daq;
+            public void Attach(AemWidebandSource aem) => _aem = aem;
             public Task Worker { get; set; } = Task.CompletedTask;
         }
 
@@ -188,12 +195,14 @@ namespace LotusECMLogger.Services
             var ct = session.Cancel.Token;
             try
             {
-                session.Lease = await _host.AcquireAsync(ct).ConfigureAwait(false);
-                var master = session.Lease.Master;
-                session.Daq = await master.StartDaqAsync(HighSpeedLogPlanner.ToDaqLists(session.Plan), "High-Speed Log", ct).ConfigureAwait(false);
-                if (session.PollAem) session.Aem = new AemWidebandSource(master);
+                var lease = await _host.AcquireAsync(ct).ConfigureAwait(false);
+                session.Attach(lease);
+                var master = lease.Master;
+                var daq = await master.StartDaqAsync(HighSpeedLogPlanner.ToDaqLists(session.Plan), "High-Speed Log", ct).ConfigureAwait(false);
+                session.Attach(daq);
+                if (session.PollAem) session.Attach(new AemWidebandSource(master));
 
-                var pumps = new List<Task> { PumpAsync(session.Daq.Stream.Reader, s => new WorkItem(s, null), session.Queue.Writer, ct) };
+                var pumps = new List<Task> { PumpAsync(daq.Stream.Reader, s => new WorkItem(s, null), session.Queue.Writer, ct) };
                 if (session.Aem is { } aem) pumps.Add(PumpAsync(aem.Samples, s => new WorkItem(null, s), session.Queue.Writer, ct));
                 var writer = WriteAsync(session);
                 // The streams end when logging stops (or the transport faults, which surfaces here).

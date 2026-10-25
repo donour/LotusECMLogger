@@ -243,7 +243,7 @@ namespace LotusECMLogger.Services.Tuning
             foreach (var cell in cells)
             {
                 int offset = (int)(item.CellAddress(cell.X, cell.Y) - item.Address);
-                try { item.ValueType.WriteRaw(scratch.AsSpan(offset, item.ElementSize), cell.Value, item.ByteOrder); }
+                try { item.ValueType.EncodeRaw(cell.Value, item.ByteOrder).CopyTo(scratch, offset); }
                 catch (ArgumentOutOfRangeException e)
                 {
                     throw new ArgumentOutOfRangeException(nameof(cells), $"{item.Name}[{cell.X},{cell.Y}]: {e.Message}");

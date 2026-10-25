@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using LotusECMLogger.Services.A2l;
 
 namespace LotusECMLogger.Services.Tuning
@@ -28,12 +29,11 @@ namespace LotusECMLogger.Services.Tuning
             ArgumentNullException.ThrowIfNull(a2l);
             var root = new CalibrationTreeNode { Title = a2l.Module.Name };
             var groups = a2l.Module.Groups.GroupBy(g => g.Name, StringComparer.Ordinal).ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
-            var listed = new HashSet<string>(StringComparer.Ordinal);
             var roots = a2l.Module.Groups.Where(g => g.Root).ToList();
             if (roots.Count > 0)
             {
                 foreach (var group in roots)
-                    if (FromGroup(group, groups, a2l, listed, []) is { } node) root.Children.Add(node);
+                    if (FromGroup(group, groups, a2l, ImmutableHashSet<string>.Empty) is { } node) root.Children.Add(node);
             }
             else
             {
@@ -49,9 +49,9 @@ namespace LotusECMLogger.Services.Tuning
                         parent.Children.AddRange(prefix.Select(Leaf).OrderBy(n => n.Title, StringComparer.OrdinalIgnoreCase));
                     }
                     root.Children.Add(folder);
-                    listed.UnionWith(subsystem.Select(i => i.Name));
                 }
             }
+            var listed = root.Items().Select(i => i.Name).ToHashSet(StringComparer.Ordinal);
             var ungrouped = a2l.Items.Values.Where(i => !listed.Contains(i.Name)).Select(Leaf)
                 .OrderBy(n => n.Title, StringComparer.OrdinalIgnoreCase).ToList();
             if (ungrouped.Count > 0)
@@ -70,24 +70,24 @@ namespace LotusECMLogger.Services.Tuning
             return int.MaxValue;
         }
 
+        /// <param name="path">The groups above this one, to stop at a SUB_GROUP cycle.</param>
         private static CalibrationTreeNode? FromGroup(A2lGroup group, Dictionary<string, A2lGroup> groups, A2lResolvedModule a2l,
-            HashSet<string> listed, HashSet<string> path)
+            ImmutableHashSet<string> path)
         {
-            if (!path.Add(group.Name)) return null; // a SUB_GROUP cycle
+            if (path.Contains(group.Name)) return null; // a SUB_GROUP cycle
+            var below = path.Add(group.Name);
             var node = new CalibrationTreeNode
             {
                 Title = group.LongIdentifier.Length > 0 ? group.LongIdentifier : group.Name,
                 Description = group.Name,
             };
             foreach (var name in group.SubGroups)
-                if (groups.TryGetValue(name, out var sub) && FromGroup(sub, groups, a2l, listed, path) is { } child) node.Children.Add(child);
+                if (groups.TryGetValue(name, out var sub) && FromGroup(sub, groups, a2l, below) is { } child) node.Children.Add(child);
             foreach (var name in group.Characteristics.Order(StringComparer.OrdinalIgnoreCase))
             {
                 if (!a2l.Items.TryGetValue(name, out var item)) continue; // unavailable or unknown
                 node.Children.Add(Leaf(item));
-                listed.Add(name);
             }
-            path.Remove(group.Name);
             return node;
         }
 

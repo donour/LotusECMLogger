@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -177,10 +178,10 @@ namespace LotusECMLogger
             byte[] ecuId = TextEncoding.GetBytes(variant.EcuId.PadRight(32));
             Array.Copy(ecuId, 0, ecuHeader, 0, 32);
 
-            WriteInt32BE(ecuHeader, 32, (int)ecuAddress);   // reference address
-            WriteInt32BE(ecuHeader, 36, binData.Length);    // payload size
-            WriteInt32BE(ecuHeader, 40, 0);                 // max version
-            WriteInt32BE(ecuHeader, 44, 0);                 // min version
+            BinaryPrimitives.WriteInt32BigEndian(ecuHeader.AsSpan(32), (int)ecuAddress);   // reference address
+            BinaryPrimitives.WriteInt32BigEndian(ecuHeader.AsSpan(36), binData.Length);    // payload size
+            BinaryPrimitives.WriteInt32BigEndian(ecuHeader.AsSpan(40), 0);                 // max version
+            BinaryPrimitives.WriteInt32BigEndian(ecuHeader.AsSpan(44), 0);                 // min version
             // Remaining 16 bytes stay zero.
 
             int plainSize = 64 + binData.Length;
@@ -203,14 +204,12 @@ namespace LotusECMLogger
             }
             Array.Copy(salt, 0, plainBuffer, 0, 8);
 
-            WriteInt32BE(plainBuffer, 8, plainSize);       // plain size before padding
+            BinaryPrimitives.WriteInt32BigEndian(plainBuffer.AsSpan(8), plainSize);       // plain size before padding
             Array.Copy(ecuHeader, 0, plainBuffer, 12, 64);
             Array.Copy(binData, 0, plainBuffer, 12 + 64, binData.Length);
             // Padding stays zero.
 
-            byte[] encrypted = new byte[totalSize];
-            XteaEncryptCBC(plainBuffer, encrypted, variant.Key);
-            return encrypted;
+            return XteaEncryptCBC(plainBuffer, variant.Key);
         }
 
         /// <summary>
@@ -243,11 +242,11 @@ namespace LotusECMLogger
             chunk[2] = efiRemoteId;
             chunk[3] = 0;            // frame delay
 
-            WriteInt32LE(chunk, 4, 500);                 // CAN bitrate (kbit/s)
-            WriteInt32LE(chunk, 8, (int)canRemoteId1);
-            WriteInt32LE(chunk, 12, (int)canLocalId1);
-            WriteInt32LE(chunk, 16, (int)canRemoteId2);
-            WriteInt32LE(chunk, 20, (int)canLocalId2);
+            BinaryPrimitives.WriteInt32LittleEndian(chunk.AsSpan(4), 500);                 // CAN bitrate (kbit/s)
+            BinaryPrimitives.WriteInt32LittleEndian(chunk.AsSpan(8), (int)canRemoteId1);
+            BinaryPrimitives.WriteInt32LittleEndian(chunk.AsSpan(12), (int)canLocalId1);
+            BinaryPrimitives.WriteInt32LittleEndian(chunk.AsSpan(16), (int)canRemoteId2);
+            BinaryPrimitives.WriteInt32LittleEndian(chunk.AsSpan(20), (int)canLocalId2);
             // Remaining 40 header bytes stay zero.
 
             Array.Copy(encryptedData, 0, chunk, 64, encryptedData.Length);
@@ -273,17 +272,17 @@ namespace LotusECMLogger
 
             byte[] toc = new byte[tocSize];
 
-            WriteInt32LE(toc, 0, lists.Length);
+            BinaryPrimitives.WriteInt32LittleEndian(toc.AsSpan(0), lists.Length);
 
             int offset = header;
             for (int i = 0; i < lists.Length; i++)
             {
                 int listSize = 4 + (lists[i].Count * ENTRY_NAME_SIZE);
                 int x = 4 + (8 * i);
-                WriteInt32LE(toc, x, offset);
-                WriteInt32LE(toc, x + 4, listSize);
+                BinaryPrimitives.WriteInt32LittleEndian(toc.AsSpan(x), offset);
+                BinaryPrimitives.WriteInt32LittleEndian(toc.AsSpan(x + 4), listSize);
 
-                WriteInt32LE(toc, offset, i + 1); // 1-based index tag
+                BinaryPrimitives.WriteInt32LittleEndian(toc.AsSpan(offset), i + 1); // 1-based index tag
                 for (int j = 0; j < lists[i].Count; j++)
                 {
                     int entryOffset = offset + 4 + (ENTRY_NAME_SIZE * j);
@@ -310,14 +309,14 @@ namespace LotusECMLogger
 
             byte[] crp = new byte[totalSize];
 
-            WriteInt32LE(crp, 0, numChunks);
+            BinaryPrimitives.WriteInt32LittleEndian(crp.AsSpan(0), numChunks);
 
             int offset = headerSize;
             for (int i = 0; i < numChunks; i++)
             {
                 int x = 4 + (8 * i);
-                WriteInt32LE(crp, x, offset);
-                WriteInt32LE(crp, x + 4, chunks[i].Length);
+                BinaryPrimitives.WriteInt32LittleEndian(crp.AsSpan(x), offset);
+                BinaryPrimitives.WriteInt32LittleEndian(crp.AsSpan(x + 4), chunks[i].Length);
                 Array.Copy(chunks[i], 0, crp, offset, chunks[i].Length);
                 offset += chunks[i].Length;
             }
@@ -338,8 +337,9 @@ namespace LotusECMLogger
         /// <summary>
         /// XTEA encryption in CBC mode (the inverse of CrpUnpacker's XteaDecryptCBC).
         /// </summary>
-        private static void XteaEncryptCBC(byte[] input, byte[] output, uint[] key)
+        private static byte[] XteaEncryptCBC(byte[] input, uint[] key)
         {
+            var output = new byte[input.Length];
             uint lastV0 = 0;
             uint lastV1 = 0;
 
@@ -359,12 +359,13 @@ namespace LotusECMLogger
                     v1 += (((v0 << 4) ^ (v0 >> 5)) + v0) ^ (sum + key[(sum >> 11) & 3]);
                 }
 
-                WriteUInt32BE(output, i, v0);
-                WriteUInt32BE(output, i + 4, v1);
+                BinaryPrimitives.WriteUInt32BigEndian(output.AsSpan(i), v0);
+                BinaryPrimitives.WriteUInt32BigEndian(output.AsSpan(i + 4), v1);
 
                 lastV0 = v0;
                 lastV1 = v1;
             }
+            return output;
         }
 
         // Helper methods for byte order conversion and text fields
@@ -374,30 +375,6 @@ namespace LotusECMLogger
             string padded = value.Length > size ? value.Substring(0, size) : value.PadRight(size);
             byte[] bytes = TextEncoding.GetBytes(padded);
             Array.Copy(bytes, 0, buffer, offset, Math.Min(bytes.Length, size));
-        }
-
-        private static void WriteInt32LE(byte[] buffer, int offset, int value)
-        {
-            buffer[offset] = (byte)(value & 0xFF);
-            buffer[offset + 1] = (byte)((value >> 8) & 0xFF);
-            buffer[offset + 2] = (byte)((value >> 16) & 0xFF);
-            buffer[offset + 3] = (byte)((value >> 24) & 0xFF);
-        }
-
-        private static void WriteInt32BE(byte[] buffer, int offset, int value)
-        {
-            buffer[offset] = (byte)((value >> 24) & 0xFF);
-            buffer[offset + 1] = (byte)((value >> 16) & 0xFF);
-            buffer[offset + 2] = (byte)((value >> 8) & 0xFF);
-            buffer[offset + 3] = (byte)(value & 0xFF);
-        }
-
-        private static void WriteUInt32BE(byte[] buffer, int offset, uint value)
-        {
-            buffer[offset] = (byte)((value >> 24) & 0xFF);
-            buffer[offset + 1] = (byte)((value >> 16) & 0xFF);
-            buffer[offset + 2] = (byte)((value >> 8) & 0xFF);
-            buffer[offset + 3] = (byte)(value & 0xFF);
         }
 
         private static uint ReadUInt32BE(byte[] buffer, int offset)

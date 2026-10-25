@@ -127,7 +127,12 @@ public sealed class J2534CcpTransport : ICcpTransport
                 lock (_ioLock)
                 {
                     ObjectDisposedException.ThrowIf(_disposed, this);
-                    while (Collect(_channel.ReadMessages(MaxMessagesPerRead, 0), frames) == MaxMessagesPerRead) { }
+                    while (true)
+                    {
+                        var (batch, delivered) = Collect(_channel.ReadMessages(MaxMessagesPerRead, 0));
+                        frames.AddRange(batch);
+                        if (delivered < MaxMessagesPerRead) break;
+                    }
                 }
                 // Once consumed, return the batch even if cancellation arrives: the owner routes it first.
                 if (frames.Count > 0 || cancellationToken.IsCancellationRequested || Environment.TickCount64 >= deadline)
@@ -138,9 +143,10 @@ public sealed class J2534CcpTransport : ICcpTransport
         finally { Volatile.Write(ref _reading, 0); }
     }
 
-    /// <summary>Adds the batch's admitted frames and returns how many messages the DLL delivered.</summary>
-    private int Collect(GetMessagesResult result, List<CcpReceivedFrame> frames)
+    /// <summary>The batch's admitted frames, and how many messages the DLL delivered.</summary>
+    private (List<CcpReceivedFrame> Frames, int Delivered) Collect(GetMessagesResult result)
     {
+        var frames = new List<CcpReceivedFrame>();
         // TIMEOUT may still carry a partial batch: preserve it. Other failures are not silent timeouts.
         if (!result.IsSuccess && !result.IsTimeout && !result.IsBufferEmpty)
             throw new IOException($"J2534 CCP receive failed: {result.Status}.");
@@ -153,7 +159,7 @@ public sealed class J2534CcpTransport : ICcpTransport
             if (!_receiveIds.Contains(canId)) continue;
             frames.Add(new(data.AsMemory(4).ToArray(), message.Timestamp, canId));
         }
-        return result.Messages.Length;
+        return (frames, result.Messages.Length);
     }
 
     public void Dispose()

@@ -51,17 +51,31 @@ public sealed class CcpDaqSubscription
     /// <summary>The slave DAQ list carrying each request.</summary>
     public IReadOnlyList<int> SlaveLists { get; }
     /// <summary>First PID of each list as reported by GET_DAQ_SIZE.</summary>
-    public IReadOnlyList<byte> FirstPids { get; internal set; } = [];
+    public IReadOnlyList<byte> FirstPids { get; private set; } = [];
     public CcpStream<CcpDaqSample> Stream { get; }
     /// <summary>
     /// Times another consumer started DAQ while this one streamed. GET_DAQ_SIZE resets the slave's shared
     /// transmit queue, so each start may discard frames already queued for this subscription.
     /// </summary>
     public long Gaps => Interlocked.Read(ref _gaps);
-    public bool IsActive { get; internal set; }
-    public string? EndReason { get; internal set; }
+    public bool IsActive { get; private set; }
+    public string? EndReason { get; private set; }
 
     internal void RecordGap() => Interlocked.Increment(ref _gaps);
+
+    /// <summary>The lists are configured and routed: samples now arrive on <see cref="Stream"/>.</summary>
+    internal void Activate(IReadOnlyList<byte> firstPids)
+    {
+        FirstPids = firstPids;
+        IsActive = true;
+    }
+
+    /// <summary>The lists were released; the first reason given is kept.</summary>
+    internal void End(string reason)
+    {
+        IsActive = false;
+        EndReason ??= reason;
+    }
 
     /// <summary>START_STOP stop on this subscription's lists only, then release them.</summary>
     public Task StopAsync(CancellationToken cancellationToken = default) => _master.StopDaqAsync(this, cancellationToken);
@@ -144,13 +158,12 @@ public sealed partial class CcpMaster
                     await ExchangeAsync(c => CcpFrame.GetDaqSize(c, Target, list), ct).ConfigureAwait(false);
                     lock (_daqLock) _dirtyLists.Remove(list);
                 }
-                subscription.FirstPids = firstPids;
                 lock (_daqLock)
                 {
                     for (int i = 0; i < lists.Count; i++)
                         for (int odt = 0; odt < lists[i].Odts.Count; odt++)
                             _routes[firstPids[i] + odt] = new DaqRoute(subscription, i, odt);
-                    subscription.IsActive = true;
+                    subscription.Activate(firstPids);
                 }
                 await ExchangeAsync(c => CcpFrame.StartStopAll(c, true), ct).ConfigureAwait(false);
                 lock (_daqLock) foreach (int list in subscription.SlaveLists) _dirtyLists.Remove(list);
@@ -203,8 +216,7 @@ public sealed partial class CcpMaster
             }
             for (int pid = 0; pid < _routes.Length; pid++)
                 if (_routes[pid]?.Subscription == subscription) _routes[pid] = null;
-            subscription.IsActive = false;
-            subscription.EndReason ??= reason;
+            subscription.End(reason);
         }
         subscription.Stream.Complete(error);
     }

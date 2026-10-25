@@ -72,32 +72,34 @@ namespace LotusECMLogger.Services.A2l
             };
         }
 
-        /// <summary>Writes a raw value, rounding integers to nearest and refusing values the type cannot hold.</summary>
-        public static void WriteRaw(this A2lDataType type, Span<byte> bytes, double raw, A2lByteOrder order)
+        /// <summary>A raw value's bytes, rounding integers to nearest and refusing values the type cannot hold.</summary>
+        public static byte[] EncodeRaw(this A2lDataType type, double raw, A2lByteOrder order)
         {
             if (double.IsNaN(raw)) throw new ArgumentOutOfRangeException(nameof(raw), "NaN is not a raw value.");
+            double value = type.IsFloat() ? raw : Math.Round(raw, MidpointRounding.AwayFromZero);
             if (!type.IsFloat())
             {
-                raw = Math.Round(raw, MidpointRounding.AwayFromZero);
                 var (min, max) = type.RawRange();
-                if (raw < min || raw > max)
+                if (value < min || value > max)
                     throw new ArgumentOutOfRangeException(nameof(raw),
-                        string.Create(CultureInfo.InvariantCulture, $"{raw} is outside {type.Keyword()} ({min}..{max})."));
+                        string.Create(CultureInfo.InvariantCulture, $"{value} is outside {type.Keyword()} ({min}..{max})."));
             }
             bool big = order == A2lByteOrder.MsbFirst;
+            var bytes = new byte[type.Size()];
             switch (type)
             {
-                case A2lDataType.UByte: bytes[0] = (byte)raw; break;
-                case A2lDataType.SByte: bytes[0] = (byte)(sbyte)raw; break;
-                case A2lDataType.UWord: if (big) BinaryPrimitives.WriteUInt16BigEndian(bytes, (ushort)raw); else BinaryPrimitives.WriteUInt16LittleEndian(bytes, (ushort)raw); break;
-                case A2lDataType.SWord: if (big) BinaryPrimitives.WriteInt16BigEndian(bytes, (short)raw); else BinaryPrimitives.WriteInt16LittleEndian(bytes, (short)raw); break;
-                case A2lDataType.ULong: if (big) BinaryPrimitives.WriteUInt32BigEndian(bytes, (uint)raw); else BinaryPrimitives.WriteUInt32LittleEndian(bytes, (uint)raw); break;
-                case A2lDataType.SLong: if (big) BinaryPrimitives.WriteInt32BigEndian(bytes, (int)raw); else BinaryPrimitives.WriteInt32LittleEndian(bytes, (int)raw); break;
-                case A2lDataType.UInt64: if (big) BinaryPrimitives.WriteUInt64BigEndian(bytes, (ulong)raw); else BinaryPrimitives.WriteUInt64LittleEndian(bytes, (ulong)raw); break;
-                case A2lDataType.Int64: if (big) BinaryPrimitives.WriteInt64BigEndian(bytes, (long)raw); else BinaryPrimitives.WriteInt64LittleEndian(bytes, (long)raw); break;
-                case A2lDataType.Float32: if (big) BinaryPrimitives.WriteSingleBigEndian(bytes, (float)raw); else BinaryPrimitives.WriteSingleLittleEndian(bytes, (float)raw); break;
-                default: if (big) BinaryPrimitives.WriteDoubleBigEndian(bytes, raw); else BinaryPrimitives.WriteDoubleLittleEndian(bytes, raw); break;
+                case A2lDataType.UByte: bytes[0] = (byte)value; break;
+                case A2lDataType.SByte: bytes[0] = (byte)(sbyte)value; break;
+                case A2lDataType.UWord: if (big) BinaryPrimitives.WriteUInt16BigEndian(bytes, (ushort)value); else BinaryPrimitives.WriteUInt16LittleEndian(bytes, (ushort)value); break;
+                case A2lDataType.SWord: if (big) BinaryPrimitives.WriteInt16BigEndian(bytes, (short)value); else BinaryPrimitives.WriteInt16LittleEndian(bytes, (short)value); break;
+                case A2lDataType.ULong: if (big) BinaryPrimitives.WriteUInt32BigEndian(bytes, (uint)value); else BinaryPrimitives.WriteUInt32LittleEndian(bytes, (uint)value); break;
+                case A2lDataType.SLong: if (big) BinaryPrimitives.WriteInt32BigEndian(bytes, (int)value); else BinaryPrimitives.WriteInt32LittleEndian(bytes, (int)value); break;
+                case A2lDataType.UInt64: if (big) BinaryPrimitives.WriteUInt64BigEndian(bytes, (ulong)value); else BinaryPrimitives.WriteUInt64LittleEndian(bytes, (ulong)value); break;
+                case A2lDataType.Int64: if (big) BinaryPrimitives.WriteInt64BigEndian(bytes, (long)value); else BinaryPrimitives.WriteInt64LittleEndian(bytes, (long)value); break;
+                case A2lDataType.Float32: if (big) BinaryPrimitives.WriteSingleBigEndian(bytes, (float)value); else BinaryPrimitives.WriteSingleLittleEndian(bytes, (float)value); break;
+                default: if (big) BinaryPrimitives.WriteDoubleBigEndian(bytes, value); else BinaryPrimitives.WriteDoubleLittleEndian(bytes, value); break;
             }
+            return bytes;
         }
     }
 

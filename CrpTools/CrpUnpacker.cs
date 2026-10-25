@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using System.Text;
 
 namespace LotusECMLogger
@@ -234,17 +235,6 @@ namespace LotusECMLogger
                 throw new InvalidDataException("CAN chunk is smaller than its 64-byte header.");
             }
 
-            var chunk = new CrpChunk
-            {
-                EfiLocalId = data[0],
-                EfiRemoteId = data[2],
-                CanBitrate = ReadUInt32LE(data, 4),
-                CanRemoteId1 = ReadUInt32LE(data, 8),
-                CanLocalId1 = ReadUInt32LE(data, 12),
-                CanRemoteId2 = ReadUInt32LE(data, 16),
-                CanLocalId2 = ReadUInt32LE(data, 20),
-            };
-
             if (data[1] != 1)
             {
                 throw new InvalidDataException($"Unexpected CAN protocol type {data[1]} (expected 1).");
@@ -255,29 +245,42 @@ namespace LotusECMLogger
             }
 
             // Encrypted ECU data follows the 64-byte config header.
-            byte[] encrypted = new byte[data.Length - 64];
-            Array.Copy(data, 64, encrypted, 0, encrypted.Length);
-            ParseEncryptedEcuData(encrypted, chunk);
+            var ecu = ParseEncryptedEcuData(data[64..]);
 
-            return chunk;
+            return new CrpChunk
+            {
+                EfiLocalId = data[0],
+                EfiRemoteId = data[2],
+                CanBitrate = ReadUInt32LE(data, 4),
+                CanRemoteId1 = ReadUInt32LE(data, 8),
+                CanLocalId1 = ReadUInt32LE(data, 12),
+                CanRemoteId2 = ReadUInt32LE(data, 16),
+                CanLocalId2 = ReadUInt32LE(data, 20),
+                EcuId = ecu.EcuId,
+                EcuAddress = ecu.EcuAddress,
+                MaxVersion = ecu.MaxVersion,
+                MinVersion = ecu.MinVersion,
+                XteaSalt = ecu.XteaSalt,
+                Data = ecu.Data,
+            };
         }
 
         /// <summary>
         /// Decrypts XTEA-CBC ECU data and parses the plain ECU header + payload.
         /// </summary>
-        private static void ParseEncryptedEcuData(byte[] encrypted, CrpChunk chunk)
+        private sealed record EcuData(string EcuId, uint EcuAddress, uint MaxVersion, uint MinVersion, byte[] XteaSalt, byte[] Data);
+
+        private static EcuData ParseEncryptedEcuData(byte[] encrypted)
         {
             if (encrypted.Length % 8 != 0 || encrypted.Length < 16)
             {
                 throw new InvalidDataException("Encrypted ECU data is not a valid XTEA block length.");
             }
 
-            byte[] plain = new byte[encrypted.Length];
-            XteaDecryptCBC(encrypted, plain, T6_KEY);
+            byte[] plain = XteaDecryptCBC(encrypted, T6_KEY);
 
             // Encryption header: 8-byte salt + 4-byte plain size (big-endian).
-            chunk.XteaSalt = new byte[8];
-            Array.Copy(plain, 0, chunk.XteaSalt, 0, 8);
+            byte[] salt = plain[..8];
             int plainSize = (int)ReadUInt32BE(plain, 8);
 
             if (12 + plainSize > plain.Length)
@@ -288,11 +291,7 @@ namespace LotusECMLogger
             // Plain ECU data begins after the 12-byte encryption header.
             const int baseOffset = 12;
 
-            chunk.EcuId = TextEncoding.GetString(plain, baseOffset, 32).TrimEnd();
-            chunk.EcuAddress = ReadUInt32BE(plain, baseOffset + 32);
             int binSize = (int)ReadUInt32BE(plain, baseOffset + 36);
-            chunk.MaxVersion = ReadUInt32BE(plain, baseOffset + 40);
-            chunk.MinVersion = ReadUInt32BE(plain, baseOffset + 44);
 
             // ECU header is 64 bytes; payload follows.
             if (plainSize != binSize + 64)
@@ -307,15 +306,21 @@ namespace LotusECMLogger
                 throw new InvalidDataException("ECU payload extends beyond decrypted buffer.");
             }
 
-            chunk.Data = new byte[binSize];
-            Array.Copy(plain, dataOffset, chunk.Data, 0, binSize);
+            return new EcuData(
+                EcuId: TextEncoding.GetString(plain, baseOffset, 32).TrimEnd(),
+                EcuAddress: ReadUInt32BE(plain, baseOffset + 32),
+                MaxVersion: ReadUInt32BE(plain, baseOffset + 40),
+                MinVersion: ReadUInt32BE(plain, baseOffset + 44),
+                XteaSalt: salt,
+                Data: plain[dataOffset..(dataOffset + binSize)]);
         }
 
         /// <summary>
         /// XTEA decryption in CBC mode (inverse of CrpCreator's XteaEncryptCBC).
         /// </summary>
-        private static void XteaDecryptCBC(byte[] input, byte[] output, uint[] key)
+        private static byte[] XteaDecryptCBC(byte[] input, uint[] key)
         {
+            var output = new byte[input.Length];
             // IV is [0, 0]
             uint lastV0 = 0;
             uint lastV1 = 0;
@@ -340,13 +345,14 @@ namespace LotusECMLogger
                 v0 ^= lastV0;
                 v1 ^= lastV1;
 
-                WriteUInt32BE(output, i, v0);
-                WriteUInt32BE(output, i + 4, v1);
+                BinaryPrimitives.WriteUInt32BigEndian(output.AsSpan(i), v0);
+                BinaryPrimitives.WriteUInt32BigEndian(output.AsSpan(i + 4), v1);
 
                 // Save ciphertext for the next CBC iteration
                 lastV0 = c0;
                 lastV1 = c1;
             }
+            return output;
         }
 
         // Helper methods for byte order conversion
@@ -372,12 +378,5 @@ namespace LotusECMLogger
                    buffer[offset + 3];
         }
 
-        private static void WriteUInt32BE(byte[] buffer, int offset, uint value)
-        {
-            buffer[offset] = (byte)((value >> 24) & 0xFF);
-            buffer[offset + 1] = (byte)((value >> 16) & 0xFF);
-            buffer[offset + 2] = (byte)((value >> 8) & 0xFF);
-            buffer[offset + 3] = (byte)(value & 0xFF);
-        }
     }
 }
