@@ -75,6 +75,36 @@ The selection is compiled into a logging program that respects the firmware's pa
 
 **T6 RMA Logging** — The T6 RMA (Remote Memory Access) sub-tab enables direct reading of ECU memory addresses for advanced diagnostics and development. You can specify any valid RAM address (0x40000000-0x4000FFFF), configure the number of bytes to read and polling interval, then log the data as a time series to CSV. This feature requires a debug-enabled ECU with developer calibration and provides real-time hex dump, ASCII, and numeric interpretations of the memory contents.
 
+### ABS pressure logging (experimental)
+
+Both OBD-II and High-Speed logging can opt in to one hydraulic brake-pressure channel:
+
+- **OBD-II:** select **Log ABS pressure (experimental)** in Logging Config, save, then select that
+  configuration in Logger. Both single- and multi-ECU JSON formats accept `"logAbsPressure": true`.
+- **High-Speed:** check **ABS pressure (experimental)** before starting. A preset can set the same
+  top-level `logAbsPressure` property to choose the checkbox's initial state.
+
+The option defaults to off and existing shipped presets remain off. Enabled logs add
+`ABS pressure (bar)`, `ABS pressure raw`, `ABS pressure valid`, `ABS pressure age ms`, and
+`ABS pressure status` to the ordinary CSV. Pressure is requested at up to 5 Hz for the duration of
+the log; faster engine rows hold the latest fresh pressure value. Missing, failed or stale pressure
+is blank with validity 0, rather than a misleading zero. Age measures host time since complete reply
+receipt, not the ABS sensor's acquisition time. High-speed engine timestamps still use the adapter clock.
+
+The shared receive thread reads physical CAN `0x6F4` / reply `0x6F5` with KWP `21 04`. It never
+enters an ABS diagnostic session or sends security, actuation, reset or fallback commands. The normal
+logger uses driver ISO-TP reassembly; the high-speed logger handles reassembly and CTS flow control.
+One request is outstanding at a time, with a 750 ms response deadline and 1,000 ms freshness limit.
+A timeout, rejection, malformed reply or ABS transmit error stops pressure polling for that log while
+engine logging continues; the status column records the reason. Start a new log to try again.
+
+The OEM interpretation is signed little-endian complete-reply bytes 14–15, multiplied by 0.3255 bar.
+Stationary tests on a 2011 Evora B132J0142 / BB64104 showed pedal response and normal logger integration.
+They also produced two raw-CAN timeouts. Absolute calibration, high-speed integration on hardware,
+and continued ABS/traction-control operation during polling remain unvalidated. This option is
+experimental and does not establish suitability for driving. Begin stationary validation from fresh
+ignition, without another ABS diagnostic client; a prior legacy ABS session changes that starting state.
+
 ### ECU Coding
 The ECU Coding tab allows you to read and modify ECU configuration settings for Lotus T6e ECUs. You can view current coding values, make changes to vehicle configuration options, and write the updated settings back to the ECU with automatic backup creation for safety.
 

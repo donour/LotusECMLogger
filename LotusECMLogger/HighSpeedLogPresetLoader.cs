@@ -10,6 +10,7 @@ namespace LotusECMLogger
     {
         public string Name { get; set; } = string.Empty;
         public string Description { get; set; } = string.Empty;
+        public bool LogAbsPressure { get; set; }
 
         /// <summary>ECU/firmware label; also names the symbol catalog used to resolve <c>symbol</c> refs.</summary>
         public string EcuVersion { get; set; } = string.Empty;
@@ -44,6 +45,7 @@ namespace LotusECMLogger
     {
         public string Name { get; init; } = string.Empty;
         public string Description { get; init; } = string.Empty;
+        public bool LogAbsPressure { get; init; }
         public string EcuVersion { get; init; } = string.Empty;
         public List<HighSpeedChannel> Channels { get; init; } = [];
 
@@ -128,6 +130,7 @@ namespace LotusECMLogger
             {
                 Name = string.IsNullOrWhiteSpace(json.Name) ? Path.GetFileNameWithoutExtension(filePath) : json.Name,
                 Description = json.Description,
+                LogAbsPressure = json.LogAbsPressure,
                 EcuVersion = ecuVersion,
                 Channels = channels,
                 Warnings = warnings,

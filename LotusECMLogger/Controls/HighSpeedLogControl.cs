@@ -42,6 +42,8 @@ namespace LotusECMLogger.Controls
             this.service.ErrorOccurred += OnErrorOccurred;
 
             InitializeComponent();
+            var pressureTip = new ToolTip(components ??= new Container());
+            pressureTip.SetToolTip(absPressureToggle, AbsPressureProtocol.ExperimentalNotice);
 
             GuiIcons.ApplyToButton(addChannelsButton, GuiIcons.Add);
             GuiIcons.ApplyToButton(removeChannelButton, GuiIcons.Delete);
@@ -79,6 +81,7 @@ namespace LotusECMLogger.Controls
         /// <summary>Populates the preset dropdown from the config directory.</summary>
         public void RefreshPresets()
         {
+            absPressureToggle.Checked = false;
             presetComboBox.Items.Clear();
             var presets = HighSpeedLogPresetLoader.GetAvailablePresets();
             hasPresets = presets.Count > 0;
@@ -124,6 +127,7 @@ namespace LotusECMLogger.Controls
             }
 
             currentEcuVersion = preset.EcuVersion;
+            absPressureToggle.Checked = preset.LogAbsPressure;
             foreach (var ch in preset.Channels)
                 AddChannelRow(ch);
 
@@ -302,7 +306,7 @@ namespace LotusECMLogger.Controls
                 aemValueLabel.Text = aemToggleButton.Checked ? "polling…" : "—";
                 aemValueLabel.ForeColor = SystemColors.ControlText;
 
-                service.StartLogging(selected, csvPath, aemToggleButton.Checked);
+                service.StartLogging(selected, csvPath, aemToggleButton.Checked, absPressureToggle.Checked);
 
                 statusValueLabel.Text = "Logging…";
                 statusValueLabel.ForeColor = Color.Green;
@@ -485,6 +489,7 @@ namespace LotusECMLogger.Controls
             csvPathTextBox.Enabled = configurable;
             browseCsvButton.Enabled = configurable;
             aemToggleButton.Enabled = configurable;
+            absPressureToggle.Enabled = configurable;
 
             // The grid stays enabled while logging so its live values can be scrolled, selected and
             // copied — a disabled control takes no wheel or scrollbar input. What actually has to be

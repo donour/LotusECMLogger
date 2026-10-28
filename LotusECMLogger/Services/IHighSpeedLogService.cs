@@ -82,9 +82,11 @@ namespace LotusECMLogger.Services
         /// e.g. 30-0334) is also polled on the same bus — Mode 01 PID 0x24 to 0x7E1 — and its
         /// lambda/AFR are merged into the CSV as extra last-value-hold columns. A missing/silent AEM
         /// does not fail the session; the columns simply stay empty.
+        /// <paramref name="logAbsPressure"/> opts in to experimental direct ABS pressure reads on
+        /// the same channel. A failed pressure read stops ABS polling while engine logging continues.
         /// </summary>
         void StartLogging(IReadOnlyList<(HighSpeedChannel channel, int rateHz)> channels, string csvFilePath,
-            bool pollAemWideband = false);
+            bool pollAemWideband = false, bool logAbsPressure = false);
 
         /// <summary>Stops the ECU stream, ends the session, and closes the CSV file.</summary>
         void StopLogging();

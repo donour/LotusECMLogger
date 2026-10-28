@@ -24,6 +24,8 @@ namespace LotusECMLogger.Controls
         public LoggingConfigEditorControl()
         {
             InitializeComponent();
+            var pressureTip = new ToolTip(components ??= new System.ComponentModel.Container());
+            pressureTip.SetToolTip(absPressureCheckBox, AbsPressureProtocol.ExperimentalNotice);
             SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.UserPaint, true);
             UpdateStyles();
             ConfigureLayoutBehavior();
@@ -213,6 +215,7 @@ namespace LotusECMLogger.Controls
 
             configNameTextBox.Text = currentConfig.Name;
             configDescriptionTextBox.Text = currentConfig.Description;
+            absPressureCheckBox.Checked = currentConfig.LogAbsPressure;
             filePathValueTextBox.Text = currentFilePath ?? "Unsaved";
 
             RebuildEcuList();
@@ -369,6 +372,7 @@ namespace LotusECMLogger.Controls
 
             currentConfig.Name = configNameTextBox.Text.Trim();
             currentConfig.Description = configDescriptionTextBox.Text.Trim();
+            currentConfig.LogAbsPressure = absPressureCheckBox.Checked;
 
             if (string.IsNullOrWhiteSpace(currentConfig.Name))
             {

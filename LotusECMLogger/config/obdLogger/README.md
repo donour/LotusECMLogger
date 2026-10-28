@@ -64,6 +64,9 @@ Diagnostic-focused configuration for troubleshooting:
 ### Configuration Level
 - `name`: Human-readable configuration name
 - `description`: Description of the configuration purpose
+- `logAbsPressure`: Optional boolean, defaults to `false`. Also editable as **Log ABS pressure
+  (experimental)** in Logging Config; retained by Save/Save As for both single- and multi-ECU files.
+  See [ABS pressure logging](../../../README.md#abs-pressure-logging-experimental) for limitations.
 - `ecmHeader`: 4-byte ECM header (typically [0, 0, 7, 224] for Lotus)
 - `requests`: Array of OBD request objects
 
@@ -107,4 +110,4 @@ var available = OBDConfigurationLoader.GetAvailableConfigurations();
 
 ## Parameter Sources
 
-The complete parameter list is based on documentation from the LotusECU-T4e repository, specifically the Mode22-Live.csv file which contains comprehensive Lotus ECU parameter definitions. 
+The complete parameter list is based on documentation from the LotusECU-T4e repository, specifically the Mode22-Live.csv file which contains comprehensive Lotus ECU parameter definitions.
