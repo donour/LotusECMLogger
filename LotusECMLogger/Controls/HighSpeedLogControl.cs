@@ -14,6 +14,7 @@ namespace LotusECMLogger.Controls
     public partial class HighSpeedLogControl : UserControl
     {
         private readonly IHighSpeedLogService service;
+        public event Action<bool>? LoggerStateChanged;
 
         private readonly ConcurrentDictionary<string, (double value, string unit)> latestValues = new();
         private int frameCount;
@@ -307,6 +308,7 @@ namespace LotusECMLogger.Controls
                 aemValueLabel.ForeColor = SystemColors.ControlText;
 
                 service.StartLogging(selected, csvPath, aemToggleButton.Checked, absPressureToggle.Checked);
+                LoggerStateChanged?.Invoke(true);
 
                 statusValueLabel.Text = "Logging…";
                 statusValueLabel.ForeColor = Color.Green;
@@ -327,6 +329,7 @@ namespace LotusECMLogger.Controls
             try
             {
                 service.StopLogging();
+                LoggerStateChanged?.Invoke(false);
                 // Mint a fresh path so the next session gets its own file instead of overwriting this one.
                 csvPathTextBox.Text = LoggerPaths.TimestampedCsvPath("HighSpeed");
                 statusValueLabel.Text = "Stopped";
@@ -471,6 +474,7 @@ namespace LotusECMLogger.Controls
             SafeUIInvoke(() =>
             {
                 service.StopLogging();
+                LoggerStateChanged?.Invoke(false);
                 csvPathTextBox.Text = LoggerPaths.TimestampedCsvPath("HighSpeed");
                 statusValueLabel.Text = "Error";
                 statusValueLabel.ForeColor = Color.Red;

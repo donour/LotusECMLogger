@@ -114,6 +114,7 @@ namespace LotusECMLogger
                     Dock = DockStyle.Fill,
                     IsLoggerActive = false
                 };
+                hsControl.LoggerStateChanged += OnLoggerStateChanged;
                 highSpeedLogTab.Controls.Clear();
                 highSpeedLogTab.Controls.Add(hsControl);
             }
@@ -166,6 +167,9 @@ namespace LotusECMLogger
         {
             try
             {
+                if (obdLoggerControl != null)
+                    obdLoggerControl.IsLoggerActive = isLogging;
+
                 var ecuControl = codingDataTab.Controls.OfType<EcuCodingControl>().FirstOrDefault();
                 if (ecuControl != null)
                     ecuControl.IsLoggerActive = isLogging;

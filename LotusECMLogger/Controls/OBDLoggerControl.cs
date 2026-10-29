@@ -34,6 +34,17 @@ namespace LotusECMLogger.Controls
             public float Max;
         }
 
+        private bool externalLoggerActive;
+        [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
+        public bool IsLoggerActive
+        {
+            set
+            {
+                externalLoggerActive = value;
+                startLoggerButton.Enabled = !value && !IsLogging;
+            }
+        }
+
         private J2534LoggingService? logger;
         private ConcurrentDictionary<string, LiveDataStat> liveData = new();
         private DateTime lastUpdateTime = DateTime.Now;
@@ -56,7 +67,7 @@ namespace LotusECMLogger.Controls
                 if (_isLogging != value)
                 {
                     _isLogging = value;
-                    startLoggerButton.Enabled = !value;
+                    startLoggerButton.Enabled = !value && !externalLoggerActive;
                     stopLoggerButton.Enabled = value;
                     LoggerStateChanged?.Invoke(value);
                 }
@@ -129,6 +140,9 @@ namespace LotusECMLogger.Controls
 
         private void StartLoggerButton_Click(object? sender, EventArgs e)
         {
+            if (IsLogging || externalLoggerActive)
+                return;
+
             try
             {
                 ResetLiveDataView();
@@ -188,7 +202,8 @@ namespace LotusECMLogger.Controls
 
             if (InvokeRequired)
             {
-                try { Invoke(action); }
+                // The receive thread must keep draining CAN while the UI is busy or stopping.
+                try { BeginInvoke(() => { if (!IsDisposed && !Disposing) action(); }); }
                 catch (ObjectDisposedException) { }
                 catch (InvalidOperationException) { }
                 return;
@@ -303,7 +318,8 @@ namespace LotusECMLogger.Controls
         {
             SafeUIInvoke(() =>
             {
-                logger?.Stop();
+                logger?.Dispose();
+                logger = null;
                 IsLogging = false;
                 currentLogfileName.Text = "No Log File";
                 SetThreadExecutionState(ES_CONTINUOUS);

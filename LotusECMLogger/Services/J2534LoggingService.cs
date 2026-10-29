@@ -283,7 +283,7 @@ namespace LotusECMLogger.Services
                         {
                             if (cts.IsCancellationRequested) break;
                             absPressure?.Tick();
-                            Channel.SendMessages(Array.ConvertAll(chunk, b => new SAE.J2534.Message(b, Channel.DefaultTxFlags)));
+                            Channel.SendMessages(Array.ConvertAll(chunk, b => new SAE.J2534.Message(b, Channel.DefaultTxFlags))).ThrowIfError();
                             readings.AddRange(ReadPendingMessages(Channel));
                         }
                     }
