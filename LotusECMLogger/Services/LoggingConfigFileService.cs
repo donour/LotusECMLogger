@@ -128,6 +128,7 @@ namespace LotusECMLogger.Services
                 {
                     Name = config.Name ?? string.Empty,
                     Description = config.Description ?? string.Empty,
+                    LogAbsPressure = config.LogAbsPressure,
                     Ecus = config.Ecus.Select(CloneEcuGroup).ToList()
                 };
             }
@@ -143,6 +144,7 @@ namespace LotusECMLogger.Services
             {
                 Name = string.IsNullOrWhiteSpace(config.Name) ? "Logging Configuration" : config.Name,
                 Description = config.Description,
+                LogAbsPressure = config.LogAbsPressure,
                 Ecus =
                 [
                     new ECUGroupJson
@@ -169,6 +171,7 @@ namespace LotusECMLogger.Services
                 {
                     Name = config.Name?.Trim() ?? string.Empty,
                     Description = config.Description?.Trim() ?? string.Empty,
+                    LogAbsPressure = config.LogAbsPressure,
                     EcmHeader = BuildHeader(singleGroup.RequestId),
                     Requests = singleGroup.Requests.Select(CloneRequest).ToList()
                 };
@@ -178,6 +181,7 @@ namespace LotusECMLogger.Services
             {
                 Name = config.Name?.Trim() ?? string.Empty,
                 Description = config.Description?.Trim() ?? string.Empty,
+                LogAbsPressure = config.LogAbsPressure,
                 Ecus = groups
             };
         }

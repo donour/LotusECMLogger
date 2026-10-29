@@ -33,6 +33,7 @@ namespace LotusECMLogger.Controls
             configDescriptionTextBox = new TextBox();
             filePathLabel = new Label();
             filePathValueTextBox = new TextBox();
+            absPressureCheckBox = new CheckBox();
             editorSplitContainer = new SplitContainer();
             ecuGroupBox = new GroupBox();
             ecuLayout = new TableLayoutPanel();
@@ -175,7 +176,7 @@ namespace LotusECMLogger.Controls
             editorLayout.Name = "editorLayout";
             editorLayout.RowCount = 3;
             editorLayout.RowStyles.Add(new RowStyle());
-            editorLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 106F));
+            editorLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 132F));
             editorLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
             editorLayout.Size = new Size(694, 386);
             editorLayout.TabIndex = 0;
@@ -204,17 +205,28 @@ namespace LotusECMLogger.Controls
             metadataLayout.Controls.Add(configDescriptionTextBox, 1, 1);
             metadataLayout.Controls.Add(filePathLabel, 0, 2);
             metadataLayout.Controls.Add(filePathValueTextBox, 1, 2);
+            metadataLayout.Controls.Add(absPressureCheckBox, 1, 3);
             metadataLayout.Dock = DockStyle.Fill;
             metadataLayout.Location = new Point(2, 18);
             metadataLayout.Margin = new Padding(2);
             metadataLayout.Name = "metadataLayout";
-            metadataLayout.RowCount = 3;
+            metadataLayout.RowCount = 4;
             metadataLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 23F));
             metadataLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 37F));
             metadataLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 22F));
+            metadataLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 26F));
             metadataLayout.Size = new Size(686, 82);
             metadataLayout.TabIndex = 0;
             // 
+            // absPressureCheckBox
+            //
+            absPressureCheckBox.Anchor = AnchorStyles.Left;
+            absPressureCheckBox.AutoSize = true;
+            absPressureCheckBox.Name = "absPressureCheckBox";
+            absPressureCheckBox.Text = "Log ABS pressure (experimental)";
+            absPressureCheckBox.TabIndex = 6;
+            absPressureCheckBox.CheckedChanged += EditorField_TextChanged;
+            //
             // configNameLabel
             // 
             configNameLabel.Anchor = AnchorStyles.Left;
@@ -683,6 +695,7 @@ namespace LotusECMLogger.Controls
         private TextBox configDescriptionTextBox;
         private Label filePathLabel;
         private TextBox filePathValueTextBox;
+        private CheckBox absPressureCheckBox;
         private SplitContainer editorSplitContainer;
         private GroupBox ecuGroupBox;
         private TableLayoutPanel ecuLayout;

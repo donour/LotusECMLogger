@@ -16,6 +16,7 @@ namespace LotusECMLogger.Services
         private Thread? loggerThread;
         private Thread? csvWriterThread;
         private J2534Session? session;
+        private AbsPressurePoller? absPressure;
 
         /// <summary>
         /// The single stop signal for the logger thread. A token carries the memory barriers that a
@@ -31,7 +32,7 @@ namespace LotusECMLogger.Services
         /// stop signal and its wake-up in one, so there is no separate flag or wait handle that
         /// shutdown could dispose out from under a thread still parked on it.
         /// </summary>
-        private readonly BlockingCollection<(DateTime Timestamp, List<LiveDataReading> Readings)> csvWriteQueue = new();
+        private readonly BlockingCollection<(DateTime Timestamp, List<LiveDataReading> Readings, AbsPressureSnapshot? Pressure)> csvWriteQueue = new();
 
         /// <summary>
         /// Set once both workers have provably exited. Guards the disposal of everything they touch.
@@ -111,6 +112,10 @@ namespace LotusECMLogger.Services
             if (cts.IsCancellationRequested)
                 throw new InvalidOperationException(
                     "This logging session has already been stopped. Create a new J2534LoggingService.");
+
+            if (multiEcuConfig.LogAbsPressure && multiEcuConfig.ECUGroups.Any(g =>
+                g.ECU.RequestId == AbsPressureProtocol.RequestId || g.ECU.ResponseId == AbsPressureProtocol.ResponseId))
+                throw new InvalidOperationException("Remove custom ABS requests before enabling ABS pressure logging.");
 
             session = J2534Session.Open();
             try
@@ -202,10 +207,12 @@ namespace LotusECMLogger.Services
 
                 // Blocks until a batch arrives, and ends only once CompleteAdding() has been called
                 // AND the queue is empty — so rows already queued at shutdown are still written.
-                foreach ((DateTime timestamp, List<LiveDataReading> readings) in csvWriteQueue.GetConsumingEnumerable())
+                foreach (var (timestamp, readings, pressure) in csvWriteQueue.GetConsumingEnumerable())
                 {
                     foreach (LiveDataReading reading in readings)
                         sink.Set(reading.name, reading.value_f);
+
+                    pressure?.WriteTo(sink);
 
                     sink.WriteRow(timestamp);
                 }
@@ -227,6 +234,7 @@ namespace LotusECMLogger.Services
                 foreach (var request in group.Requests)
                     notes.Add($"  {request.Name} (Mode 0x{request.Mode:X2})");
             }
+            if (multiEcuConfig.LogAbsPressure) notes.Add(AbsPressureProtocol.Description);
             return notes;
         }
 
@@ -244,6 +252,9 @@ namespace LotusECMLogger.Services
                     Debug.WriteLine($"Added flow control filter: Pattern=0x{BitConverter.ToString(filter.Pattern).Replace("-", "")}, FlowControl=0x{BitConverter.ToString(filter.FlowControl).Replace("-", "")}");
                 }
 
+                if (multiEcuConfig.LogAbsPressure)
+                    absPressure = new AbsPressurePoller(Channel, false, () => cts.IsCancellationRequested);
+
                 // Build all messages grouped by ECU
                 var messagesByEcu = multiEcuConfig.BuildAllMessagesByECU();
 
@@ -259,18 +270,40 @@ namespace LotusECMLogger.Services
                 }
 
                 uint ui_update_counter = 0;
+                long nextPressureRowAt = 0;
                 while (!cts.IsCancellationRequested)
                 {
                     List<LiveDataReading> readings = [];
+                    absPressure?.Tick();
 
                     // Send requests to each ECU and collect responses
                     foreach (var (ecu, messages) in messagesByEcu)
                     {
                         foreach (var chunk in messages.Chunk(5))
                         {
-                            Channel.SendMessages(Array.ConvertAll(chunk, b => new SAE.J2534.Message(b, Channel.DefaultTxFlags)));
-                            readings.AddRange(ReadPendingMessages(Channel, ecu));
+                            if (cts.IsCancellationRequested) break;
+                            absPressure?.Tick();
+                            Channel.SendMessages(Array.ConvertAll(chunk, b => new SAE.J2534.Message(b, Channel.DefaultTxFlags))).ThrowIfError();
+                            readings.AddRange(ReadPendingMessages(Channel));
                         }
+                    }
+
+                    AbsPressureSnapshot? pressure = null;
+                    if (absPressure != null)
+                    {
+                        readings.AddRange(ReadPendingMessages(Channel));
+                        absPressure.Tick();
+                        // Also record unavailable pressure when no engine ECU answers, at up to 10 Hz.
+                        if (readings.Count == 0 && Environment.TickCount64 < nextPressureRowAt)
+                        {
+                            cts.Token.WaitHandle.WaitOne(2);
+                            continue;
+                        }
+                        nextPressureRowAt = Environment.TickCount64 + 100;
+                        pressure = absPressure.Snapshot();
+                        double[] values = pressure.Values;
+                        for (int i = 0; i < values.Length; i++)
+                            readings.Add(new LiveDataReading { name = AbsPressureProtocol.Columns[i], value_f = values[i] });
                     }
 
                     if (readings.Count > 0)
@@ -285,12 +318,13 @@ namespace LotusECMLogger.Services
                         }
 
                         // Queue data for background CSV writing (non-blocking)
-                        QueueDataForCSVWriting(timestamp, readings);
+                        QueueDataForCSVWriting(timestamp, readings, pressure);
                     }
                 }
             }
             finally
             {
+                absPressure = null;
                 session?.Dispose();
                 session = null;
             }
@@ -301,12 +335,12 @@ namespace LotusECMLogger.Services
         /// </summary>
         /// <param name="timestamp">When the ECU answered</param>
         /// <param name="readings">Data to write to CSV</param>
-        private void QueueDataForCSVWriting(DateTime timestamp, List<LiveDataReading> readings)
+        private void QueueDataForCSVWriting(DateTime timestamp, List<LiveDataReading> readings, AbsPressureSnapshot? pressure)
         {
             try
             {
                 // Create a copy to avoid shared memory issues between threads
-                csvWriteQueue.Add((timestamp, new List<LiveDataReading>(readings)));
+                csvWriteQueue.Add((timestamp, new List<LiveDataReading>(readings), pressure));
             }
             catch (InvalidOperationException)
             {
@@ -319,20 +353,24 @@ namespace LotusECMLogger.Services
         /// Read pending messages and parse them with ECU context
         /// </summary>
         /// <param name="channel">J2534 channel</param>
-        /// <param name="expectedEcu">ECU we expect responses from (for context-aware parsing)</param>
-        private List<LiveDataReading> ReadPendingMessages(J2534Channel channel, ECUDefinition expectedEcu)
+        private List<LiveDataReading> ReadPendingMessages(J2534Channel channel)
         {
             List<LiveDataReading> readings = [];
 
             // v2 ReadMessages returns an empty GetMessagesResult on timeout (Messages.Length == 0
             // ends the loop) rather than throwing, so no timeout handling is needed here.
-            GetMessagesResult resp;
-            do
+            for (int drained = 0; drained < 256 && !cts.IsCancellationRequested; drained++)
             {
-                resp = channel.ReadMessages(1, 0);
+                absPressure?.Tick();
+                var resp = channel.ReadMessages(1, 0);
+                if (!resp.IsSuccess && !resp.IsTimeout && resp.Status != ResultCode.BUFFER_EMPTY)
+                    throw new J2534Exception(resp.Status, "J2534 receive failed");
+                if (resp.Messages.Length == 0) break;
                 if (resp.Messages.Length > 0)
                 {
                     var mesg = resp.Messages[0];
+                    if (absPressure?.Receive(mesg) == true) continue;
+                    if (!AbsPressurePoller.IsData(mesg)) continue;
 
                     // Try to find which ECU this response is from
                     var matchingEcu = multiEcuConfig.FindECUForResponse(mesg.Data);
@@ -351,7 +389,7 @@ namespace LotusECMLogger.Services
                         readings.AddRange(LiveDataReading.ParseCanResponse(mesg.Data));
                     }
                 }
-            } while (resp.Messages.Length > 0);
+            }
 
             return readings;
         }

@@ -11,6 +11,9 @@ namespace LotusECMLogger
         public string Name { get; set; } = string.Empty;
         public string Description { get; set; } = string.Empty;
 
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+        public bool LogAbsPressure { get; set; }
+
         /// <summary>
         /// List of ECU groups (new multi-ECU format)
         /// </summary>
@@ -143,7 +146,8 @@ namespace LotusECMLogger
             var config = new MultiECUConfiguration
             {
                 Name = jsonConfig.Name,
-                Description = jsonConfig.Description
+                Description = jsonConfig.Description,
+                LogAbsPressure = jsonConfig.LogAbsPressure
             };
 
             if (jsonConfig.IsMultiECU)
@@ -240,6 +244,7 @@ namespace LotusECMLogger
             {
                 Name = config.Name,
                 Description = config.Description,
+                LogAbsPressure = config.LogAbsPressure,
                 Ecus = []
             };
 

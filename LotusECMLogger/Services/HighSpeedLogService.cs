@@ -72,6 +72,8 @@ namespace LotusECMLogger.Services
         private BlockingCollection<StreamWorkItem>? _writeQueue;
         private long _droppedFrames;
         private bool _pollAem;
+        private bool _logAbsPressure;
+        private AbsPressurePoller? _absPressure;
 
         public event EventHandler<HighSpeedSampleEventArgs>? DataReceived;
         public event EventHandler<string>? ErrorOccurred;
@@ -93,7 +95,7 @@ namespace LotusECMLogger.Services
         /// </summary>
         private readonly struct StreamWorkItem(
             byte[] payload, IReadOnlyList<HighSpeedChannel> layout, DateTime timestamp, ulong elapsedUs, byte label, bool overflow,
-            bool isAemSample = false)
+            bool isAemSample = false, AbsPressureSnapshot? pressure = null)
         {
             public byte[] Payload { get; } = payload;
             public IReadOnlyList<HighSpeedChannel> Layout { get; } = layout;
@@ -104,10 +106,11 @@ namespace LotusECMLogger.Services
 
             /// <summary>True for a polled AEM wideband reply (0x7E9) rather than a 0x351 stream frame.</summary>
             public bool IsAemSample { get; } = isAemSample;
+            public AbsPressureSnapshot? Pressure { get; } = pressure;
         }
 
         public void StartLogging(IReadOnlyList<(HighSpeedChannel channel, int rateHz)> channels, string csvFilePath,
-            bool pollAemWideband = false)
+            bool pollAemWideband = false, bool logAbsPressure = false)
         {
             lock (_lock)
             {
@@ -123,12 +126,15 @@ namespace LotusECMLogger.Services
                 // Log columns = the frame label, then the selected channels in selection order
                 // (de-duplicated by name).
                 _pollAem = pollAemWideband;
+                _logAbsPressure = logAbsPressure;
                 List<string> columnNames = [LabelColumn, .. channels.Select(c => c.channel.Name).Distinct()];
                 if (_pollAem)
                 {
                     columnNames.Add(IHighSpeedLogService.AemLambdaChannelName);
                     columnNames.Add(IHighSpeedLogService.AemAfrChannelName);
                 }
+
+                if (_logAbsPressure) columnNames.AddRange(AbsPressureProtocol.Columns);
 
                 try
                 {
@@ -285,6 +291,7 @@ namespace LotusECMLogger.Services
             List<string> notes = [];
             foreach (var (channel, rateHz) in channels)
                 notes.Add($"{channel.Name}: 0x{channel.Address:X8} size={channel.Size} {rateHz}Hz unit={channel.Unit}");
+            if (_logAbsPressure) notes.Add(AbsPressureProtocol.Description);
             if (_pollAem)
                 notes.Add($"AEM UEGO: OBD Mode 01 PID 0x24 @ 0x7E1, polled every {AemPollIntervalMs}ms (last-value-hold columns)");
 
@@ -292,7 +299,8 @@ namespace LotusECMLogger.Services
             _sink = new CsvSampleSink(
                 csvFilePath,
                 new SampleLogHeader("Lotus High-Speed CAN Channel Log", notes),
-                columns.Select(SampleColumn.Number));
+                columns.Select(SampleColumn.Number).Concat(_logAbsPressure
+                    ? [SampleColumn.Text(AbsPressureProtocol.StatusColumn)] : []));
         }
 
         private void LoggingThreadProc()
@@ -300,6 +308,8 @@ namespace LotusECMLogger.Services
             try
             {
                 ConfigureEcu();
+                if (_logAbsPressure && IsLogging)
+                    _absPressure = new AbsPressurePoller(_channel!, true, () => !IsLogging);
                 StreamLoop();
             }
             catch (Exception ex)
@@ -311,6 +321,7 @@ namespace LotusECMLogger.Services
             finally
             {
                 TrySendStop();
+                _absPressure = null;
                 // No more frames are coming — let the writer drain the backlog and exit.
                 try { _writeQueue?.CompleteAdding(); } catch (ObjectDisposedException) { }
             }
@@ -385,15 +396,21 @@ namespace LotusECMLogger.Services
 
             while (IsLogging)
             {
+                _absPressure?.Tick();
                 if (_pollAem && Environment.TickCount64 >= nextAemPollAt)
                 {
                     nextAemPollAt = Environment.TickCount64 + AemPollIntervalMs;
                     SendAemPoll();
                 }
 
-                var result = _channel!.ReadMessages(16, StreamReadTimeoutMs);
+                // Keep ISO-TP first-frame -> flow-control latency short even with slow engine channels.
+                var result = _channel!.ReadMessages(16, _absPressure != null ? 5 : StreamReadTimeoutMs);
+                if (!result.IsSuccess && !result.IsTimeout && result.Status != ResultCode.BUFFER_EMPTY)
+                    throw new J2534Exception(result.Status, "J2534 receive failed");
                 foreach (var msg in result.Messages)
                 {
+                    if (_absPressure?.Receive(msg) == true) continue;
+                    if (!AbsPressurePoller.IsData(msg)) continue;
                     if (msg.Data == null || msg.Data.Length < 5)
                         continue;
 
@@ -401,6 +418,7 @@ namespace LotusECMLogger.Services
                     byte b0 = msg.Data[4];
                     if (canId == StreamCanId && b0 == ResponseMarker)
                         continue; // stray command response during streaming
+                    if (canId != StreamCanId && canId != AemResponseCanId) continue;
 
                     // Advance the hardware-timestamp clock for every admitted frame (handles rollover).
                     // Stream and AEM frames share the adapter's counter, so one clock serves both.
@@ -434,7 +452,9 @@ namespace LotusECMLogger.Services
                             continue;
 
                         // Copy the payload (bytes after [header][label]) so it stays valid on the writer thread.
-                        item = new StreamWorkItem(msg.Data.AsSpan(5).ToArray(), layout, timestamp, elapsedUs, label, overflow);
+                        // Snapshot pressure here: the writer can run later and must not time it anew.
+                        item = new StreamWorkItem(msg.Data.AsSpan(5).ToArray(), layout, timestamp, elapsedUs, label, overflow,
+                            pressure: _absPressure?.Snapshot());
                     }
 
                     try
@@ -490,6 +510,13 @@ namespace LotusECMLogger.Services
             // A frame carries only its own group's channels; the rest of the row is carried forward
             // by the sink. The adapter's hardware timestamp times the row far more precisely than
             // wall-clock, which cannot separate frames read together in one batch.
+            if (item.Pressure is { } pressure && sink != null)
+            {
+                pressure.WriteTo(sink);
+                double[] values = pressure.Values;
+                for (int i = 0; i < values.Length; i++)
+                    readings.Add(new HighSpeedReading { Name = AbsPressureProtocol.Columns[i], Value = values[i] });
+            }
             sink?.Set(LabelColumn, item.Label);
             sink?.WriteRow(item.Timestamp, item.ElapsedUs / 1000.0);
 

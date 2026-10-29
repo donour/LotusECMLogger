@@ -42,6 +42,9 @@ namespace LotusECMLogger
         /// </summary>
         public string Description { get; set; } = "";
 
+        /// <summary>Opt in to experimental default-session ABS pressure polling alongside engine data.</summary>
+        public bool LogAbsPressure { get; set; }
+
         /// <summary>
         /// All ECU groups (ECU + requests) in this configuration
         /// </summary>

@@ -42,6 +42,11 @@ the `ecuVersion`). These CSVs live in the project and are build-copied to the ou
 
 ## Preset schema
 
+The optional top-level `"logAbsPressure": true` selects **ABS pressure (experimental)** when the
+preset loads. Missing/false leaves it off. The checkbox can override it before starting a log;
+the high-speed UI does not save preset edits. Pressure polling uses the same CAN receive thread
+and consumes no engine channel slots. See [ABS pressure logging](../../../README.md#abs-pressure-logging-experimental).
+
 ```jsonc
 {
   "name": "GT430 Sample (C132E0278)",

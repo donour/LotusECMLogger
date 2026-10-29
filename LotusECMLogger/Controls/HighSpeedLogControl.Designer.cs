@@ -37,6 +37,7 @@ namespace LotusECMLogger.Controls
             startButton = new Button();
             stopButton = new Button();
             aemToggleButton = new CheckBox();
+            absPressureToggle = new CheckBox();
             gridGroupBox = new GroupBox();
             channelToolbar = new FlowLayoutPanel();
             removeChannelButton = new Button();
@@ -188,9 +189,11 @@ namespace LotusECMLogger.Controls
             buttonPanel.Controls.Add(startButton);
             buttonPanel.Controls.Add(stopButton);
             buttonPanel.Controls.Add(aemToggleButton);
+            buttonPanel.Controls.Add(absPressureToggle);
+            buttonPanel.Dock = DockStyle.Fill;
             buttonPanel.Margin = new Padding(0);
             buttonPanel.Name = "buttonPanel";
-            buttonPanel.WrapContents = false;
+            buttonPanel.WrapContents = true;
             buttonPanel.TabIndex = 2;
             //
             // testConnectionButton
@@ -229,6 +232,15 @@ namespace LotusECMLogger.Controls
             aemToggleButton.Text = "AEM Wideband";
             aemToggleButton.TabIndex = 3;
             aemToggleButton.UseVisualStyleBackColor = true;
+            //
+            // absPressureToggle
+            //
+            absPressureToggle.Anchor = AnchorStyles.None;
+            absPressureToggle.AutoSize = true;
+            absPressureToggle.Name = "absPressureToggle";
+            absPressureToggle.Text = "ABS pressure (experimental)";
+            absPressureToggle.TabIndex = 4;
+            absPressureToggle.UseVisualStyleBackColor = true;
             //
             // gridGroupBox
             //
@@ -469,6 +481,7 @@ namespace LotusECMLogger.Controls
         private Button startButton;
         private Button stopButton;
         private CheckBox aemToggleButton;
+        private CheckBox absPressureToggle;
         private GroupBox gridGroupBox;
         private FlowLayoutPanel channelToolbar;
         private Button removeChannelButton;
