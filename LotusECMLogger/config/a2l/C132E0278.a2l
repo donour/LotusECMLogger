@@ -1,7 +1,7 @@
 ﻿ASAP2_VERSION 1 61
 /*
  * Drafted by LotusECMLogger A2lGenerator v1 from the C132E0278 symbol catalog for C132E0278.
- * 132 axes have an InputQuantity from the reviewed <build>.inputs.csv; the rest have
+ * 238 axes have an InputQuantity from the reviewed <build>.inputs.csv; the rest have
  * NO_INPUT_QUANTITY. Bind more only after checking the lookup in the decompile
  * (scope, conditions, input transforms; CCP-client-plan.md section 5). Inputs are raw values, as the lookups compare them.
  * Maps are ROW_DIR: the first AXIS_DESCR is X, stored fastest, as the firmware reads lut[y * size_x + x].
@@ -1227,29 +1227,29 @@
     /end CHARACTERISTIC
     /begin CHARACTERISTIC CAL_cluster_fuel_usage_reset_request_timer "Calibration: cluster fuel usage reset request timer (ms = val*100)." VALUE 0x400089C9 RL_VALUE_UBYTE 0 CM_u8_time_100ms 0 25500
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_tpssmooth_rate_decay_opening_X_rpm "Calibration: X-axis (rpm) for the tpssmooth rate decay opening table (RPM = val*125/4+500; 8-element array)." 0x40008A6A NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 8 500 8468.75
+    /begin AXIS_PTS CAL_tpssmooth_rate_decay_opening_X_rpm "Calibration: X-axis (rpm) for the tpssmooth rate decay opening table (RPM = val*125/4+500; 8-element array)." 0x40008A6A engine_speed_8bit RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 8 500 8468.75
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_tpssmooth_rate_decay_opening "Calibration: tpssmooth rate decay opening (8-element array)." CURVE 0x40008A72 RL_VALUE_UBYTE 0 CM_u16_factor_1_1023 0 24.9266862170088
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_rspeed_125_4_500rpm 8 500 8468.75
+      /begin AXIS_DESCR COM_AXIS engine_speed_8bit CM_u8_rspeed_125_4_500rpm 8 500 8468.75
         AXIS_PTS_REF CAL_tpssmooth_rate_decay_opening_X_rpm
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_tpssmooth_rate_decay_closing_X_rpm "Calibration: X-axis (rpm) for the tpssmooth rate decay closing table (RPM = val*125/4+500; 8-element array)." 0x40008A7A NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 8 500 8468.75
+    /begin AXIS_PTS CAL_tpssmooth_rate_decay_closing_X_rpm "Calibration: X-axis (rpm) for the tpssmooth rate decay closing table (RPM = val*125/4+500; 8-element array)." 0x40008A7A engine_speed_8bit RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 8 500 8468.75
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_tpssmooth_rate_decay_closing "Calibration: tpssmooth rate decay closing (8-element array)." CURVE 0x40008A82 RL_VALUE_UBYTE 0 CM_u16_factor_1_1023 0 24.9266862170088
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_rspeed_125_4_500rpm 8 500 8468.75
+      /begin AXIS_DESCR COM_AXIS engine_speed_8bit CM_u8_rspeed_125_4_500rpm 8 500 8468.75
         AXIS_PTS_REF CAL_tpssmooth_rate_decay_closing_X_rpm
       /end AXIS_DESCR
     /end CHARACTERISTIC
     /begin AXIS_PTS CAL_injtip_transient_throttle_response_time_X_coolant_tmp "Calibration: X-axis (coolant tmp) for the injector tip-in transient throttle response time table (°C = val*5/8−40; 8-element array)." 0x40008A8A coolant_temp RL_AXIS_UBYTE 0 CM_u8_temp_5_8_40c 8 -40 119.375
     /end AXIS_PTS
-    /begin AXIS_PTS CAL_injtip_transient_throttle_response_time_Y_rpm "Calibration: Y-axis (rpm) for the injector tip-in transient throttle response time table (RPM = val*125/4+500; 8-element array)." 0x40008A92 NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 8 500 8468.75
+    /begin AXIS_PTS CAL_injtip_transient_throttle_response_time_Y_rpm "Calibration: Y-axis (rpm) for the injector tip-in transient throttle response time table (RPM = val*125/4+500; 8-element array)." 0x40008A92 engine_speed_8bit RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 8 500 8468.75
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_injtip_transient_throttle_response_time "Calibration: injector tip-in transient throttle response time (ms = val*5; 64-element array)." MAP 0x40008A9A RL_VALUE_UBYTE 0 CM_u8_time_5ms 0 1275
       /begin AXIS_DESCR COM_AXIS coolant_temp CM_u8_temp_5_8_40c 8 -40 119.375
         AXIS_PTS_REF CAL_injtip_transient_throttle_response_time_X_coolant_tmp
       /end AXIS_DESCR
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_rspeed_125_4_500rpm 8 500 8468.75
+      /begin AXIS_DESCR COM_AXIS engine_speed_8bit CM_u8_rspeed_125_4_500rpm 8 500 8468.75
         AXIS_PTS_REF CAL_injtip_transient_throttle_response_time_Y_rpm
       /end AXIS_DESCR
     /end CHARACTERISTIC
@@ -1260,15 +1260,15 @@
         AXIS_PTS_REF CAL_injtip_comp_load1_X_load
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_inj_warmup_factor_ips_X_load "Calibration: X-axis (load) for the injector enrichment factor load n coolant IPS table (mg/stroke = val*4; 12-element array)." 0x40008AFA NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_load_4mg_stroke 12 0 1020
+    /begin AXIS_PTS CAL_inj_warmup_factor_ips_X_load "Calibration: X-axis (load) for the injector enrichment factor load n coolant IPS table (mg/stroke = val*4; 12-element array)." 0x40008AFA load_mass_per_stroke RL_AXIS_UBYTE 0 CM_u8_load_4mg_stroke 12 0 1020
     /end AXIS_PTS
-    /begin AXIS_PTS CAL_inj_warmup_factor_ips_Y_coolant "Calibration: Y-axis (coolant) for the injector enrichment factor load n coolant IPS table (°C = val*5/8−40; 16-element array)." 0x40008B06 NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_temp_5_8_40c 16 -40 119.375
+    /begin AXIS_PTS CAL_inj_warmup_factor_ips_Y_coolant "Calibration: Y-axis (coolant) for the injector enrichment factor load n coolant IPS table (°C = val*5/8−40; 16-element array)." 0x40008B06 coolant_temp RL_AXIS_UBYTE 0 CM_u8_temp_5_8_40c 16 -40 119.375
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_inj_warmup_factor_ips "Calibration: injector enrichment factor load n coolant IPS (val/64; 192-element array)." MAP 0x40008B16 RL_VALUE_UBYTE 0 CM_u8_factor_1_64 0 398.4375
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_load_4mg_stroke 12 0 1020
+      /begin AXIS_DESCR COM_AXIS load_mass_per_stroke CM_u8_load_4mg_stroke 12 0 1020
         AXIS_PTS_REF CAL_inj_warmup_factor_ips_X_load
       /end AXIS_DESCR
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_temp_5_8_40c 16 -40 119.375
+      /begin AXIS_DESCR COM_AXIS coolant_temp CM_u8_temp_5_8_40c 16 -40 119.375
         AXIS_PTS_REF CAL_inj_warmup_factor_ips_Y_coolant
       /end AXIS_DESCR
     /end CHARACTERISTIC
@@ -1356,10 +1356,10 @@
         AXIS_PTS_REF CAL_injtip_dfco_enable_rpm_manual_alt_X_coolant_temp
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_ac_load_limit_X_rpm "Calibration: X-axis (rpm) for the A/C load limit table (RPM = val*125/4+500; 4-element array)." 0x40008D48 NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 4 500 8468.75
+    /begin AXIS_PTS CAL_ac_load_limit_X_rpm "Calibration: X-axis (rpm) for the A/C load limit table (RPM = val*125/4+500; 4-element array)." 0x40008D48 engine_speed_8bit RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 4 500 8468.75
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_ac_load_limit "Calibration: A/C load limit (4-element array)." CURVE 0x40008D4C RL_VALUE_UBYTE 0 NO_COMPU_METHOD 0 255
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_rspeed_125_4_500rpm 4 500 8468.75
+      /begin AXIS_DESCR COM_AXIS engine_speed_8bit CM_u8_rspeed_125_4_500rpm 4 500 8468.75
         AXIS_PTS_REF CAL_ac_load_limit_X_rpm
       /end AXIS_DESCR
     /end CHARACTERISTIC
@@ -1400,24 +1400,24 @@
         AXIS_PTS_REF CAL_ign_comp_idle_error_moving_X_rpm
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_ign_target_step_advance_accel_pedal_manual_X_rpm "Calibration: X-axis (engine speed) for the ignition compensation throttle position manual table (RPM = val*125/4+500; 8-element array)." 0x40008DB0 NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 8 500 8468.75
+    /begin AXIS_PTS CAL_ign_target_step_advance_accel_pedal_manual_X_rpm "Calibration: X-axis (engine speed) for the ignition compensation throttle position manual table (RPM = val*125/4+500; 8-element array)." 0x40008DB0 engine_speed_8bit RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 8 500 8468.75
     /end AXIS_PTS
     /begin AXIS_PTS CAL_ign_target_step_advance_accel_pedal_manual_Y_pps "Calibration: Y-axis (accel pedal) for the ignition compensation throttle position manual table (val/255; 8-element array)." 0x40008DB8 NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_factor_1_255 8 0 100
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_ign_target_step_advance_accel_pedal_manual "ign_target_step_advance — how fast timing comes back. This table sets the rate limit on ignition timing moving in the advance direction: when the ECU's timing target rises above what's currently being run, this is the biggest bite it's allowed to tak" MAP 0x40008DC0 RL_VALUE_UBYTE 0 CM_u8_angle_1_4deg 0 63.75
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_rspeed_125_4_500rpm 8 500 8468.75
+      /begin AXIS_DESCR COM_AXIS engine_speed_8bit CM_u8_rspeed_125_4_500rpm 8 500 8468.75
         AXIS_PTS_REF CAL_ign_target_step_advance_accel_pedal_manual_X_rpm
       /end AXIS_DESCR
       /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_factor_1_255 8 0 100
         AXIS_PTS_REF CAL_ign_target_step_advance_accel_pedal_manual_Y_pps
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_ign_target_step_advance_accel_pedal_ips_X_rpm "Calibration: X-axis (engine speed) for the ignition compensation throttle position IPS table (RPM = val*125/4+500; 7-element array)." 0x40008E00 NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 7 500 8468.75
+    /begin AXIS_PTS CAL_ign_target_step_advance_accel_pedal_ips_X_rpm "Calibration: X-axis (engine speed) for the ignition compensation throttle position IPS table (RPM = val*125/4+500; 7-element array)." 0x40008E00 engine_speed_8bit RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 7 500 8468.75
     /end AXIS_PTS
     /begin AXIS_PTS CAL_ign_target_step_advance_accel_pedal_ips_Y_pps "Calibration: Y-axis (pedal pos) for the ignition compensation throttle position IPS table (val/255; 8-element array)." 0x40008E07 NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_factor_1_255 8 0 100
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_ign_target_step_advance_accel_pedal_ips "ign_target_step_advance — how fast timing comes back. This table sets the rate limit on ignition timing moving in the advance direction: when the ECU's timing target rises above what's currently being run, this is the biggest bite it's allowed to tak" MAP 0x40008E0F RL_VALUE_UBYTE 0 CM_u8_angle_1_4deg 0 63.75
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_rspeed_125_4_500rpm 7 500 8468.75
+      /begin AXIS_DESCR COM_AXIS engine_speed_8bit CM_u8_rspeed_125_4_500rpm 7 500 8468.75
         AXIS_PTS_REF CAL_ign_target_step_advance_accel_pedal_ips_X_rpm
       /end AXIS_DESCR
       /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_factor_1_255 8 0 100
@@ -1441,12 +1441,12 @@
     /begin CHARACTERISTIC CAL_closedloop_activate_engine_timer "Calibration: closedloop activate engine timer (s; 16-element array)." VAL_BLK 0x40008E62 RL_VALUE_UBYTE 0 CM_u8_time_s 0 255
       NUMBER 16
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_vvt_intake_advance_base_X_engine_speed "Calibration: X-axis (engine speed) for the VVT intake advance base table (RPM = val*125/4+500; 16-element array)." 0x40008E7A NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 16 500 8468.75
+    /begin AXIS_PTS CAL_vvt_intake_advance_base_X_engine_speed "Calibration: X-axis (engine speed) for the VVT intake advance base table (RPM = val*125/4+500; 16-element array)." 0x40008E7A engine_speed_8bit RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 16 500 8468.75
     /end AXIS_PTS
     /begin AXIS_PTS CAL_vvt_intake_advance_base_Y_load "Calibration: Y-axis (load) for the VVT intake advance base table (mg/stroke = val*4; 16-element array)." 0x40008E8A load_mass_per_stroke RL_AXIS_UBYTE 0 CM_u8_load_4mg_stroke 16 0 1020
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_vvt_intake_advance_base "Calibration: VVT intake advance base (° = val/4; 256-element array)." MAP 0x40008E9A RL_VALUE_UBYTE 0 CM_u8_angle_1_4deg 0 63.75
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_rspeed_125_4_500rpm 16 500 8468.75
+      /begin AXIS_DESCR COM_AXIS engine_speed_8bit CM_u8_rspeed_125_4_500rpm 16 500 8468.75
         AXIS_PTS_REF CAL_vvt_intake_advance_base_X_engine_speed
       /end AXIS_DESCR
       /begin AXIS_DESCR COM_AXIS load_mass_per_stroke CM_u8_load_4mg_stroke 16 0 1020
@@ -1462,25 +1462,25 @@
     /end CHARACTERISTIC
     /begin AXIS_PTS CAL_inj_post_start_trim_decay_rich_X_mass_accum "u8_mass_32mg[8]" 0x40008FBA NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_mass_32mg 8 0 8160
     /end AXIS_PTS
-    /begin AXIS_PTS CAL_inj_post_start_trim_decay_rich_Y_coolant_temp "u8_temp_5/8-40c[8]" 0x40008FC2 NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_temp_5_8_40c 8 -40 119.375
+    /begin AXIS_PTS CAL_inj_post_start_trim_decay_rich_Y_coolant_temp "u8_temp_5/8-40c[8]" 0x40008FC2 coolant_temp_engine_stopped RL_AXIS_UBYTE 0 CM_u8_temp_5_8_40c 8 -40 119.375
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_inj_post_start_trim_decay_rich "uint8_t[64]" MAP 0x40008FCA RL_VALUE_UBYTE 0 NO_COMPU_METHOD 0 255
       /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_mass_32mg 8 0 8160
         AXIS_PTS_REF CAL_inj_post_start_trim_decay_rich_X_mass_accum
       /end AXIS_DESCR
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_temp_5_8_40c 8 -40 119.375
+      /begin AXIS_DESCR COM_AXIS coolant_temp_engine_stopped CM_u8_temp_5_8_40c 8 -40 119.375
         AXIS_PTS_REF CAL_inj_post_start_trim_decay_rich_Y_coolant_temp
       /end AXIS_DESCR
     /end CHARACTERISTIC
     /begin AXIS_PTS CAL_inj_post_start_trim_decay_lean_X_maf_accum "u8_mass_32mg[8]" 0x4000900A NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_mass_32mg 8 0 8160
     /end AXIS_PTS
-    /begin AXIS_PTS CAL_inj_post_start_trim_decay_lean_Y_coolant_temp "u8_temp_5/8-40c[8]" 0x40009012 NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_temp_5_8_40c 8 -40 119.375
+    /begin AXIS_PTS CAL_inj_post_start_trim_decay_lean_Y_coolant_temp "u8_temp_5/8-40c[8]" 0x40009012 coolant_temp_engine_stopped RL_AXIS_UBYTE 0 CM_u8_temp_5_8_40c 8 -40 119.375
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_inj_post_start_trim_decay_lean "uint8_t[64]" MAP 0x4000901A RL_VALUE_UBYTE 0 NO_COMPU_METHOD 0 255
       /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_mass_32mg 8 0 8160
         AXIS_PTS_REF CAL_inj_post_start_trim_decay_lean_X_maf_accum
       /end AXIS_DESCR
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_temp_5_8_40c 8 -40 119.375
+      /begin AXIS_DESCR COM_AXIS coolant_temp_engine_stopped CM_u8_temp_5_8_40c 8 -40 119.375
         AXIS_PTS_REF CAL_inj_post_start_trim_decay_lean_Y_coolant_temp
       /end AXIS_DESCR
     /end CHARACTERISTIC
@@ -1491,10 +1491,10 @@
         AXIS_PTS_REF CAL_torque_engine_ac_load_base_X_ac
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_load_alphaN_seed_X_tps "Calibration: X-axis (tps) for the load alphaN seed table (val/255; 16-element array)." 0x40009162 NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_factor_1_255 16 0 100
+    /begin AXIS_PTS CAL_load_alphaN_seed_X_tps "Calibration: X-axis (tps) for the load alphaN seed table (val/255; 16-element array)." 0x40009162 tps_8bit RL_AXIS_UBYTE 0 CM_u8_factor_1_255 16 0 100
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_load_alphaN_seed "Calibration: load alphaN seed (mg/stroke = val*4; 16-element array)." CURVE 0x40009172 RL_VALUE_UBYTE 0 CM_u8_load_4mg_stroke 0 1020
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_factor_1_255 16 0 100
+      /begin AXIS_DESCR COM_AXIS tps_8bit CM_u8_factor_1_255 16 0 100
         AXIS_PTS_REF CAL_load_alphaN_seed_X_tps
       /end AXIS_DESCR
     /end CHARACTERISTIC
@@ -1532,10 +1532,10 @@
     /end CHARACTERISTIC
     /begin CHARACTERISTIC CAL_idle_air_warmup_factor_manual "undefined" VALUE 0x400091FA RL_VALUE_ULONG 0 NO_COMPU_METHOD 0 4294967295
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_tpssmooth_increment_rpm_X_rpm "Calibration: X-axis (rpm) for the tpssmooth increment RPM table (RPM = val*125/4+500; 8-element array)." 0x4000927A NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 8 500 8468.75
+    /begin AXIS_PTS CAL_tpssmooth_increment_rpm_X_rpm "Calibration: X-axis (rpm) for the tpssmooth increment RPM table (RPM = val*125/4+500; 8-element array)." 0x4000927A engine_speed_8bit RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 8 500 8468.75
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_tpssmooth_increment_rpm "Calibration: tpssmooth increment RPM (val/255; 8-element array)." CURVE 0x40009282 RL_VALUE_UBYTE 0 CM_u8_factor_1_255 0 100
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_rspeed_125_4_500rpm 8 500 8468.75
+      /begin AXIS_DESCR COM_AXIS engine_speed_8bit CM_u8_rspeed_125_4_500rpm 8 500 8468.75
         AXIS_PTS_REF CAL_tpssmooth_increment_rpm_X_rpm
       /end AXIS_DESCR
     /end CHARACTERISTIC
@@ -1574,17 +1574,17 @@
         AXIS_PTS_REF CAL_ign_comp_engine_air_X_air_temp
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_injtip_in_rpm_scale_X_rpm "Calibration: X-axis (rpm) for the injector tip-in in RPM scale table (RPM = val*125/4+500; 16-element array)." 0x4000933A NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 16 500 8468.75
+    /begin AXIS_PTS CAL_injtip_in_rpm_scale_X_rpm "Calibration: X-axis (rpm) for the injector tip-in in RPM scale table (RPM = val*125/4+500; 16-element array)." 0x4000933A engine_speed_8bit RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 16 500 8468.75
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_injtip_in_rpm_scale "Calibration: injector tip-in in RPM scale (16-element array)." CURVE 0x4000934A RL_VALUE_UBYTE 0 NO_COMPU_METHOD 0 255
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_rspeed_125_4_500rpm 16 500 8468.75
+      /begin AXIS_DESCR COM_AXIS engine_speed_8bit CM_u8_rspeed_125_4_500rpm 16 500 8468.75
         AXIS_PTS_REF CAL_injtip_in_rpm_scale_X_rpm
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_injtip_in_rpm_decay_X_rpm "Calibration: X-axis (rpm) for the injector tip-in in RPM decay table (RPM = val*125/4+500; 16-element array)." 0x4000935A NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 16 500 8468.75
+    /begin AXIS_PTS CAL_injtip_in_rpm_decay_X_rpm "Calibration: X-axis (rpm) for the injector tip-in in RPM decay table (RPM = val*125/4+500; 16-element array)." 0x4000935A engine_speed_8bit RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 16 500 8468.75
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_injtip_in_rpm_decay "Calibration: injector tip-in in RPM decay (16-element array)." CURVE 0x4000936A RL_VALUE_UBYTE 0 NO_COMPU_METHOD 0 255
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_rspeed_125_4_500rpm 16 500 8468.75
+      /begin AXIS_DESCR COM_AXIS engine_speed_8bit CM_u8_rspeed_125_4_500rpm 16 500 8468.75
         AXIS_PTS_REF CAL_injtip_in_rpm_decay_X_rpm
       /end AXIS_DESCR
     /end CHARACTERISTIC
@@ -1595,17 +1595,17 @@
         AXIS_PTS_REF CAL_injtip_in_coolant_scale_X_coolant_temp
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_injtip_out_rpm_scale_X_rpm "Calibration: X-axis (rpm) for the injector tip-in out RPM scale table (RPM = val*125/4+500; 16-element array)." 0x4000939A NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 16 500 8468.75
+    /begin AXIS_PTS CAL_injtip_out_rpm_scale_X_rpm "Calibration: X-axis (rpm) for the injector tip-in out RPM scale table (RPM = val*125/4+500; 16-element array)." 0x4000939A engine_speed_8bit RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 16 500 8468.75
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_injtip_out_rpm_scale "Calibration: injector tip-in out RPM scale (16-element array)." CURVE 0x400093AA RL_VALUE_UBYTE 0 NO_COMPU_METHOD 0 255
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_rspeed_125_4_500rpm 16 500 8468.75
+      /begin AXIS_DESCR COM_AXIS engine_speed_8bit CM_u8_rspeed_125_4_500rpm 16 500 8468.75
         AXIS_PTS_REF CAL_injtip_out_rpm_scale_X_rpm
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_injtip_out_rpm_decay_X_rpm "Calibration: X-axis (rpm) for the injector tip-in out RPM decay table (RPM = val*125/4+500; 16-element array)." 0x400093BA NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 16 500 8468.75
+    /begin AXIS_PTS CAL_injtip_out_rpm_decay_X_rpm "Calibration: X-axis (rpm) for the injector tip-in out RPM decay table (RPM = val*125/4+500; 16-element array)." 0x400093BA engine_speed_8bit RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 16 500 8468.75
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_injtip_out_rpm_decay "Calibration: injector tip-in out RPM decay (val/1023; 16-element array)." CURVE 0x400093CA RL_VALUE_UBYTE 0 CM_u16_factor_1_1023 0 24.9266862170088
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_rspeed_125_4_500rpm 16 500 8468.75
+      /begin AXIS_DESCR COM_AXIS engine_speed_8bit CM_u8_rspeed_125_4_500rpm 16 500 8468.75
         AXIS_PTS_REF CAL_injtip_out_rpm_decay_X_rpm
       /end AXIS_DESCR
     /end CHARACTERISTIC
@@ -1616,24 +1616,24 @@
         AXIS_PTS_REF CAL_injtip_out_coolant_scale_X_rpm
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_ign_limit_first_gear_manual_X_engine_speed "Calibration: X-axis (engine speed) for the ignition limit first gear manual table (RPM = val*125/4+500; 8-element array)." 0x4000940A NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 8 500 8468.75
+    /begin AXIS_PTS CAL_ign_limit_first_gear_manual_X_engine_speed "Calibration: X-axis (engine speed) for the ignition limit first gear manual table (RPM = val*125/4+500; 8-element array)." 0x4000940A engine_speed_8bit RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 8 500 8468.75
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_ign_limit_first_gear_manual "Calibration: ignition limit first gear manual (° = val/4−10; 8-element array)." CURVE 0x40009412 RL_VALUE_UBYTE 0 CM_u8_angle_1_4_10deg -10 53.75
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_rspeed_125_4_500rpm 8 500 8468.75
+      /begin AXIS_DESCR COM_AXIS engine_speed_8bit CM_u8_rspeed_125_4_500rpm 8 500 8468.75
         AXIS_PTS_REF CAL_ign_limit_first_gear_manual_X_engine_speed
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_idle_comp_baro2_X_ambient_baro "Calibration: X-axis (ambiant baro) for the idle compensation baro2 table (mbar; 8-element array)." 0x4000941A NO_INPUT_QUANTITY RL_AXIS_UWORD 0 CM_u16_pressure_mbar 8 0 65535
+    /begin AXIS_PTS CAL_idle_comp_baro2_X_ambient_baro "Calibration: X-axis (ambiant baro) for the idle compensation baro2 table (mbar; 8-element array)." 0x4000941A obd_ii_atmospheric_baro RL_AXIS_UWORD 0 CM_u16_pressure_mbar 8 0 65535
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_idle_comp_baro2 "Calibration: idle compensation baro2 (8-element array)." CURVE 0x4000942A RL_VALUE_SWORD 0 NO_COMPU_METHOD -32768 32767
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u16_pressure_mbar 8 0 65535
+      /begin AXIS_DESCR COM_AXIS obd_ii_atmospheric_baro CM_u16_pressure_mbar 8 0 65535
         AXIS_PTS_REF CAL_idle_comp_baro2_X_ambient_baro
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_tpssmooth_decrement_by_rpm_X_rpm "Calibration: X-axis (rpm) for the tpssmooth decrement by RPM table (RPM = val*125/4+500; 8-element array)." 0x4000945A NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 8 500 8468.75
+    /begin AXIS_PTS CAL_tpssmooth_decrement_by_rpm_X_rpm "Calibration: X-axis (rpm) for the tpssmooth decrement by RPM table (RPM = val*125/4+500; 8-element array)." 0x4000945A engine_speed_8bit RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 8 500 8468.75
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_tpssmooth_decrement_by_rpm "Calibration: tpssmooth decrement by RPM (val/255; 8-element array)." CURVE 0x40009462 RL_VALUE_UBYTE 0 CM_u8_factor_1_255 0 100
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_rspeed_125_4_500rpm 8 500 8468.75
+      /begin AXIS_DESCR COM_AXIS engine_speed_8bit CM_u8_rspeed_125_4_500rpm 8 500 8468.75
         AXIS_PTS_REF CAL_tpssmooth_decrement_by_rpm_X_rpm
       /end AXIS_DESCR
     /end CHARACTERISTIC
@@ -1658,10 +1658,10 @@
         AXIS_PTS_REF CAL_cruise_derivative_gain_manual_cr_X_gear
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_tps_scaling_factor_rpm_X_rpm "Calibration: X-axis (rpm) for the throttle position scaling factor RPM table (RPM = val*125/4+500; 16-element array)." 0x40009482 NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 16 500 8468.75
+    /begin AXIS_PTS CAL_tps_scaling_factor_rpm_X_rpm "Calibration: X-axis (rpm) for the throttle position scaling factor RPM table (RPM = val*125/4+500; 16-element array)." 0x40009482 engine_speed_8bit RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 16 500 8468.75
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_tps_scaling_factor_rpm "Calibration: throttle position scaling factor RPM (val/255; 16-element array)." CURVE 0x40009492 RL_VALUE_UBYTE 0 CM_u8_factor_1_255 0 100
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_rspeed_125_4_500rpm 16 500 8468.75
+      /begin AXIS_DESCR COM_AXIS engine_speed_8bit CM_u8_rspeed_125_4_500rpm 16 500 8468.75
         AXIS_PTS_REF CAL_tps_scaling_factor_rpm_X_rpm
       /end AXIS_DESCR
     /end CHARACTERISTIC
@@ -1672,63 +1672,63 @@
         AXIS_PTS_REF CAL_injtip_dfco_enable_rpm_ips_alt_X_coolant_temp
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_closedloop_proportional_gain_rich_table_X_rpm "Calibration: X-axis (rpm) for the closedloop proportional gain rich table table (RPM = val*125/4+500; 8-element array)." 0x400094BA NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 8 500 8468.75
+    /begin AXIS_PTS CAL_closedloop_proportional_gain_rich_table_X_rpm "Calibration: X-axis (rpm) for the closedloop proportional gain rich table table (RPM = val*125/4+500; 8-element array)." 0x400094BA engine_speed_8bit RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 8 500 8468.75
     /end AXIS_PTS
     /begin AXIS_PTS CAL_closedloop_proportional_gain_rich_table_Y_load "Calibration: Y-axis (load) for the closedloop proportional gain rich table table (mg/stroke = val*4; 8-element array)." 0x400094C2 load_mass_per_stroke RL_AXIS_UBYTE 0 CM_u8_load_4mg_stroke 8 0 1020
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_closedloop_proportional_gain_rich_table "Calibration: closedloop proportional gain rich table (val/255; 64-element array)." MAP 0x400094CA RL_VALUE_UBYTE 0 CM_u8_factor_1_255 0 100
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_rspeed_125_4_500rpm 8 500 8468.75
+      /begin AXIS_DESCR COM_AXIS engine_speed_8bit CM_u8_rspeed_125_4_500rpm 8 500 8468.75
         AXIS_PTS_REF CAL_closedloop_proportional_gain_rich_table_X_rpm
       /end AXIS_DESCR
       /begin AXIS_DESCR COM_AXIS load_mass_per_stroke CM_u8_load_4mg_stroke 8 0 1020
         AXIS_PTS_REF CAL_closedloop_proportional_gain_rich_table_Y_load
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_closedloop_proportional_gain_lean_table_X_rpm "Calibration: X-axis (rpm) for the closedloop proportional gain lean table table (RPM = val*125/4+500; 8-element array)." 0x4000950A NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 8 500 8468.75
+    /begin AXIS_PTS CAL_closedloop_proportional_gain_lean_table_X_rpm "Calibration: X-axis (rpm) for the closedloop proportional gain lean table table (RPM = val*125/4+500; 8-element array)." 0x4000950A engine_speed_8bit RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 8 500 8468.75
     /end AXIS_PTS
     /begin AXIS_PTS CAL_closedloop_proportional_gain_lean_table_Y_load "Calibration: Y-axis (load) for the closedloop proportional gain lean table table (mg/stroke = val*4; 8-element array)." 0x40009512 load_mass_per_stroke RL_AXIS_UBYTE 0 CM_u8_load_4mg_stroke 8 0 1020
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_closedloop_proportional_gain_lean_table "Calibration: closedloop proportional gain lean table (val/255; 64-element array)." MAP 0x4000951A RL_VALUE_UBYTE 0 CM_u8_factor_1_255 0 100
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_rspeed_125_4_500rpm 8 500 8468.75
+      /begin AXIS_DESCR COM_AXIS engine_speed_8bit CM_u8_rspeed_125_4_500rpm 8 500 8468.75
         AXIS_PTS_REF CAL_closedloop_proportional_gain_lean_table_X_rpm
       /end AXIS_DESCR
       /begin AXIS_DESCR COM_AXIS load_mass_per_stroke CM_u8_load_4mg_stroke 8 0 1020
         AXIS_PTS_REF CAL_closedloop_proportional_gain_lean_table_Y_load
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_closedloop_integral_gain_table_X_rpm "Calibration: X-axis (rpm) for the closedloop integral gain table table (RPM = val*125/4+500; 8-element array)." 0x4000955A NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 8 500 8468.75
+    /begin AXIS_PTS CAL_closedloop_integral_gain_table_X_rpm "Calibration: X-axis (rpm) for the closedloop integral gain table table (RPM = val*125/4+500; 8-element array)." 0x4000955A engine_speed_8bit RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 8 500 8468.75
     /end AXIS_PTS
     /begin AXIS_PTS CAL_closedloop_integral_gain_table_Y_load "Calibration: Y-axis (load) for the closedloop integral gain table table (mg/stroke = val*4; 8-element array)." 0x40009562 load_mass_per_stroke RL_AXIS_UBYTE 0 CM_u8_load_4mg_stroke 8 0 1020
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_closedloop_integral_gain_table "Calibration: closedloop integral gain table (val/255; 64-element array)." MAP 0x4000956A RL_VALUE_UBYTE 0 CM_u8_factor_1_255 0 100
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_rspeed_125_4_500rpm 8 500 8468.75
+      /begin AXIS_DESCR COM_AXIS engine_speed_8bit CM_u8_rspeed_125_4_500rpm 8 500 8468.75
         AXIS_PTS_REF CAL_closedloop_integral_gain_table_X_rpm
       /end AXIS_DESCR
       /begin AXIS_DESCR COM_AXIS load_mass_per_stroke CM_u8_load_4mg_stroke 8 0 1020
         AXIS_PTS_REF CAL_closedloop_integral_gain_table_Y_load
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_closedloop_derivative_gain_table_X_rpm "Calibration: X-axis (rpm) for the closedloop derivative gain table table (RPM = val*125/4+500; 8-element array)." 0x400095AA NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 8 500 8468.75
+    /begin AXIS_PTS CAL_closedloop_derivative_gain_table_X_rpm "Calibration: X-axis (rpm) for the closedloop derivative gain table table (RPM = val*125/4+500; 8-element array)." 0x400095AA engine_speed_8bit RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 8 500 8468.75
     /end AXIS_PTS
     /begin AXIS_PTS CAL_closedloop_derivative_gain_table_Y_load "Calibration: Y-axis (load) for the closedloop derivative gain table table (mg/stroke = val*4; 8-element array)." 0x400095B2 load_mass_per_stroke RL_AXIS_UBYTE 0 CM_u8_load_4mg_stroke 8 0 1020
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_closedloop_derivative_gain_table "Calibration: closedloop derivative gain table (val/255; 64-element array)." MAP 0x400095BA RL_VALUE_UBYTE 0 CM_u8_factor_1_255 0 100
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_rspeed_125_4_500rpm 8 500 8468.75
+      /begin AXIS_DESCR COM_AXIS engine_speed_8bit CM_u8_rspeed_125_4_500rpm 8 500 8468.75
         AXIS_PTS_REF CAL_closedloop_derivative_gain_table_X_rpm
       /end AXIS_DESCR
       /begin AXIS_DESCR COM_AXIS load_mass_per_stroke CM_u8_load_4mg_stroke 8 0 1020
         AXIS_PTS_REF CAL_closedloop_derivative_gain_table_Y_load
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_inj_efficiency_X_engine_speed "Calibration: X-axis (engine speed) for the injector efficiency table (RPM = val*125/4+500; 20-element array)." 0x400095FA NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 20 500 8468.75
+    /begin AXIS_PTS CAL_inj_efficiency_X_engine_speed "Calibration: X-axis (engine speed) for the injector efficiency table (RPM = val*125/4+500; 20-element array)." 0x400095FA engine_speed_8bit RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 20 500 8468.75
     /end AXIS_PTS
-    /begin AXIS_PTS CAL_inj_efficiency_Y_engine_load "Calibration: Y-axis (engine load) for the injector efficiency table (mg/stroke = val*1173; 20-element array)." 0x4000960E NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_load_1173mg_255stroke 20 0 1173
+    /begin AXIS_PTS CAL_inj_efficiency_Y_engine_load "Calibration: Y-axis (engine load) for the injector efficiency table (mg/stroke = val*1173; 20-element array)." 0x4000960E load_8bit RL_AXIS_UBYTE 0 CM_u8_load_1173mg_255stroke 20 0 1173
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_inj_efficiency "Calibration: injector efficiency (val/200; 400-element array)." MAP 0x40009622 RL_VALUE_UBYTE 0 CM_u8_factor_1_200 0 127.5
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_rspeed_125_4_500rpm 20 500 8468.75
+      /begin AXIS_DESCR COM_AXIS engine_speed_8bit CM_u8_rspeed_125_4_500rpm 20 500 8468.75
         AXIS_PTS_REF CAL_inj_efficiency_X_engine_speed
       /end AXIS_DESCR
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_load_1173mg_255stroke 20 0 1173
+      /begin AXIS_DESCR COM_AXIS load_8bit CM_u8_load_1173mg_255stroke 20 0 1173
         AXIS_PTS_REF CAL_inj_efficiency_Y_engine_load
       /end AXIS_DESCR
     /end CHARACTERISTIC
@@ -1756,15 +1756,15 @@
         AXIS_PTS_REF CAL_dpm_torque_cut_p_term_Y_slip
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_dpm_slip_target_from_pedal_X_carspeed "Calibration: X-axis (carspeed) for the driver performance mode slip target compensation pedal table (km/h; 6-element array)." 0x40009A02 NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_speed_kph 6 0 255
+    /begin AXIS_PTS CAL_dpm_slip_target_from_pedal_X_carspeed "Calibration: X-axis (carspeed) for the driver performance mode slip target compensation pedal table (km/h; 6-element array)." 0x40009A02 dpm_vehicle_speed_kph RL_AXIS_UBYTE 0 CM_u8_speed_kph 6 0 255
     /end AXIS_PTS
-    /begin AXIS_PTS CAL_dpm_slip_target_from_pedal_Y_pps "Calibration: Y-axis (pps) for the driver performance mode slip target compensation pedal table (val/255; 6-element array)." 0x40009A08 NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_factor_1_255 6 0 100
+    /begin AXIS_PTS CAL_dpm_slip_target_from_pedal_Y_pps "Calibration: Y-axis (pps) for the driver performance mode slip target compensation pedal table (val/255; 6-element array)." 0x40009A08 V_CAL_dpm_slip_target_from_pedal_Y_pps RL_AXIS_UBYTE 0 CM_u8_factor_1_255 6 0 100
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_dpm_slip_target_from_pedal "Calibration: driver performance mode slip target compensation pedal (% = val*2; 36-element array)." MAP 0x40009A0E RL_VALUE_UBYTE 0 CM_u8_slip_2pct 0 510
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_speed_kph 6 0 255
+      /begin AXIS_DESCR COM_AXIS dpm_vehicle_speed_kph CM_u8_speed_kph 6 0 255
         AXIS_PTS_REF CAL_dpm_slip_target_from_pedal_X_carspeed
       /end AXIS_DESCR
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_factor_1_255 6 0 100
+      /begin AXIS_DESCR COM_AXIS V_CAL_dpm_slip_target_from_pedal_Y_pps CM_u8_factor_1_255 6 0 100
         AXIS_PTS_REF CAL_dpm_slip_target_from_pedal_Y_pps
       /end AXIS_DESCR
     /end CHARACTERISTIC
@@ -1789,12 +1789,12 @@
         AXIS_PTS_REF CAL_inj_post_start_tipout_factor_X_drop_rate
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_vvt_exhaust_advance_base_X_engine_speed "Calibration: X-axis (engine speed) for the VVT exhaust advance base table (RPM = val*125/4+500; 16-element array)." 0x40009A7A NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 16 500 8468.75
+    /begin AXIS_PTS CAL_vvt_exhaust_advance_base_X_engine_speed "Calibration: X-axis (engine speed) for the VVT exhaust advance base table (RPM = val*125/4+500; 16-element array)." 0x40009A7A engine_speed_8bit RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 16 500 8468.75
     /end AXIS_PTS
     /begin AXIS_PTS CAL_vvt_exhaust_advance_base_Y_load "Calibration: Y-axis (load) for the VVT exhaust advance base table (mg/stroke = val*4; 16-element array)." 0x40009A8A load_mass_per_stroke RL_AXIS_UBYTE 0 CM_u8_load_4mg_stroke 16 0 1020
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_vvt_exhaust_advance_base "Calibration: VVT exhaust advance base (° = val/4; 256-element array)." MAP 0x40009A9A RL_VALUE_UBYTE 0 CM_u8_angle_1_4deg 0 63.75
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_rspeed_125_4_500rpm 16 500 8468.75
+      /begin AXIS_DESCR COM_AXIS engine_speed_8bit CM_u8_rspeed_125_4_500rpm 16 500 8468.75
         AXIS_PTS_REF CAL_vvt_exhaust_advance_base_X_engine_speed
       /end AXIS_DESCR
       /begin AXIS_DESCR COM_AXIS load_mass_per_stroke CM_u8_load_4mg_stroke 16 0 1020
@@ -1807,10 +1807,10 @@
     /begin CHARACTERISTIC CAL_cluster_shiftlight_rpm_offset_manual_40009BA2 "Calibration: cluster shiftlight RPM offset manual (RPM = val*8; 8-element array)." VAL_BLK 0x40009BA2 RL_VALUE_UBYTE 0 CM_u8_rspeed_8rpm 0 2040
       NUMBER 8
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_load_reference_charge_X_rpm "Calibration: X-axis (rpm) for the load reference charge table (RPM = val*125/4+500; 16-element array)." 0x40009BAA NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 16 500 8468.75
+    /begin AXIS_PTS CAL_load_reference_charge_X_rpm "Calibration: X-axis (rpm) for the load reference charge table (RPM = val*125/4+500; 16-element array)." 0x40009BAA engine_speed_8bit RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 16 500 8468.75
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_load_reference_charge "Calibration: load reference charge (mg/stroke = val*4; 16-element array)." CURVE 0x40009BBA RL_VALUE_UBYTE 0 CM_u8_load_4mg_stroke 0 1020
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_rspeed_125_4_500rpm 16 500 8468.75
+      /begin AXIS_DESCR COM_AXIS engine_speed_8bit CM_u8_rspeed_125_4_500rpm 16 500 8468.75
         AXIS_PTS_REF CAL_load_reference_charge_X_rpm
       /end AXIS_DESCR
     /end CHARACTERISTIC
@@ -1821,29 +1821,29 @@
         AXIS_PTS_REF CAL_tpssmooth_increment_tour_X_tps_diff
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_load_unused1_X_rpm "Calibration: X-axis (rpm) for the load unused1 table (RPM = val*125/4+500; 16-element array)." 0x40009BDA NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 16 500 8468.75
+    /begin AXIS_PTS CAL_load_unused1_X_rpm "Calibration: X-axis (rpm) for the load unused1 table (RPM = val*125/4+500; 16-element array)." 0x40009BDA engine_speed_8bit RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 16 500 8468.75
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_load_unused1 "Calibration: load unused1 (16-element array)." CURVE 0x40009BEA RL_VALUE_UBYTE 0 NO_COMPU_METHOD 0 255
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_rspeed_125_4_500rpm 16 500 8468.75
+      /begin AXIS_DESCR COM_AXIS engine_speed_8bit CM_u8_rspeed_125_4_500rpm 16 500 8468.75
         AXIS_PTS_REF CAL_load_unused1_X_rpm
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_inj_warmup_factor_manual_X_load "Calibration: X-axis (load) for the injector enrichment factor load n coolant manual table (mg/stroke = val*4; 12-element array)." 0x40009BFA NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_load_4mg_stroke 12 0 1020
+    /begin AXIS_PTS CAL_inj_warmup_factor_manual_X_load "Calibration: X-axis (load) for the injector enrichment factor load n coolant manual table (mg/stroke = val*4; 12-element array)." 0x40009BFA load_mass_per_stroke RL_AXIS_UBYTE 0 CM_u8_load_4mg_stroke 12 0 1020
     /end AXIS_PTS
-    /begin AXIS_PTS CAL_inj_warmup_factor_manual_Y_cooland "Calibration: Y-axis (coolant) for the injector enrichment factor load n coolant manual table (°C = val*5/8−40; 16-element array)." 0x40009C06 NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_temp_5_8_40c 16 -40 119.375
+    /begin AXIS_PTS CAL_inj_warmup_factor_manual_Y_cooland "Calibration: Y-axis (coolant) for the injector enrichment factor load n coolant manual table (°C = val*5/8−40; 16-element array)." 0x40009C06 coolant_temp RL_AXIS_UBYTE 0 CM_u8_temp_5_8_40c 16 -40 119.375
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_inj_warmup_factor_manual "Calibration: injector enrichment factor load n coolant manual (val/64; 192-element array)." MAP 0x40009C16 RL_VALUE_UBYTE 0 CM_u8_factor_1_64 0 398.4375
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_load_4mg_stroke 12 0 1020
+      /begin AXIS_DESCR COM_AXIS load_mass_per_stroke CM_u8_load_4mg_stroke 12 0 1020
         AXIS_PTS_REF CAL_inj_warmup_factor_manual_X_load
       /end AXIS_DESCR
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_temp_5_8_40c 16 -40 119.375
+      /begin AXIS_DESCR COM_AXIS coolant_temp CM_u8_temp_5_8_40c 16 -40 119.375
         AXIS_PTS_REF CAL_inj_warmup_factor_manual_Y_cooland
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_torque_engine_ac_load_scaler_X_engine_speed "Calibration: X-axis (engine speed) for the torque engine A/C load scaler table (RPM = val*125/4+500; 8-element array)." 0x40009CD6 NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 8 500 8468.75
+    /begin AXIS_PTS CAL_torque_engine_ac_load_scaler_X_engine_speed "Calibration: X-axis (engine speed) for the torque engine A/C load scaler table (RPM = val*125/4+500; 8-element array)." 0x40009CD6 engine_speed_8bit RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 8 500 8468.75
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_torque_engine_ac_load_scaler "Calibration: torque engine A/C load scaler (val/255; 8-element array)." CURVE 0x40009CDE RL_VALUE_UBYTE 0 CM_u8_factor_1_255 0 100
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_rspeed_125_4_500rpm 8 500 8468.75
+      /begin AXIS_DESCR COM_AXIS engine_speed_8bit CM_u8_rspeed_125_4_500rpm 8 500 8468.75
         AXIS_PTS_REF CAL_torque_engine_ac_load_scaler_X_engine_speed
       /end AXIS_DESCR
     /end CHARACTERISTIC
@@ -1861,22 +1861,22 @@
         AXIS_PTS_REF CAL_torque_limit_by_coolant_X_coolant
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_inj_enrichment_charge_air_temp_X_load "Calibration: X-axis (load) for the injector compensation air temp2 table (mg/stroke = val*4; 8-element array)." 0x40009D1A NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_load_4mg_stroke 8 0 1020
+    /begin AXIS_PTS CAL_inj_enrichment_charge_air_temp_X_load "Calibration: X-axis (load) for the injector compensation air temp2 table (mg/stroke = val*4; 8-element array)." 0x40009D1A load_mass_per_stroke RL_AXIS_UBYTE 0 CM_u8_load_4mg_stroke 8 0 1020
     /end AXIS_PTS
     /begin AXIS_PTS CAL_inj_enrichment_charge_air_temp_Y_charge_temp "Calibration: Y-axis (air temp) for the injector compensation air temp2 table (°C = val*5/8−40; 16-element array)." 0x40009D22 NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_temp_5_8_40c 16 -40 119.375
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_inj_enrichment_charge_air_temp "Calibration: injector compensation air temp2 (128-element array)." MAP 0x40009D32 RL_VALUE_UBYTE 0 NO_COMPU_METHOD 0 255
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_load_4mg_stroke 8 0 1020
+      /begin AXIS_DESCR COM_AXIS load_mass_per_stroke CM_u8_load_4mg_stroke 8 0 1020
         AXIS_PTS_REF CAL_inj_enrichment_charge_air_temp_X_load
       /end AXIS_DESCR
       /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_temp_5_8_40c 16 -40 119.375
         AXIS_PTS_REF CAL_inj_enrichment_charge_air_temp_Y_charge_temp
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_load_source_selection_threshold_by_tps_X_rpm "Calibration: X-axis (rpm) for the load source selection threshold by throttle position table (RPM = val*125/4+500; 16-element array)." 0x40009DB2 NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 16 500 8468.75
+    /begin AXIS_PTS CAL_load_source_selection_threshold_by_tps_X_rpm "Calibration: X-axis (rpm) for the load source selection threshold by throttle position table (RPM = val*125/4+500; 16-element array)." 0x40009DB2 engine_speed_8bit RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 16 500 8468.75
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_load_source_selection_threshold_by_tps "Calibration: load source selection threshold by throttle position (val/255; 16-element array)." CURVE 0x40009DC2 RL_VALUE_UBYTE 0 CM_u8_factor_1_255 0 100
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_rspeed_125_4_500rpm 16 500 8468.75
+      /begin AXIS_DESCR COM_AXIS engine_speed_8bit CM_u8_rspeed_125_4_500rpm 16 500 8468.75
         AXIS_PTS_REF CAL_load_source_selection_threshold_by_tps_X_rpm
       /end AXIS_DESCR
     /end CHARACTERISTIC
@@ -1892,10 +1892,10 @@
         AXIS_PTS_REF CAL_idle_comp_tps_while_cranking_Y_coolant_temp
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_knock_inhibit_tps_max_X_rpm "Calibration: X-axis (rpm) for the knock inhibit throttle position maximum table (RPM = val*125/4+500; 16-element array)." 0x40009E2A NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 16 500 8468.75
+    /begin AXIS_PTS CAL_knock_inhibit_tps_max_X_rpm "Calibration: X-axis (rpm) for the knock inhibit throttle position maximum table (RPM = val*125/4+500; 16-element array)." 0x40009E2A engine_speed_8bit RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 16 500 8468.75
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_knock_inhibit_tps_max "Calibration: knock inhibit throttle position maximum (val/255; 16-element array)." CURVE 0x40009E3A RL_VALUE_UBYTE 0 CM_u8_factor_1_255 0 100
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_rspeed_125_4_500rpm 16 500 8468.75
+      /begin AXIS_DESCR COM_AXIS engine_speed_8bit CM_u8_rspeed_125_4_500rpm 16 500 8468.75
         AXIS_PTS_REF CAL_knock_inhibit_tps_max_X_rpm
       /end AXIS_DESCR
     /end CHARACTERISTIC
@@ -1968,72 +1968,72 @@
         AXIS_PTS_REF CAL_injtip_dfco_pedal_ramp_target_X_pps
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_ign_comp_startup_tps_X_maf_accum "Calibration: X-axis (maf accum) for the ignition compensation MAF accum table (g; 8-element array)." 0x40009FA2 NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_mass_g 8 0 255
+    /begin AXIS_PTS CAL_ign_comp_startup_tps_X_maf_accum "Calibration: X-axis (maf accum) for the ignition compensation MAF accum table (g; 8-element array)." 0x40009FA2 V_CAL_ign_comp_startup_tps_X_maf_accum RL_AXIS_UBYTE 0 CM_u8_mass_g 8 0 255
     /end AXIS_PTS
-    /begin AXIS_PTS CAL_ign_comp_startup_tps_Y_tps "Calibration: Y-axis (tps) for the ignition compensation MAF accum table (val/255; 8-element array)." 0x40009FAA NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_factor_1_255 8 0 100
+    /begin AXIS_PTS CAL_ign_comp_startup_tps_Y_tps "Calibration: Y-axis (tps) for the ignition compensation MAF accum table (val/255; 8-element array)." 0x40009FAA tps_8bit RL_AXIS_UBYTE 0 CM_u8_factor_1_255 8 0 100
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_ign_comp_startup_tps "Calibration: ignition compensation MAF accum (° = val/4; 64-element array)." MAP 0x40009FB2 RL_VALUE_SBYTE 0 CM_u8_angle_1_4deg -32 31.75
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_mass_g 8 0 255
+      /begin AXIS_DESCR COM_AXIS V_CAL_ign_comp_startup_tps_X_maf_accum CM_u8_mass_g 8 0 255
         AXIS_PTS_REF CAL_ign_comp_startup_tps_X_maf_accum
       /end AXIS_DESCR
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_factor_1_255 8 0 100
+      /begin AXIS_DESCR COM_AXIS tps_8bit CM_u8_factor_1_255 8 0 100
         AXIS_PTS_REF CAL_ign_comp_startup_tps_Y_tps
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_ign_dwell_time_X_rpm "Calibration: X-axis (rpm) for the ignition dwell time table (RPM = val*125/4+500; 8-element array)." 0x40009FF2 NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 8 500 8468.75
+    /begin AXIS_PTS CAL_ign_dwell_time_X_rpm "Calibration: X-axis (rpm) for the ignition dwell time table (RPM = val*125/4+500; 8-element array)." 0x40009FF2 engine_speed_8bit RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 8 500 8468.75
     /end AXIS_PTS
     /begin AXIS_PTS CAL_ign_dwell_time_Y_ecu_voltage "Calibration: Y-axis (ecu voltage) for the ignition dwell time table (V = val*72/1023; 8-element array)." 0x40009FFA V_CAL_ign_dwell_time_Y_ecu_voltage RL_AXIS_UBYTE 0 CM_u8_voltage_72_1023v 8 0 17.9472140762463
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_ign_dwell_time "Calibration: ignition dwell time (µs = val*64; 64-element array)." MAP 0x4000A002 RL_VALUE_UBYTE 0 CM_u8_time_64us 0 16320
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_rspeed_125_4_500rpm 8 500 8468.75
+      /begin AXIS_DESCR COM_AXIS engine_speed_8bit CM_u8_rspeed_125_4_500rpm 8 500 8468.75
         AXIS_PTS_REF CAL_ign_dwell_time_X_rpm
       /end AXIS_DESCR
       /begin AXIS_DESCR COM_AXIS V_CAL_ign_dwell_time_Y_ecu_voltage CM_u8_voltage_72_1023v 8 0 17.9472140762463
         AXIS_PTS_REF CAL_ign_dwell_time_Y_ecu_voltage
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_ign_knock_safe_X_engine_speed "Calibration: X-axis (engine speed) for the ignition knock safe table (RPM = val*125/4+500; 20-element array)." 0x4000A042 NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 20 500 8468.75
+    /begin AXIS_PTS CAL_ign_knock_safe_X_engine_speed "Calibration: X-axis (engine speed) for the ignition knock safe table (RPM = val*125/4+500; 20-element array)." 0x4000A042 engine_speed_8bit RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 20 500 8468.75
     /end AXIS_PTS
-    /begin AXIS_PTS CAL_ign_knock_safe_Y_load "Calibration: Y-axis (load) for the ignition knock safe table (mg/stroke = val*1173; 20-element array)." 0x4000A056 NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_load_1173mg_255stroke 20 0 1173
+    /begin AXIS_PTS CAL_ign_knock_safe_Y_load "Calibration: Y-axis (load) for the ignition knock safe table (mg/stroke = val*1173; 20-element array)." 0x4000A056 load_8bit RL_AXIS_UBYTE 0 CM_u8_load_1173mg_255stroke 20 0 1173
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_ign_knock_safe "Calibration: ignition knock safe (° = val/4−10; 400-element array)." MAP 0x4000A06A RL_VALUE_UBYTE 0 CM_u8_angle_1_4_10deg -10 53.75
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_rspeed_125_4_500rpm 20 500 8468.75
+      /begin AXIS_DESCR COM_AXIS engine_speed_8bit CM_u8_rspeed_125_4_500rpm 20 500 8468.75
         AXIS_PTS_REF CAL_ign_knock_safe_X_engine_speed
       /end AXIS_DESCR
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_load_1173mg_255stroke 20 0 1173
+      /begin AXIS_DESCR COM_AXIS load_8bit CM_u8_load_1173mg_255stroke 20 0 1173
         AXIS_PTS_REF CAL_ign_knock_safe_Y_load
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_inj_afr_base_X_engine_speed "Calibration: X-axis (engine speed) for the injector AFR base table (RPM = val*125/4+500; 20-element array)." 0x4000A1FA NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 20 500 8468.75
+    /begin AXIS_PTS CAL_inj_afr_base_X_engine_speed "Calibration: X-axis (engine speed) for the injector AFR base table (RPM = val*125/4+500; 20-element array)." 0x4000A1FA engine_speed_8bit RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 20 500 8468.75
     /end AXIS_PTS
-    /begin AXIS_PTS CAL_inj_afr_base_Y_engine_load "Calibration: Y-axis (engine load) for the injector AFR base table (mg/stroke = val*1173; 20-element array)." 0x4000A20E NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_load_1173mg_255stroke 20 0 1173
+    /begin AXIS_PTS CAL_inj_afr_base_Y_engine_load "Calibration: Y-axis (engine load) for the injector AFR base table (mg/stroke = val*1173; 20-element array)." 0x4000A20E load_8bit RL_AXIS_UBYTE 0 CM_u8_load_1173mg_255stroke 20 0 1173
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_inj_afr_base "Calibration: injector AFR base (val/20+5; 400-element array)." MAP 0x4000A222 RL_VALUE_UBYTE 0 CM_u8_afr_1_20_5 5 17.75
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_rspeed_125_4_500rpm 20 500 8468.75
+      /begin AXIS_DESCR COM_AXIS engine_speed_8bit CM_u8_rspeed_125_4_500rpm 20 500 8468.75
         AXIS_PTS_REF CAL_inj_afr_base_X_engine_speed
       /end AXIS_DESCR
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_load_1173mg_255stroke 20 0 1173
+      /begin AXIS_DESCR COM_AXIS load_8bit CM_u8_load_1173mg_255stroke 20 0 1173
         AXIS_PTS_REF CAL_inj_afr_base_Y_engine_load
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_ign_base_manual_X_engine_speed "Calibration: X-axis (engine speed) for the ignition base manual table (RPM = val*125/4+500; 20-element array)." 0x4000A3B2 NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 20 500 8468.75
+    /begin AXIS_PTS CAL_ign_base_manual_X_engine_speed "Calibration: X-axis (engine speed) for the ignition base manual table (RPM = val*125/4+500; 20-element array)." 0x4000A3B2 engine_speed_8bit RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 20 500 8468.75
     /end AXIS_PTS
-    /begin AXIS_PTS CAL_ign_base_manual_Y_load "Calibration: Y-axis (load) for the ignition base manual table (mg/stroke = val*1173; 20-element array)." 0x4000A3C6 NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_load_1173mg_255stroke 20 0 1173
+    /begin AXIS_PTS CAL_ign_base_manual_Y_load "Calibration: Y-axis (load) for the ignition base manual table (mg/stroke = val*1173; 20-element array)." 0x4000A3C6 load_8bit RL_AXIS_UBYTE 0 CM_u8_load_1173mg_255stroke 20 0 1173
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_ign_base_manual "Calibration: ignition base manual (° = val/4−10; 400-element array)." MAP 0x4000A3DA RL_VALUE_UBYTE 0 CM_u8_angle_1_4_10deg -10 53.75
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_rspeed_125_4_500rpm 20 500 8468.75
+      /begin AXIS_DESCR COM_AXIS engine_speed_8bit CM_u8_rspeed_125_4_500rpm 20 500 8468.75
         AXIS_PTS_REF CAL_ign_base_manual_X_engine_speed
       /end AXIS_DESCR
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_load_1173mg_255stroke 20 0 1173
+      /begin AXIS_DESCR COM_AXIS load_8bit CM_u8_load_1173mg_255stroke 20 0 1173
         AXIS_PTS_REF CAL_ign_base_manual_Y_load
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_torque_engine_friction_speed_component_X_engine_speed "Calibration: X-axis (engine speed) for the torque engine friction speed component table (RPM = val*125/4+500; 20-element array)." 0x4000A56A NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 20 500 8468.75
+    /begin AXIS_PTS CAL_torque_engine_friction_speed_component_X_engine_speed "Calibration: X-axis (engine speed) for the torque engine friction speed component table (RPM = val*125/4+500; 20-element array)." 0x4000A56A engine_speed_8bit RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 20 500 8468.75
     /end AXIS_PTS
     /begin AXIS_PTS CAL_torque_engine_friction_speed_component_Y_load "Calibration: Y-axis (load) for the torque engine friction speed component table (mg/stroke = val*1173; 20-element array)." 0x4000A57E NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_load_1173mg_255stroke 20 0 1173
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_torque_engine_friction_speed_component "Calibration: torque engine friction speed component (Nm; 400-element array)." MAP 0x4000A592 RL_VALUE_UBYTE 0 CM_u8_torque_nm 0 255
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_rspeed_125_4_500rpm 20 500 8468.75
+      /begin AXIS_DESCR COM_AXIS engine_speed_8bit CM_u8_rspeed_125_4_500rpm 20 500 8468.75
         AXIS_PTS_REF CAL_torque_engine_friction_speed_component_X_engine_speed
       /end AXIS_DESCR
       /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_load_1173mg_255stroke 20 0 1173
@@ -2052,15 +2052,15 @@
         AXIS_PTS_REF CAL_inj_cranking_enrichment_coolant_manual_Y_maf_accumulated
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_tps_rate_steadystate_threshold_X_rpm "Calibration: X-axis (rpm) for the throttle position rate steadystate threshold table (RPM = val*125/4+500; 4-element array)." 0x4000A8A6 NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 4 500 8468.75
+    /begin AXIS_PTS CAL_tps_rate_steadystate_threshold_X_rpm "Calibration: X-axis (rpm) for the throttle position rate steadystate threshold table (RPM = val*125/4+500; 4-element array)." 0x4000A8A6 engine_speed_8bit RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 4 500 8468.75
     /end AXIS_PTS
-    /begin AXIS_PTS CAL_tps_rate_steadystate_threshold_Y_tps "Calibration: Y-axis (tps) for the throttle position rate steadystate threshold table (val/255; 4-element array)." 0x4000A8AA NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_factor_1_255 4 0 100
+    /begin AXIS_PTS CAL_tps_rate_steadystate_threshold_Y_tps "Calibration: Y-axis (tps) for the throttle position rate steadystate threshold table (val/255; 4-element array)." 0x4000A8AA tps_8bit RL_AXIS_UBYTE 0 CM_u8_factor_1_255 4 0 100
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_tps_rate_steadystate_threshold "Calibration: throttle position rate steadystate threshold (val/255; 16-element array)." MAP 0x4000A8AE RL_VALUE_UBYTE 0 CM_u8_factor_1_255 0 100
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_rspeed_125_4_500rpm 4 500 8468.75
+      /begin AXIS_DESCR COM_AXIS engine_speed_8bit CM_u8_rspeed_125_4_500rpm 4 500 8468.75
         AXIS_PTS_REF CAL_tps_rate_steadystate_threshold_X_rpm
       /end AXIS_DESCR
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_factor_1_255 4 0 100
+      /begin AXIS_DESCR COM_AXIS tps_8bit CM_u8_factor_1_255 4 0 100
         AXIS_PTS_REF CAL_tps_rate_steadystate_threshold_Y_tps
       /end AXIS_DESCR
     /end CHARACTERISTIC
@@ -2104,10 +2104,10 @@
         AXIS_PTS_REF CAL_idle_comp_ecu_voltage_X_voltage
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_ign_comp_overtemp_X_rpm "Calibration: X-axis (rpm) for the ignition compensation overtemp table (RPM = val*125/4+500; 16-element array)." 0x4000A9C2 NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 16 500 8468.75
+    /begin AXIS_PTS CAL_ign_comp_overtemp_X_rpm "Calibration: X-axis (rpm) for the ignition compensation overtemp table (RPM = val*125/4+500; 16-element array)." 0x4000A9C2 engine_speed_8bit RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 16 500 8468.75
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_ign_comp_overtemp "Calibration: ignition compensation overtemp (° = val/4−32; 16-element array)." CURVE 0x4000A9D2 RL_VALUE_UBYTE 0 CM_u8_angle_1_4_32deg -32 31.75
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_rspeed_125_4_500rpm 16 500 8468.75
+      /begin AXIS_DESCR COM_AXIS engine_speed_8bit CM_u8_rspeed_125_4_500rpm 16 500 8468.75
         AXIS_PTS_REF CAL_ign_comp_overtemp_X_rpm
       /end AXIS_DESCR
     /end CHARACTERISTIC
@@ -2132,10 +2132,10 @@
         AXIS_PTS_REF CAL_vvt_start_timer_X_coolant_temp
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_closedloop_o2_switch_threshold_X_rpm "Calibration: X-axis (rpm) for the closedloop O2 switch threshold table (RPM = val*125/4+500; 8-element array)." 0x4000AA22 NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 8 500 8468.75
+    /begin AXIS_PTS CAL_closedloop_o2_switch_threshold_X_rpm "Calibration: X-axis (rpm) for the closedloop O2 switch threshold table (RPM = val*125/4+500; 8-element array)." 0x4000AA22 engine_speed_8bit RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 8 500 8468.75
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_closedloop_o2_switch_threshold "Calibration: closedloop O2 switch threshold (8-element array)." CURVE 0x4000AA2A RL_VALUE_UBYTE 0 NO_COMPU_METHOD 0 255
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_rspeed_125_4_500rpm 8 500 8468.75
+      /begin AXIS_DESCR COM_AXIS engine_speed_8bit CM_u8_rspeed_125_4_500rpm 8 500 8468.75
         AXIS_PTS_REF CAL_closedloop_o2_switch_threshold_X_rpm
       /end AXIS_DESCR
     /end CHARACTERISTIC
@@ -2146,24 +2146,24 @@
         AXIS_PTS_REF CAL_ign_comp_tps_rate_X_tps_rate
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_knock_sampling_window_X_rpm "Calibration: X-axis (rpm) for the knock sampling window table (RPM = val*125/4+500; 16-element array)." 0x4000AA42 NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 16 500 8468.75
+    /begin AXIS_PTS CAL_knock_sampling_window_X_rpm "Calibration: X-axis (rpm) for the knock sampling window table (RPM = val*125/4+500; 16-element array)." 0x4000AA42 engine_speed_8bit RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 16 500 8468.75
     /end AXIS_PTS
     /begin AXIS_PTS CAL_knock_sampling_window_Y_load "Calibration: Y-axis (load) for the knock sampling window table (mg/stroke = val*4; 16-element array)." 0x4000AA52 load_mass_per_stroke RL_AXIS_UBYTE 0 CM_u8_load_4mg_stroke 16 0 1020
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_knock_sampling_window "Calibration: knock sampling window (256-element array)." MAP 0x4000AA62 RL_VALUE_UBYTE 0 NO_COMPU_METHOD 0 255
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_rspeed_125_4_500rpm 16 500 8468.75
+      /begin AXIS_DESCR COM_AXIS engine_speed_8bit CM_u8_rspeed_125_4_500rpm 16 500 8468.75
         AXIS_PTS_REF CAL_knock_sampling_window_X_rpm
       /end AXIS_DESCR
       /begin AXIS_DESCR COM_AXIS load_mass_per_stroke CM_u8_load_4mg_stroke 16 0 1020
         AXIS_PTS_REF CAL_knock_sampling_window_Y_load
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_knock_buffer_size_X_engine_speed "Calibration: X-axis (engine speed) for the knock buffer size table (RPM = val*125/4+500; 16-element array)." 0x4000AB62 NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 16 500 8468.75
+    /begin AXIS_PTS CAL_knock_buffer_size_X_engine_speed "Calibration: X-axis (engine speed) for the knock buffer size table (RPM = val*125/4+500; 16-element array)." 0x4000AB62 engine_speed_8bit RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 16 500 8468.75
     /end AXIS_PTS
     /begin AXIS_PTS CAL_knock_buffer_size_Y_load "Calibration: Y-axis (load) for the knock buffer size table (mg/stroke = val*4; 16-element array)." 0x4000AB72 load_mass_per_stroke RL_AXIS_UBYTE 0 CM_u8_load_4mg_stroke 16 0 1020
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_knock_buffer_size "Calibration: knock buffer size (256-element array)." MAP 0x4000AB82 RL_VALUE_UBYTE 0 NO_COMPU_METHOD 0 255
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_rspeed_125_4_500rpm 16 500 8468.75
+      /begin AXIS_DESCR COM_AXIS engine_speed_8bit CM_u8_rspeed_125_4_500rpm 16 500 8468.75
         AXIS_PTS_REF CAL_knock_buffer_size_X_engine_speed
       /end AXIS_DESCR
       /begin AXIS_DESCR COM_AXIS load_mass_per_stroke CM_u8_load_4mg_stroke 16 0 1020
@@ -2189,15 +2189,15 @@
         AXIS_PTS_REF CAL_idle_comp_vehicle_speed_ips_X_vehicle_speed
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_inj_deadtime_base_X_car_voltage "Calibration: X-axis (car voltage) for the injector time base table (V = val*72/1023; 8-element array)." 0x4000ACD2 NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_voltage_72_1023v 8 0 17.9472140762463
+    /begin AXIS_PTS CAL_inj_deadtime_base_X_car_voltage "Calibration: X-axis (car voltage) for the injector time base table (V = val*72/1023; 8-element array)." 0x4000ACD2 V_CAL_inj_deadtime_base_X_car_voltage RL_AXIS_UBYTE 0 CM_u8_voltage_72_1023v 8 0 17.9472140762463
     /end AXIS_PTS
-    /begin AXIS_PTS CAL_inj_deadtime_base_Y_fuel_pressure "Calibration: Y-axis (fuel pressure) for the injector time base table (mbar = val*50; 8-element array)." 0x4000ACDA NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_pressure_50mbar 8 0 12750
+    /begin AXIS_PTS CAL_inj_deadtime_base_Y_fuel_pressure "Calibration: Y-axis (fuel pressure) for the injector time base table (mbar = val*50; 8-element array)." 0x4000ACDA fuel_pressure_rel_50mbar RL_AXIS_UBYTE 0 CM_u8_pressure_50mbar 8 0 12750
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_inj_deadtime_base "Calibration: injector time base (µs = val*20; 64-element array)." MAP 0x4000ACE2 RL_VALUE_UBYTE 0 CM_u8_time_20us 0 5100
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_voltage_72_1023v 8 0 17.9472140762463
+      /begin AXIS_DESCR COM_AXIS V_CAL_inj_deadtime_base_X_car_voltage CM_u8_voltage_72_1023v 8 0 17.9472140762463
         AXIS_PTS_REF CAL_inj_deadtime_base_X_car_voltage
       /end AXIS_DESCR
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_pressure_50mbar 8 0 12750
+      /begin AXIS_DESCR COM_AXIS fuel_pressure_rel_50mbar CM_u8_pressure_50mbar 8 0 12750
         AXIS_PTS_REF CAL_inj_deadtime_base_Y_fuel_pressure
       /end AXIS_DESCR
     /end CHARACTERISTIC
@@ -2208,10 +2208,10 @@
         AXIS_PTS_REF CAL_sensor_ac_evap_temp_scaling_X_voltage
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_inj_accel_enrichment_load_threshold_X_rpm "Calibration: X-axis (rpm) for the injector accelerator enrichment load threshold table (RPM = val*125/4+500; 8-element array)." 0x4000AD62 NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 8 500 8468.75
+    /begin AXIS_PTS CAL_inj_accel_enrichment_load_threshold_X_rpm "Calibration: X-axis (rpm) for the injector accelerator enrichment load threshold table (RPM = val*125/4+500; 8-element array)." 0x4000AD62 engine_speed_8bit RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 8 500 8468.75
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_inj_accel_enrichment_load_threshold "Calibration: injector accelerator enrichment load threshold (val/100; 8-element array)." CURVE 0x4000AD6A RL_VALUE_UBYTE 0 CM_u8_factor_1_100 0 255
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_rspeed_125_4_500rpm 8 500 8468.75
+      /begin AXIS_DESCR COM_AXIS engine_speed_8bit CM_u8_rspeed_125_4_500rpm 8 500 8468.75
         AXIS_PTS_REF CAL_inj_accel_enrichment_load_threshold_X_rpm
       /end AXIS_DESCR
     /end CHARACTERISTIC
@@ -2250,12 +2250,12 @@
         AXIS_PTS_REF CAL_idle_target_ips_coolant_fallback_X_coolant_temp
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_load_alphaN_base_X_engine_speed "Calibration: X-axis (engine speed) for the load alphaN base table (RPM = val*125/4+500; 20-element array)." 0x4000ADF2 NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 20 500 8468.75
+    /begin AXIS_PTS CAL_load_alphaN_base_X_engine_speed "Calibration: X-axis (engine speed) for the load alphaN base table (RPM = val*125/4+500; 20-element array)." 0x4000ADF2 engine_speed_8bit RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 20 500 8468.75
     /end AXIS_PTS
     /begin AXIS_PTS CAL_load_alphaN_base_Y_tps "Calibration: Y-axis (tps) for the load alphaN base table (val/255; 20-element array)." 0x4000AE06 NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_factor_1_255 20 0 100
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_load_alphaN_base "Calibration: load alphaN base (mg/stroke = val*1173; 400-element array)." MAP 0x4000AE1A RL_VALUE_UBYTE 0 CM_u8_load_1173mg_255stroke 0 1173
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_rspeed_125_4_500rpm 20 500 8468.75
+      /begin AXIS_DESCR COM_AXIS engine_speed_8bit CM_u8_rspeed_125_4_500rpm 20 500 8468.75
         AXIS_PTS_REF CAL_load_alphaN_base_X_engine_speed
       /end AXIS_DESCR
       /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_factor_1_255 20 0 100
@@ -2264,13 +2264,13 @@
     /end CHARACTERISTIC
     /begin AXIS_PTS CAL_torque_limit_by_rpm_X_gear "Calibration: X-axis (gear) for the torque limit by RPM table (8-element array)." 0x4000AFAA car_current_gear RL_AXIS_UBYTE 0 NO_COMPU_METHOD 8 0 255
     /end AXIS_PTS
-    /begin AXIS_PTS CAL_torque_limit_by_rpm_Y_rpm "Calibration: Y-axis (rpm) for the torque limit by RPM table (RPM = val*125/4+500; 8-element array)." 0x4000AFB2 NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 8 500 8468.75
+    /begin AXIS_PTS CAL_torque_limit_by_rpm_Y_rpm "Calibration: Y-axis (rpm) for the torque limit by RPM table (RPM = val*125/4+500; 8-element array)." 0x4000AFB2 engine_speed_8bit RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 8 500 8468.75
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_torque_limit_by_rpm "*WARNING* This table has been patched to double the torque values. Each 8bit value represents 4nm of torque." MAP 0x4000AFBA RL_VALUE_UBYTE 0 CM_u8_torque_4nm 0 1020
       /begin AXIS_DESCR COM_AXIS car_current_gear NO_COMPU_METHOD 8 0 255
         AXIS_PTS_REF CAL_torque_limit_by_rpm_X_gear
       /end AXIS_DESCR
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_rspeed_125_4_500rpm 8 500 8468.75
+      /begin AXIS_DESCR COM_AXIS engine_speed_8bit CM_u8_rspeed_125_4_500rpm 8 500 8468.75
         AXIS_PTS_REF CAL_torque_limit_by_rpm_Y_rpm
       /end AXIS_DESCR
     /end CHARACTERISTIC
@@ -2288,24 +2288,24 @@
         AXIS_PTS_REF CAL_tpstarget_sport_ips_X_pps
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_knock_sensitivity_X_engine_speed "Calibration: X-axis (engine speed) for the knock sensitivity table (RPM = val*125/4+500; 8-element array)." 0x4000B0B2 NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 8 500 8468.75
+    /begin AXIS_PTS CAL_knock_sensitivity_X_engine_speed "Calibration: X-axis (engine speed) for the knock sensitivity table (RPM = val*125/4+500; 8-element array)." 0x4000B0B2 engine_speed_8bit RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 8 500 8468.75
     /end AXIS_PTS
     /begin AXIS_PTS CAL_knock_sensitivity_Y_load "Calibration: Y-axis (load) for the knock sensitivity table (mg/stroke = val*4; 8-element array)." 0x4000B0BA load_mass_per_stroke RL_AXIS_UBYTE 0 CM_u8_load_4mg_stroke 8 0 1020
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_knock_sensitivity "Calibration: knock sensitivity (val/255; 64-element array)." MAP 0x4000B0C2 RL_VALUE_UBYTE 0 CM_u8_factor_1_255 0 100
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_rspeed_125_4_500rpm 8 500 8468.75
+      /begin AXIS_DESCR COM_AXIS engine_speed_8bit CM_u8_rspeed_125_4_500rpm 8 500 8468.75
         AXIS_PTS_REF CAL_knock_sensitivity_X_engine_speed
       /end AXIS_DESCR
       /begin AXIS_DESCR COM_AXIS load_mass_per_stroke CM_u8_load_4mg_stroke 8 0 1020
         AXIS_PTS_REF CAL_knock_sensitivity_Y_load
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_knock_peak_threshold_X_engine_speed "Calibration: X-axis (engine speed) for the knock peak threshold table (RPM = val*125/4+500; 8-element array)." 0x4000B102 NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 8 500 8468.75
+    /begin AXIS_PTS CAL_knock_peak_threshold_X_engine_speed "Calibration: X-axis (engine speed) for the knock peak threshold table (RPM = val*125/4+500; 8-element array)." 0x4000B102 engine_speed_8bit RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 8 500 8468.75
     /end AXIS_PTS
     /begin AXIS_PTS CAL_knock_peak_threshold_Y_load "Calibration: Y-axis (load) for the knock peak threshold table (mg/stroke = val*4; 8-element array)." 0x4000B10A load_mass_per_stroke RL_AXIS_UBYTE 0 CM_u8_load_4mg_stroke 8 0 1020
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_knock_peak_threshold "Calibration: knock peak threshold (64-element array)." MAP 0x4000B112 RL_VALUE_UBYTE 0 NO_COMPU_METHOD 0 255
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_rspeed_125_4_500rpm 8 500 8468.75
+      /begin AXIS_DESCR COM_AXIS engine_speed_8bit CM_u8_rspeed_125_4_500rpm 8 500 8468.75
         AXIS_PTS_REF CAL_knock_peak_threshold_X_engine_speed
       /end AXIS_DESCR
       /begin AXIS_DESCR COM_AXIS load_mass_per_stroke CM_u8_load_4mg_stroke 8 0 1020
@@ -2319,17 +2319,17 @@
         AXIS_PTS_REF CAL_knock_count_to_retard_X_knock_count
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_knock_detection_load_threshold_X_rpm "Calibration: X-axis (rpm) for the knock detection load threshold table (RPM = val*125/4+500; 8-element array)." 0x4000B162 NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 8 500 8468.75
+    /begin AXIS_PTS CAL_knock_detection_load_threshold_X_rpm "Calibration: X-axis (rpm) for the knock detection load threshold table (RPM = val*125/4+500; 8-element array)." 0x4000B162 engine_speed_8bit RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 8 500 8468.75
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_knock_detection_load_threshold "Calibration: knock detection load threshold (mg/stroke = val*4; 8-element array)." CURVE 0x4000B16A RL_VALUE_UBYTE 0 CM_u8_load_4mg_stroke 0 1020
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_rspeed_125_4_500rpm 8 500 8468.75
+      /begin AXIS_DESCR COM_AXIS engine_speed_8bit CM_u8_rspeed_125_4_500rpm 8 500 8468.75
         AXIS_PTS_REF CAL_knock_detection_load_threshold_X_rpm
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_knock_learning_load_threshold_X_rpm "Calibration: X-axis (rpm) for the knock learning load threshold table (RPM = val*125/4+500; 8-element array)." 0x4000B172 NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 8 500 8468.75
+    /begin AXIS_PTS CAL_knock_learning_load_threshold_X_rpm "Calibration: X-axis (rpm) for the knock learning load threshold table (RPM = val*125/4+500; 8-element array)." 0x4000B172 engine_speed_8bit RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 8 500 8468.75
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_knock_learning_load_threshold "Calibration: knock learning load threshold (mg/stroke = val*4; 8-element array)." CURVE 0x4000B17A RL_VALUE_UBYTE 0 CM_u8_load_4mg_stroke 0 1020
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_rspeed_125_4_500rpm 8 500 8468.75
+      /begin AXIS_DESCR COM_AXIS engine_speed_8bit CM_u8_rspeed_125_4_500rpm 8 500 8468.75
         AXIS_PTS_REF CAL_knock_learning_load_threshold_X_rpm
       /end AXIS_DESCR
     /end CHARACTERISTIC
@@ -2359,12 +2359,12 @@
         AXIS_PTS_REF CAL_tpstarget_sport_manual_X_pps
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_ign_target_step_retard_accel_pedal_X_rpm "Calibration: X-axis (engine speed) for the ignition compensation tps2 table (RPM = val*125/4+500; 8-element array)." 0x4000B372 NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 8 500 8468.75
+    /begin AXIS_PTS CAL_ign_target_step_retard_accel_pedal_X_rpm "Calibration: X-axis (engine speed) for the ignition compensation tps2 table (RPM = val*125/4+500; 8-element array)." 0x4000B372 engine_speed_8bit RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 8 500 8468.75
     /end AXIS_PTS
     /begin AXIS_PTS CAL_ign_target_step_retard_accel_pedal_Y_pps "Calibration: Y-axis (accel pedal) for the ignition compensation tps2 table (val/255; 16-element array)." 0x4000B37A NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_factor_1_255 16 0 100
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_ign_target_step_retard_accel_pedal "ign_target_step_retard — how fast timing gets pulled. Same rate limit in the opposite direction: when the timing target drops, this is the largest amount of timing the ECU may remove per step, again one step every 50 ms, again in quarter-degrees, so " MAP 0x4000B38A RL_VALUE_UBYTE 0 CM_u8_angle_1_4deg 0 63.75
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_rspeed_125_4_500rpm 8 500 8468.75
+      /begin AXIS_DESCR COM_AXIS engine_speed_8bit CM_u8_rspeed_125_4_500rpm 8 500 8468.75
         AXIS_PTS_REF CAL_ign_target_step_retard_accel_pedal_X_rpm
       /end AXIS_DESCR
       /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_factor_1_255 16 0 100
@@ -2383,36 +2383,36 @@
         AXIS_PTS_REF CAL_inj_cranking_enrichment_coolant_ips_Y_maf_accumulated
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_torque_torque_to_load_X_engine_speed "Calibration: X-axis (engine speed) for the torque torque to load table (RPM; 16-element array)." 0x4000B64A NO_INPUT_QUANTITY RL_AXIS_UWORD 0 CM_u16_rspeed_rpm 16 0 65535
+    /begin AXIS_PTS CAL_torque_torque_to_load_X_engine_speed "Calibration: X-axis (engine speed) for the torque torque to load table (RPM; 16-element array)." 0x4000B64A engine_speed_16bit RL_AXIS_UWORD 0 CM_u16_rspeed_rpm 16 0 65535
     /end AXIS_PTS
     /begin AXIS_PTS CAL_torque_torque_to_load_Y_torque "Calibration: Y-axis (torque) for the torque torque to load table (Nm; 16-element array)." 0x4000B66A NO_INPUT_QUANTITY RL_AXIS_UWORD 0 CM_u8_torque_nm 16 0 65535
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_torque_torque_to_load "Calibration: torque torque to load (mg/stroke; 256-element array)." MAP 0x4000B68A RL_VALUE_UWORD 0 CM_u16_load_mg_stroke 0 65535
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u16_rspeed_rpm 16 0 65535
+      /begin AXIS_DESCR COM_AXIS engine_speed_16bit CM_u16_rspeed_rpm 16 0 65535
         AXIS_PTS_REF CAL_torque_torque_to_load_X_engine_speed
       /end AXIS_DESCR
       /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_torque_nm 16 0 65535
         AXIS_PTS_REF CAL_torque_torque_to_load_Y_torque
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_torque_ign_retard_base_X_engine_speed "Calibration: X-axis (engine speed) for the torque ignition retard base table (RPM = val*125/4+500; 16-element array)." 0x4000B88A NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 16 500 8468.75
+    /begin AXIS_PTS CAL_torque_ign_retard_base_X_engine_speed "Calibration: X-axis (engine speed) for the torque ignition retard base table (RPM = val*125/4+500; 16-element array)." 0x4000B88A engine_speed_8bit RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 16 500 8468.75
     /end AXIS_PTS
     /begin AXIS_PTS CAL_torque_ign_retard_base_Y_torque_reduction_factor "Calibration: Y-axis (torque reduction factor) for the torque ignition retard base table (val/255; 16-element array)." 0x4000B89A torque_reduction_factor_ign RL_AXIS_UBYTE 0 CM_u8_factor_1_255 16 0 100
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_torque_ign_retard_base "Calibration: torque ignition retard base (° = val/4−64; 256-element array)." MAP 0x4000B8AA RL_VALUE_UBYTE 0 CM_u8_angle_1_4_64deg -64 -0.25
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_rspeed_125_4_500rpm 16 500 8468.75
+      /begin AXIS_DESCR COM_AXIS engine_speed_8bit CM_u8_rspeed_125_4_500rpm 16 500 8468.75
         AXIS_PTS_REF CAL_torque_ign_retard_base_X_engine_speed
       /end AXIS_DESCR
       /begin AXIS_DESCR COM_AXIS torque_reduction_factor_ign CM_u8_factor_1_255 16 0 100
         AXIS_PTS_REF CAL_torque_ign_retard_base_Y_torque_reduction_factor
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_ign_min_X_engine_speed "Calibration: X-axis (engine speed) for the ignition minimum table (RPM = val*125/4+500; 16-element array)." 0x4000B9AA NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 16 500 8468.75
+    /begin AXIS_PTS CAL_ign_min_X_engine_speed "Calibration: X-axis (engine speed) for the ignition minimum table (RPM = val*125/4+500; 16-element array)." 0x4000B9AA engine_speed_8bit RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 16 500 8468.75
     /end AXIS_PTS
     /begin AXIS_PTS CAL_ign_min_Y_load "Calibration: Y-axis (load) for the ignition minimum table (mg/stroke = val*4; 16-element array)." 0x4000B9BA load_mass_per_stroke RL_AXIS_UBYTE 0 CM_u8_load_4mg_stroke 16 0 1020
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_ign_min "Calibration: ignition minimum (° = val/4−20; 256-element array)." MAP 0x4000B9CA RL_VALUE_UBYTE 0 CM_u8_angle_1_4_20deg -20 43.75
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_rspeed_125_4_500rpm 16 500 8468.75
+      /begin AXIS_DESCR COM_AXIS engine_speed_8bit CM_u8_rspeed_125_4_500rpm 16 500 8468.75
         AXIS_PTS_REF CAL_ign_min_X_engine_speed
       /end AXIS_DESCR
       /begin AXIS_DESCR COM_AXIS load_mass_per_stroke CM_u8_load_4mg_stroke 16 0 1020
@@ -2426,12 +2426,12 @@
         AXIS_PTS_REF CAL_idle_target_ips_X_coolant_temp
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_torque_limit_base_factor_X_rpm "Calibration: X-axis (rpm) for the torque limit base factor table (RPM = val*125/4+500; 16-element array)." 0x4000BAEA NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 16 500 8468.75
+    /begin AXIS_PTS CAL_torque_limit_base_factor_X_rpm "Calibration: X-axis (rpm) for the torque limit base factor table (RPM = val*125/4+500; 16-element array)." 0x4000BAEA engine_speed_8bit RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 16 500 8468.75
     /end AXIS_PTS
     /begin AXIS_PTS CAL_torque_limit_base_factor_Y_load "Calibration: Y-axis (load) for the torque limit base factor table (mg/stroke = val*4; 16-element array)." 0x4000BAFA load_mass_per_stroke RL_AXIS_UBYTE 0 CM_u8_load_4mg_stroke 16 0 1020
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_torque_limit_base_factor "// Used in cylinder cut calculation" MAP 0x4000BB0A RL_VALUE_UBYTE 0 CM_u8_factor_1_255 0 100
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_rspeed_125_4_500rpm 16 500 8468.75
+      /begin AXIS_DESCR COM_AXIS engine_speed_8bit CM_u8_rspeed_125_4_500rpm 16 500 8468.75
         AXIS_PTS_REF CAL_torque_limit_base_factor_X_rpm
       /end AXIS_DESCR
       /begin AXIS_DESCR COM_AXIS load_mass_per_stroke CM_u8_load_4mg_stroke 16 0 1020
@@ -2450,27 +2450,27 @@
         AXIS_PTS_REF CAL_torque_engine_friction_temp_component_Y_load
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_torque_spark_efficiency_X_rpm "Calibration: X-axis (rpm) for the torque spark efficiency table (16-element array)." 0x4000BC5A NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 NO_COMPU_METHOD 16 0 255
+    /begin AXIS_PTS CAL_torque_spark_efficiency_X_rpm "Calibration: X-axis (rpm) for the torque spark efficiency table (16-element array)." 0x4000BC5A engine_speed_8bit RL_AXIS_UBYTE 0 NO_COMPU_METHOD 16 0 255
     /end AXIS_PTS
     /begin AXIS_PTS CAL_torque_spark_efficiency_Y_ign_retard_from_mbt "Calibration: Y-axis (ign retard from mbt) for the torque spark efficiency table (° = val/4; 16-element array)." 0x4000BC6A NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_angle_1_4deg 16 0 63.75
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_torque_spark_efficiency "Calibration: torque spark efficiency (val/255; 256-element array)." MAP 0x4000BC7A RL_VALUE_UBYTE 0 CM_u8_factor_1_255 0 100
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY NO_COMPU_METHOD 16 0 255
+      /begin AXIS_DESCR COM_AXIS engine_speed_8bit NO_COMPU_METHOD 16 0 255
         AXIS_PTS_REF CAL_torque_spark_efficiency_X_rpm
       /end AXIS_DESCR
       /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_angle_1_4deg 16 0 63.75
         AXIS_PTS_REF CAL_torque_spark_efficiency_Y_ign_retard_from_mbt
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_torque_spark_efficiency_slope_X_rpm "Calibration: X-axis (rpm) for the torque spark efficiency slope table (RPM = val*125/4+500; 16-element array)." 0x4000BD7A NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 16 500 8468.75
+    /begin AXIS_PTS CAL_torque_spark_efficiency_slope_X_rpm "Calibration: X-axis (rpm) for the torque spark efficiency slope table (RPM = val*125/4+500; 16-element array)." 0x4000BD7A engine_speed_8bit RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 16 500 8468.75
     /end AXIS_PTS
-    /begin AXIS_PTS CAL_torque_spark_efficiency_slope_Y_load "Calibration: Y-axis (load) for the torque spark efficiency slope table (mg/stroke = val*4; 16-element array)." 0x4000BD8A NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_load_4mg_stroke 16 0 1020
+    /begin AXIS_PTS CAL_torque_spark_efficiency_slope_Y_load "Calibration: Y-axis (load) for the torque spark efficiency slope table (mg/stroke = val*4; 16-element array)." 0x4000BD8A load_mass_per_stroke RL_AXIS_UBYTE 0 CM_u8_load_4mg_stroke 16 0 1020
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_torque_spark_efficiency_slope "Calibration: torque spark efficiency slope (256-element array)." MAP 0x4000BD9A RL_VALUE_UBYTE 0 NO_COMPU_METHOD 0 255
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_rspeed_125_4_500rpm 16 500 8468.75
+      /begin AXIS_DESCR COM_AXIS engine_speed_8bit CM_u8_rspeed_125_4_500rpm 16 500 8468.75
         AXIS_PTS_REF CAL_torque_spark_efficiency_slope_X_rpm
       /end AXIS_DESCR
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_load_4mg_stroke 16 0 1020
+      /begin AXIS_DESCR COM_AXIS load_mass_per_stroke CM_u8_load_4mg_stroke 16 0 1020
         AXIS_PTS_REF CAL_torque_spark_efficiency_slope_Y_load
       /end AXIS_DESCR
     /end CHARACTERISTIC
@@ -2531,51 +2531,51 @@
         AXIS_PTS_REF CAL_idle_comp_carspeed_ips_X_carspeed
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_ign_min_engine_off_X_engine_speed "Calibration: X-axis (engine speed) for the ignition minimum engine off table (RPM = val*125/4+500; 3-element array)." 0x4000C0CB NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 3 500 8468.75
+    /begin AXIS_PTS CAL_ign_min_engine_off_X_engine_speed "Calibration: X-axis (engine speed) for the ignition minimum engine off table (RPM = val*125/4+500; 3-element array)." 0x4000C0CB engine_speed_8bit RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 3 500 8468.75
     /end AXIS_PTS
     /begin AXIS_PTS CAL_ign_min_engine_off_Y_load "Calibration: Y-axis (load) for the ignition minimum engine off table (mg/stroke = val*4; 3-element array)." 0x4000C0CE load_mass_per_stroke RL_AXIS_UBYTE 0 CM_u8_load_4mg_stroke 3 0 1020
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_ign_min_engine_off "Calibration: ignition minimum engine off (° = val/4−20; 9-element array)." MAP 0x4000C0D1 RL_VALUE_UBYTE 0 CM_u8_angle_1_4_20deg -20 43.75
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_rspeed_125_4_500rpm 3 500 8468.75
+      /begin AXIS_DESCR COM_AXIS engine_speed_8bit CM_u8_rspeed_125_4_500rpm 3 500 8468.75
         AXIS_PTS_REF CAL_ign_min_engine_off_X_engine_speed
       /end AXIS_DESCR
       /begin AXIS_DESCR COM_AXIS load_mass_per_stroke CM_u8_load_4mg_stroke 3 0 1020
         AXIS_PTS_REF CAL_ign_min_engine_off_Y_load
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_inj_bank_balance_X_engine_speed "Calibration: X-axis (engine speed) for the injector bank balance table (RPM = val*125/4+500; 20-element array)." 0x4000C0DA NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 20 500 8468.75
+    /begin AXIS_PTS CAL_inj_bank_balance_X_engine_speed "Calibration: X-axis (engine speed) for the injector bank balance table (RPM = val*125/4+500; 20-element array)." 0x4000C0DA engine_speed_8bit RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 20 500 8468.75
     /end AXIS_PTS
-    /begin AXIS_PTS CAL_inj_bank_balance_Y_load "Calibration: Y-axis (load) for the injector bank balance table (mg/stroke = val*1173; 20-element array)." 0x4000C0EE NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_load_1173mg_255stroke 20 0 1173
+    /begin AXIS_PTS CAL_inj_bank_balance_Y_load "Calibration: Y-axis (load) for the injector bank balance table (mg/stroke = val*1173; 20-element array)." 0x4000C0EE load_8bit RL_AXIS_UBYTE 0 CM_u8_load_1173mg_255stroke 20 0 1173
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_inj_bank_balance "Calibration: injector bank balance (val/200; 400-element array)." MAP 0x4000C102 RL_VALUE_UBYTE 0 CM_u8_factor_1_200 0 127.5
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_rspeed_125_4_500rpm 20 500 8468.75
+      /begin AXIS_DESCR COM_AXIS engine_speed_8bit CM_u8_rspeed_125_4_500rpm 20 500 8468.75
         AXIS_PTS_REF CAL_inj_bank_balance_X_engine_speed
       /end AXIS_DESCR
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_load_1173mg_255stroke 20 0 1173
+      /begin AXIS_DESCR COM_AXIS load_8bit CM_u8_load_1173mg_255stroke 20 0 1173
         AXIS_PTS_REF CAL_inj_bank_balance_Y_load
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_ign_mbt_modeled_X_engine_speed "Calibration: X-axis (engine speed) for the ignition MBT modeled table (RPM = val*125/4+500; 20-element array)." 0x4000C292 NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 20 500 8468.75
+    /begin AXIS_PTS CAL_ign_mbt_modeled_X_engine_speed "Calibration: X-axis (engine speed) for the ignition MBT modeled table (RPM = val*125/4+500; 20-element array)." 0x4000C292 engine_speed_8bit RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 20 500 8468.75
     /end AXIS_PTS
-    /begin AXIS_PTS CAL_ign_mbt_modeled_Y_load "Calibration: Y-axis (load) for the ignition MBT modeled table (mg/stroke = val*1173; 20-element array)." 0x4000C2A6 NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_load_1173mg_255stroke 20 0 1173
+    /begin AXIS_PTS CAL_ign_mbt_modeled_Y_load "Calibration: Y-axis (load) for the ignition MBT modeled table (mg/stroke = val*1173; 20-element array)." 0x4000C2A6 load_8bit RL_AXIS_UBYTE 0 CM_u8_load_1173mg_255stroke 20 0 1173
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_ign_mbt_modeled "Calibration: ignition MBT modeled (° = val/4−10; 400-element array)." MAP 0x4000C2BA RL_VALUE_UBYTE 0 CM_u8_angle_1_4_10deg -10 53.75
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_rspeed_125_4_500rpm 20 500 8468.75
+      /begin AXIS_DESCR COM_AXIS engine_speed_8bit CM_u8_rspeed_125_4_500rpm 20 500 8468.75
         AXIS_PTS_REF CAL_ign_mbt_modeled_X_engine_speed
       /end AXIS_DESCR
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_load_1173mg_255stroke 20 0 1173
+      /begin AXIS_DESCR COM_AXIS load_8bit CM_u8_load_1173mg_255stroke 20 0 1173
         AXIS_PTS_REF CAL_ign_mbt_modeled_Y_load
       /end AXIS_DESCR
     /end CHARACTERISTIC
     /begin AXIS_PTS CAL_inj_post_start_transient_scaler_X_mass_accum "u8_mass_32mg[8]" 0x4000C44A NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_mass_32mg 8 0 8160
     /end AXIS_PTS
-    /begin AXIS_PTS CAL_inj_post_start_transient_scaler_Y_coolant_temp "u8_temp_5/8-40c[8]" 0x4000C452 NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_temp_5_8_40c 8 -40 119.375
+    /begin AXIS_PTS CAL_inj_post_start_transient_scaler_Y_coolant_temp "u8_temp_5/8-40c[8]" 0x4000C452 coolant_temp_engine_stopped RL_AXIS_UBYTE 0 CM_u8_temp_5_8_40c 8 -40 119.375
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_inj_post_start_transient_scaler "u8_factor_1/255[64]" MAP 0x4000C45A RL_VALUE_UBYTE 0 CM_u8_factor_1_255 0 100
       /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_mass_32mg 8 0 8160
         AXIS_PTS_REF CAL_inj_post_start_transient_scaler_X_mass_accum
       /end AXIS_DESCR
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_temp_5_8_40c 8 -40 119.375
+      /begin AXIS_DESCR COM_AXIS coolant_temp_engine_stopped CM_u8_temp_5_8_40c 8 -40 119.375
         AXIS_PTS_REF CAL_inj_post_start_transient_scaler_Y_coolant_temp
       /end AXIS_DESCR
     /end CHARACTERISTIC
@@ -2591,22 +2591,22 @@
         AXIS_PTS_REF CAL_inj_coldstart_enrichment_Y_maf_accum
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_load_baro_gain_X_rpm "Calibration: X-axis (rpm) for the load baro gain table (RPM = val*125/4+500; 16-element array)." 0x4000C51A NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 16 500 8468.75
+    /begin AXIS_PTS CAL_load_baro_gain_X_rpm "Calibration: X-axis (rpm) for the load baro gain table (RPM = val*125/4+500; 16-element array)." 0x4000C51A engine_speed_8bit RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 16 500 8468.75
     /end AXIS_PTS
     /begin AXIS_PTS CAL_load_baro_gain_Y_load "Calibration: Y-axis (load) for the load baro gain table (mg/stroke = val*4; 16-element array)." 0x4000C52A load_mass_per_stroke RL_AXIS_UBYTE 0 CM_u8_load_4mg_stroke 16 0 1020
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_load_baro_gain "Calibration: load baro gain (256-element array)." MAP 0x4000C53A RL_VALUE_UBYTE 0 NO_COMPU_METHOD 0 255
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_rspeed_125_4_500rpm 16 500 8468.75
+      /begin AXIS_DESCR COM_AXIS engine_speed_8bit CM_u8_rspeed_125_4_500rpm 16 500 8468.75
         AXIS_PTS_REF CAL_load_baro_gain_X_rpm
       /end AXIS_DESCR
       /begin AXIS_DESCR COM_AXIS load_mass_per_stroke CM_u8_load_4mg_stroke 16 0 1020
         AXIS_PTS_REF CAL_load_baro_gain_Y_load
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_idle_comp_while_moving_X_rpm "Calibration: X-axis (rpm) for the idle compensation while moving table (RPM; 16-element array)." 0x4000C63A NO_INPUT_QUANTITY RL_AXIS_UWORD 0 CM_u16_rspeed_rpm 16 0 65535
+    /begin AXIS_PTS CAL_idle_comp_while_moving_X_rpm "Calibration: X-axis (rpm) for the idle compensation while moving table (RPM; 16-element array)." 0x4000C63A engine_speed_16bit RL_AXIS_UWORD 0 CM_u16_rspeed_rpm 16 0 65535
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_idle_comp_while_moving "Calibration: idle compensation while moving (mg/s = val*100; 16-element array)." CURVE 0x4000C65A RL_VALUE_UWORD 0 CM_u16_flow_100mg_s 0 6553500
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u16_rspeed_rpm 16 0 65535
+      /begin AXIS_DESCR COM_AXIS engine_speed_16bit CM_u16_rspeed_rpm 16 0 65535
         AXIS_PTS_REF CAL_idle_comp_while_moving_X_rpm
       /end AXIS_DESCR
     /end CHARACTERISTIC
@@ -2644,12 +2644,12 @@
         AXIS_PTS_REF CAL_ign_comp_coolant_ips_flags_X_coolant_temp
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_vvt_intake_advance_base_low_load_X_engine_speed "Calibration: X-axis (engine speed) for the VVT intake advance base low load table (RPM = val*125/4+500; 6-element array)." 0x4000C6F2 NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 6 500 8468.75
+    /begin AXIS_PTS CAL_vvt_intake_advance_base_low_load_X_engine_speed "Calibration: X-axis (engine speed) for the VVT intake advance base low load table (RPM = val*125/4+500; 6-element array)." 0x4000C6F2 engine_speed_8bit RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 6 500 8468.75
     /end AXIS_PTS
     /begin AXIS_PTS CAL_vvt_intake_advance_base_low_load_Y_load "Calibration: Y-axis (load) for the VVT intake advance base low load table (mg/stroke = val*4; 6-element array)." 0x4000C6F8 load_mass_per_stroke RL_AXIS_UBYTE 0 CM_u8_load_4mg_stroke 6 0 1020
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_vvt_intake_advance_base_low_load "Calibration: VVT intake advance base low load (° = val/4; 36-element array)." MAP 0x4000C6FE RL_VALUE_UBYTE 0 CM_u8_angle_1_4deg 0 63.75
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_rspeed_125_4_500rpm 6 500 8468.75
+      /begin AXIS_DESCR COM_AXIS engine_speed_8bit CM_u8_rspeed_125_4_500rpm 6 500 8468.75
         AXIS_PTS_REF CAL_vvt_intake_advance_base_low_load_X_engine_speed
       /end AXIS_DESCR
       /begin AXIS_DESCR COM_AXIS load_mass_per_stroke CM_u8_load_4mg_stroke 6 0 1020
@@ -2663,12 +2663,12 @@
         AXIS_PTS_REF CAL_injtip_dfco_enable_rpm_ips_firstgear_X_coolant
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_vvt_exhaust_advance_base_low_load_X_engine_speed "Calibration: X-axis (engine speed) for the VVT exhaust advance base low load table (RPM = val*125/4+500; 6-element array)." 0x4000C76A NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 6 500 8468.75
+    /begin AXIS_PTS CAL_vvt_exhaust_advance_base_low_load_X_engine_speed "Calibration: X-axis (engine speed) for the VVT exhaust advance base low load table (RPM = val*125/4+500; 6-element array)." 0x4000C76A engine_speed_8bit RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 6 500 8468.75
     /end AXIS_PTS
     /begin AXIS_PTS CAL_vvt_exhaust_advance_base_low_load_Y_load "Calibration: Y-axis (load) for the VVT exhaust advance base low load table (mg/stroke = val*4; 6-element array)." 0x4000C770 load_mass_per_stroke RL_AXIS_UBYTE 0 CM_u8_load_4mg_stroke 6 0 1020
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_vvt_exhaust_advance_base_low_load "Calibration: VVT exhaust advance base low load (° = val/4; 36-element array)." MAP 0x4000C776 RL_VALUE_UBYTE 0 CM_u8_angle_1_4deg 0 63.75
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_rspeed_125_4_500rpm 6 500 8468.75
+      /begin AXIS_DESCR COM_AXIS engine_speed_8bit CM_u8_rspeed_125_4_500rpm 6 500 8468.75
         AXIS_PTS_REF CAL_vvt_exhaust_advance_base_low_load_X_engine_speed
       /end AXIS_DESCR
       /begin AXIS_DESCR COM_AXIS load_mass_per_stroke CM_u8_load_4mg_stroke 6 0 1020
@@ -3313,27 +3313,27 @@
     /end CHARACTERISTIC
     /begin CHARACTERISTIC CAL_torque_limit_cooldown_tps_rate_threshold "u8_factor_1/255" VALUE 0x4000CCCA RL_VALUE_UBYTE 0 CM_u8_factor_1_255 0 100
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_torque_load_to_torque_X_engine_speed "Calibration: X-axis (engine speed) for the torque load to torque table (RPM; 16-element array)." 0x4000CDB4 NO_INPUT_QUANTITY RL_AXIS_UWORD 0 CM_u16_rspeed_rpm 16 0 65535
+    /begin AXIS_PTS CAL_torque_load_to_torque_X_engine_speed "Calibration: X-axis (engine speed) for the torque load to torque table (RPM; 16-element array)." 0x4000CDB4 engine_speed_16bit RL_AXIS_UWORD 0 CM_u16_rspeed_rpm 16 0 65535
     /end AXIS_PTS
     /begin AXIS_PTS CAL_torque_load_to_torque_Y_load "Calibration: Y-axis (load) for the torque load to torque table (mg/stroke; 16-element array)." 0x4000CDD4 NO_INPUT_QUANTITY RL_AXIS_UWORD 0 CM_u16_load_mg_stroke 16 0 65535
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_torque_load_to_torque "Calibration: torque load to torque (Nm; 256-element array)." MAP 0x4000CDF4 RL_VALUE_UWORD 0 CM_u8_torque_nm 0 65535
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u16_rspeed_rpm 16 0 65535
+      /begin AXIS_DESCR COM_AXIS engine_speed_16bit CM_u16_rspeed_rpm 16 0 65535
         AXIS_PTS_REF CAL_torque_load_to_torque_X_engine_speed
       /end AXIS_DESCR
       /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u16_load_mg_stroke 16 0 65535
         AXIS_PTS_REF CAL_torque_load_to_torque_Y_load
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_ign_base_ips_X_engine_speed "Calibration: X-axis (engine speed) for the ignition base IPS table (RPM = val*125/4+500; 20-element array)." 0x4000CFF4 NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 20 500 8468.75
+    /begin AXIS_PTS CAL_ign_base_ips_X_engine_speed "Calibration: X-axis (engine speed) for the ignition base IPS table (RPM = val*125/4+500; 20-element array)." 0x4000CFF4 engine_speed_8bit RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 20 500 8468.75
     /end AXIS_PTS
-    /begin AXIS_PTS CAL_ign_base_ips_Y_load "Calibration: Y-axis (load) for the ignition base IPS table (mg/stroke = val*1173; 20-element array)." 0x4000D008 NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_load_1173mg_255stroke 20 0 1173
+    /begin AXIS_PTS CAL_ign_base_ips_Y_load "Calibration: Y-axis (load) for the ignition base IPS table (mg/stroke = val*1173; 20-element array)." 0x4000D008 load_8bit RL_AXIS_UBYTE 0 CM_u8_load_1173mg_255stroke 20 0 1173
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_ign_base_ips "Calibration: ignition base IPS (° = val/4−10; 400-element array)." MAP 0x4000D01C RL_VALUE_UBYTE 0 CM_u8_angle_1_4_10deg -10 53.75
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_rspeed_125_4_500rpm 20 500 8468.75
+      /begin AXIS_DESCR COM_AXIS engine_speed_8bit CM_u8_rspeed_125_4_500rpm 20 500 8468.75
         AXIS_PTS_REF CAL_ign_base_ips_X_engine_speed
       /end AXIS_DESCR
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_load_1173mg_255stroke 20 0 1173
+      /begin AXIS_DESCR COM_AXIS load_8bit CM_u8_load_1173mg_255stroke 20 0 1173
         AXIS_PTS_REF CAL_ign_base_ips_Y_load
       /end AXIS_DESCR
     /end CHARACTERISTIC
@@ -3869,24 +3869,24 @@
         AXIS_PTS_REF CAL_misfire_comp_maf_ips_Y_maf_accum
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_ecu_engine_speed_target_ramp_gain_tour_X_rpm "Calibration: X-axis (rpm) for the ECU engine speed target ramp gain tour table (RPM = val*125/4+500; 4-element array)." 0x4000D614 NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 4 500 8468.75
+    /begin AXIS_PTS CAL_ecu_engine_speed_target_ramp_gain_tour_X_rpm "Calibration: X-axis (rpm) for the ECU engine speed target ramp gain tour table (RPM = val*125/4+500; 4-element array)." 0x4000D614 engine_speed_8bit RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 4 500 8468.75
     /end AXIS_PTS
     /begin AXIS_PTS CAL_ecu_engine_speed_target_ramp_gain_tour_Y_coolant_temp "Calibration: Y-axis (coolant temp) for the ECU engine speed target ramp gain tour table (°C = val*5/8−40; 4-element array)." 0x4000D618 coolant_temp RL_AXIS_UBYTE 0 CM_u8_temp_5_8_40c 4 -40 119.375
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_ecu_engine_speed_target_ramp_gain_tour "Calibration: ECU engine speed target ramp gain tour (val/2560; 16-element array)." MAP 0x4000D61C RL_VALUE_UBYTE 0 CM_u8_factor_1_2560 0 9.9609375
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_rspeed_125_4_500rpm 4 500 8468.75
+      /begin AXIS_DESCR COM_AXIS engine_speed_8bit CM_u8_rspeed_125_4_500rpm 4 500 8468.75
         AXIS_PTS_REF CAL_ecu_engine_speed_target_ramp_gain_tour_X_rpm
       /end AXIS_DESCR
       /begin AXIS_DESCR COM_AXIS coolant_temp CM_u8_temp_5_8_40c 4 -40 119.375
         AXIS_PTS_REF CAL_ecu_engine_speed_target_ramp_gain_tour_Y_coolant_temp
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_ecu_engine_speed_target_ramp_gain_sport_X_rpm "Calibration: X-axis (rpm) for the ECU engine speed target ramp gain sport table (RPM = val*125/4+500; 4-element array)." 0x4000D62C NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 4 500 8468.75
+    /begin AXIS_PTS CAL_ecu_engine_speed_target_ramp_gain_sport_X_rpm "Calibration: X-axis (rpm) for the ECU engine speed target ramp gain sport table (RPM = val*125/4+500; 4-element array)." 0x4000D62C engine_speed_8bit RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 4 500 8468.75
     /end AXIS_PTS
     /begin AXIS_PTS CAL_ecu_engine_speed_target_ramp_gain_sport_Y_coolant_temp "Calibration: Y-axis (coolant temp) for the ECU engine speed target ramp gain sport table (°C = val*5/8−40; 4-element array)." 0x4000D630 coolant_temp RL_AXIS_UBYTE 0 CM_u8_temp_5_8_40c 4 -40 119.375
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_ecu_engine_speed_target_ramp_gain_sport "Calibration: ECU engine speed target ramp gain sport (val/2560; 16-element array)." MAP 0x4000D634 RL_VALUE_UBYTE 0 CM_u8_factor_1_2560 0 9.9609375
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_rspeed_125_4_500rpm 4 500 8468.75
+      /begin AXIS_DESCR COM_AXIS engine_speed_8bit CM_u8_rspeed_125_4_500rpm 4 500 8468.75
         AXIS_PTS_REF CAL_ecu_engine_speed_target_ramp_gain_sport_X_rpm
       /end AXIS_DESCR
       /begin AXIS_DESCR COM_AXIS coolant_temp CM_u8_temp_5_8_40c 4 -40 119.375
@@ -3940,36 +3940,36 @@
         AXIS_PTS_REF CAL_cac_pump_dutycycle_X_manifold_temp
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_ign_retard_recovery_step_X_engine_speed "Calibration: X-axis (engine speed) for the ignition retard recovery step table (RPM = val*125/4+500; 8-element array)." 0x4000D73C NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 8 500 8468.75
+    /begin AXIS_PTS CAL_ign_retard_recovery_step_X_engine_speed "Calibration: X-axis (engine speed) for the ignition retard recovery step table (RPM = val*125/4+500; 8-element array)." 0x4000D73C engine_speed_8bit RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 8 500 8468.75
     /end AXIS_PTS
     /begin AXIS_PTS CAL_ign_retard_recovery_step_Y_load "Calibration: Y-axis (load) for the ignition retard recovery step table (mg/stroke = val*4; 8-element array)." 0x4000D744 load_mass_per_stroke RL_AXIS_UBYTE 0 CM_u8_load_4mg_stroke 8 0 1020
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_ign_retard_recovery_step "Calibration: ignition retard recovery step (° = val/4; 64-element array)." MAP 0x4000D74C RL_VALUE_SBYTE 0 CM_u8_angle_1_4deg -32 31.75
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_rspeed_125_4_500rpm 8 500 8468.75
+      /begin AXIS_DESCR COM_AXIS engine_speed_8bit CM_u8_rspeed_125_4_500rpm 8 500 8468.75
         AXIS_PTS_REF CAL_ign_retard_recovery_step_X_engine_speed
       /end AXIS_DESCR
       /begin AXIS_DESCR COM_AXIS load_mass_per_stroke CM_u8_load_4mg_stroke 8 0 1020
         AXIS_PTS_REF CAL_ign_retard_recovery_step_Y_load
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_misfire_sensitivity_manual_X_rpm "Calibration: X-axis (rpm) for the misfire sensitivity manual table (RPM; 8-element array)." 0x4000D78C NO_INPUT_QUANTITY RL_AXIS_UWORD 0 CM_u16_rspeed_rpm 8 0 65535
+    /begin AXIS_PTS CAL_misfire_sensitivity_manual_X_rpm "Calibration: X-axis (rpm) for the misfire sensitivity manual table (RPM; 8-element array)." 0x4000D78C engine_speed_16bit RL_AXIS_UWORD 0 CM_u16_rspeed_rpm 8 0 65535
     /end AXIS_PTS
     /begin AXIS_PTS CAL_misfire_sensitivity_manual_Y_load "Calibration: Y-axis (load) for the misfire sensitivity manual table (mg/stroke; 8-element array)." 0x4000D79C V_CAL_misfire_sensitivity_manual_Y_load RL_AXIS_UWORD 0 CM_u16_load_mg_stroke 8 0 65535
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_misfire_sensitivity_manual "Calibration: misfire sensitivity manual (64-element array)." MAP 0x4000D7AC RL_VALUE_UWORD 0 NO_COMPU_METHOD 0 65535
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u16_rspeed_rpm 8 0 65535
+      /begin AXIS_DESCR COM_AXIS engine_speed_16bit CM_u16_rspeed_rpm 8 0 65535
         AXIS_PTS_REF CAL_misfire_sensitivity_manual_X_rpm
       /end AXIS_DESCR
       /begin AXIS_DESCR COM_AXIS V_CAL_misfire_sensitivity_manual_Y_load CM_u16_load_mg_stroke 8 0 65535
         AXIS_PTS_REF CAL_misfire_sensitivity_manual_Y_load
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_misfire_sensitivity_ips_X_rpm "Calibration: X-axis (rpm) for the misfire sensitivity IPS table (RPM; 8-element array)." 0x4000D82C NO_INPUT_QUANTITY RL_AXIS_UWORD 0 CM_u16_rspeed_rpm 8 0 65535
+    /begin AXIS_PTS CAL_misfire_sensitivity_ips_X_rpm "Calibration: X-axis (rpm) for the misfire sensitivity IPS table (RPM; 8-element array)." 0x4000D82C engine_speed_16bit RL_AXIS_UWORD 0 CM_u16_rspeed_rpm 8 0 65535
     /end AXIS_PTS
     /begin AXIS_PTS CAL_misfire_sensitivity_ips_Y_load "Calibration: Y-axis (load) for the misfire sensitivity IPS table (mg/stroke; 8-element array)." 0x4000D83C V_CAL_misfire_sensitivity_ips_Y_load RL_AXIS_UWORD 0 CM_u16_load_mg_stroke 8 0 65535
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_misfire_sensitivity_ips "Calibration: misfire sensitivity IPS (64-element array)." MAP 0x4000D84C RL_VALUE_UWORD 0 NO_COMPU_METHOD 0 65535
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u16_rspeed_rpm 8 0 65535
+      /begin AXIS_DESCR COM_AXIS engine_speed_16bit CM_u16_rspeed_rpm 8 0 65535
         AXIS_PTS_REF CAL_misfire_sensitivity_ips_X_rpm
       /end AXIS_DESCR
       /begin AXIS_DESCR COM_AXIS V_CAL_misfire_sensitivity_ips_Y_load CM_u16_load_mg_stroke 8 0 65535
@@ -4016,58 +4016,58 @@
         AXIS_PTS_REF CAL_slip_power_based_rpm_thresholds_X_power
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_load_plausibility_test_delta_X_rpm "Calibration: X-axis (rpm) for the load plausibility test delta table (RPM = val*125/4+500; 8-element array)." 0x4000D98C NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 8 500 8468.75
+    /begin AXIS_PTS CAL_load_plausibility_test_delta_X_rpm "Calibration: X-axis (rpm) for the load plausibility test delta table (RPM = val*125/4+500; 8-element array)." 0x4000D98C engine_speed_8bit RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 8 500 8468.75
     /end AXIS_PTS
-    /begin AXIS_PTS CAL_load_plausibility_test_delta_Y_tps "Calibration: Y-axis (tps) for the load plausibility test delta table (val/255; 8-element array)." 0x4000D994 NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_factor_1_255 8 0 100
+    /begin AXIS_PTS CAL_load_plausibility_test_delta_Y_tps "Calibration: Y-axis (tps) for the load plausibility test delta table (val/255; 8-element array)." 0x4000D994 tps_8bit RL_AXIS_UBYTE 0 CM_u8_factor_1_255 8 0 100
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_load_plausibility_test_delta "Calibration: load plausibility test delta (mg/stroke = val*2; 64-element array)." MAP 0x4000D99C RL_VALUE_UBYTE 0 CM_u8_load_2mg_stroke 0 510
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_rspeed_125_4_500rpm 8 500 8468.75
+      /begin AXIS_DESCR COM_AXIS engine_speed_8bit CM_u8_rspeed_125_4_500rpm 8 500 8468.75
         AXIS_PTS_REF CAL_load_plausibility_test_delta_X_rpm
       /end AXIS_DESCR
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_factor_1_255 8 0 100
+      /begin AXIS_DESCR COM_AXIS tps_8bit CM_u8_factor_1_255 8 0 100
         AXIS_PTS_REF CAL_load_plausibility_test_delta_Y_tps
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_misfire_detect_torque_threshold_X_rpm "Calibration: X-axis (rpm) for the misfire detect torque threshold table (RPM = val*125/4+500; 8-element array)." 0x4000D9DC NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 8 500 8468.75
+    /begin AXIS_PTS CAL_misfire_detect_torque_threshold_X_rpm "Calibration: X-axis (rpm) for the misfire detect torque threshold table (RPM = val*125/4+500; 8-element array)." 0x4000D9DC engine_speed_8bit RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 8 500 8468.75
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_misfire_detect_torque_threshold "Calibration: misfire detect torque threshold (Nm; 8-element array)." CURVE 0x4000D9E4 RL_VALUE_UBYTE 0 CM_u8_torque_nm 0 255
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_rspeed_125_4_500rpm 8 500 8468.75
+      /begin AXIS_DESCR COM_AXIS engine_speed_8bit CM_u8_rspeed_125_4_500rpm 8 500 8468.75
         AXIS_PTS_REF CAL_misfire_detect_torque_threshold_X_rpm
       /end AXIS_DESCR
     /end CHARACTERISTIC
     /begin CHARACTERISTIC CAL_misc_calid "Calibration: misc calid (16-element array)." ASCII 0x4000D9F0 RL_VALUE_UBYTE 0 NO_COMPU_METHOD 0 255
       NUMBER 16
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_misfire_base_threshold_manual_X_rpm "Calibration: X-axis (rpm) for the misfire base threshold manual table (RPM; 16-element array)." 0x4000DA10 NO_INPUT_QUANTITY RL_AXIS_UWORD 0 CM_u16_rspeed_rpm 16 0 65535
+    /begin AXIS_PTS CAL_misfire_base_threshold_manual_X_rpm "Calibration: X-axis (rpm) for the misfire base threshold manual table (RPM; 16-element array)." 0x4000DA10 engine_speed_16bit RL_AXIS_UWORD 0 CM_u16_rspeed_rpm 16 0 65535
     /end AXIS_PTS
     /begin AXIS_PTS CAL_misfire_base_threshold_manual_Y_load "Calibration: Y-axis (load) for the misfire base threshold manual table (mg/stroke; 16-element array)." 0x4000DA30 V_CAL_misfire_base_threshold_manual_Y_load RL_AXIS_UWORD 0 CM_u16_load_mg_stroke 16 0 65535
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_misfire_base_threshold_manual "Calibration: misfire base threshold manual (256-element array)." MAP 0x4000DA50 RL_VALUE_UWORD 0 NO_COMPU_METHOD 0 65535
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u16_rspeed_rpm 16 0 65535
+      /begin AXIS_DESCR COM_AXIS engine_speed_16bit CM_u16_rspeed_rpm 16 0 65535
         AXIS_PTS_REF CAL_misfire_base_threshold_manual_X_rpm
       /end AXIS_DESCR
       /begin AXIS_DESCR COM_AXIS V_CAL_misfire_base_threshold_manual_Y_load CM_u16_load_mg_stroke 16 0 65535
         AXIS_PTS_REF CAL_misfire_base_threshold_manual_Y_load
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_misfire_cat_damage_limit_X_rpm "Calibration: X-axis (rpm) for the misfire cat damage limit table (RPM = val*125/4+500; 8-element array)." 0x4000DC50 NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 8 500 8468.75
+    /begin AXIS_PTS CAL_misfire_cat_damage_limit_X_rpm "Calibration: X-axis (rpm) for the misfire cat damage limit table (RPM = val*125/4+500; 8-element array)." 0x4000DC50 engine_speed_8bit RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 8 500 8468.75
     /end AXIS_PTS
     /begin AXIS_PTS CAL_misfire_cat_damage_limit_Y_load "Calibration: Y-axis (load) for the misfire cat damage limit table (mg/stroke = val*4; 8-element array)." 0x4000DC58 load_mass_per_stroke RL_AXIS_UBYTE 0 CM_u8_load_4mg_stroke 8 0 1020
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_misfire_cat_damage_limit "Calibration: misfire cat damage limit (64-element array)." MAP 0x4000DC60 RL_VALUE_UBYTE 0 NO_COMPU_METHOD 0 255
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_rspeed_125_4_500rpm 8 500 8468.75
+      /begin AXIS_DESCR COM_AXIS engine_speed_8bit CM_u8_rspeed_125_4_500rpm 8 500 8468.75
         AXIS_PTS_REF CAL_misfire_cat_damage_limit_X_rpm
       /end AXIS_DESCR
       /begin AXIS_DESCR COM_AXIS load_mass_per_stroke CM_u8_load_4mg_stroke 8 0 1020
         AXIS_PTS_REF CAL_misfire_cat_damage_limit_Y_load
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_misfire_base_threshold_ips_X_rpm "Calibration: X-axis (rpm) for the misfire base threshold IPS table (RPM; 16-element array)." 0x4000DCA0 NO_INPUT_QUANTITY RL_AXIS_UWORD 0 CM_u16_rspeed_rpm 16 0 65535
+    /begin AXIS_PTS CAL_misfire_base_threshold_ips_X_rpm "Calibration: X-axis (rpm) for the misfire base threshold IPS table (RPM; 16-element array)." 0x4000DCA0 engine_speed_16bit RL_AXIS_UWORD 0 CM_u16_rspeed_rpm 16 0 65535
     /end AXIS_PTS
     /begin AXIS_PTS CAL_misfire_base_threshold_ips_Y_load "Calibration: Y-axis (load) for the misfire base threshold IPS table (mg/stroke; 16-element array)." 0x4000DCC0 V_CAL_misfire_base_threshold_ips_Y_load RL_AXIS_UWORD 0 CM_u16_load_mg_stroke 16 0 65535
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_misfire_base_threshold_ips "Calibration: misfire base threshold IPS (256-element array)." MAP 0x4000DCE0 RL_VALUE_SWORD 0 NO_COMPU_METHOD -32768 32767
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u16_rspeed_rpm 16 0 65535
+      /begin AXIS_DESCR COM_AXIS engine_speed_16bit CM_u16_rspeed_rpm 16 0 65535
         AXIS_PTS_REF CAL_misfire_base_threshold_ips_X_rpm
       /end AXIS_DESCR
       /begin AXIS_DESCR COM_AXIS V_CAL_misfire_base_threshold_ips_Y_load CM_u16_load_mg_stroke 16 0 65535
@@ -4173,24 +4173,24 @@
         AXIS_PTS_REF CAL_dpm_slip_filter_coeff_X_carspeed
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_exhaust_flap_state_control_tour_X_rpm "Calibration: X-axis (rpm) for the exhaust flap state control tour table (RPM = val*50; 8-element array)." 0x4000E2C8 NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_rspeed_50rpm 8 0 12750
+    /begin AXIS_PTS CAL_exhaust_flap_state_control_tour_X_rpm "Calibration: X-axis (rpm) for the exhaust flap state control tour table (RPM = val*50; 8-element array)." 0x4000E2C8 V_CAL_exhaust_flap_state_control_tour_X_rpm RL_AXIS_UBYTE 0 CM_u8_rspeed_50rpm 8 0 12750
     /end AXIS_PTS
     /begin AXIS_PTS CAL_exhaust_flap_state_control_tour_Y_accel_pedal "Calibration: Y-axis (accel pedal) for the exhaust flap state control tour table (val/255; 8-element array)." 0x4000E2D0 NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_factor_1_255 8 0 100
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_exhaust_flap_state_control_tour "Calibration: exhaust flap state control tour (64-element array)." MAP 0x4000E2D8 RL_VALUE_UBYTE 0 NO_COMPU_METHOD 0 255
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_rspeed_50rpm 8 0 12750
+      /begin AXIS_DESCR COM_AXIS V_CAL_exhaust_flap_state_control_tour_X_rpm CM_u8_rspeed_50rpm 8 0 12750
         AXIS_PTS_REF CAL_exhaust_flap_state_control_tour_X_rpm
       /end AXIS_DESCR
       /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_factor_1_255 8 0 100
         AXIS_PTS_REF CAL_exhaust_flap_state_control_tour_Y_accel_pedal
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_exhaust_flap_state_control_sport_X_rpm "Calibration: X-axis (rpm) for the exhaust flap state control sport table (RPM = val*50; 8-element array)." 0x4000E318 NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_rspeed_50rpm 8 0 12750
+    /begin AXIS_PTS CAL_exhaust_flap_state_control_sport_X_rpm "Calibration: X-axis (rpm) for the exhaust flap state control sport table (RPM = val*50; 8-element array)." 0x4000E318 V_CAL_exhaust_flap_state_control_sport_X_rpm RL_AXIS_UBYTE 0 CM_u8_rspeed_50rpm 8 0 12750
     /end AXIS_PTS
     /begin AXIS_PTS CAL_exhaust_flap_state_control_sport_Y_accel_pedal "Calibration: Y-axis (accel pedal) for the exhaust flap state control sport table (val/255; 8-element array)." 0x4000E320 NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_factor_1_255 8 0 100
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_exhaust_flap_state_control_sport "Calibration: exhaust flap state control sport (64-element array)." MAP 0x4000E328 RL_VALUE_UBYTE 0 NO_COMPU_METHOD 0 255
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_rspeed_50rpm 8 0 12750
+      /begin AXIS_DESCR COM_AXIS V_CAL_exhaust_flap_state_control_sport_X_rpm CM_u8_rspeed_50rpm 8 0 12750
         AXIS_PTS_REF CAL_exhaust_flap_state_control_sport_X_rpm
       /end AXIS_DESCR
       /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_factor_1_255 8 0 100
@@ -4209,53 +4209,53 @@
         AXIS_PTS_REF CAL_idle_comp_timer_carspeed_ips_Y_time_above_speed
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_inj_angle_X_engine_speed "Calibration: X-axis (engine speed) for the injector angle table (RPM = val*125/4+500; 16-element array)." 0x4000E3B8 NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 16 500 8468.75
+    /begin AXIS_PTS CAL_inj_angle_X_engine_speed "Calibration: X-axis (engine speed) for the injector angle table (RPM = val*125/4+500; 16-element array)." 0x4000E3B8 engine_speed_8bit RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 16 500 8468.75
     /end AXIS_PTS
     /begin AXIS_PTS CAL_inj_angle_Y_load "Calibration: Y-axis (load) for the injector angle table (mg/stroke = val*4; 16-element array)." 0x4000E3C8 load_mass_per_stroke RL_AXIS_UBYTE 0 CM_u8_load_4mg_stroke 16 0 1020
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_inj_angle "Calibration: injector angle (° = val*720/256; 256-element array)." MAP 0x4000E3D8 RL_VALUE_UBYTE 0 CM_u8_angle_720_256deg 0 717.1875
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_rspeed_125_4_500rpm 16 500 8468.75
+      /begin AXIS_DESCR COM_AXIS engine_speed_8bit CM_u8_rspeed_125_4_500rpm 16 500 8468.75
         AXIS_PTS_REF CAL_inj_angle_X_engine_speed
       /end AXIS_DESCR
       /begin AXIS_DESCR COM_AXIS load_mass_per_stroke CM_u8_load_4mg_stroke 16 0 1020
         AXIS_PTS_REF CAL_inj_angle_Y_load
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_torque_external_request_overshoot_margin_X_rpm "Calibration: X-axis (rpm) for the torque external request overshoot margin table (RPM = val*125/4+500; 16-element array)." 0x4000E4E8 NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 16 500 8468.75
+    /begin AXIS_PTS CAL_torque_external_request_overshoot_margin_X_rpm "Calibration: X-axis (rpm) for the torque external request overshoot margin table (RPM = val*125/4+500; 16-element array)." 0x4000E4E8 engine_speed_8bit RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 16 500 8468.75
     /end AXIS_PTS
     /begin AXIS_PTS CAL_torque_external_request_overshoot_margin_Y_torque "Calibration: Y-axis (torque) for the torque external request overshoot margin table (Nm = val*4; 16-element array)." 0x4000E4F8 NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_torque_4nm 16 0 1020
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_torque_external_request_overshoot_margin "Calibration: torque external request overshoot margin (val/100; 256-element array)." MAP 0x4000E508 RL_VALUE_UBYTE 0 CM_u8_factor_1_100 0 255
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_rspeed_125_4_500rpm 16 500 8468.75
+      /begin AXIS_DESCR COM_AXIS engine_speed_8bit CM_u8_rspeed_125_4_500rpm 16 500 8468.75
         AXIS_PTS_REF CAL_torque_external_request_overshoot_margin_X_rpm
       /end AXIS_DESCR
       /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_torque_4nm 16 0 1020
         AXIS_PTS_REF CAL_torque_external_request_overshoot_margin_Y_torque
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_ign_comp_manifold_temp_X_engine_speed "Calibration: X-axis (engine speed) for the ignition compensation manifold temperature table (RPM = val*125/4+500; 16-element array)." 0x4000E608 NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 16 500 8468.75
+    /begin AXIS_PTS CAL_ign_comp_manifold_temp_X_engine_speed "Calibration: X-axis (engine speed) for the ignition compensation manifold temperature table (RPM = val*125/4+500; 16-element array)." 0x4000E608 engine_speed_8bit RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 16 500 8468.75
     /end AXIS_PTS
     /begin AXIS_PTS CAL_ign_comp_manifold_temp_Y_manifold_temp "Calibration: Y-axis (manifold temp) for the ignition compensation manifold temperature table (°C = val*5/8−40; 12-element array)." 0x4000E618 NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_temp_5_8_40c 12 -40 119.375
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_ign_comp_manifold_temp "Calibration: ignition compensation manifold temperature (° = val/4−32; 192-element array)." MAP 0x4000E624 RL_VALUE_UBYTE 0 CM_u8_angle_1_4_32deg -32 31.75
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_rspeed_125_4_500rpm 16 500 8468.75
+      /begin AXIS_DESCR COM_AXIS engine_speed_8bit CM_u8_rspeed_125_4_500rpm 16 500 8468.75
         AXIS_PTS_REF CAL_ign_comp_manifold_temp_X_engine_speed
       /end AXIS_DESCR
       /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_temp_5_8_40c 12 -40 119.375
         AXIS_PTS_REF CAL_ign_comp_manifold_temp_Y_manifold_temp
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_cluster_oil_pressure_warn_threshold_X_engine_speed "Calibration: X-axis (engine speed) for the cluster oil pressure warn threshold table (RPM = val*125/4+500; 8-element array)." 0x4000E6E4 NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 8 500 8468.75
+    /begin AXIS_PTS CAL_cluster_oil_pressure_warn_threshold_X_engine_speed "Calibration: X-axis (engine speed) for the cluster oil pressure warn threshold table (RPM = val*125/4+500; 8-element array)." 0x4000E6E4 engine_speed_8bit RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 8 500 8468.75
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_cluster_oil_pressure_warn_threshold "Calibration: cluster oil pressure warn threshold (RPM = val*125/4+500; 8-element array)." CURVE 0x4000E6EC RL_VALUE_UBYTE 0 CM_u8_rspeed_125_4_500rpm 500 8468.75
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_rspeed_125_4_500rpm 8 500 8468.75
+      /begin AXIS_DESCR COM_AXIS engine_speed_8bit CM_u8_rspeed_125_4_500rpm 8 500 8468.75
         AXIS_PTS_REF CAL_cluster_oil_pressure_warn_threshold_X_engine_speed
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_sensor_oil_pressure_expected_X_engine_speed "Calibration: X-axis (engine speed) for the sensor oil pressure expected table (RPM = val*125/4+500; 8-element array)." 0x4000E6F4 NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 8 500 8468.75
+    /begin AXIS_PTS CAL_sensor_oil_pressure_expected_X_engine_speed "Calibration: X-axis (engine speed) for the sensor oil pressure expected table (RPM = val*125/4+500; 8-element array)." 0x4000E6F4 engine_speed_8bit RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 8 500 8468.75
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_sensor_oil_pressure_expected "Calibration: sensor oil pressure expected (8-element array)." CURVE 0x4000E6FC RL_VALUE_UBYTE 0 NO_COMPU_METHOD 0 255
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_rspeed_125_4_500rpm 8 500 8468.75
+      /begin AXIS_DESCR COM_AXIS engine_speed_8bit CM_u8_rspeed_125_4_500rpm 8 500 8468.75
         AXIS_PTS_REF CAL_sensor_oil_pressure_expected_X_engine_speed
       /end AXIS_DESCR
     /end CHARACTERISTIC
@@ -4285,24 +4285,24 @@
         AXIS_PTS_REF CAL_inj_cranking_enrichment_soak_time_X_engine_off_time
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_fuel_pressure_target_X_engine_speed "Calibration: X-axis (engine speed) for the fuel pressure target table (RPM = val*125/4+500; 8-element array)." 0x4000E77C NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 8 500 8468.75
+    /begin AXIS_PTS CAL_fuel_pressure_target_X_engine_speed "Calibration: X-axis (engine speed) for the fuel pressure target table (RPM = val*125/4+500; 8-element array)." 0x4000E77C engine_speed_8bit RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 8 500 8468.75
     /end AXIS_PTS
     /begin AXIS_PTS CAL_fuel_pressure_target_Y_load "Calibration: Y-axis (load) for the fuel pressure target table (mg/stroke = val*4; 8-element array)." 0x4000E784 load_mass_per_stroke RL_AXIS_UBYTE 0 CM_u8_load_4mg_stroke 8 0 1020
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_fuel_pressure_target "Calibration: fuel pressure target (mbar = val*50; 64-element array)." MAP 0x4000E78C RL_VALUE_UBYTE 0 CM_u8_pressure_50mbar 0 12750
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_rspeed_125_4_500rpm 8 500 8468.75
+      /begin AXIS_DESCR COM_AXIS engine_speed_8bit CM_u8_rspeed_125_4_500rpm 8 500 8468.75
         AXIS_PTS_REF CAL_fuel_pressure_target_X_engine_speed
       /end AXIS_DESCR
       /begin AXIS_DESCR COM_AXIS load_mass_per_stroke CM_u8_load_4mg_stroke 8 0 1020
         AXIS_PTS_REF CAL_fuel_pressure_target_Y_load
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_exhaust_flap_state_control_race_X_rpm "Calibration: X-axis (rpm) for the exhaust flap state control race table (RPM = val*50; 8-element array)." 0x4000E7CC NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_rspeed_50rpm 8 0 12750
+    /begin AXIS_PTS CAL_exhaust_flap_state_control_race_X_rpm "Calibration: X-axis (rpm) for the exhaust flap state control race table (RPM = val*50; 8-element array)." 0x4000E7CC V_CAL_exhaust_flap_state_control_race_X_rpm RL_AXIS_UBYTE 0 CM_u8_rspeed_50rpm 8 0 12750
     /end AXIS_PTS
     /begin AXIS_PTS CAL_exhaust_flap_state_control_race_Y_accel_pedal "Calibration: Y-axis (accel pedal) for the exhaust flap state control race table (val/255; 8-element array)." 0x4000E7D4 NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_factor_1_255 8 0 100
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_exhaust_flap_state_control_race "Calibration: exhaust flap state control race (64-element array)." MAP 0x4000E7DC RL_VALUE_UBYTE 0 NO_COMPU_METHOD 0 255
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_rspeed_50rpm 8 0 12750
+      /begin AXIS_DESCR COM_AXIS V_CAL_exhaust_flap_state_control_race_X_rpm CM_u8_rspeed_50rpm 8 0 12750
         AXIS_PTS_REF CAL_exhaust_flap_state_control_race_X_rpm
       /end AXIS_DESCR
       /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_factor_1_255 8 0 100
@@ -4354,24 +4354,24 @@
         AXIS_PTS_REF CAL_cooling_fan_base_engine_on_Y_carspeed
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_ign_comp_manifold_temp_load_multiplier_X_engine_speed "Calibration: X-axis (engine speed) for the ignition compensation manifold temperature load multiplier table (RPM = val*125/4+500; 16-element array)." 0x4000EB4C NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 16 500 8468.75
+    /begin AXIS_PTS CAL_ign_comp_manifold_temp_load_multiplier_X_engine_speed "Calibration: X-axis (engine speed) for the ignition compensation manifold temperature load multiplier table (RPM = val*125/4+500; 16-element array)." 0x4000EB4C engine_speed_8bit RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 16 500 8468.75
     /end AXIS_PTS
     /begin AXIS_PTS CAL_ign_comp_manifold_temp_load_multiplier_Y_load "Calibration: Y-axis (load) for the ignition compensation manifold temperature load multiplier table (mg/stroke = val*4; 12-element array)." 0x4000EB5C load_mass_per_stroke RL_AXIS_UBYTE 0 CM_u8_load_4mg_stroke 12 0 1020
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_ign_comp_manifold_temp_load_multiplier "Calibration: ignition compensation manifold temperature load multiplier (val/128; 192-element array)." MAP 0x4000EB68 RL_VALUE_UBYTE 0 CM_u8_factor_1_128 0 199.21875
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_rspeed_125_4_500rpm 16 500 8468.75
+      /begin AXIS_DESCR COM_AXIS engine_speed_8bit CM_u8_rspeed_125_4_500rpm 16 500 8468.75
         AXIS_PTS_REF CAL_ign_comp_manifold_temp_load_multiplier_X_engine_speed
       /end AXIS_DESCR
       /begin AXIS_DESCR COM_AXIS load_mass_per_stroke CM_u8_load_4mg_stroke 12 0 1020
         AXIS_PTS_REF CAL_ign_comp_manifold_temp_load_multiplier_Y_load
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_load_ve_for_map_synthesis_X_rpm "Calibration: X-axis (rpm) for the load VE for MAP synthesis table (RPM = val*125/4+500; 16-element array)." 0x4000EC28 NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 16 500 8468.75
+    /begin AXIS_PTS CAL_load_ve_for_map_synthesis_X_rpm "Calibration: X-axis (rpm) for the load VE for MAP synthesis table (RPM = val*125/4+500; 16-element array)." 0x4000EC28 engine_speed_8bit RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 16 500 8468.75
     /end AXIS_PTS
     /begin AXIS_PTS CAL_load_ve_for_map_synthesis_Y_load "Calibration: Y-axis (load) for the load VE for MAP synthesis table (mg/stroke = val*4; 16-element array)." 0x4000EC38 load_mass_per_stroke RL_AXIS_UBYTE 0 CM_u8_load_4mg_stroke 16 0 1020
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_load_ve_for_map_synthesis "When CAL_ecu_load_use_tmap is false, the ECU uses the synthesized MAP (manifold_pressure_calculated) rather than the measured MAP sensor — confirming this is a MAF-primary system that models MAP as a secondary value." MAP 0x4000EC48 RL_VALUE_UBYTE 0 CM_u8_factor_1_100 0 255
-      /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_rspeed_125_4_500rpm 16 500 8468.75
+      /begin AXIS_DESCR COM_AXIS engine_speed_8bit CM_u8_rspeed_125_4_500rpm 16 500 8468.75
         AXIS_PTS_REF CAL_load_ve_for_map_synthesis_X_rpm
       /end AXIS_DESCR
       /begin AXIS_DESCR COM_AXIS load_mass_per_stroke CM_u8_load_4mg_stroke 16 0 1020
@@ -10736,6 +10736,30 @@
     /begin MEASUREMENT ips_shift_state "undefined" ULONG NO_COMPU_METHOD 0 0 0 4294967295
       ECU_ADDRESS 0x400080A8
     /end MEASUREMENT
+    /begin MEASUREMENT V_CAL_dpm_slip_target_from_pedal_Y_pps "Input of CAL_dpm_slip_target_from_pedal_Y_pps: accel_pedal_latched >> 2 & 0xff" SLONG CM_V_CAL_dpm_slip_target_from_pedal_Y_pps 0 0 -2147483648 2147483647
+      /begin VIRTUAL accel_pedal_latched /end VIRTUAL
+    /end MEASUREMENT
+    /begin COMPU_METHOD CM_V_CAL_dpm_slip_target_from_pedal_Y_pps "raw input of CAL_dpm_slip_target_from_pedal_Y_pps" FORM "%8.0" ""
+      /begin FORMULA "X1 >> 2 & 0xff" /end FORMULA
+    /end COMPU_METHOD
+    /begin MEASUREMENT V_CAL_exhaust_flap_state_control_race_X_rpm "Input of CAL_exhaust_flap_state_control_race_X_rpm: (engine_speed_16bit / 0x32) & 0xff" SLONG CM_V_CAL_exhaust_flap_state_control_race_X_rpm 0 0 -2147483648 2147483647
+      /begin VIRTUAL engine_speed_16bit /end VIRTUAL
+    /end MEASUREMENT
+    /begin COMPU_METHOD CM_V_CAL_exhaust_flap_state_control_race_X_rpm "raw input of CAL_exhaust_flap_state_control_race_X_rpm" FORM "%8.0" ""
+      /begin FORMULA "(X1 / 0x32) & 0xff" /end FORMULA
+    /end COMPU_METHOD
+    /begin MEASUREMENT V_CAL_exhaust_flap_state_control_sport_X_rpm "Input of CAL_exhaust_flap_state_control_sport_X_rpm: (engine_speed_16bit / 0x32) & 0xff" SLONG CM_V_CAL_exhaust_flap_state_control_sport_X_rpm 0 0 -2147483648 2147483647
+      /begin VIRTUAL engine_speed_16bit /end VIRTUAL
+    /end MEASUREMENT
+    /begin COMPU_METHOD CM_V_CAL_exhaust_flap_state_control_sport_X_rpm "raw input of CAL_exhaust_flap_state_control_sport_X_rpm" FORM "%8.0" ""
+      /begin FORMULA "(X1 / 0x32) & 0xff" /end FORMULA
+    /end COMPU_METHOD
+    /begin MEASUREMENT V_CAL_exhaust_flap_state_control_tour_X_rpm "Input of CAL_exhaust_flap_state_control_tour_X_rpm: (engine_speed_16bit / 0x32) & 0xff" SLONG CM_V_CAL_exhaust_flap_state_control_tour_X_rpm 0 0 -2147483648 2147483647
+      /begin VIRTUAL engine_speed_16bit /end VIRTUAL
+    /end MEASUREMENT
+    /begin COMPU_METHOD CM_V_CAL_exhaust_flap_state_control_tour_X_rpm "raw input of CAL_exhaust_flap_state_control_tour_X_rpm" FORM "%8.0" ""
+      /begin FORMULA "(X1 / 0x32) & 0xff" /end FORMULA
+    /end COMPU_METHOD
     /begin MEASUREMENT V_CAL_fuel_pump_command_X_pressure "Input of CAL_fuel_pump_command_X_pressure: fuel_pressure_target_clamped * 0x32" SLONG CM_V_CAL_fuel_pump_command_X_pressure 0 0 -2147483648 2147483647
       /begin VIRTUAL fuel_pressure_target_clamped /end VIRTUAL
     /end MEASUREMENT
@@ -10760,6 +10784,12 @@
     /begin COMPU_METHOD CM_V_CAL_idle_error_correction_unknown_X_speed_error "raw input of CAL_idle_error_correction_unknown_X_speed_error" FORM "%8.0" ""
       /begin FORMULA "(X1 + 0x8000) & 0xffff" /end FORMULA
     /end COMPU_METHOD
+    /begin MEASUREMENT V_CAL_ign_comp_startup_tps_X_maf_accum "Input of CAL_ign_comp_startup_tps_X_maf_accum: (maf_accumulated_since_start_raw >> 3) & 0xff" SLONG CM_V_CAL_ign_comp_startup_tps_X_maf_accum 0 0 -2147483648 2147483647
+      /begin VIRTUAL maf_accumulated_since_start_raw /end VIRTUAL
+    /end MEASUREMENT
+    /begin COMPU_METHOD CM_V_CAL_ign_comp_startup_tps_X_maf_accum "raw input of CAL_ign_comp_startup_tps_X_maf_accum" FORM "%8.0" ""
+      /begin FORMULA "(X1 >> 3) & 0xff" /end FORMULA
+    /end COMPU_METHOD
     /begin MEASUREMENT V_CAL_ign_dwell_time_Y_ecu_voltage "Input of CAL_ign_dwell_time_Y_ecu_voltage: (sensor_adc_ecu_voltage >> 2) & 0xff" SLONG CM_V_CAL_ign_dwell_time_Y_ecu_voltage 0 0 -2147483648 2147483647
       /begin VIRTUAL sensor_adc_ecu_voltage /end VIRTUAL
     /end MEASUREMENT
@@ -10783,6 +10813,12 @@
     /end MEASUREMENT
     /begin COMPU_METHOD CM_V_CAL_inj_cranking_enrichment_soak_time_X_engine_off_time "raw input of CAL_inj_cranking_enrichment_soak_time_X_engine_off_time" FORM "%8.0" ""
       /begin FORMULA "(X1 >> 8) & 0xff" /end FORMULA
+    /end COMPU_METHOD
+    /begin MEASUREMENT V_CAL_inj_deadtime_base_X_car_voltage "Input of CAL_inj_deadtime_base_X_car_voltage: (sensor_adc_ecu_voltage >> 2) & 0xff" SLONG CM_V_CAL_inj_deadtime_base_X_car_voltage 0 0 -2147483648 2147483647
+      /begin VIRTUAL sensor_adc_ecu_voltage /end VIRTUAL
+    /end MEASUREMENT
+    /begin COMPU_METHOD CM_V_CAL_inj_deadtime_base_X_car_voltage "raw input of CAL_inj_deadtime_base_X_car_voltage" FORM "%8.0" ""
+      /begin FORMULA "(X1 >> 2) & 0xff" /end FORMULA
     /end COMPU_METHOD
     /begin MEASUREMENT V_CAL_injtip_dfco_pedal_ramp_target_X_pps "Input of CAL_injtip_dfco_pedal_ramp_target_X_pps: (accel_pedal_latched >> 2) & 0xff" SLONG CM_V_CAL_injtip_dfco_pedal_ramp_target_X_pps 0 0 -2147483648 2147483647
       /begin VIRTUAL accel_pedal_latched /end VIRTUAL
