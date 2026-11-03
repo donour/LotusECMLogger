@@ -82,8 +82,85 @@ public sealed class LiveCursorTests
         Assert.DoesNotContain("CAL_x_X_rpm", byAxis.Keys);                          // offset axis pointer
         Assert.Equal("speed16 >> 2 & 0xff", byAxis["CAL_y_X_rpm"]);                 // already masked
         Assert.Equal("(speed16 >> 2) & 0xff", AxisInputs.Normalize("speed16 >> 2", 0xFF, Vars, out _));
+        Assert.Equal("(speed16 >> 2) & 0xf", AxisInputs.Normalize("(speed16 >> 2) & 0xf", 0xFF, Vars, out _)); // already within the lookup's byte
+        Assert.Equal("(speed16 | load & 0xf) & 0xff", AxisInputs.Normalize("speed16 | load & 0xf", 0xFF, Vars, out _)); // that & binds only load
         Assert.Null(AxisInputs.Normalize("COD_base.COD[0]", 0xFF, Vars, out var why));
         Assert.Contains("not a plain expression", why);
+    }
+
+    private static readonly Dictionary<string, SymbolEntry> Addressed = new[]
+    {
+        ("pedal16", "uint16_t", 0x40002510u), ("speed8", "uint8_t", 0x40001A91u), ("load", "uint8_t", 0x40001B00u),
+    }.ToDictionary(v => v.Item1, v => new SymbolEntry { Name = v.Item1, Address = v.Item3, RawType = v.Item2, Type = ChannelTypeParser.Parse(v.Item2) });
+
+    [Fact]
+    public void LocalsGettersUnnamedGlobalsAndConstantSitesAreFollowed()
+    {
+        const string source = """
+            uint8_t lookup_2D_uint8_interpolated(uint8_t size_x,uint8_t input_x,uint8_t *lut,uint8_t *x_axis)
+
+            {
+              return lut[0];
+            }
+
+            u16_factor_1_1023 get_pedal(void)
+
+            {
+              return pedal16;
+            }
+
+            void f(void)
+
+            {
+              ushort _pedal;
+              ushort _speed;
+              uint8_t _temp;
+              char _signed;
+              ushort _count;
+
+              _pedal = get_pedal();
+              a = lookup_2D_uint16_interpolated(16,_pedal,CAL_a,CAL_a_X_pps);
+              _speed = 0xff;
+              if (ok) {
+                _speed = (ushort)speed8;
+              }
+              b = lookup_2D_uint8_interpolated(8,_speed,CAL_b,CAL_b_X_speed);
+              _temp = load;
+              if (x) {
+                _temp = speed8;
+              }
+              c = lookup_2D_uint8_interpolated(8,_temp,CAL_c,CAL_c_X_temp);
+              d = lookup_2D_uint8_interpolated(8,DAT_40002510 >> 2,CAL_d,CAL_d_X_pps);
+              g = lookup_2D_uint8_interpolated(8,speed8,CAL_g,CAL_g_X_speed);
+              g = lookup_2D_uint8_interpolated(8,CAL_fault_speed,CAL_g,CAL_g_X_speed);
+              g = lookup_2D_uint8_interpolated(8,0x40,CAL_g,CAL_g_X_speed);
+              h = lookup_2D_uint8_interpolated(8,(uchar)pedal16 >> 2,CAL_h,CAL_h_X_pps);
+              i = lookup_2D_uint8_interpolated(8,(u8_factor_1_255)(pedal16 >> 2),CAL_i,CAL_i_X_pps);
+              _signed = load;
+              j = lookup_2D_uint16_interpolated(8,_signed,CAL_j,CAL_j_X_x);
+              _count++;
+              k = lookup_2D_uint8_interpolated(8,_count,CAL_k,CAL_k_X_x);
+            }
+            """;
+        var axes = new[] { "a_X_pps", "b_X_speed", "c_X_temp", "d_X_pps", "g_X_speed", "h_X_pps", "i_X_pps", "j_X_x", "k_X_x" }
+            .Select(a => "CAL_" + a).ToHashSet();
+        var (bound, skipped) = AxisInputs.Extract(source, axes, Addressed);
+        var byAxis = bound.ToDictionary(b => b.Axis);
+        string Reason(string axis) => skipped.Single(s => s.Axis == axis).Reason;
+
+        Assert.Equal("pedal16", byAxis["CAL_a_X_pps"].Expression);                   // through the getter, which returns it
+        Assert.Contains("get_pedal()", byAxis["CAL_a_X_pps"].Note);
+        Assert.Equal("speed8", byAxis["CAL_b_X_speed"].Expression);                  // its 0xff default is ignored...
+        Assert.Contains("constant values ignored", byAxis["CAL_b_X_speed"].Note);    // ...and said so
+        Assert.Contains("takes 2 different values", Reason("CAL_c_X_temp"));
+        Assert.Equal("(pedal16 >> 2) & 0xff", byAxis["CAL_d_X_pps"].Expression);     // named by its address
+        Assert.Contains("DAT_40002510 is pedal16", byAxis["CAL_d_X_pps"].Note);
+        Assert.Equal("speed8", byAxis["CAL_g_X_speed"].Expression);                  // the fault and fixed sites are not the operating point
+        Assert.Contains("constant input at lines", byAxis["CAL_g_X_speed"].Note);
+        Assert.Contains("after a (uchar) cast", Reason("CAL_h_X_pps"));              // (uchar)x >> 2 is not (x >> 2) & 0xff
+        Assert.Equal("(pedal16 >> 2) & 0xff", byAxis["CAL_i_X_pps"].Expression);     // a typedef cast of the whole input
+        Assert.Contains("signed 8-bit", Reason("CAL_j_X_x"));                        // sign-extended into a 16-bit input
+        Assert.Contains("changed in place", Reason("CAL_k_X_x"));
     }
 
     [Fact]

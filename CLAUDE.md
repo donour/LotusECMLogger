@@ -103,8 +103,11 @@ C# port of `hc08_patcher/hc08_tps_sync.py`; the spec and test vectors are in `hc
 - **Tests:** `LotusECMLogger.Ccp.Tests/A2lTests.cs` pins the map layout against two firmware lookups.
 - **Axis inputs (`AxisInputs`):** `A2lTool extract-inputs <decompile.c> <build> --out-dir LotusECMLogger/config/a2l`
   drafts `<build>.inputs.csv` from the decompile's lookup calls. These are raw expressions as the lookup sees them,
-  mask included, kept only where every call site agrees. Review the file, then regenerate; the generator turns
-  each row into an InputQuantity (a VIRTUAL measurement for an expression).
+  mask included, kept only where every non-constant call site agrees. Locals are followed to the one variable they
+  hold (through trivial getters, ignoring constant defaults and fallbacks) and `DAT_` globals are named by address;
+  the `note` column says when. Draft from the `t6-patch` decompiles: `references/C132E0278.c` predates the catalog's
+  names. Review the file, then regenerate; the generator turns each row into an InputQuantity (a VIRTUAL
+  measurement for an expression).
 - **`A2lTool check <a2l> --image <.bin or .CRP>`** also checks the A2L against a real calibration (EPK, segment) and
   lists axes whose points decrease in it.
 - **`Services/Tuning/CalibrationImage`** (Phase 6b) is the calibration file being edited:
