@@ -95,6 +95,15 @@ namespace LotusECMLogger
             abs.Nodes.Add("abstelemetry", "ABS Wheel Speed Telemetry");
             abs.Nodes.Add("absactuation", "ABS Pump & Valve Routines");
 
+            // CCP is one tab with several sub-pages, so it gets an overview plus a page each, like ABS/ESP.
+            var ccp = features.Nodes.Add("ccp", "CCP (Calibration Protocol)");
+            ccp.Nodes.Add("ccpmemory", "Memory & Calibration Writes");
+            ccp.Nodes.Add("ccptuning", "Tuning & Live Sync");
+            ccp.Nodes.Add("ccprecording", "Recording & Replay");
+            ccp.Nodes.Add("ccpvariables", "Variables");
+            ccp.Nodes.Add("ccptraffic", "Traffic");
+            ccp.Nodes.Add("ccpselftest", "Self-Test");
+
             features.Nodes.Add("t6rma", "T6 RMA Logging");
             features.Nodes.Add("livetuning", "T6 Live Tuning");
             features.Nodes.Add("flasher", "T6E Calibration Flasher");
@@ -165,6 +174,27 @@ namespace LotusECMLogger
                     break;
                 case "absactuation":
                     ShowAbsActuationHelp();
+                    break;
+                case "ccp":
+                    ShowCcpOverviewHelp();
+                    break;
+                case "ccpmemory":
+                    ShowCcpMemoryHelp();
+                    break;
+                case "ccptuning":
+                    ShowCcpTuningHelp();
+                    break;
+                case "ccprecording":
+                    ShowCcpRecordingHelp();
+                    break;
+                case "ccpvariables":
+                    ShowCcpVariablesHelp();
+                    break;
+                case "ccptraffic":
+                    ShowCcpTrafficHelp();
+                    break;
+                case "ccpselftest":
+                    ShowCcpSelfTestHelp();
                     break;
                 case "t6rma":
                     ShowT6RmaHelp();
@@ -245,6 +275,7 @@ namespace LotusECMLogger
             AddBulletPoint("Emissions Check: Read every readiness monitor's support and status, the MIL, trouble codes, and the calibration ID and CVN, and judge them against California Smog Check or federal I/M rules before an inspection.");
             AddBulletPoint("Learned Data Reset: Clear adaptive learning values from the ECU.");
             AddBulletPoint("ABS/ESP Diagnostics: Read fault codes, identification, and live internal state from the Bosch ESP8 ABS module; log all four wheel speeds at 100 Hz; and run the pump/valve routines used for brake bleeding.");
+            AddBulletPoint("CCP: Connect to the T6 ECU's calibration interface to read, check and write its memory, watch internal variables, and edit calibration tables live with the engine running - with a cursor showing where the ECU is reading each table, and recordings you can replay to see which cells were used.");
             AddBulletPoint("T6 RMA Logging: Advanced memory address logging for development.");
             AddBulletPoint("T6 Live Tuning: Edit calibration values in ECU RAM in real time by monitoring a calibration file on disk, or upload a whole calibration into RAM in one operation (requires an unlocked ECU).");
             AddBulletPoint("T6E Calibration Flasher: Flash calibration files to the ECU.");
@@ -282,10 +313,11 @@ namespace LotusECMLogger
             AddBulletPoint("Emissions - An OBD-II smog check / I/M pre-check: readiness monitors, MIL, trouble codes, and a pass/fail verdict for the inspection program you choose");
             AddBulletPoint("T6 RMA Logging - Advanced memory logging");
             AddBulletPoint("Live Tuning - Real-time calibration editing on unlocked ECUs");
+            AddBulletPoint("CCP - The T6 ECU's calibration interface: memory, variables, a table editor with live sync to the ECU, and recording and replay of tuning sessions");
             AddBulletPoint("ABS - Diagnostics for the ABS/ESP module, which is a separate computer from the engine ECU with its own fault memory (Evora; see the ABS/ESP Diagnostics topic)");
 
             AddSubheading("Output Files:");
-            AddParagraph("All loggers write their output beneath a single folder: Documents\\LotusECMLogger. Live Data logs are named LiveData_<timestamp>.csv, T6 RMA logs T6RMA_<timestamp>.csv, and high-speed logs HighSpeed_<timestamp>.csv. Live Tuning calibration files default to the LiveTuning subfolder. The folder is created automatically the first time a log is written.");
+            AddParagraph("All loggers write their output beneath a single folder: Documents\\LotusECMLogger. Live Data logs are named LiveData_<timestamp>.csv, T6 RMA logs T6RMA_<timestamp>.csv, and high-speed logs HighSpeed_<timestamp>.csv. Live Tuning calibration files default to the LiveTuning subfolder. The CCP tab saves a backup before every write in the ccp-backups subfolder, and tuning recordings in the recordings subfolder. The folder is created automatically the first time a log is written.");
             AddParagraph("Every log shares one CSV layout: a few '#' lines describing the session, then a header row of Timestamp, RelativeTime_ms, and one column per logged value. Timestamps are ISO 8601 to the microsecond and carry the UTC offset, so a log that spans a daylight-saving change stays unambiguous. Numbers always use a decimal point regardless of your Windows regional settings, and an empty cell means no value was available for that row. Columns holding raw ECU memory are written as hex (0x1F) rather than decimal.");
 
             AddParagraph("");
@@ -364,13 +396,14 @@ namespace LotusECMLogger
 
             AddSubheading("Output Files:");
             AddParagraph("Data is saved to CSV with columns: Timestamp (ISO 8601 wall-clock, microsecond resolution), RelativeTime_ms (derived from the adapter's hardware timestamp for accurate inter-frame timing), Label, then one column per logged channel. A frame carries only its own group's channels, so the other columns repeat their most recent value. Files are written to Documents\\LotusECMLogger by default (e.g., HighSpeed_20250210_143022.csv).");
+            AddParagraph("The '#' lines at the top describe each channel exactly - for example '# channel: coolant_temp @0x40001836 size=1 signed=0 scale=0.625 offset=-40 rate=20Hz unit=°C' - so the logged values can be turned back into the ECU's raw values. That is what lets the CCP Tuning page replay a high-speed log on its tables (see CCP > Recording & Replay).");
 
             AddSubheading("How It Differs from Live Data:");
             AddParagraph("Live Data uses OBD-II request/response (Mode 01/22) and works on any compatible ECU, but is limited by polling. High-Speed Logging streams internal channels at a fixed, hardware-timestamped rate and is far faster, but requires firmware that includes the channel-logger facility.");
 
             AddSubheading("Notes and Caution:");
             AddBulletPoint("While logging, the PC is an active node on the vehicle CAN bus and sends configuration commands to the ECU. Use 'Test Connection' first to confirm a healthy link.");
-            AddBulletPoint("High-speed logging holds the J2534 device for itself; other operations that need the device (for example the ECU unlock probe on the Vehicle Information tab) are skipped while a session is active.");
+            AddBulletPoint("The High-Speed Log runs on the CCP session, which it shares with the CCP tab and a tuning recording, so they can run at the same time if the ECU has DAQ lists for all of them. Operations that need the J2534 device in another way (for example the ECU unlock probe on the Vehicle Information tab) are skipped while a session is active.");
         }
 
         private void ShowEcuCodingHelp()
@@ -888,6 +921,7 @@ namespace LotusECMLogger
             AddHeading("T6 Live Tuning");
 
             AddParagraph("The Live Tuning tab enables real-time calibration editing on unlocked T6 ECUs. It synchronizes a calibration file on disk with the ECU's RAM: the application reads a region of ECU memory to a .cpt file, watches that file for changes, and automatically writes any modified 32-bit words back to the ECU while the engine is running. Edit the file in your calibration editor of choice and the changes take effect on the ECU within a fraction of a second of saving.");
+            AddParagraph("For tuning with a built-in table editor, on stock (locked) firmware too, see CCP > Tuning: it edits tables in a grid and graph, writes each change with read-back verification, and shows where the ECU is reading each table.");
 
             AddSubheading("Requirements:");
             AddBulletPoint("Unlocked ECU: Live tuning uses the raw-CAN RMA protocol, which standard locked calibrations do not answer. The 'ECU' indicator on the Vehicle Information tab shows whether the ECU is unlocked.");
@@ -1197,6 +1231,24 @@ namespace LotusECMLogger
             AddBulletPoint("Some writes did not land. ECU RAM now matches neither the old calibration nor the file - upload again, or cycle the ignition to reload the flashed calibration");
             AddBulletPoint("A locked ECU discards writes silently; confirm the 'ECU' indicator on the Vehicle Information tab reads UNLOCKED");
             AddBulletPoint("Check the OBD-II and USB connections - a marginal link drops frames, and RMA writes are never acknowledged, so nothing retries them automatically");
+
+            AddSubheading("CCP Issues:");
+
+            AddParagraph("Problem: 'No CCP reply to Connect'");
+            AddBulletPoint("Switch the ignition on and check the OBD-II and USB connections");
+            AddBulletPoint("The calibration's CCP enable byte must select a CAN bus. Stock calibrations have it set; a calibration that disables it cannot be enabled over CCP");
+            AddBulletPoint("Only T6 ECUs from 2011 on are supported; the 2010 Evora's ECU is not yet");
+
+            AddParagraph("Problem: 'Sync stopped' on the Tuning page");
+            AddBulletPoint("The ECU's calibration changed outside the session (another tool wrote to it, or a restart reloaded the flashed calibration), or a write failed. Click 'Refresh from ECU' to read it again, then send the file or take the ECU's values");
+
+            AddParagraph("Problem: 'No live cursor' on a table");
+            AddBulletPoint("No axis of that table has an input in the A2L, usually because the firmware reads it with different inputs in different places. The table can still be edited");
+            AddParagraph("Problem: 'Live cursor unavailable' or a watch says no DAQ list is free");
+            AddBulletPoint("The ECU's DAQ lists are in use by the High-Speed Log, a variable watch or a recording. The Traffic page shows who holds them. Stop one, or record, which streams every table's inputs at once");
+
+            AddParagraph("Problem: The Self-Test skips the DAQ check");
+            AddBulletPoint("It needs every DAQ list. Stop the High-Speed Log, any variable watch, recording and the tuning cursor, then run it again");
 
             AddSubheading("General Tips:");
             AddBulletPoint("Always ensure your vehicle battery is fully charged before diagnostic operations");
