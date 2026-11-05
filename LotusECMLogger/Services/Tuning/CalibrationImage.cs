@@ -282,6 +282,19 @@ namespace LotusECMLogger.Services.Tuning
             Apply(description, writes);
         }
 
+        /// <summary>
+        /// Puts recorded bytes in place without an undo step: replay moves the image to what the ECU held at a moment of a
+        /// recording, which is not an edit. Raises <see cref="Changed"/>; the enable byte is not protected, since nothing
+        /// written this way goes to an ECU.
+        /// </summary>
+        public void ApplyRecorded(uint address, ReadOnlySpan<byte> bytes)
+        {
+            int offset = Offset(address, bytes.Length);
+            if (_image.AsSpan(offset, bytes.Length).SequenceEqual(bytes)) return;
+            bytes.CopyTo(_image.AsSpan(offset));
+            Changed?.Invoke(this, new CalibrationChangedEventArgs([new CalibrationSpan(address, bytes.Length)], "Replay"));
+        }
+
         private static void RequireEditable(A2lCalibrationItem item)
         {
             if (!item.IsEditable) throw new InvalidOperationException($"{item.Name} is read-only: {item.ReadOnlyReason}");

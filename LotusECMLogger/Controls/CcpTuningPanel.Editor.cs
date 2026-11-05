@@ -50,6 +50,7 @@ namespace LotusECMLogger.Controls
             graphPane.SetData(graphData = GraphData.From(image, item));
             graphPane.Plot.SetSelection(grid.IsSelected);
             EnsureCursor();
+            _ = UpdateActivityAsync();
             LayoutEditor();
             grid.ClearSelection();
             ShowStatus();
@@ -163,7 +164,8 @@ namespace LotusECMLogger.Controls
         /// </summary>
         private (A2lCalibrationItem Item, List<(int X, int Y)> Cells, IReadOnlyList<double>? XAxis, IReadOnlyList<double>? YAxis)? Target()
         {
-            if (grid is null || current is null || image is null) return null;
+            // A replay shows what the ECU held; it is not edited.
+            if (grid is null || current is null || image is null || recording is not null) return null;
             var data = grid.SelectedData();
             if (data.Count > 0)
             {

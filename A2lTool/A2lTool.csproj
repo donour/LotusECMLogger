@@ -12,7 +12,7 @@
     <!-- The generator, reader and calibration image are app sources; they and the catalog loader are linked, not
          referenced, so the tool runs without WinForms or J2534. -->
     <Compile Include="../LotusECMLogger/Services/A2l/*.cs" Link="A2l/%(Filename)%(Extension)" />
-    <Compile Include="../LotusECMLogger/Services/Tuning/**/*.cs" Link="Tuning/%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="../LotusECMLogger/Services/Tuning/**/*.cs" Exclude="../LotusECMLogger/Services/Tuning/Recording/**" Link="Tuning/%(RecursiveDir)%(Filename)%(Extension)" />
     <Compile Include="../LotusECMLogger/Services/Ccp/*.cs" Exclude="../LotusECMLogger/Services/Ccp/J2534CcpTransport.cs" Link="Ccp/%(Filename)%(Extension)" />
     <Compile Include="../LotusECMLogger/Services/SymbolCatalog.cs" Link="Catalog/%(Filename)%(Extension)" />
     <Compile Include="../LotusECMLogger/Services/SymbolCatalogLoader.cs" Link="Catalog/%(Filename)%(Extension)" />

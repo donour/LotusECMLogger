@@ -7,6 +7,8 @@ namespace LotusECMLogger.Controls
     {
         /// <summary>The open session's master while the tab holds a lease, else null.</summary>
         CcpMaster? Master { get; }
+        /// <summary>The shared session host, for consumers with their own lease (a tuning recording's logger).</summary>
+        CcpSessionHost? Host { get; }
         bool IsConnected { get; }
         CcpBuildIdentification? Identification { get; }
         /// <summary>The variable table, once read (by the tab's button or a panel).</summary>

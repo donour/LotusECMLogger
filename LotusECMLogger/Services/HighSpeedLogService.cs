@@ -1,8 +1,10 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Threading.Channels;
 using LotusECMLogger.Models;
 using LotusECMLogger.Services.Ccp;
 using LotusECMLogger.Services.Logging;
+using LotusECMLogger.Services.Tuning;
 
 namespace LotusECMLogger.Services
 {
@@ -18,9 +20,15 @@ namespace LotusECMLogger.Services
     /// Each session (and each Identify) holds a lease on the shared <see cref="CcpSessionHost"/>, so the logger
     /// shares the adapter and CCP session with the CCP tab. Stopping stops only the logger's DAQ lists; the host
     /// ends the CCP session when its last lease is released.
+    ///
+    /// The latest raw value of every logged channel is kept by address (<see cref="IRawValueSource"/>), so the Tuning
+    /// page's live cursor can read a running recording instead of streaming the same variables again.
     /// </summary>
-    public sealed partial class HighSpeedLogService : IHighSpeedLogService
+    public sealed partial class HighSpeedLogService : IHighSpeedLogService, IRawValueSource
     {
+        /// <summary>The DAQ owner name the High-Speed Log tab's sessions show in the allocation view.</summary>
+        public const string DefaultOwnerName = "High-Speed Log";
+
         /// <summary>Log column carrying the frame's PID, ahead of the channel columns.</summary>
         private const string LabelColumn = "Label";
 
@@ -32,18 +40,40 @@ namespace LotusECMLogger.Services
 
         private readonly CcpSessionHost _host;
         private readonly bool _ownsHost;
+        private readonly string _ownerName;
+        // Written by the single writer, read by any thread (the cursor's timer).
+        private readonly ConcurrentDictionary<(uint Address, int Size), ulong> _latest = new();
+        // The last row's time on the log's clock and when (Stopwatch ticks) it was written, for LogTime.
+        private (DateTime Timestamp, long Ticks)? _lastRow;
+        private readonly object _clockLock = new();
         private readonly object _lock = new();
         private Session? _session;
         private bool _isLogging;
         private long _droppedFrames;
 
         /// <param name="host">The shared CCP session; not disposed by this service.</param>
-        public HighSpeedLogService(CcpSessionHost host) : this(host, ownsHost: false) { }
+        /// <param name="ownerName">Names this logger's DAQ lists in the session's allocation view.</param>
+        public HighSpeedLogService(CcpSessionHost host, string ownerName = DefaultOwnerName) : this(host, ownsHost: false, ownerName) { }
 
-        private HighSpeedLogService(CcpSessionHost host, bool ownsHost)
+        private HighSpeedLogService(CcpSessionHost host, bool ownsHost, string ownerName = DefaultOwnerName)
         {
             ArgumentNullException.ThrowIfNull(host);
-            (_host, _ownsHost) = (host, ownsHost);
+            ArgumentException.ThrowIfNullOrWhiteSpace(ownerName);
+            (_host, _ownsHost, _ownerName) = (host, ownsHost, ownerName);
+        }
+
+        /// <summary>The latest logged value of the channel at <paramref name="address"/> that is <paramref name="size"/> bytes wide.</summary>
+        public ulong? Bits(uint address, int size) => _latest.TryGetValue((address, size), out ulong bits) ? bits : null;
+
+        /// <summary>
+        /// Now, on the log's clock (the adapter's, anchored at the first frame): the last row's timestamp plus the time
+        /// since it was written. Null before the first row. Events stamped with it line up with the log's rows even where
+        /// the adapter's clock and the PC's drift apart.
+        /// </summary>
+        public DateTime? LogTime()
+        {
+            lock (_clockLock)
+                return _lastRow is { } last ? last.Timestamp + Stopwatch.GetElapsedTime(last.Ticks) : null;
         }
 
         public event EventHandler<HighSpeedSampleEventArgs>? DataReceived;
@@ -97,7 +127,7 @@ namespace LotusECMLogger.Services
         private readonly record struct WorkItem(CcpDaqSample? Daq, AemWidebandSample? Aem);
 
         public void StartLogging(IReadOnlyList<(HighSpeedChannel channel, int rateHz)> channels, string csvFilePath,
-            bool pollAemWideband = false)
+            bool pollAemWideband = false, IReadOnlyList<string>? notes = null)
         {
             lock (_lock)
             {
@@ -122,9 +152,11 @@ namespace LotusECMLogger.Services
                 ISampleSink? sink = null;
                 try
                 {
-                    sink = CreateSink(csvFilePath, channels, columnNames, pollAemWideband);
+                    sink = CreateSink(csvFilePath, channels, columnNames, pollAemWideband, notes ?? []);
                     var session = new Session(plan, sink, pollAemWideband);
                     Interlocked.Exchange(ref _droppedFrames, 0);
+                    _latest.Clear();
+                    lock (_clockLock) _lastRow = null;
                     _session = session;
                     _isLogging = true;
                     session.Worker = Task.Run(() => RunAsync(session));
@@ -198,7 +230,7 @@ namespace LotusECMLogger.Services
                 var lease = await _host.AcquireAsync(ct).ConfigureAwait(false);
                 session.Attach(lease);
                 var master = lease.Master;
-                var daq = await master.StartDaqAsync(HighSpeedLogPlanner.ToDaqLists(session.Plan), "High-Speed Log", ct).ConfigureAwait(false);
+                var daq = await master.StartDaqAsync(HighSpeedLogPlanner.ToDaqLists(session.Plan), _ownerName, ct).ConfigureAwait(false);
                 session.Attach(daq);
                 if (session.PollAem) session.Attach(new AemWidebandSource(master));
 
@@ -255,7 +287,9 @@ namespace LotusECMLogger.Services
                 var ch = planned.Channel;
                 if (planned.ByteOffset >= payload.Length) break;
                 int len = Math.Min(ch.Size, payload.Length - planned.ByteOffset);
-                double value = ch.Decode(payload.Slice(planned.ByteOffset, len));
+                var bytes = payload.Slice(planned.ByteOffset, len);
+                double value = ch.Decode(bytes);
+                if (len == ch.Size) _latest[(ch.Address, ch.Size)] = RawValues.Bits(bytes);
                 readings.Add(new HighSpeedReading { Name = ch.Name, Value = value, Unit = ch.Unit });
                 session.Sink.Set(ch.Name, value);
             }
@@ -263,6 +297,7 @@ namespace LotusECMLogger.Services
             // A frame carries only its own group's channels; the rest of the row is carried forward by the sink.
             session.Sink.Set(LabelColumn, label);
             session.Sink.WriteRow(timestamp, elapsedUs / 1000.0);
+            lock (_clockLock) _lastRow = (timestamp, Stopwatch.GetTimestamp());
 
             DataReceived?.Invoke(this, new HighSpeedSampleEventArgs
             {
@@ -319,11 +354,13 @@ namespace LotusECMLogger.Services
         }
 
         private static ISampleSink CreateSink(string csvFilePath,
-            IReadOnlyList<(HighSpeedChannel channel, int rateHz)> channels, IReadOnlyList<string> columns, bool pollAem)
+            IReadOnlyList<(HighSpeedChannel channel, int rateHz)> channels, IReadOnlyList<string> columns, bool pollAem,
+            IReadOnlyList<string> extraNotes)
         {
-            List<string> notes = [];
-            foreach (var (channel, rateHz) in channels)
-                notes.Add($"{channel.Name}: 0x{channel.Address:X8} size={channel.Size} {rateHz}Hz unit={channel.Unit}");
+            // Each channel's full scaling, so a reader can recover the exact raw values (LoggedChannel).
+            List<string> notes = [.. extraNotes];
+            foreach (var (channel, rateHz) in channels.DistinctBy(c => c.channel.Name))
+                notes.Add(LoggedChannel.From(channel, rateHz).ToNote());
             if (pollAem)
                 notes.Add($"AEM UEGO: OBD Mode 01 PID 0x24 @ 0x{AemWidebandSource.RequestId:X3}, polled every " +
                     $"{AemWidebandSource.DefaultPollInterval.TotalMilliseconds:0}ms (last-value-hold columns)");

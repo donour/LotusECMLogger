@@ -27,7 +27,8 @@ namespace LotusECMLogger.Controls
     /// its Y axis down the left, a curve its axis above the values; axes, value blocks and single values are rows of
     /// cells. Values are not edited in place: typing starts value entry in the editor's toolbar. Cells are coloured
     /// min → max, outlined red or blue where raised or lowered from the file, and marked in the corner by their ECU
-    /// sync state (orange pending, blue writing, red failed).
+    /// sync state (orange pending, blue writing, red failed). Replaying a recording, a table's cells can instead be
+    /// shaded by how long the ECU read them (<see cref="SetActivity"/>): white to deep orange, grey where never read.
     /// </summary>
     internal sealed class CalibrationGrid : DataGridView
     {
@@ -46,6 +47,8 @@ namespace LotusECMLogger.Controls
         private double[]? xAxis, yAxis;
         private bool paintFailed;
         private OperatingPointSample? cursor;
+        private CellActivity? activity;
+        private static readonly Color UnvisitedCell = Color.FromArgb(232, 232, 232);
         private readonly List<(double X, double Y)> trail = [];
         private const int TrailLength = 24;
 
@@ -235,7 +238,8 @@ namespace LotusECMLogger.Controls
                     $"Raw: {raw.ToString(CultureInfo.CurrentCulture)} (0x{(long)raw & 0xFFFFFFFF:X})\n" +
                     $"Address: 0x{item.CellAddress(gc.X, gc.Y):X8}\n" +
                     $"File: {Format(Original(gc.X, gc.Y), item.Conversion)}" +
-                    (syncState(item.CellAddress(gc.X, gc.Y), item.ElementSize) is { } s ? $"\nECU: {Describe(s)}" : "");
+                    (syncState(item.CellAddress(gc.X, gc.Y), item.ElementSize) is { } s ? $"\nECU: {Describe(s)}" : "") +
+                    (activity is { } a ? $"\nRead here: {ActivityText(a, gc.X, gc.Y)}" : "");
             }
             else if (AxisOf(gc) is { } axis)
             {
@@ -257,6 +261,7 @@ namespace LotusECMLogger.Controls
         {
             if (gc.Role == CellRole.Empty) return SystemColors.Control;
             if (gc.Role != CellRole.Data || item.Kind == A2lItemKind.Ascii) return PlotStyle.Axis;
+            if (activity is { } a) return ActivityColor(a, gc.X, gc.Y);
             double value = Physical(gc.X, gc.Y);
             if (ShowChanges)
             {
@@ -463,6 +468,35 @@ namespace LotusECMLogger.Controls
                 return;
             }
             base.OnKeyPress(e);
+        }
+
+        // ── Cell activity ────────────────────────────────────────────────────────────────────────────────
+
+        /// <summary>The recording's time at each cell, shading the cells in place of their values; null shows values.</summary>
+        public CellActivity? Activity => activity;
+
+        public void SetActivity(CellActivity? cells)
+        {
+            activity = cells is not null && ReferenceEquals(cells.Item, item) ? cells : null;
+            Invalidate();
+        }
+
+        /// <summary>White to deep orange by time at the cell (square root, so briefly read cells still show); grey if never read.</summary>
+        private static Color ActivityColor(CellActivity a, int x, int y)
+        {
+            double seconds = a.At(x, y);
+            if (seconds <= 0 || a.Max <= 0) return UnvisitedCell;
+            double t = Math.Sqrt(Math.Clamp(seconds / a.Max, 0, 1));
+            static int Mix(int from, int to, double t) => (int)Math.Round(from + (to - from) * t);
+            return Color.FromArgb(Mix(255, 217, t), Mix(248, 72, t), Mix(235, 1, t));
+        }
+
+        public static string ActivityText(CellActivity a, int x, int y)
+        {
+            double seconds = a.At(x, y);
+            return (seconds <= 0 ? "never" : string.Create(CultureInfo.CurrentCulture,
+                $"{ReplayTimeline.Seconds(seconds)} ({a.ShareAt(x, y):P1} of {ReplayTimeline.Seconds(a.Covered)})")) +
+                (a.SpreadX || a.SpreadY ? $"; no input on {(a.SpreadX ? "X" : "Y")}, so spread along it" : "");
         }
 
         // ── Live operating point ─────────────────────────────────────────────────────────────────────────

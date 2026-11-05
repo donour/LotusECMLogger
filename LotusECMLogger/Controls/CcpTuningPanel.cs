@@ -14,7 +14,8 @@ namespace LotusECMLogger.Controls
     /// in a <see cref="CalibrationGrid"/> beside a Direct2D graph (lines or a 3D surface), in the manner of RaiderLite.
     /// Values change by typing (which starts value entry), fine and coarse steps, multiply, interpolate (both ways,
     /// vertical, horizontal), smooth, revert to the file, and spreadsheet copy and paste; each is one undo step.
-    /// A <see cref="LiveTuningSession"/> keeps the ECU in step; without one it is an offline editor.
+    /// A <see cref="LiveTuningSession"/> keeps the ECU in step; without one it is an offline editor. Record saves a
+    /// replayable recording of the session; Open Recording replays one (CcpTuningPanel.Recording.cs and .Replay.cs).
     /// </summary>
     internal sealed partial class CcpTuningPanel : UserControl
     {
@@ -133,8 +134,10 @@ namespace LotusECMLogger.Controls
             valueField.ToolTipText = "Type a value, then Enter to set the selection, or Multiply";
 
             // One bar for files and sync; sync buttons show only when they apply, so it stays one row.
-            var topBar = Bar(openButton, openA2lButton, saveAsButton, new Label { Width = 12 }, startButton, stopButton, holdBox,
-                applyButton, refreshButton, sendButton, takeButton, syncLabel);
+            var topBar = Bar(openButton, openA2lButton, saveAsButton, openRecordingButton, new Label { Width = 12 }, startButton, stopButton,
+                holdBox, applyButton, refreshButton, sendButton, takeButton, syncLabel, new Label { Width = 12 }, recordChannelsBox, recordButton,
+                recordLabel);
+            recordChannelsBox.Margin = new Padding(3, 5, 3, 3);
             var filterBar = Bar(kindBox, changedBox);
             filterBar.Dock = DockStyle.Top;
             var browser = new Panel { Dock = DockStyle.Fill };
@@ -163,8 +166,12 @@ namespace LotusECMLogger.Controls
             split.Panel1.Controls.Add(browser);
             split.Panel2.Controls.Add(editor);
             Controls.Add(split);
+            Controls.Add(replayBar);
             topBar.Dock = DockStyle.Top;
             Controls.Add(topBar);
+            InitializeRecording();
+            InitializeReplay();
+            GuiIcons.ApplyToButton(recordButton, "\uE7C8");
 
             Confirm = text => MessageBox.Show(this, text, "Live tuning", MessageBoxButtons.YesNo, MessageBoxIcon.Warning,
                 MessageBoxDefaultButton.Button2) == DialogResult.Yes;
@@ -307,26 +314,32 @@ namespace LotusECMLogger.Controls
         /// <summary>Reads an A2L and keeps it only if it matches the open calibration (EPK, segment, item ranges).</summary>
         internal bool LoadA2l(string path)
         {
-            if (image is null) return false;
+            if (image is null || ReadA2l(path, image) is not { } resolved) return false;
+            (a2l, a2lPath) = (resolved, path);
+            return true;
+        }
+
+        /// <summary>An A2L that fits <paramref name="calibration"/>, or null with the reasons logged.</summary>
+        private A2lResolvedModule? ReadA2l(string path, CalibrationImage calibration)
+        {
             A2lResolvedModule resolved;
             try { resolved = A2lLayout.Resolve(A2lParser.ParseFile(path)); }
             catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException)
             {
                 context.Log($"Could not read {Path.GetFileName(path)}: {ex.Message}");
-                return false;
+                return null;
             }
-            var problems = image.CheckAgainst(resolved);
+            var problems = calibration.CheckAgainst(resolved);
             if (problems.Count > 0)
             {
                 context.Log($"{Path.GetFileName(path)} does not fit this calibration, so it was not loaded:");
                 foreach (var problem in problems) context.Log("  " + problem);
-                return false;
+                return null;
             }
-            (a2l, a2lPath) = (resolved, path);
             context.Log($"A2L {Path.GetFileName(path)}: {resolved.Items.Count:N0} items, {resolved.Unavailable.Count} unavailable, " +
                 $"{resolved.Items.Values.Count(i => !i.IsEditable)} read-only.");
             foreach (var d in resolved.Module.Diagnostics.Take(10)) context.Log("  " + d);
-            return true;
+            return resolved;
         }
 
         private void BrowseSaveAs()
@@ -404,14 +417,21 @@ namespace LotusECMLogger.Controls
         {
             bool idle = !context.IsBusy;
             var status = session?.Status;
-            openButton.Enabled = idle;
-            openA2lButton.Enabled = idle && image is not null;
+            bool replaying = recording is not null, recordingNow = recorder is not null;
+            openButton.Enabled = idle && !replaying && !recordingNow;
+            openA2lButton.Enabled = idle && image is not null && !replaying && !recordingNow;
             saveAsButton.Enabled = image is not null;
+            recordButton.Text = recordingNow ? "Stop Recording" : "Record";
+            recordButton.Enabled = recordingNow || (idle && image is not null && a2l is not null && context.IsConnected && !replaying);
+            recordChannelsBox.Enabled = !recordingNow && !replaying;
+            openRecordingButton.Enabled = idle && !recordingNow && session is null;
+            replayBar.Visible = replaying;
+            UpdateRecordLabel();
             undoButton.Enabled = image?.CanUndo == true;
             redoButton.Enabled = image?.CanRedo == true;
             toolTip.SetToolTip(undoButton, image?.UndoDescription is { } u ? $"Undo {u} (Ctrl+Z)" : "Undo (Ctrl+Z)");
             toolTip.SetToolTip(redoButton, image?.RedoDescription is { } r ? $"Redo {r} (Ctrl+Y)" : "Redo (Ctrl+Y)");
-            startButton.Enabled = idle && image is not null && context.IsConnected && session is null;
+            startButton.Enabled = idle && image is not null && context.IsConnected && session is null && !replaying;
             stopButton.Enabled = session is not null;
             holdBox.Enabled = session is null || status == LiveTuningStatus.Syncing;
             applyButton.Enabled = idle && status == LiveTuningStatus.Syncing && holdBox.Checked && session!.PendingBytes > 0;
@@ -427,6 +447,7 @@ namespace LotusECMLogger.Controls
             UpdateEditButtons();
 
             fileLabel.Text = image is null ? "No calibration open."
+                : recording is not null ? $"Replay: {Path.GetFileName(recording.Files.Log)} · {image.ChangedByteCount:N0} B written by then"
                 : $"{Path.GetFileName(image.SourcePath ?? image.Build.Build)} · {image.ChangedByteCount:N0} B changed" +
                   (image.HasUnsavedChanges ? " · unsaved" : "");
             toolTip.SetToolTip(fileLabel, image is null ? "" : $"{image.SourcePath} ({image.Build.Build})\n" +
@@ -456,6 +477,14 @@ namespace LotusECMLogger.Controls
                         TaskContinuationOptions.OnlyOnFaulted);
                 }
                 cursorTimer.Dispose();
+                playTimer.Dispose();
+                recordTimer.Dispose();
+                if (recorder is { } running)
+                {
+                    recorder = null;
+                    _ = running.StopAsync(null).ContinueWith(t => Debug.WriteLine($"CcpTuningPanel: stopping the recording failed: {t.Exception?.GetBaseException().Message}"),
+                        TaskContinuationOptions.OnlyOnFaulted);
+                }
                 if (liveCursor is { } cursor)
                 {
                     liveCursor = null;

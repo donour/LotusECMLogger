@@ -19,6 +19,10 @@ namespace LotusECMLogger.Services.A2l
 
         public static bool IsFloat(this A2lDataType type) => type is A2lDataType.Float32 or A2lDataType.Float64;
 
+        /// <summary>Two's-complement integer types (floats are not read as integers at all).</summary>
+        public static bool IsSigned(this A2lDataType type) =>
+            type is A2lDataType.SByte or A2lDataType.SWord or A2lDataType.SLong or A2lDataType.Int64;
+
         public static string Keyword(this A2lDataType type) => type switch
         {
             A2lDataType.UByte => "UBYTE", A2lDataType.SByte => "SBYTE", A2lDataType.UWord => "UWORD",

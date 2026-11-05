@@ -2,6 +2,7 @@ using System.Buffers.Binary;
 using System.Runtime.ExceptionServices;
 using System.Text;
 using LotusECMLogger.Controls;
+using LotusECMLogger.Services;
 using LotusECMLogger.Services.Ccp;
 using LotusECMLogger.Services.Ccp.Simulation;
 using LotusECMLogger.Services.Tuning;
@@ -223,6 +224,127 @@ public class CcpControlUiTests
 
         await Click("Stop Sync");
         await Until(() => panel.Session is null, "sync to stop");
+        Named<Button>(control, "disconnectButton").PerformClick();
+        await Until(() => host.LeaseCount == 0, "the session to close");
+        Directory.Delete(directory, recursive: true);
+    });
+
+    [Fact]
+    public void TheTuningTabRecordsASessionAndReplaysIt() => RunInMessageLoop(async form =>
+    {
+        const uint AirTemp = 0x4000183A, CoolantTemp = 0x40001836;
+        using var slave = new FakeCcpSlave();
+        uint cal = Gt430.CalibrationBase;
+        slave.Load(cal, Encoding.ASCII.GetBytes("C132E0278 test calibration"));
+        slave.Load(A2lItem(Fan + "_X_air_temp").Address, Enumerable.Range(0, 8).Select(i => (byte)(40 + 20 * i)).ToArray());
+        slave.Load(A2lItem(Fan + "_Y_coolant_temp").Address, Enumerable.Range(0, 8).Select(i => (byte)(10 * i)).ToArray());
+        slave.Load(AirTemp, [90]);     // halfway between X points 2 and 3
+        slave.Load(CoolantTemp, [30]); // on Y point 3
+        string directory = Path.Combine(Path.GetTempPath(), "ccp-ui-recording-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        string file = Path.Combine(directory, "stock.bin");
+        File.WriteAllBytes(file, Enumerable.Range(0, (int)Gt430.CalibrationSize).Select(i => slave.Peek(cal + (uint)i)).ToArray());
+
+        SimulatedCcpTransport? transport = null;
+        using var host = new CcpSessionHost(() => transport = new SimulatedCcpTransport(slave, speedFactor: 20),
+            new CcpMasterOptions { CommandTimeout = TimeSpan.FromMilliseconds(300) });
+        var control = new CcpControl(host) { Dock = DockStyle.Fill, BackupDirectory = Path.Combine(directory, "backups") };
+        form.Controls.Add(control);
+        var log = Named<TextBox>(control, "logTextBox");
+        var panel = control.TuningPanel;
+        panel.Confirm = _ => true;
+        panel.RecordingDirectory = directory;
+        Task Until(Func<bool> condition, string what, int seconds = 15) =>
+            WaitUntil(() => !control.IsBusy && condition(), what, log, seconds);
+        var fan = A2lItem(Fan);
+        IEnumerable<string> Owners() => host.Master!.GetDaqAllocations().Select(a => a.Owner);
+
+        Named<Button>(control, "connectButton").PerformClick();
+        await Until(() => control.Identification?.Build is not null, "identification");
+        var tabs = Named<TabControl>(control, "subTabs");
+        tabs.SelectedTab = tabs.TabPages["tuningPage"];
+        await panel.OpenCalibrationAsync(file);
+        ButtonWithText(control, "Start Live Sync").PerformClick();
+        await Until(() => panel.Session?.Status == LiveTuningStatus.Syncing, "live sync");
+
+        // Record: every axis input streams, and the cursor reads the recording, not a watch of its own.
+        string recordingPath = Path.Combine(directory, "session.csv");
+        await panel.StartRecordingAsync(recordingPath);
+        Assert.NotNull(panel.Recorder);
+        await Until(() => panel.Recorder!.Bits(AirTemp, 1) == 90, "the recording to stream");
+        Assert.True(panel.SelectItem(Fan));
+        await Until(() => panel.Grid?.OperatingPoint is { X: { } x, Y: { } y } && x == new AxisPosition(2, 0.5) && y == new AxisPosition(3, 0),
+            "the cursor from the recording");
+        Assert.StartsWith("Live (recording)", Descendants(control).OfType<Label>().Single(l => l.Text.StartsWith("Live")).Text);
+        // Switching tables reconfigures no DAQ, so the recording loses nothing.
+        Assert.True(panel.SelectItem("CAL_injtip_transient_throttle_response_time"));
+        Assert.True(panel.SelectItem(Fan));
+        await Task.Delay(200);
+        Assert.DoesNotContain(CcpVariableWatch.OwnerName, Owners());
+        Assert.All(host.Master!.GetDaqAllocations().Where(a => a.Owner == TuningRecorder.OwnerName), a => Assert.Equal(0, a.Gaps));
+
+        // A live edit is recorded as a write; then the ECU's input moves to X point 5.
+        panel.Grid!.SelectData([(5, 3)]);
+        panel.ApplyValue("77");
+        double written = panel.Image!.ReadRaw(fan, 5, 3);
+        Assert.NotEqual(0, written);
+        await Until(() => panel.Recorder?.EditCount == 1, "the write to be recorded");
+        transport!.With(s => s.Load(AirTemp, [140]));
+        await Until(() => panel.Grid?.OperatingPoint is { X: { } x } && x == new AxisPosition(5, 0), "the cursor to follow the input");
+        await panel.StopRecordingAsync(null);
+        Assert.Null(panel.Recorder);
+        Assert.Contains("Recording saved", log.Text);
+        var files = new RecordingFiles(recordingPath);
+        foreach (var path in new[] { files.Log, files.Edits, files.CalibrationStart, files.CalibrationEnd })
+            Assert.True(File.Exists(path), path);
+        ButtonWithText(control, "Stop Sync").PerformClick();
+        await Until(() => panel.Session is null, "sync to stop");
+
+        // Replay: the calibration as it was at each moment, and the cursor where the ECU was reading.
+        await panel.OpenRecordingAsync(recordingPath);
+        var recording = panel.Recording!;
+        Assert.True(panel.Timeline.Parent!.Visible);
+        Assert.Single(panel.Timeline.Marks);
+        Assert.True(panel.SelectItem(Fan));
+        panel.SeekReplay(0);
+        Assert.Equal(0, panel.Image!.ReadRaw(fan, 5, 3));
+        panel.SeekReplay(recording.Duration);
+        Assert.Equal(written, panel.Image!.ReadRaw(fan, 5, 3));
+        await Until(() => panel.Grid?.OperatingPoint is { X: { } x, Y: { } y } && x == new AxisPosition(5, 0) && y == new AxisPosition(3, 0),
+            "the replayed cursor");
+        Assert.StartsWith("Replay", Descendants(control).OfType<Label>().Single(l => l.Text.StartsWith("Replay ")).Text);
+
+        // Cells read: the time at each cell, shared as the lookup interpolates.
+        Find<CheckBox>(control, c => c.Text == "Cells read").Checked = true;
+        await Until(() => panel.Grid?.Activity is not null, "the cell activity");
+        var activity = panel.Grid!.Activity!;
+        Assert.True(activity.At(2, 3) > 0 && activity.At(3, 3) > 0 && activity.At(5, 3) > 0);
+        Assert.Equal(0, activity.At(0, 0));
+
+        // A replay is not edited.
+        panel.Grid.SelectData([(0, 0)]);
+        panel.ApplyValue("50");
+        Assert.Equal(0, panel.Image!.ReadRaw(fan, 0, 0));
+
+        // Playing runs to the end, then stops.
+        panel.SeekReplay(0);
+        panel.Play();
+        await Until(() => !panel.IsPlaying && panel.ReplayTime == recording.Duration, "playback to finish");
+
+        if (Environment.GetEnvironmentVariable("CCP_UI_RENDER_DIR") is { Length: > 0 } dir)
+        {
+            Directory.CreateDirectory(dir);
+            panel.SeekReplay(recording.Duration / 2);
+            await Task.Delay(200);
+            using var bitmap = new Bitmap(form.Width, form.Height);
+            form.DrawToBitmap(bitmap, new Rectangle(Point.Empty, form.Size));
+            bitmap.Save(Path.Combine(dir, "ccp_tuningReplay.png"));
+        }
+
+        // Closing returns to the calibration that was open before.
+        panel.CloseRecording();
+        Assert.Null(panel.Recording);
+        Assert.Equal(Path.GetFullPath(file), panel.Image!.SourcePath);
         Named<Button>(control, "disconnectButton").PerformClick();
         await Until(() => host.LeaseCount == 0, "the session to close");
         Directory.Delete(directory, recursive: true);

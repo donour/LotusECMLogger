@@ -126,6 +126,7 @@ namespace LotusECMLogger.Controls
         internal CcpTuningPanel TuningPanel => tuningPanel;
 
         string ICcpTabContext.BackupDirectory => BackupDirectory;
+        CcpSessionHost? ICcpTabContext.Host => host;
 
         public CcpMaster? Master => lease?.Master;
         public bool IsConnected => Master?.State == CcpSessionState.Connected;

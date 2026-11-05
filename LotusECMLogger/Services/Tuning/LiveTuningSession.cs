@@ -25,6 +25,19 @@ namespace LotusECMLogger.Services.Tuning
     /// <summary>How a byte range stands against the ECU; the worst byte decides.</summary>
     public enum CalibrationSyncState { InSync, Pending, Writing, Failed }
 
+    /// <summary>
+    /// A change to the ECU's calibration RAM: a run this session wrote and read back, or (<see cref="Found"/>) a run a
+    /// refresh found different from what the session last knew, e.g. after a reboot restored the flash calibration.
+    /// </summary>
+    public sealed class CalibrationWrittenEventArgs(uint address, byte[] before, byte[] after, DateTime at, bool found) : EventArgs
+    {
+        public uint Address { get; } = address;
+        public byte[] Before { get; } = before;
+        public byte[] After { get; } = after;
+        public DateTime At { get; } = at;
+        public bool Found { get; } = found;
+    }
+
     public sealed class LiveTuningOptions
     {
         /// <summary>Where the ECU's calibration is saved when the session starts; null saves nothing.</summary>
@@ -71,6 +84,12 @@ namespace LotusECMLogger.Services.Tuning
 
         /// <summary>Raised when the status, mode or any byte's sync state changes. May be raised on any thread.</summary>
         public event EventHandler? SyncChanged;
+
+        /// <summary>
+        /// Raised after each verified write to the ECU, and for each run a refresh finds changed, so a recording can say
+        /// which calibration was in the ECU when. May be raised on any thread.
+        /// </summary>
+        public event EventHandler<CalibrationWrittenEventArgs>? Written;
 
         private LiveTuningSession(CcpMaster master, CalibrationImage image, byte[] ecu, string? backupPath, LiveTuningOptions options)
         {
@@ -157,6 +176,20 @@ namespace LotusECMLogger.Services.Tuning
         public CalibrationSyncState StateOf(A2lCalibrationItem item, int x, int y = 0) =>
             StateOf(item.CellAddress(x, y), item.ElementSize);
 
+        /// <summary>
+        /// A copy of the ECU's calibration as this session knows it (what it last read or wrote), or null while that is
+        /// uncertain: sync stopped or closed, a write in flight, or a byte whose write failed.
+        /// </summary>
+        public byte[]? EcuBytes()
+        {
+            lock (_lock)
+            {
+                if (_status is not (LiveTuningStatus.Comparing or LiveTuningStatus.Syncing) || _writing is not null || _failed.Contains(true))
+                    return null;
+                return (byte[])_ecu.Clone();
+            }
+        }
+
         // ── Resolving the first comparison ───────────────────────────────────────────────────────────────
 
         /// <summary>
@@ -211,17 +244,26 @@ namespace LotusECMLogger.Services.Tuning
                 var ecu = await Master.ReadAsync(Image.BaseAddress, Image.Size, progress, cancellationToken).ConfigureAwait(false);
                 if (CcpCalibrationWriter.CalibrationId(ecu) != Image.Build.Build)
                     throw new InvalidDataException($"The ECU's calibration is now {CcpCalibrationWriter.CalibrationId(ecu) ?? "unreadable"}.");
+                var at = DateTime.Now;
+                List<CalibrationWrittenEventArgs> found;
                 lock (_lock)
                 {
+                    found = CcpCalibrationWriter.ChangedRuns(Image.BaseAddress, _ecu, ecu)
+                        .Select(run => new CalibrationWrittenEventArgs(run.Address, Copy(_ecu, run.Address, run.Length),
+                            Copy(ecu, run.Address, run.Length), at, found: true))
+                        .ToList();
                     ecu.CopyTo(_ecu, 0);
                     Array.Clear(_failed);
                     _stopReason = null;
                     _status = FirstDifference() < 0 ? LiveTuningStatus.Syncing : LiveTuningStatus.Comparing;
                 }
+                foreach (var change in found) Written?.Invoke(this, change);
             }
             finally { _io.Release(); }
             RaiseSyncChanged();
         }
+
+        private byte[] Copy(byte[] source, uint address, int length) => source.AsSpan((int)(address - Image.BaseAddress), length).ToArray();
 
         private async Task WriteDifferencesAsync(IProgress<int>? progress, CancellationToken cancellationToken)
         {
@@ -268,11 +310,14 @@ namespace LotusECMLogger.Services.Tuning
                         Stop($"Writing 0x{run.Address:X8}+{run.Length} failed: {ex.Message} Refresh to read the ECU again.");
                         throw;
                     }
+                    byte[] before;
                     lock (_lock)
                     {
+                        before = _ecu.AsSpan(offset, run.Length).ToArray();
                         bytes.Span.CopyTo(_ecu.AsSpan(offset));
                         _writing = null;
                     }
+                    Written?.Invoke(this, new CalibrationWrittenEventArgs(run.Address, before, bytes.ToArray(), DateTime.Now, found: false));
                     written += run.Length;
                     progress?.Report(written);
                     RaiseSyncChanged();

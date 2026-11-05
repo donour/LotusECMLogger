@@ -109,27 +109,44 @@ namespace LotusECMLogger.Services.Tuning
 
         /// <summary>The variable as the CCP watch streams it: raw (scale 1, offset 0).</summary>
         public static CcpVariable ToVariable(A2lMeasurement m) => new(m.Name, m.Address!.Value, m.DataType.Size(),
-            m.DataType is A2lDataType.SByte or A2lDataType.SWord or A2lDataType.SLong, 1, 0, "", null, false, m.LongIdentifier);
+            m.DataType.IsSigned(), 1, 0, "", null, false, m.LongIdentifier);
+
+        /// <summary>The raw input from the sources' raw values, or null while any of them has none.</summary>
+        public double? Evaluate(IRawValueSource values)
+        {
+            var raw = new double[Sources.Count];
+            for (int i = 0; i < raw.Length; i++)
+            {
+                if (values.Read(Sources[i]) is not { } value) return null;
+                raw[i] = value;
+            }
+            return Evaluate(raw);
+        }
     }
 
     /// <summary>
-    /// Streams the inputs of an item's bound axes over DAQ (Phase 6e) and places the operating point on the item's
-    /// axes, using the image's raw axis points (the ECU's, while live sync keeps them in step).
+    /// The bound axis inputs of one table (Phase 6e), resolved once: where it is being read, given any source of raw
+    /// values (the live watch, a running recording, or a saved one at a moment of its replay).
     /// </summary>
-    public sealed class LiveCursor : IAsyncDisposable
+    public sealed class TableInputs
     {
-        private readonly CcpVariableWatch watch;
-        private readonly (AxisInputSource Source, int[] Slots)?[] axes;
-
-        private LiveCursor(A2lCalibrationItem item, CcpVariableWatch watch, (AxisInputSource, int[])?[] axes) =>
-            (Item, this.watch, this.axes) = (item, watch, axes);
+        private TableInputs(A2lCalibrationItem item, AxisInputSource? x, AxisInputSource? y, IReadOnlyList<string> problems) =>
+            (Item, X, Y, Problems) = (item, x, y, problems);
 
         public A2lCalibrationItem Item { get; }
-        public bool IsActive => watch.IsActive;
+        public AxisInputSource? X { get; }
+        public AxisInputSource? Y { get; }
+        /// <summary>Why a bound input cannot be used (e.g. its measurement has no address).</summary>
+        public IReadOnlyList<string> Problems { get; }
+        public bool Any => X is not null || Y is not null;
 
-        /// <summary>The InputQuantity of each of the item's axes that can be streamed, or why not.</summary>
-        public static (AxisInputSource? X, AxisInputSource? Y, IReadOnlyList<string> Problems) Inputs(A2lModule module, A2lCalibrationItem item)
+        /// <summary>Every addressed measurement the inputs read, once each.</summary>
+        public IEnumerable<A2lMeasurement> Sources => new[] { X, Y }.OfType<AxisInputSource>().SelectMany(s => s.Sources).Distinct();
+
+        public static TableInputs For(A2lModule module, A2lCalibrationItem item)
         {
+            ArgumentNullException.ThrowIfNull(module);
+            ArgumentNullException.ThrowIfNull(item);
             var problems = new List<string>();
             AxisInputSource? Resolve(int axis)
             {
@@ -138,7 +155,55 @@ namespace LotusECMLogger.Services.Tuning
                 if (problem is not null) problems.Add(problem);
                 return source;
             }
-            return item.Kind is A2lItemKind.Map or A2lItemKind.Curve ? (Resolve(0), Resolve(1), problems) : (null, null, problems);
+            return item.Kind is A2lItemKind.Map or A2lItemKind.Curve
+                ? new TableInputs(item, Resolve(0), Resolve(1), problems)
+                : new TableInputs(item, null, null, problems);
+        }
+
+        /// <summary>The operating point on the image's axes, or null while any bound input has no value.</summary>
+        public OperatingPointSample? Sample(IRawValueSource values, CalibrationImage image)
+        {
+            ArgumentNullException.ThrowIfNull(image);
+            return Sample(values,
+                X is null ? null : image.ReadAxisRaw(Item.Axes[0], Item.ByteOrder),
+                Y is null ? null : image.ReadAxisRaw(Item.Axes[1], Item.ByteOrder));
+        }
+
+        /// <summary>As <see cref="Sample(IRawValueSource, CalibrationImage)"/>, on axis points already read.</summary>
+        public OperatingPointSample? Sample(IRawValueSource values, IReadOnlyList<double>? xAxis, IReadOnlyList<double>? yAxis)
+        {
+            ArgumentNullException.ThrowIfNull(values);
+            double? xi = null, yi = null;
+            if (X is not null && (xi = X.Evaluate(values)) is null) return null;
+            if (Y is not null && (yi = Y.Evaluate(values)) is null) return null;
+            AxisPosition? Position(IReadOnlyList<double>? axis, double? input) =>
+                input is { } v && axis is not null ? OperatingPoint.Locate(axis, v) : null;
+            return new OperatingPointSample(Position(xAxis, xi), Position(yAxis, yi), xi, yi);
+        }
+    }
+
+    /// <summary>
+    /// Streams the inputs of an item's bound axes over its own DAQ watch (Phase 6e) and places the operating point on
+    /// the item's axes, using the image's raw axis points (the ECU's, while live sync keeps them in step). A running
+    /// recording streams every input already, so the Tuning page reads that instead and needs no watch.
+    /// </summary>
+    public sealed class LiveCursor : IAsyncDisposable, IRawValueSource
+    {
+        private readonly CcpVariableWatch watch;
+        private readonly TableInputs inputs;
+        private readonly Dictionary<(uint Address, int Size), int> slots;
+
+        private LiveCursor(TableInputs inputs, CcpVariableWatch watch, Dictionary<(uint, int), int> slots) =>
+            (this.inputs, this.watch, this.slots) = (inputs, watch, slots);
+
+        public A2lCalibrationItem Item => inputs.Item;
+        public bool IsActive => watch.IsActive;
+
+        /// <summary>The InputQuantity of each of the item's axes that can be streamed, or why not.</summary>
+        public static (AxisInputSource? X, AxisInputSource? Y, IReadOnlyList<string> Problems) Inputs(A2lModule module, A2lCalibrationItem item)
+        {
+            var inputs = TableInputs.For(module, item);
+            return (inputs.X, inputs.Y, inputs.Problems);
         }
 
         /// <summary>Starts streaming at <paramref name="rateHz"/>, or returns null when no axis of the item has an input.</summary>
@@ -146,40 +211,24 @@ namespace LotusECMLogger.Services.Tuning
             CancellationToken cancellationToken = default)
         {
             ArgumentNullException.ThrowIfNull(master);
-            var (x, y, _) = Inputs(module, item);
-            if (x is null && y is null) return null;
-            var variables = new List<CcpVariable>();
-            var slots = new Dictionary<string, int>(StringComparer.Ordinal);
-            (AxisInputSource, int[])? Plan(AxisInputSource? source)
-            {
-                if (source is null) return null;
-                var indices = source.Sources.Select(m =>
-                {
-                    if (!slots.TryGetValue(m.Name, out int slot))
-                    {
-                        slots[m.Name] = slot = variables.Count;
-                        variables.Add(AxisInputSource.ToVariable(m));
-                    }
-                    return slot;
-                }).ToArray();
-                return (source, indices);
-            }
-            var axes = new[] { Plan(x), Plan(y) };
-            var watch = await CcpVariableWatch.StartAsync(master, variables, rateHz, cancellationToken).ConfigureAwait(false);
-            return new LiveCursor(item, watch, axes);
+            var inputs = TableInputs.For(module, item);
+            if (!inputs.Any) return null;
+            var sources = inputs.Sources.ToList();
+            var slots = new Dictionary<(uint, int), int>();
+            for (int i = 0; i < sources.Count; i++) slots[(sources[i].Address!.Value, sources[i].DataType.Size())] = i;
+            var watch = await CcpVariableWatch.StartAsync(master, sources.Select(AxisInputSource.ToVariable).ToList(), rateHz, cancellationToken)
+                .ConfigureAwait(false);
+            return new LiveCursor(inputs, watch, slots);
+        }
+
+        public ulong? Bits(uint address, int size)
+        {
+            if (!slots.TryGetValue((address, size), out int slot)) return null;
+            return watch.Snapshot()[slot] is { } value ? RawValues.Bits(Convert.FromHexString(value.RawHex)) : null;
         }
 
         /// <summary>The latest operating point, or null until every streamed variable has a value.</summary>
-        public OperatingPointSample? Read(CalibrationImage image)
-        {
-            var values = watch.Snapshot();
-            if (values.Any(v => v is null)) return null;
-            double? Input(int axis) => axes[axis] is { } plan ? plan.Source.Evaluate(plan.Slots.Select(s => values[s]!.Value.Value).ToList()) : null;
-            AxisPosition? Position(int axis, double? input) => input is { } v
-                ? OperatingPoint.Locate(image.ReadAxisRaw(Item.Axes[axis], Item.ByteOrder), v) : null;
-            double? xi = Input(0), yi = Input(1);
-            return new OperatingPointSample(Position(0, xi), Position(1, yi), xi, yi);
-        }
+        public OperatingPointSample? Read(CalibrationImage image) => inputs.Sample(this, image);
 
         public ValueTask DisposeAsync() => watch.DisposeAsync();
     }

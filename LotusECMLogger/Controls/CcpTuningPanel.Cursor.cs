@@ -1,4 +1,3 @@
-using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
 using LotusECMLogger.Controls.Plotting;
@@ -9,43 +8,57 @@ using LotusECMLogger.Services.Tuning.Plotting;
 
 namespace LotusECMLogger.Controls
 {
-    /// <summary>The Tuning page's live operating point (Phase 6e).</summary>
+    /// <summary>The Tuning page's operating point (Phase 6e): where the ECU is, or was, reading the shown table.</summary>
     internal sealed partial class CcpTuningPanel
     {
-        // ── Live operating point ─────────────────────────────────────────────────────────────────────────
+        // ── Operating point ──────────────────────────────────────────────────────────────────────────────
 
-        /// <summary>Starts or stops the cursor when the item, the session or the Cursor switch changes.</summary>
+        // The shown table's bound inputs, resolved once per table.
+        private TableInputs? tableInputs;
+
+        /// <summary>
+        /// Points the cursor at the shown table when the item, the session, a recording or the Cursor switch changes.
+        /// A replay or a running recording supplies every input; otherwise the table's own DAQ watch streams them while
+        /// connected.
+        /// </summary>
         private void EnsureCursor()
         {
-            (A2lCalibrationItem?, CcpMaster?) wanted = cursorBox.Checked && current is not null && a2l is not null && image is not null && context.IsConnected
-                ? (current, context.Master) : (null, null);
-            if (wanted == cursorFor) return;
-            cursorFor = wanted;
-            _ = RestartCursorAsync(wanted.Item1, wanted.Item2);
+            var item = cursorBox.Checked && image is not null && a2l is not null ? current : null;
+            if (!ReferenceEquals(tableInputs?.Item, item)) tableInputs = item is null ? null : TableInputs.For(a2l!.Module, item);
+            bool ownWatch = item is not null && tableInputs!.Any && recorder is null && recording is null && context.IsConnected;
+            (A2lCalibrationItem?, CcpMaster?) wanted = ownWatch ? (item, context.Master) : (null, null);
+            if (wanted != cursorFor)
+            {
+                cursorFor = wanted;
+                _ = RestartCursorAsync(wanted.Item1, wanted.Item2);
+            }
+            if (item is null || !tableInputs!.Any)
+            {
+                cursorTimer.Stop();
+                grid?.SetCursor(null);
+                graphPane.Plot.SetCursor(null);
+                liveLabel.Text = item is { Kind: A2lItemKind.Map or A2lItemKind.Curve } && tableInputs is { } none
+                    ? (none.Problems.Count > 0 ? $"No live cursor: {none.Problems[0]}" : "No live cursor: no axis of this table has an input bound in the A2L.")
+                    : "";
+                return;
+            }
+            if (!cursorTimer.Enabled) cursorTimer.Start();
+            if (recording is not null || recorder is not null) SampleCursor();
         }
 
+        /// <summary>Starts the table's own watch, or just stops the old one when <paramref name="item"/> is null.</summary>
         private async Task RestartCursorAsync(A2lCalibrationItem? item, CcpMaster? master)
         {
             int generation = ++cursorGeneration;
-            cursorTimer.Stop();
             if (liveCursor is { } old)
             {
                 liveCursor = null;
                 try { await old.DisposeAsync(); }
                 catch (Exception ex) { Debug.WriteLine($"CcpTuningPanel: stopping the cursor failed: {ex.Message}"); }
             }
-            if (IsGone || generation != cursorGeneration) return;
+            if (IsGone || generation != cursorGeneration || item is null || master is null || a2l is null) return;
             grid?.SetCursor(null);
             graphPane.Plot.SetCursor(null);
-            liveLabel.Text = "";
-            if (item is null || master is null || a2l is null) return;
-            var (x, y, problems) = LiveCursor.Inputs(a2l.Module, item);
-            if (x is null && y is null)
-            {
-                liveLabel.Text = item.Kind is A2lItemKind.Map or A2lItemKind.Curve
-                    ? (problems.Count > 0 ? $"No live cursor: {problems[0]}" : "No live cursor: no axis of this table has an input bound in the A2L.") : "";
-                return;
-            }
             try
             {
                 var started = await LiveCursor.StartAsync(master, a2l.Module, item);
@@ -56,7 +69,6 @@ namespace LotusECMLogger.Controls
                 }
                 liveCursor = started;
                 liveLabel.Text = "Live: waiting for the ECU…";
-                cursorTimer.Start();
             }
             catch (Exception ex)
             {
@@ -66,29 +78,58 @@ namespace LotusECMLogger.Controls
 
         private void SampleCursor()
         {
-            if (liveCursor is not { } cursor || IsGone) return;
-            if (!cursor.IsActive)
+            if (IsGone || grid is null || image is null || tableInputs is not { Any: true } inputs || !ReferenceEquals(inputs.Item, current)) return;
+            IRawValueSource source;
+            string prefix;
+            if (recording is not null) (source, prefix) = (recording.At(replayTime), $"Replay {ReplayClock(replayTime)}");
+            else if (recorder is not null) (source, prefix) = (recorder, "Live (recording)");
+            else if (liveCursor is { } cursor)
             {
-                cursorTimer.Stop();
-                liveCursor = null;
-                cursorFor = default;
-                _ = cursor.DisposeAsync().AsTask();
-                grid?.SetCursor(null);
-                graphPane.Plot.SetCursor(null);
-                liveLabel.Text = "Live cursor stopped: its DAQ list was stopped or the session closed.";
+                if (!cursor.IsActive)
+                {
+                    liveCursor = null;
+                    cursorFor = default;
+                    _ = cursor.DisposeAsync().AsTask();
+                    cursorTimer.Stop();
+                    grid.SetCursor(null);
+                    graphPane.Plot.SetCursor(null);
+                    liveLabel.Text = "Live cursor stopped: its DAQ list was stopped or the session closed.";
+                    return;
+                }
+                if (!ReferenceEquals(cursor.Item, current)) return;
+                (source, prefix) = (cursor, "Live");
+            }
+            else
+            {
+                // Offline (nothing to show), or the table's watch is still starting (its label says so).
+                if (cursorFor.Item1 is null)
+                {
+                    grid.SetCursor(null);
+                    graphPane.Plot.SetCursor(null);
+                    liveLabel.Text = "";
+                }
                 return;
             }
-            if (grid is null || image is null || !ReferenceEquals(cursor.Item, current) || cursor.Read(image) is not { } sample) return;
+            if (inputs.Sample(source, image) is not { } sample)
+            {
+                if (recording is not null)
+                {
+                    grid.SetCursor(null);
+                    graphPane.Plot.SetCursor(null);
+                    liveLabel.Text = $"{prefix}: not every input of this table has a recorded value yet.";
+                }
+                return;
+            }
             grid.SetCursor(sample);
             var at = graphData?.CursorAt(sample);
             graphPane.Plot.SetCursor(at);
-            liveLabel.Text = LiveText(cursor.Item, sample, at?.Value);
+            liveLabel.Text = LiveText(prefix, inputs.Item, sample, at?.Value);
         }
 
         /// <summary>"Live  X coolant_tmp: 30.0 °C (raw 112)   Y rpm: 2406 rpm (raw 60)   → 14.60 AFR"</summary>
-        private static string LiveText(A2lCalibrationItem item, OperatingPointSample sample, double? value)
+        private static string LiveText(string prefix, A2lCalibrationItem item, OperatingPointSample sample, double? value)
         {
-            var parts = new List<string> { "Live" };
+            var parts = new List<string> { prefix };
             void Axis(string name, int index, double? input)
             {
                 if (input is not { } raw || index >= item.Axes.Count) return;

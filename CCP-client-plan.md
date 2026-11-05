@@ -7,10 +7,10 @@ Design notes for adding a CCP 2.1 master to LotusECMLogger. The ECU side is desc
 `CcpMaster`, high-speed logger ported onto it with AEM as a separate source, shared session host, CCP tab, guarded
 calibration writes) plus diagnostics tooling (trace, statistics, variable watch, memory diff, self-test). Phases 1–5
 verified on a car 2026-10-24 (2011 Evora NA, B132E0091), including the J2534 latency fix. Phase 6 started 2026-10-24:
-the A2L generator, the 6a reader, the 6b calibration image, 6c live sync and the 6d editor are done in code (§4);
-not yet used on a car; 6e, the live operating point, is done in code too. Next: a car check of live tuning and the
-cursor, and review of the drafted axis inputs. Scope narrowed to T6
-2011+ for now (§2).**
+the A2L generator, the 6a reader, the 6b calibration image, 6c live sync, the 6d editor and the 6e live cursor are done;
+live tuning and the cursor worked on a GT430 (C132E0278) on 2026-11-03. 6f, recording a tuning session and replaying it
+(cursor, calibration at each moment, cells read), is done in code 2026-11-05; not yet used on a car. Next: record and
+replay on a car, and review of the drafted axis inputs. Scope narrowed to T6 2011+ for now (§2).**
 The protocol core, target/build profiles, transport contract, J2534 transport and deterministic fake slave
 are implemented. Cross-platform tests exercise the command sequence, firmware quirks and runtime-registry format.
 The fake loads real PROG/CAL from CRP and exposes `ICcpTransport`; see [`CcpSimulator/README.md`](CcpSimulator/README.md).
@@ -413,16 +413,20 @@ generated file into CANape or INCA.
     (`lookup_3D_uint8_interpolated` uses `input & 0xff`; the 8-bit 2D lookup and `lookup_3D_uint8` take a byte).
     So a binding is the expression the lookup sees, mask included, and the cursor places it on the raw axis.
     A VIRTUAL measurement's FORM formula therefore reads its inputs' raw values as X1…Xn.
-  - **Drafting.** `A2lTool extract-inputs <decompile.c> <build> --out-dir LotusECMLogger/config/a2l` writes
-    `<build>.inputs.csv` (`AxisInputs`). It walks every `lookup_*` call, matches the axis argument to an AXIS_PTS by
-    name, and keeps an input only when every call site agrees and it uses nothing but the catalog's RAM
-    variables, numbers and `>> << & | ^ + - * / ~`. Casts are dropped unless they narrow more than the lookup does,
-    and the lookup's mask is added unless an unsigned variable already fits. Locals, constants, array/struct
-    accesses, calls, conditionals, offset axis pointers (`CAL_x + 5`) and disagreeing call sites are listed as
-    skipped.
-  - **Coverage.** Drafted from `t6-patch/disassembly/evora/B13200091/B13200091.c` (213 of 281 axes) and
-    `references/C132E0278.c` (132 of 324). Spot-checked: AFR base, ignition base, injector efficiency/angle and
-    warm-up use `engine_speed_3` × `load_mass_per_stroke` or `coolant_temp`, all unsigned bytes.
+  - **Drafting.** `A2lTool extract-inputs <decompile.c> <build> [--aliases <older catalog>] --out-dir
+    LotusECMLogger/config/a2l` writes `<build>.inputs.csv` (`AxisInputs`). It walks every `lookup_*` call, matches the
+    axis argument to an AXIS_PTS by name, and keeps an input only when every call site that does not pass a constant
+    agrees and it comes down to the catalog's RAM variables, numbers and `>> << & | ^ + - * / ~`. A local of the
+    calling function is followed to the one variable it holds (through a getter that only returns it; its constant
+    defaults and fault values ignored; one the ECU clamps at its maximum is left unmasked, since the cursor clamps at
+    the axis end). `DAT_` and type_address globals are named by catalog address. A narrowing cast followed by a right
+    shift or division must keep the bits the lookup reads. `--aliases` reads an older decompile's names by address
+    when the catalog has renamed symbols since. The `note` column says how each row beyond a plain call was found.
+    Array/struct accesses, other calls, conditionals, offset axis pointers (`CAL_x + 5`) and call sites that disagree
+    are listed as skipped.
+  - **Coverage (2026-11-05).** From the `t6-patch` decompiles, with `--aliases` for the catalogs' renames: C132E0278
+    278 of 365 axes (218 of 273 tables get a cursor), B132E0091 238 of 289 (176 of 213). `references/C132E0278.c`
+    predates the catalog's names and binds far fewer. The rest mostly have different inputs at different call sites.
   - **Review.** The CSVs are drafts: delete wrong rows, then `A2lTool generate … --force` (it reads
     `<build>.inputs.csv` beside the A2L). A plain variable becomes the axis's InputQuantity; an expression
     becomes `V_<axis>`, a VIRTUAL MEASUREMENT with a FORM formula.
@@ -435,6 +439,35 @@ generated file into CANape or INCA.
     trail; one bound axis draws a line across the grid. The graph draws a dashed line and a dot on the lines view,
     or a dot on the surface. A live line under the grid gives each input (physical and raw) and the interpolated
     value. The Cursor switch frees the DAQ lists, e.g. for the High-Speed Log.
+- **6f, recording and replay.** Tune and log at once, then replay the log to see which cells the ECU read.
+  *Done in code 2026-11-05*; not yet used on a car. As built:
+  - **What a recording is.** `X.csv`, a high-speed log of every variable an A2L axis reads (one DAQ list at
+    20 Hz holds either build's 37–45 inputs) plus a chosen preset's channels; `X.edits.csv`, each verified write to
+    calibration RAM with its bytes before and after (and runs a refresh found changed); `X.cal-start.bin` and
+    `X.cal-end.bin`, the CAL range when recording started and stopped. The snapshots come from live sync's copy of
+    the ECU when one checksum confirms it, else from a full read (about 9 s on the GT430).
+  - **The log says how to read it back.** Every high-speed log's preamble now has a line per channel
+    (`# channel: name @0xADDRESS size=N signed=0|1 scale=… offset=… rate=…Hz unit=…`, `LoggedChannel`) and the
+    build, so values (written in physical units) turn back into exact raw values. Older logs give only address,
+    size and unit; replay takes their scaling from the A2L measurement at the same address.
+  - **One clock.** Writes are stamped on the log's clock (the last row's adapter time plus the time since), not the
+    PC's, so they line up with the samples.
+  - **Recording (`TuningRecorder`).** Its own `HighSpeedLogService` on the shared session (DAQ owner "Tuning
+    recording"), so the High-Speed Log tab can run beside it if the ECU has lists for both. While it runs, the cursor
+    reads its latest values (`IRawValueSource`) instead of starting a watch per table, so switching tables
+    reconfigures no DAQ and costs the log nothing. It records whichever live sync session is running, started before
+    or during the recording.
+  - **Replay (`TuningRecording`, `ReplayCalibration`).** Opens the log and its side files. Each channel is kept as
+    its changes only, so an hour's log stays small. The calibration at time t is the start snapshot with the writes
+    up to t applied (undone when seeking back), so axes edited mid-run are used from the moment they changed. A
+    replay is read-only; Close Recording returns to the calibration open before it.
+  - **Cells read (`CellActivity`).** For the shown table and the whole recording or a Shift+dragged range: every
+    stretch between input changes (or writes) is shared among the cells the lookup interpolates between, by its
+    bilinear weights, on the axes of that moment. Cells are shaded white to deep orange by time (square root),
+    grey where never read; the tooltip gives seconds and share. An axis with no input spreads its share along it.
+  - **Timeline.** Play and pause at 0.25–16×, click or drag to seek, a tick at each write.
+  - **Not yet.** Per-cell statistics of another channel (e.g. mean wideband error per cell, from the AEM source),
+    and dimming tables that a mode flag says were not in use.
 
 ## 5. Live tuning: findings that shape the design
 

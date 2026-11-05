@@ -39,6 +39,7 @@ namespace LotusECMLogger.Controls
                     Mode = holdBox.Checked ? LiveTuningMode.Hold : LiveTuningMode.Live,
                 }, cancellationToken: ct);
                 session.SyncChanged += OnSyncChanged;
+                recorder?.Attach(session);
                 context.Log($"Live sync started; the ECU's calibration is backed up to {session.BackupPath}.");
                 if (session.Status == LiveTuningStatus.Comparing)
                     context.Log($"The file and the ECU differ in {session.PendingBytes:N0} byte(s) ({session.Differences.Count} run(s)). " +
@@ -53,6 +54,7 @@ namespace LotusECMLogger.Controls
             if (session is not { } stopping) return;
             session = null;
             stopping.SyncChanged -= OnSyncChanged;
+            recorder?.Attach(null);
             await stopping.DisposeAsync();
             context.Log("Live sync stopped.");
             QueueRefresh();
