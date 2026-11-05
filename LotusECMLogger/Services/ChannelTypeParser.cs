@@ -51,6 +51,7 @@ namespace LotusECMLogger.Services
             "flow", "load", "factor", "count", "gear", "current", "mass", "power", "ratio",
             "level", "distance", "accel", "frequency", "economy",
             "afr", "volume", "slip", "dutycycle", "percent", "gain", "dt", "dt_factor",
+            "tempdelta", "lambda", "freq",
         };
 
         // Default unit when an encoded type omits one (the scale/offset still come from the spec).
@@ -59,24 +60,30 @@ namespace LotusECMLogger.Services
             ["angle"] = "deg", ["rspeed"] = "rpm", ["temp"] = "°C", ["voltage"] = "V",
             ["torque"] = "Nm", ["pressure"] = "mbar", ["speed"] = "kph",
             ["afr"] = "AFR", ["dutycycle"] = "%", ["percent"] = "%", ["slip"] = "%",
+            ["tempdelta"] = "°C", ["lambda"] = "λ", ["freq"] = "Hz",
         };
 
         // Light prettifying of the raw unit token for display.
         private static readonly Dictionary<string, string> PrettyUnits = new(StringComparer.Ordinal)
         {
             ["c"] = "°C", ["C"] = "°C", ["v"] = "V", ["nm"] = "Nm", ["kph"] = "km/h",
-            ["pct"] = "%", ["kw"] = "kW", ["ml_per_km"] = "ml/km",
+            ["pct"] = "%", ["kw"] = "kW", ["ml_per_km"] = "ml/km", ["hz"] = "Hz",
         };
 
         private static readonly Regex EncodedRe =
             new(@"^(?<sz>[ui])(?<bits>8|16|32)_(?<qty>[a-z0-9]+)(?:_(?<spec>.+))?$", RegexOptions.Compiled);
 
-        // Quantity-less offset form, e.g. "u8_-127" (axis values stored biased by a constant).
+        // Quantity-less offset form, e.g. "u8_-127" or "u16_raw-32768" (values stored biased by a constant).
         private static readonly Regex OffsetOnlyRe =
-            new(@"^(?<sz>[ui])(?<bits>8|16|32)_(?<off>[+-]\d+)$", RegexOptions.Compiled);
+            new(@"^(?<sz>[ui])(?<bits>8|16|32)_(?:raw)?(?<off>[+-]\d+)$", RegexOptions.Compiled);
 
         private static readonly Regex SpecRe =
-            new(@"^(?<num>\d+)?(?:/(?<den>\d+))?(?<off>[+-]\d+)?(?<unit>.*)$", RegexOptions.Compiled);
+            new(@"^(?<num>\d+)?(?:/(?<den>\d+))?(?<off>[+-]\d+(?:\.\d+)?)?(?<unit>.*)$", RegexOptions.Compiled);
+
+        // Offset after the unit, which may repeat after it: "rpm-32768" (raw - 32768 rpm),
+        // "10mg/s-327680mg/s" (raw * 10 - 327680 mg/s). The offset is in the unit, as in "5/8-40c".
+        private static readonly Regex UnitThenOffsetRe =
+            new(@"^(?<num>\d+)?(?:/(?<den>\d+))?(?<unit>[a-zA-Z%][a-zA-Z%/]*?)(?<off>[+-]\d+(?:\.\d+)?)\k<unit>?$", RegexOptions.Compiled);
 
         // "1173mg/255stroke": numerator and denominator each carry a unit token → scale num/den, unit "mg/stroke".
         private static readonly Regex RatioUnitsRe =
@@ -198,6 +205,13 @@ namespace LotusECMLogger.Services
                 double rawOff = double.Parse(m.Groups["off"].Value, CultureInfo.InvariantCulture);
                 offset = den != 0 ? rawOff / den : rawOff;
                 unit = m.Groups["unit"].Value.Trim();
+            }
+            else if ((m = UnitThenOffsetRe.Match(spec)).Success)
+            {
+                num = m.Groups["num"].Success ? double.Parse(m.Groups["num"].Value, CultureInfo.InvariantCulture) : 1.0;
+                den = m.Groups["den"].Success ? double.Parse(m.Groups["den"].Value, CultureInfo.InvariantCulture) : 1.0;
+                offset = double.Parse(m.Groups["off"].Value, CultureInfo.InvariantCulture);
+                unit = m.Groups["unit"].Value;
             }
             else if ((m = UnitDivRe.Match(spec)).Success)
             {

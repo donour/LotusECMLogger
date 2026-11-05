@@ -9,9 +9,11 @@ const string Usage = """
       A2lTool generate <build>... [--out-dir <dir>] [--force]
           Drafts <build>.a2l from the build's symbol catalog. Existing files are kept unless --force: they may
           carry hand edits. Axis inputs come from <out-dir>/<build>.inputs.csv when that file exists.
-      A2lTool extract-inputs <decompile.c> <build> [--out-dir <dir>] [--force]
+      A2lTool extract-inputs <decompile.c> <build> [--aliases <older catalog.csv>] [--out-dir <dir>] [--force]
           Drafts <build>.inputs.csv: each axis's input as its lookup calls pass it, where every call site agrees
           and the input is plain RAM variables. Review it against the decompile, then regenerate the A2L.
+          --aliases: the catalog the decompile was named from, when the catalog has renamed variables since;
+          each decompile name is read as whatever the catalog now calls its address.
       A2lTool check <file.a2l>... [--image <calibration .bin or .CRP>]
           Parses each file as the app will and lists what is unavailable or read-only, and why. With --image, also
           checks the A2L against that calibration (EPK, segment) and lists axes whose points decrease in it.
@@ -82,12 +84,14 @@ static int ExtractInputs(string[] args)
 {
     string outDir = ".";
     bool force = false;
+    string? aliasesPath = null;
     var positional = new List<string>();
     for (int i = 0; i < args.Length; i++)
     {
         switch (args[i])
         {
             case "--out-dir" when i + 1 < args.Length: outDir = args[++i]; break;
+            case "--aliases" when i + 1 < args.Length: aliasesPath = args[++i]; break;
             case "--force": force = true; break;
             default: positional.Add(args[i]); break;
         }
@@ -101,7 +105,9 @@ static int ExtractInputs(string[] args)
 
     // The axes are the generated A2L's AXIS_PTS, so every binding names one.
     var axes = A2lParser.Parse(A2lGenerator.Generate(catalog, build).Text).AxisPts.Keys.ToHashSet(StringComparer.Ordinal);
-    var (bound, skipped) = AxisInputs.Extract(File.ReadAllText(positional[0]), axes, AxisInputs.Variables(catalog));
+    // An older catalog's names, for a decompile named before the catalog's renames: each name is read by address.
+    var aliases = aliasesPath is null ? null : AxisInputs.Aliases(SymbolCatalogLoader.LoadFromFile(aliasesPath), catalog);
+    var (bound, skipped) = AxisInputs.Extract(File.ReadAllText(positional[0]), axes, AxisInputs.Variables(catalog), aliases);
     Directory.CreateDirectory(outDir);
     File.WriteAllText(path, AxisInputs.Format(bound, Path.GetFileName(positional[0])));
     Console.WriteLine($"{path}: {bound.Count} of {axes.Count} axes bound; {skipped.Count} looked up but left unbound:");

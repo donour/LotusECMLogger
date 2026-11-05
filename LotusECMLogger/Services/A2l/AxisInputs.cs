@@ -53,7 +53,9 @@ namespace LotusECMLogger.Services.A2l
 
         /// <summary>An input as normalized: the expression, or why there is none, and how it was found.</summary>
         /// <param name="IsConstant">The input is a number or a calibration value, so it says nothing about the operating point.</param>
-        private sealed record Normalized(string? Expression, string? Reason, bool IsConstant = false, string Note = "")
+        /// <param name="SaturationBits">Non-zero for a local that the ECU clamps at its maximum (all ones in this many
+        /// bits) instead of letting it wrap: the expression is left untruncated, since the cursor clamps at the axis end.</param>
+        private sealed record Normalized(string? Expression, string? Reason, bool IsConstant = false, string Note = "", int SaturationBits = 0)
         {
             public string Key => Expression ?? "?" + Reason;
         }
@@ -68,10 +70,15 @@ namespace LotusECMLogger.Services.A2l
                 .ToDictionary(e => e.Name, StringComparer.Ordinal);
         }
 
+        /// <param name="aliases">For a decompile older than the catalog: each of its global names (variables and axes)
+        /// mapped to what the catalog now calls that name's old address, or null when nothing unique is there. A renamed
+        /// variable or axis still binds, and a name that moved to another address does not bind the wrong one. See
+        /// <see cref="Aliases"/>.</param>
         public static (IReadOnlyList<AxisInput> Bound, IReadOnlyList<SkippedAxisInput> Skipped) Extract(string decompile,
-            IReadOnlySet<string> axes, IReadOnlyDictionary<string, SymbolEntry> variables)
+            IReadOnlySet<string> axes, IReadOnlyDictionary<string, SymbolEntry> variables,
+            IReadOnlyDictionary<string, string?>? aliases = null)
         {
-            var names = new NameResolver(decompile, variables);
+            var names = new NameResolver(decompile, variables, aliases);
             var found = new Dictionary<string, List<(Normalized Input, string Lookup, int Line)>>(StringComparer.Ordinal);
             var skipped = new List<SkippedAxisInput>();
             var lineStarts = LineStarts(decompile);
@@ -86,6 +93,7 @@ namespace LotusECMLogger.Services.A2l
                 {
                     if (signature.Axes[k] >= args.Count || signature.Inputs[k] >= args.Count) continue;
                     string axisArg = Cast.Replace(args[signature.Axes[k]], "").Trim().TrimStart('&').Trim();
+                    if (aliases?.GetValueOrDefault(axisArg) is { } renamedAxis) axisArg = renamedAxis;
                     if (!axes.Contains(axisArg)) continue; // offset pointers, DAT_ addresses, unknown axes
                     if (!found.TryGetValue(axisArg, out var list)) found[axisArg] = list = [];
                     list.Add((names.Normalize(args[signature.Inputs[k]], signature.Mask, m.Index), m.Groups[1].Value, line));
@@ -118,6 +126,18 @@ namespace LotusECMLogger.Services.A2l
         }
 
         /// <summary>
+        /// Maps the names of the catalog a decompile was named from to the current catalog's, by address: each name
+        /// unique in the old catalog goes to the one name the current catalog has at its address, or null.
+        /// </summary>
+        public static Dictionary<string, string?> Aliases(SymbolCatalog named, SymbolCatalog current)
+        {
+            var now = current.Entries.GroupBy(e => e.Address).ToDictionary(g => g.Key, g => g.Select(e => e.Name).Distinct().ToList());
+            return named.Entries.GroupBy(e => e.Name, StringComparer.Ordinal)
+                .Where(g => g.Select(e => e.Address).Distinct().Count() == 1)
+                .ToDictionary(g => g.Key, g => now.GetValueOrDefault(g.First().Address) is [var only] ? only : null, StringComparer.Ordinal);
+        }
+
+        /// <summary>
         /// The input as the lookup sees it, or null (with the reason) when it is not a plain expression over RAM
         /// variables. Casts are dropped; the lookup's own truncation is added unless the variable already fits.
         /// </summary>
@@ -128,10 +148,12 @@ namespace LotusECMLogger.Services.A2l
             return result.Expression;
         }
 
-        /// <param name="resolve">Turns a name that is not a catalog variable into an expression over catalog variables
-        /// (given the mask it will be truncated to), or says why it cannot; null leaves every such name unbound.</param>
+        /// <param name="resolve">Turns a name into an expression over catalog variables (given the mask it will be
+        /// truncated to), or says why it cannot; null keeps catalog variables and leaves every other name unbound.</param>
+        /// <param name="truncate">False for a saturating local's value: casts are checked against the mask, but the
+        /// expression is not masked to it.</param>
         private static Normalized Normalize(string argument, long? mask, IReadOnlyDictionary<string, SymbolEntry> variables,
-            Func<string, long?, Normalized>? resolve)
+            Func<string, long?, Normalized>? resolve, bool truncate = true)
         {
             Normalized Unbound(string why) => new(null, why);
             string text = TypedefCast.Replace(argument, c => $"({BuiltinCast(TypeWidth(c.Groups[1].Value)!.Value)})").Trim();
@@ -144,6 +166,11 @@ namespace LotusECMLogger.Services.A2l
                 int castBits = TypeWidth(type)?.Bits ?? 32;
                 if (castBits >= 32) continue;
                 if (castBits < lookupBits) return Unbound($"'{argument.Trim()}' narrows with a ({type}) cast");
+                // Untruncated, a dropped signed cast must not change the value's sign: its variables must already be signed.
+                if (!truncate && TypeWidth(type) is { Signed: true }
+                    && Regex.Matches(text[(cast.Index + cast.Length)..OperandEnd(text, cast.Index + cast.Length)], @"[A-Za-z_]\w*")
+                        .Select(v => v.Value).FirstOrDefault(v => variables.TryGetValue(v, out var entry) && !entry.Type.Signed) is { } unsigned)
+                    return Unbound($"'{argument.Trim()}' reads unsigned {unsigned} as signed with a ({type}) cast; check its catalog type");
                 int discarded = ShiftAfter(text[OperandEnd(text, cast.Index + cast.Length)..]);
                 if (discarded < 0 || castBits < lookupBits + discarded)
                     return Unbound($"'{argument.Trim()}' shifts or divides after a ({type}) cast");
@@ -162,10 +189,16 @@ namespace LotusECMLogger.Services.A2l
                 string t = raw[i];
                 if (!Identifier.IsMatch(t)) { tokens.Add(t); continue; }
                 if (i + 1 < raw.Count && raw[i + 1] == "(") return Unbound($"'{argument.Trim()}' calls a function");
-                if (variables.ContainsKey(t)) { tokens.Add(t); continue; }
                 if (IsCalibration(t)) return Unbound($"'{argument.Trim()}' mixes a calibration value into the input");
-                var resolved = resolve?.Invoke(t, mask) ?? Unbound($"'{t}' is not a RAM variable in the catalog (a local or unnamed)");
+                var resolved = resolve is not null ? resolve(t, mask)
+                    : variables.ContainsKey(t) ? new(t, null) : Unbound($"'{t}' is not a RAM variable in the catalog (a local or unnamed)");
                 if (resolved.Expression is not { } substitute) return resolved;
+                // Masking a saturating local's value would wrap it where the ECU clamps, so it must be the whole input,
+                // and its maximum must reach the lookup's: then a larger value lies past the axis end, as the clamp does.
+                if (resolved.SaturationBits > 0)
+                    return raw.Count == 1 && resolved.SaturationBits >= lookupBits
+                        ? resolved
+                        : Unbound($"'{t}' saturates, so it cannot be part of a larger or wider input");
                 notes.Add(resolved.Note);
                 var inner = Tokenize(substitute)!;
                 bool bare = inner.Count == 1 || raw.Count == 1;
@@ -176,7 +209,7 @@ namespace LotusECMLogger.Services.A2l
             string note = string.Join("; ", notes.Where(n => n.Length > 0).Distinct(StringComparer.Ordinal));
             var names = tokens.Where(t => Identifier.IsMatch(t)).ToList();
             string expression = string.Join(" ", tokens).Replace("( ", "(").Replace(" )", ")").Replace("~ ", "~");
-            if (mask is not { } bits) return new(expression, null, Note: note);
+            if (mask is not { } bits || !truncate) return new(expression, null, Note: note);
             string maskText = "0x" + bits.ToString("x", CultureInfo.InvariantCulture);
             if (names.Count == 1 && tokens.Count == 1)
             {
@@ -281,12 +314,14 @@ namespace LotusECMLogger.Services.A2l
         private static int BitWidth(long mask) => 64 - (int)ulong.LeadingZeroCount((ulong)mask);
 
         /// <summary>
-        /// Names in lookup arguments that are not catalog variables: unnamed globals (<c>DAT_40002148</c>, or Ghidra's
-        /// type_address names) that the catalog names at that address, and locals of the calling function that hold one
-        /// variable's value, possibly through a getter that returns it. A local's constant assignments (defaults, fault
-        /// and saturation values) are ignored and noted; a local given two different values stays unbound.
+        /// Names in lookup arguments: catalog variables (read through the aliases when the decompile is older than the
+        /// catalog), unnamed globals (<c>DAT_40002148</c>, or Ghidra's type_address names) that the catalog names at that
+        /// address, and locals of the calling function that hold one variable's value, possibly through a getter that
+        /// returns it. A local's constant assignments (defaults, fault and saturation values) are ignored and noted; a
+        /// local given two different values stays unbound.
         /// </summary>
-        private sealed class NameResolver(string decompile, IReadOnlyDictionary<string, SymbolEntry> variables)
+        private sealed class NameResolver(string decompile, IReadOnlyDictionary<string, SymbolEntry> variables,
+            IReadOnlyDictionary<string, string?>? aliases)
         {
             private const int MaxDepth = 3;
             private static readonly Regex Unnamed = new(@"(?:^DAT_|_)([0-9A-Fa-f]{8})$", RegexOptions.Compiled);
@@ -296,12 +331,17 @@ namespace LotusECMLogger.Services.A2l
             private readonly Dictionary<string, (string Cast, string Expression, int At)?> getters = new(StringComparer.Ordinal);
 
             /// <param name="at">A position in the calling function, whose locals the input may use.</param>
-            public Normalized Normalize(string argument, long? mask, int at, int depth = 0) =>
-                AxisInputs.Normalize(argument, mask, variables, (name, outer) => Resolve(name, outer, at, depth));
+            public Normalized Normalize(string argument, long? mask, int at, int depth = 0, bool truncate = true) =>
+                AxisInputs.Normalize(argument, mask, variables, (name, outer) => Resolve(name, outer, at, depth), truncate);
 
             private Normalized Resolve(string name, long? outerMask, int at, int depth)
             {
                 static Normalized Unbound(string why) => new(null, why);
+                if (aliases is not null && aliases.TryGetValue(name, out string? current))
+                    return current is not null && variables.ContainsKey(current)
+                        ? new(current, null, Note: current == name ? "" : $"{name} is now {current}")
+                        : Unbound($"'{name}' is no longer a scalar RAM variable in the catalog");
+                if (variables.ContainsKey(name)) return new(name, null);
                 if (Unnamed.Match(name) is { Success: true } unnamed
                     && byAddress.TryGetValue(uint.Parse(unnamed.Groups[1].Value, NumberStyles.HexNumber, CultureInfo.InvariantCulture), out var named))
                     return new(named, null, Note: $"{name} is {named}");
@@ -323,7 +363,8 @@ namespace LotusECMLogger.Services.A2l
                 if (signed && bits < (outerMask is { } om ? BitWidth(om) : 32)) return Unbound($"local '{name}' is a signed {bits}-bit value");
                 long? localMask = bits < 32 ? (1L << bits) - 1 : null;
 
-                var values = new List<Normalized>();
+                var values = new List<(Normalized Value, string Rhs, int At)>();
+                bool saturates = false;
                 foreach (Match assignment in Regex.Matches(body, $@"(?<![\w.>]){n}\s*=(?!=)\s*([^;]+);"))
                 {
                     string rhs = assignment.Groups[1].Value.Trim();
@@ -336,17 +377,37 @@ namespace LotusECMLogger.Services.A2l
                             return Unbound($"local '{name}' = '{rhs}' calls a function");
                         (rhs, rhsAt, how) = ($"({cast})({returned})", getterAt, $"{how} = {call.Groups[1].Value}()");
                     }
+                    // Assigning the local its maximum (as 'if (0xff < x) local = 0xff;' does) means it saturates.
+                    if (!signed && localMask is { } max && AllOnes(rhs) == max) saturates = true;
                     var value = Normalize(rhs, localMask, rhsAt, depth + 1);
-                    values.Add(value with { Note = value.Note.Length > 0 ? $"{how}, {value.Note}" : how });
+                    values.Add((value with { Note = value.Note.Length > 0 ? $"{how}, {value.Note}" : how }, rhs, rhsAt));
                 }
                 if (values.Count == 0) return Unbound($"local '{name}' is never assigned in its function (a parameter?)");
-                var varying = values.Where(v => !v.IsConstant).ToList();
+                var varying = values.Where(v => !v.Value.IsConstant).ToList();
                 if (varying.Count == 0) return new(null, $"local '{name}' only holds constants", IsConstant: true);
-                var distinct = varying.Select(v => v.Key).Distinct(StringComparer.Ordinal).ToList();
+                var distinct = varying.Select(v => v.Value.Key).Distinct(StringComparer.Ordinal).ToList();
                 if (distinct.Count > 1)
                     return Unbound($"local '{name}' takes {distinct.Count} different values: {string.Join(" | ", distinct.Select(d => d.TrimStart('?')))}");
-                if (varying[0].Expression is null) return Unbound($"local '{name}': {varying[0].Reason}");
-                return varying.Count < values.Count ? varying[0] with { Note = varying[0].Note + " (its constant values ignored)" } : varying[0];
+                var chosen = varying[0].Value;
+                if (chosen.Expression is null) return Unbound($"local '{name}': {chosen.Reason}");
+                if (varying.Count == values.Count) return chosen;
+                if (!saturates) return chosen with { Note = chosen.Note + " (its constant values ignored)" };
+                var untruncated = Normalize(varying[0].Rhs, localMask, varying[0].At, depth + 1, truncate: false);
+                return untruncated.Expression is null
+                    ? Unbound($"local '{name}' saturates: {untruncated.Reason}")
+                    : untruncated with
+                    {
+                        Note = $"{chosen.Note} (saturates at 0x{localMask:x}; its other constant values ignored)",
+                        SaturationBits = bits,
+                    };
+            }
+
+            /// <summary>The value of a constant assignment such as <c>0xff</c>, <c>255</c> or <c>'\xff'</c>, or null.</summary>
+            private static long? AllOnes(string rhs)
+            {
+                string text = Cast.Replace(rhs, "").Trim();
+                var quoted = Regex.Match(text, @"^'\\x([0-9A-Fa-f]{1,2})'$");
+                return quoted.Success ? long.Parse(quoted.Groups[1].Value, NumberStyles.HexNumber, CultureInfo.InvariantCulture) : ParseNumber(text);
             }
 
             /// <summary>A function that only returns an expression, e.g. <c>get_accel_pedal_pos</c>: its return type as a cast, and the expression.</summary>

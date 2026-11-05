@@ -105,9 +105,13 @@ C# port of `hc08_patcher/hc08_tps_sync.py`; the spec and test vectors are in `hc
   drafts `<build>.inputs.csv` from the decompile's lookup calls. These are raw expressions as the lookup sees them,
   mask included, kept only where every non-constant call site agrees. Locals are followed to the one variable they
   hold (through trivial getters, ignoring constant defaults and fallbacks) and `DAT_` globals are named by address;
-  the `note` column says when. Draft from the `t6-patch` decompiles: `references/C132E0278.c` predates the catalog's
-  names. Review the file, then regenerate; the generator turns each row into an InputQuantity (a VIRTUAL
-  measurement for an expression).
+  the `note` column says when. A local the ECU clamps at its maximum is left unmasked (the cursor clamps at the axis
+  end; a mask would wrap). Draft from the `t6-patch` decompiles; when the catalog has renamed symbols since the
+  decompile, pass `--aliases <the catalog the decompile was named from>` so its names are read by address
+  (`git show <rev>:LotusECMLogger/config/highSpeedLogger/database/<build>.csv`). Review the file, then regenerate;
+  the generator turns each row into an InputQuantity (a VIRTUAL measurement for an expression).
+- **Catalog updates:** a renamed or moved symbol breaks presets that name it. Remap preset channels by their old
+  address, and regenerate the inputs (with `--aliases`) and the A2L; `HighSpeedLogGoldenTests` checks the presets.
 - **`A2lTool check <a2l> --image <.bin or .CRP>`** also checks the A2L against a real calibration (EPK, segment) and
   lists axes whose points decrease in it.
 - **`Services/Tuning/CalibrationImage`** (Phase 6b) is the calibration file being edited:

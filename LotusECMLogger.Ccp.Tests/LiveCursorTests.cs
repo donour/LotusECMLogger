@@ -117,6 +117,8 @@ public sealed class LiveCursorTests
               uint8_t _temp;
               char _signed;
               ushort _count;
+              uint8_t _drop;
+              uint8_t _err;
 
               _pedal = get_pedal();
               a = lookup_2D_uint16_interpolated(16,_pedal,CAL_a,CAL_a_X_pps);
@@ -140,9 +142,20 @@ public sealed class LiveCursorTests
               j = lookup_2D_uint16_interpolated(8,_signed,CAL_j,CAL_j_X_x);
               _count++;
               k = lookup_2D_uint8_interpolated(8,_count,CAL_k,CAL_k_X_x);
+              _drop = (uint8_t)(pedal16 >> 2);
+              if (0xff < pedal16 >> 2) {
+                _drop = 0xff;
+              }
+              l = lookup_2D_uint8_interpolated(8,_drop,CAL_l,CAL_l_X_x);
+              m = lookup_2D_uint8_interpolated(8,_drop >> 1,CAL_m,CAL_m_X_x);
+              _err = (char)pedal16 + 128;
+              if (z) {
+                _err = 0xff;
+              }
+              n = lookup_2D_uint8_interpolated(8,_err,CAL_n,CAL_n_X_x);
             }
             """;
-        var axes = new[] { "a_X_pps", "b_X_speed", "c_X_temp", "d_X_pps", "g_X_speed", "h_X_pps", "i_X_pps", "j_X_x", "k_X_x" }
+        var axes = new[] { "a_X_pps", "b_X_speed", "c_X_temp", "d_X_pps", "g_X_speed", "h_X_pps", "i_X_pps", "j_X_x", "k_X_x", "l_X_x", "m_X_x", "n_X_x" }
             .Select(a => "CAL_" + a).ToHashSet();
         var (bound, skipped) = AxisInputs.Extract(source, axes, Addressed);
         var byAxis = bound.ToDictionary(b => b.Axis);
@@ -161,6 +174,10 @@ public sealed class LiveCursorTests
         Assert.Equal("(pedal16 >> 2) & 0xff", byAxis["CAL_i_X_pps"].Expression);     // a typedef cast of the whole input
         Assert.Contains("signed 8-bit", Reason("CAL_j_X_x"));                        // sign-extended into a 16-bit input
         Assert.Contains("changed in place", Reason("CAL_k_X_x"));
+        Assert.Equal("pedal16 >> 2", byAxis["CAL_l_X_x"].Expression);                 // clamped at 0xff, not wrapped: no mask
+        Assert.Contains("saturates at 0xff", byAxis["CAL_l_X_x"].Note);
+        Assert.Contains("saturates", Reason("CAL_m_X_x"));                            // a mask on it would wrap
+        Assert.Contains("reads unsigned pedal16 as signed", Reason("CAL_n_X_x"));    // untruncated, (char) would change its sign
     }
 
     [Fact]
