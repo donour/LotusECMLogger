@@ -342,7 +342,7 @@
       "rate": 20
     }, // Idle controller status (u8, raw); 0 means the controller isn't engaged
     {
-      "symbol": "LEA_obd_ii_idle_learn",
+      "symbol": "LEA_idle_learn_warm",
       "rate": 1,
       "size": 2,
       "signed": true,

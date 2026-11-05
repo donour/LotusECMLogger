@@ -346,11 +346,11 @@
       "rate": 10
     },
     {
-      "symbol": "obd_ii_vvt_exhaust_error_bank1",
+      "symbol": "vvt_pi_error_exhaust_b1",
       "rate": 10
     },
     {
-      "symbol": "obd_ii_vvt_exhaust_error_bank2",
+      "symbol": "vvt_pi_error_exhaust_b2",
       "rate": 10
     },
     {
@@ -362,7 +362,7 @@
       "rate": 10
     },
     {
-      "symbol": "obd_ii_vvt_inlet_target_position",
+      "symbol": "obd_ii_vvt_inlet_target",
       "rate": 10
     },
 

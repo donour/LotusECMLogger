@@ -65,7 +65,7 @@
     { "symbol": "load_limit_from_torque_limit",       "rate": 50 },                                     // torque_limit through CAL_torque_torque_to_load, clamped 2047 (mg/stroke)
     { "symbol": "load_measured_maf_filtered",         "rate": 50 },                                     // The PI's feedback term (mg/stroke), clamped 2047
     { "symbol": "torque_limit_load_error",            "rate": 50, "signed": true },                     // ceiling - measured (mg/stroke); SIGNED despite the u16 catalog type
-    { "symbol": "torque_limit_flags_pi",              "rate": 50, "unit": "flags" },                    // bit1 (0x02) integral clamped to its window, bit2 (0x04) output rate-limited
+    { "symbol": "torque_limit_pi_flags",              "rate": 50, "unit": "flags" },                    // bit1 (0x02) integral clamped to its window, bit2 (0x04) output rate-limited
     { "symbol": "tps_correction_proportional",        "rate": 50, "signed": true, "scale": 0.02442, "unit": "%" }, // P term, limited by CAL_torque_proportional_limit_{positive|negative}
     { "symbol": "tps_correction_integral",            "rate": 50, "signed": true, "scale": 0.02442, "unit": "%" }, // I term; updated only every CAL integral period — a slow winder here drives slow oscillation
     { "symbol": "tps_feedforward_from_load_limit",    "rate": 50 },                                     // Open-loop tps for the load ceiling (val/4095) — the PI baseline
