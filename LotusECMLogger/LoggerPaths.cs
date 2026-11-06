@@ -1,7 +1,7 @@
 namespace LotusECMLogger
 {
     /// <summary>
-    /// Central location for logger output files. All loggers (live data, T6 RMA, high-speed)
+    /// Central location for logger output files. All loggers (live data, high-speed, tuning recordings)
     /// default to <c>Documents\LotusECMLogger</c>.
     /// </summary>
     internal static class LoggerPaths

@@ -36,7 +36,6 @@ namespace LotusECMLogger.Controls
             setVinButton = new Button();
             resetButton = new Button();
             bottomPanel = new Panel();
-            unlockIndicatorLabel = new Label();
             highSpeedIndicatorLabel = new Label();
             vehicleInfoView = new ListView();
             topPanel.SuspendLayout();
@@ -58,29 +57,12 @@ namespace LotusECMLogger.Controls
             //
             // bottomPanel
             //
-            bottomPanel.Controls.Add(unlockIndicatorLabel);
             bottomPanel.Controls.Add(highSpeedIndicatorLabel);
             bottomPanel.Dock = DockStyle.Bottom;
             bottomPanel.Margin = new Padding(4, 5, 4, 5);
             bottomPanel.Name = "bottomPanel";
             bottomPanel.Size = new Size(881, 41);
             bottomPanel.TabIndex = 4;
-            //
-            // unlockIndicatorLabel
-            //
-            unlockIndicatorLabel.AutoSize = true;
-            unlockIndicatorLabel.BackColor = Color.Gainsboro;
-            unlockIndicatorLabel.BorderStyle = BorderStyle.FixedSingle;
-            unlockIndicatorLabel.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            unlockIndicatorLabel.ForeColor = Color.DimGray;
-            unlockIndicatorLabel.Location = new Point(6, 6);
-            unlockIndicatorLabel.Margin = new Padding(4, 0, 4, 0);
-            unlockIndicatorLabel.Name = "unlockIndicatorLabel";
-            unlockIndicatorLabel.Padding = new Padding(6, 3, 6, 3);
-            unlockIndicatorLabel.Size = new Size(169, 29);
-            unlockIndicatorLabel.TabIndex = 4;
-            unlockIndicatorLabel.Text = "ECU: UNKNOWN";
-            unlockIndicatorLabel.TextAlign = ContentAlignment.MiddleCenter;
             //
             // highSpeedIndicatorLabel
             //
@@ -89,7 +71,7 @@ namespace LotusECMLogger.Controls
             highSpeedIndicatorLabel.BorderStyle = BorderStyle.FixedSingle;
             highSpeedIndicatorLabel.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             highSpeedIndicatorLabel.ForeColor = Color.DimGray;
-            highSpeedIndicatorLabel.Location = new Point(240, 6);
+            highSpeedIndicatorLabel.Location = new Point(6, 6);
             highSpeedIndicatorLabel.Margin = new Padding(4, 0, 4, 0);
             highSpeedIndicatorLabel.Name = "highSpeedIndicatorLabel";
             highSpeedIndicatorLabel.Padding = new Padding(6, 3, 6, 3);
@@ -189,7 +171,6 @@ namespace LotusECMLogger.Controls
         private Button resetButton;
         private Button setVinButton;
         private ListView vehicleInfoView;
-        private Label unlockIndicatorLabel;
         private Label highSpeedIndicatorLabel;
     }
 }

@@ -28,11 +28,7 @@ namespace LotusECMLogger.Controls
         /// </summary>
         private void InitializeComponent()
         {
-            unlockNoticeLabel = new Label();
-            ecuVariantGroupBox = new GroupBox();
-            ecuVariantPanel = new FlowLayoutPanel();
-            ecuVariantLabel = new Label();
-            ecuVariantComboBox = new ComboBox();
+            noticeLabel = new Label();
             learnedDataGroupBox = new GroupBox();
             learnedDataLayout = new TableLayoutPanel();
             learnedDataInfoLabel = new Label();
@@ -54,8 +50,6 @@ namespace LotusECMLogger.Controls
             downloadProgramButton = new Button();
             programProgressBar = new ProgressBar();
             programStatusValueLabel = new Label();
-            ecuVariantGroupBox.SuspendLayout();
-            ecuVariantPanel.SuspendLayout();
             learnedDataGroupBox.SuspendLayout();
             learnedDataLayout.SuspendLayout();
             learnedDataButtonPanel.SuspendLayout();
@@ -292,7 +286,7 @@ namespace LotusECMLogger.Controls
             programInfoLabel.Name = "programInfoLabel";
             programInfoLabel.Size = new Size(600, 20);
             programInfoLabel.TabIndex = 0;
-            programInfoLabel.Text = "Downloads the ECU's compiled firmware (program, flash) to a .bin file. Largest region — may take several minutes.";
+            programInfoLabel.Text = "Downloads the ECU's compiled firmware (program, flash) to a .bin file. Largest region — about 4½ minutes over CCP.";
             //
             // programButtonPanel
             //
@@ -340,64 +334,19 @@ namespace LotusECMLogger.Controls
             programStatusValueLabel.TabIndex = 2;
             programStatusValueLabel.Text = "Idle";
             //
-            // ecuVariantGroupBox
+            // noticeLabel
             //
-            ecuVariantGroupBox.Controls.Add(ecuVariantPanel);
-            ecuVariantGroupBox.Dock = DockStyle.Top;
-            ecuVariantGroupBox.Location = new Point(14, 450);
-            ecuVariantGroupBox.Margin = new Padding(4, 5, 4, 5);
-            ecuVariantGroupBox.Name = "ecuVariantGroupBox";
-            ecuVariantGroupBox.Padding = new Padding(14, 17, 14, 17);
-            ecuVariantGroupBox.Size = new Size(1107, 120);
-            ecuVariantGroupBox.TabIndex = 3;
-            ecuVariantGroupBox.TabStop = false;
-            ecuVariantGroupBox.Text = "ECU Version";
-            //
-            // ecuVariantPanel
-            //
-            ecuVariantPanel.Controls.Add(ecuVariantLabel);
-            ecuVariantPanel.Controls.Add(ecuVariantComboBox);
-            ecuVariantPanel.Dock = DockStyle.Fill;
-            ecuVariantPanel.Location = new Point(14, 41);
-            ecuVariantPanel.Margin = new Padding(4, 5, 4, 5);
-            ecuVariantPanel.Name = "ecuVariantPanel";
-            ecuVariantPanel.Size = new Size(1079, 42);
-            ecuVariantPanel.TabIndex = 0;
-            ecuVariantPanel.WrapContents = false;
-            //
-            // ecuVariantLabel
-            //
-            ecuVariantLabel.Anchor = AnchorStyles.Left;
-            ecuVariantLabel.AutoSize = true;
-            ecuVariantLabel.Location = new Point(4, 0);
-            ecuVariantLabel.Margin = new Padding(4, 0, 8, 0);
-            ecuVariantLabel.Name = "ecuVariantLabel";
-            ecuVariantLabel.Size = new Size(120, 25);
-            ecuVariantLabel.TabIndex = 0;
-            ecuVariantLabel.Text = "ECU Version:";
-            //
-            // ecuVariantComboBox
-            //
-            ecuVariantComboBox.DropDownStyle = ComboBoxStyle.DropDownList;
-            ecuVariantComboBox.Location = new Point(136, 0);
-            ecuVariantComboBox.Margin = new Padding(4, 0, 4, 0);
-            ecuVariantComboBox.Name = "ecuVariantComboBox";
-            ecuVariantComboBox.Size = new Size(180, 33);
-            ecuVariantComboBox.TabIndex = 1;
-            //
-            // unlockNoticeLabel
-            //
-            unlockNoticeLabel.AutoSize = true;
-            unlockNoticeLabel.Dock = DockStyle.Top;
-            unlockNoticeLabel.Font = new Font(SystemFonts.DefaultFont.FontFamily, 8f);
-            unlockNoticeLabel.Location = new Point(14, 17);
-            unlockNoticeLabel.Margin = new Padding(4, 0, 4, 0);
-            unlockNoticeLabel.Name = "unlockNoticeLabel";
-            unlockNoticeLabel.Padding = new Padding(4, 0, 4, 12);
-            unlockNoticeLabel.Size = new Size(600, 32);
-            unlockNoticeLabel.TabIndex = 4;
-            unlockNoticeLabel.Text = "All downloads on this tab require an unlocked ECU.";
-            unlockNoticeLabel.TextAlign = ContentAlignment.TopLeft;
+            noticeLabel.AutoSize = true;
+            noticeLabel.Dock = DockStyle.Top;
+            noticeLabel.Font = new Font(SystemFonts.DefaultFont.FontFamily, 8f);
+            noticeLabel.Location = new Point(14, 17);
+            noticeLabel.Margin = new Padding(4, 0, 4, 0);
+            noticeLabel.Name = "noticeLabel";
+            noticeLabel.Padding = new Padding(4, 0, 4, 12);
+            noticeLabel.Size = new Size(600, 32);
+            noticeLabel.TabIndex = 4;
+            noticeLabel.Text = "Downloads read a T6 ECU's flash over CCP (2011 on; no unlock needed) and check each read against the ECU's own checksum. The CCP session is shared with the CCP and High-Speed Log tabs.";
+            noticeLabel.TextAlign = ContentAlignment.TopLeft;
             //
             // SnapshotsControl
             //
@@ -407,8 +356,7 @@ namespace LotusECMLogger.Controls
             Controls.Add(programGroupBox);
             Controls.Add(calibrationGroupBox);
             Controls.Add(learnedDataGroupBox);
-            Controls.Add(ecuVariantGroupBox);
-            Controls.Add(unlockNoticeLabel);
+            Controls.Add(noticeLabel);
             Margin = new Padding(4, 5, 4, 5);
             Name = "SnapshotsControl";
             Padding = new Padding(14, 17, 14, 17);
@@ -431,20 +379,12 @@ namespace LotusECMLogger.Controls
             programLayout.PerformLayout();
             programButtonPanel.ResumeLayout(false);
             programButtonPanel.PerformLayout();
-            ecuVariantGroupBox.ResumeLayout(false);
-            ecuVariantGroupBox.PerformLayout();
-            ecuVariantPanel.ResumeLayout(false);
-            ecuVariantPanel.PerformLayout();
             ResumeLayout(false);
         }
 
         #endregion
 
-        private Label unlockNoticeLabel;
-        private GroupBox ecuVariantGroupBox;
-        private FlowLayoutPanel ecuVariantPanel;
-        private Label ecuVariantLabel;
-        private ComboBox ecuVariantComboBox;
+        private Label noticeLabel;
         private GroupBox learnedDataGroupBox;
         private TableLayoutPanel learnedDataLayout;
         private Label learnedDataInfoLabel;

@@ -15,8 +15,8 @@ namespace LotusECMLogger
         private OBDLoggerControl? obdLoggerControl;
         private PerformanceHistoryControl? performanceHistoryControl;
 
-        // One CCP session (and J2534 adapter) shared by the CCP tab, the high-speed logger and the Vehicle Info
-        // probe; it opens on first use and closes when the last of them lets go.
+        // One CCP session (and J2534 adapter) shared by the CCP tab, the high-speed logger, Snapshots, Erase Model
+        // Info and the Vehicle Info probe; it opens on first use and closes when the last of them lets go.
         private readonly CcpSessionHost ccpHost = HighSpeedLogService.CreateJ2534Host();
         private readonly TabPage ccpTab = new("CCP") { Name = "ccpTab", UseVisualStyleBackColor = true };
         private CcpControl? ccpControl;
@@ -88,20 +88,10 @@ namespace LotusECMLogger
                     MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
 
-            // Add T6 RMA logging control. The RMA service is shared with the Snapshots tab
-            // below so both agree on whether an RMA logging session is currently active.
+            // Add the Snapshots tab: flash downloads over the shared CCP session.
             try
             {
-                var rmaService = new T6RMAService();
-                var rmaControl = new T6RMAControl(rmaService)
-                {
-                    Dock = DockStyle.Fill,
-                    IsLoggerActive = false
-                };
-                t6RmaTab.Controls.Clear();
-                t6RmaTab.Controls.Add(rmaControl);
-
-                var snapshotsControl = new SnapshotsControl(rmaService)
+                var snapshotsControl = new SnapshotsControl(ccpHost)
                 {
                     Dock = DockStyle.Fill,
                     IsLoggerActive = false
@@ -111,7 +101,7 @@ namespace LotusECMLogger
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Failed to initialize T6 RMA tab: {ex.Message}", "Startup Error",
+                MessageBox.Show($"Failed to initialize Snapshots tab: {ex.Message}", "Startup Error",
                     MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
 
@@ -201,10 +191,6 @@ namespace LotusECMLogger
 
                 dtcControl.IsLoggerActive = isLogging;
 
-                var rmaControl = t6RmaTab.Controls.OfType<T6RMAControl>().FirstOrDefault();
-                if (rmaControl != null)
-                    rmaControl.IsLoggerActive = isLogging;
-
                 var hsControl = highSpeedLogTab.Controls.OfType<HighSpeedLogControl>().FirstOrDefault();
                 if (hsControl != null)
                     hsControl.IsLoggerActive = isLogging;
@@ -224,7 +210,7 @@ namespace LotusECMLogger
                 if (ccpControl != null)
                     ccpControl.IsLoggerActive = isLogging;
 
-                // Erasing model info issues an RMA write, which conflicts with active logging.
+                // Erasing model info opens the CCP session on the J2534 device the logger is using.
                 eraseModelInfoToolStripMenuItem.Enabled = !isLogging;
             }
             catch (Exception ex)
@@ -264,7 +250,7 @@ namespace LotusECMLogger
 
         private void EraseModelInfoToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            using var dialog = new EraseModelInfoDialog();
+            using var dialog = new EraseModelInfoDialog(ccpHost);
             dialog.ShowDialog(this);
         }
 
@@ -302,7 +288,6 @@ namespace LotusECMLogger
                 GuiIcons.LiveData,
                 GuiIcons.EcuCoding,
                 GuiIcons.Dtc,
-                GuiIcons.LiveTuning,
                 GuiIcons.Snapshots);
 
             // The ABS tab's brake rotor is drawn rather than taken from a glyph — Segoe MDL2 has no
@@ -317,20 +302,17 @@ namespace LotusECMLogger
             loggingTab.ImageIndex           = 2;
             codingDataTab.ImageIndex        = 3;
             dtcTab.ImageIndex               = 4;
-            liveTuningTab.ImageIndex        = 5;
-            snapshotsTab.ImageIndex         = 6;
-            absTab.ImageIndex               = 7;
-            emissionsTab.ImageIndex         = 8;
-            ccpTab.ImageIndex               = 9;
+            snapshotsTab.ImageIndex         = 5;
+            absTab.ImageIndex               = 6;
+            emissionsTab.ImageIndex         = 7;
+            ccpTab.ImageIndex               = 8;
 
             var loggingModeIcons = GuiIcons.BuildImageList(20, tabColor,
                 GuiIcons.HighSpeedLog,
-                GuiIcons.LiveData,
-                GuiIcons.RmaLogging);
+                GuiIcons.LiveData);
             loggingModesTabControl.ImageList = loggingModeIcons;
             highSpeedLogTab.ImageIndex = 0;
             obdLoggingTab.ImageIndex   = 1;
-            t6RmaTab.ImageIndex        = 2;
 
             var obdSubTabIcons = GuiIcons.BuildImageList(20, tabColor,
                 GuiIcons.LoggerTab,

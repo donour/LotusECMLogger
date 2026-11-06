@@ -22,7 +22,7 @@ namespace LotusECMLogger
             AddParagraph("'Disconnect' releases the tab's hold on the session. If the calibration ID matches no known build, reading still works, but writes on the Memory page need a build chosen from its Build list - only do this if you know the firmware matches, because the build decides where calibration RAM is.");
 
             AddSubheading("One Session, Shared:");
-            AddParagraph("The CCP tab, the High-Speed Log tab, a tuning recording and the Vehicle Information probe all share one CCP session on the J2534 device, so they can run at the same time. The session closes when the last of them lets go. The ECU has 10 DAQ lists (two each at 100, 50, 20 and 10 Hz, one each at 2 and 1 Hz) shared between everything that streams; the Traffic page shows who holds which.");
+            AddParagraph("The CCP tab, the High-Speed Log tab, a tuning recording, Snapshots, Erase Model Info and the Vehicle Information probe all share one CCP session on the J2534 device, so they can run at the same time. The session closes when the last of them lets go. The ECU has 10 DAQ lists (two each at 100, 50, 20 and 10 Hz, one each at 2 and 1 Hz) shared between everything that streams; the Traffic page shows who holds which.");
 
             AddSubheading("Pages:");
             AddBulletPoint("Memory - read memory to a hex view or a .bin file, checksum or compare it with a file, and write calibration RAM with backups.");
@@ -36,7 +36,6 @@ namespace LotusECMLogger
 
             AddSubheading("Important:");
             AddBulletPoint("Everything written over CCP goes to calibration RAM: the ECU uses it on its next table lookup, and it is lost at power-off. Nothing here changes the flashed calibration. To keep a change, save the calibration file and flash it.");
-            AddBulletPoint("The CCP tab and the older T6 Live Tuning tab are different tools. T6 Live Tuning uses the RMA protocol (unlocked ECUs) and an external editor; CCP Tuning has its own editor and works on stock firmware.");
         }
 
         private void ShowCcpMemoryHelp()

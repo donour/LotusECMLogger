@@ -26,11 +26,11 @@ namespace LotusECMLogger.Services.Logging
     /// Values are <b>carried forward</b>: a column set once keeps that value on every subsequent row
     /// until it is set or cleared again. Producers that learn one channel at a time (the OBD and
     /// high-speed loggers) therefore need not restate a whole row, and producers that build a
-    /// complete row each time (RMA, ABS) are simply the degenerate case.
+    /// complete row each time (ABS) are simply the degenerate case.
     /// </para>
     /// <para>
     /// <b>Not thread-safe.</b> A sink must be driven by a single thread. Every logger already
-    /// confines its writing to one: the RMA logging thread, the high-speed writer thread,
+    /// confines its writing to one: the high-speed writer thread,
     /// <c>J2534LoggingService.RunCSVWriter</c>, and <c>J2534AbsService.TelemetryLoop</c>.
     /// </para>
     /// </remarks>

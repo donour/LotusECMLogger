@@ -197,7 +197,7 @@ public sealed partial class CcpMaster
     }
 
     /// <summary>
-    /// Reads the T6 runtime variable registry over CCP (no RMA unlock): the 44-byte header, then six-byte
+    /// Reads the T6 runtime variable registry over CCP (no unlock needed): the 44-byte header, then six-byte
     /// records until the six-zero-byte terminator. The entry count is discovered, never assumed.
     /// </summary>
     public Task<T6SymbolRegistry> ReadSymbolRegistryAsync(CcpBuildProfile build, IProgress<int>? progress = null,

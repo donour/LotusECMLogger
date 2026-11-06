@@ -1,32 +1,30 @@
-using LotusECMLogger.Services;
+using LotusECMLogger.Services.Ccp;
 using System.ComponentModel;
+using System.Diagnostics;
+using System.Globalization;
 
 namespace LotusECMLogger.Controls
 {
 	/// <summary>
-	/// User control for downloading point-in-time snapshots of ECU memory (currently the
-	/// flash-resident Learned Data, Calibration, and Program regions) to binary files via the
-	/// T6 RMA read protocol. An ECU version selector determines which generation's memory map
-	/// (addresses/lengths) is used, since T4e/K4/T4/T6(T6e) each lay out flash differently.
+	/// Downloads point-in-time snapshots of a T6 (2011+) ECU's flash - the Learned Data, Calibration and Program
+	/// regions - to .bin files over CCP, on the application's shared session. CCP reads need no unlock, and each read
+	/// is checked against the ECU's own checksum of the region before it is saved. A download's button turns into
+	/// Cancel while it runs (the program takes several minutes).
 	/// </summary>
 	public partial class SnapshotsControl : UserControl
 	{
-		private sealed record EcuVariantOption(EcuVariant Variant, string Label)
-		{
-			public override string ToString() => Label;
-		}
-
-		private static readonly EcuVariantOption[] EcuVariantOptions =
-		[
-			new(EcuVariant.T4e, "T4e"),
-			new(EcuVariant.K4, "K4"),
-			new(EcuVariant.T4, "T4"),
-			new(EcuVariant.T6, "T6"),
-		];
-
-		private readonly IT6RMAService rmaService;
-
+		private readonly CcpSessionHost host;
 		private bool isLoggerActive;
+		private CancellationTokenSource? running;
+		private Button? runningButton;
+
+		/// <summary>Asks where to save, given the suggested name; null cancels. Replaceable so UI tests can answer it.</summary>
+		[DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+		internal Func<string, string?> ChooseFile { get; set; }
+
+		/// <summary>Tells the user how a download ended (message, title, icon). Replaceable so UI tests can read it.</summary>
+		[DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+		internal Action<string, string, MessageBoxIcon> Notify { get; set; }
 
 		[DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
 		public bool IsLoggerActive
@@ -35,18 +33,13 @@ namespace LotusECMLogger.Controls
 			set
 			{
 				isLoggerActive = value;
-				downloadLearnedDataButton.Enabled = !isLoggerActive;
-				downloadCalibrationButton.Enabled = !isLoggerActive;
-				downloadProgramButton.Enabled = !isLoggerActive;
+				UpdateButtons();
 			}
 		}
 
-		private EcuVariant SelectedVariant =>
-			ecuVariantComboBox.SelectedItem is EcuVariantOption option ? option.Variant : EcuVariant.T6;
-
-		public SnapshotsControl(IT6RMAService rmaService)
+		public SnapshotsControl(CcpSessionHost host)
 		{
-			this.rmaService = rmaService;
+			this.host = host ?? throw new ArgumentNullException(nameof(host));
 
 			InitializeComponent();
 
@@ -56,15 +49,22 @@ namespace LotusECMLogger.Controls
 			GuiIcons.ApplyToButton(downloadCalibrationButton, GuiIcons.Download);
 			GuiIcons.ApplyToButton(downloadProgramButton, GuiIcons.Download);
 
-			// The unlock requirement is the same for all three regions, so one notice sits at the
-			// top of the tab rather than being repeated in every region description.
-			WrapLabelToContainer(unlockNoticeLabel);
+			WrapLabelToContainer(noticeLabel);
 			WrapLabelToContainer(learnedDataInfoLabel);
 			WrapLabelToContainer(calibrationInfoLabel);
 			WrapLabelToContainer(programInfoLabel);
 
-			ecuVariantComboBox.Items.AddRange(EcuVariantOptions);
-			ecuVariantComboBox.SelectedItem = EcuVariantOptions[^1]; // T6 / T6e: this app's primary target
+			ChooseFile = suggested =>
+			{
+				using var saveDialog = new SaveFileDialog
+				{
+					Filter = "Binary Files (*.bin)|*.bin|All Files (*.*)|*.*",
+					DefaultExt = "bin",
+					FileName = suggested,
+				};
+				return saveDialog.ShowDialog(this) == DialogResult.OK ? saveDialog.FileName : null;
+			};
+			Notify = (text, title, icon) => MessageBox.Show(this, text, title, MessageBoxButtons.OK, icon);
 
 			Dock = DockStyle.Fill;
 		}
@@ -100,149 +100,108 @@ namespace LotusECMLogger.Controls
 			Update(container, EventArgs.Empty);
 		}
 
-		private async void DownloadLearnedDataButton_Click(object? sender, EventArgs e)
+		private async void DownloadLearnedDataButton_Click(object? sender, EventArgs e) =>
+			await DownloadAsync(T6FlashRegion.LearnedData, downloadLearnedDataButton, learnedDataProgressBar, learnedDataStatusValueLabel);
+
+		private async void DownloadCalibrationButton_Click(object? sender, EventArgs e) =>
+			await DownloadAsync(T6FlashRegion.Calibration, downloadCalibrationButton, calibrationProgressBar, calibrationStatusValueLabel);
+
+		private async void DownloadProgramButton_Click(object? sender, EventArgs e) =>
+			await DownloadAsync(T6FlashRegion.Program, downloadProgramButton, programProgressBar, programStatusValueLabel);
+
+		/// <summary>One download at a time; its button cancels it, the others wait.</summary>
+		private void UpdateButtons()
 		{
-			await DownloadSnapshotAsync(
-				rmaService.DownloadLearnedDataAsync,
-				"learned data",
-				"LearnedData",
-				downloadLearnedDataButton,
-				learnedDataProgressBar,
-				learnedDataStatusValueLabel);
+			foreach (var button in new[] { downloadLearnedDataButton, downloadCalibrationButton, downloadProgramButton })
+				button.Enabled = running is null ? !isLoggerActive : ReferenceEquals(button, runningButton);
 		}
 
-		private async void DownloadCalibrationButton_Click(object? sender, EventArgs e)
+		private static void SetStatus(Label label, string text, Color color)
 		{
-			await DownloadSnapshotAsync(
-				rmaService.DownloadCalibrationAsync,
-				"calibration",
-				"Calibration",
-				downloadCalibrationButton,
-				calibrationProgressBar,
-				calibrationStatusValueLabel);
-		}
-
-		private async void DownloadProgramButton_Click(object? sender, EventArgs e)
-		{
-			await DownloadSnapshotAsync(
-				rmaService.DownloadProgramAsync,
-				"program",
-				"Program",
-				downloadProgramButton,
-				programProgressBar,
-				programStatusValueLabel);
+			label.Text = text;
+			label.ForeColor = color;
 		}
 
 		/// <summary>
-		/// Shared flow for every snapshot type: block while logging is active, probe the ECU
-		/// unlock state, prompt for a save location, then download with live progress. The
-		/// currently selected <see cref="EcuVariant"/> is passed to <paramref name="download"/>
-		/// and folded into the default filename.
+		/// Shared flow for every region: join the CCP session and identify the ECU, ask where to save (named after
+		/// its build), then read the region with live progress, check it against the ECU's checksum and save it.
 		/// </summary>
-		/// <param name="download">The service call that performs the actual RMA read.</param>
-		/// <param name="label">Lowercase description used in status/result messages (e.g. "calibration").</param>
-		/// <param name="filePrefix">Prefix for the default timestamped .bin filename.</param>
-		private async Task DownloadSnapshotAsync(
-			Func<EcuVariant, string, IProgress<(int bytesRead, int totalBytes)>, Task<bool>> download,
-			string label,
-			string filePrefix,
-			Button button,
-			ProgressBar progressBar,
-			Label statusLabel)
+		private async Task DownloadAsync(T6FlashRegion region, Button button, ProgressBar progressBar, Label statusLabel)
 		{
-			if (isLoggerActive || rmaService.IsLogging)
+			if (running is not null)
 			{
-				MessageBox.Show($"Cannot download {label} while logging is active. Please stop logging first.",
+				if (ReferenceEquals(button, runningButton)) running.Cancel();
+				return;
+			}
+			if (isLoggerActive)
+			{
+				MessageBox.Show($"Cannot download {region.Name} while logging is active. Please stop logging first.",
 					"Logger Active", MessageBoxButtons.OK, MessageBoxIcon.Warning);
 				return;
 			}
 
-			EcuVariant variant = SelectedVariant;
-
-			button.Enabled = false;
-			statusLabel.Text = "Checking ECU unlock state...";
-			statusLabel.ForeColor = Color.Blue;
-
-			bool unlocked;
+			using var cancel = new CancellationTokenSource();
+			(running, runningButton) = (cancel, button);
+			button.Text = "Cancel";
+			GuiIcons.ApplyToButton(button, GuiIcons.Stop);
+			UpdateButtons();
 			try
 			{
-				unlocked = await Task.Run(() => rmaService.IsEcuUnlocked());
+				SetStatus(statusLabel, "Connecting...", Color.Blue);
+				await using var lease = await host.AcquireAsync(cancel.Token);
+				var identification = await lease.Master.IdentifyAsync(cancellationToken: cancel.Token);
+				string build = identification.Build?.Build ?? identification.CalibrationId?.Trim() ?? "T6";
+
+				if (ChooseFile(LoggerPaths.TimestampedPath($"{region.FilePrefix}_{build}", "bin")) is not { } path)
+				{
+					SetStatus(statusLabel, "Idle", Color.Black);
+					return;
+				}
+
+				progressBar.Maximum = region.Length;
+				progressBar.Value = 0;
+				SetStatus(statusLabel, "Downloading...", Color.Blue);
+				var progress = new Progress<int>(read =>
+				{
+					progressBar.Value = Math.Min(read, progressBar.Maximum);
+					statusLabel.Text = read >= region.Length
+						? "Checking against the ECU's checksum..."
+						: string.Create(CultureInfo.CurrentCulture, $"Downloading... {read:N0}/{region.Length:N0} bytes");
+				});
+				var elapsed = Stopwatch.StartNew();
+				var bytes = await CcpFlashSnapshot.ReadAsync(lease.Master, region, progress, cancel.Token);
+				LoggerPaths.EnsureParentDirectory(path);
+				await File.WriteAllBytesAsync(path, bytes, CancellationToken.None);
+
+				SetStatus(statusLabel, string.Create(CultureInfo.CurrentCulture, $"Saved ({elapsed.Elapsed.TotalSeconds:0} s, checksum OK)"), Color.Green);
+				Notify($"Saved {bytes.Length:N0} bytes of {region.Name} to {path}.\n\nThe ECU's checksum of the region matches the file.",
+					"Download Complete", MessageBoxIcon.Information);
+			}
+			catch (OperationCanceledException) when (cancel.IsCancellationRequested)
+			{
+				SetStatus(statusLabel, "Cancelled", Color.Black);
+			}
+			catch (CcpTimeoutException ex)
+			{
+				SetStatus(statusLabel, "No response", Color.Red);
+				Notify($"The ECU did not answer over CCP: {ex.Message}\n\nSwitch the ignition on and check the connection. " +
+					"Snapshots need a T6 ECU (2011 on) whose calibration has CCP enabled.",
+					"Download Failed", MessageBoxIcon.Error);
 			}
 			catch (Exception ex)
 			{
-				statusLabel.Text = "Error";
-				statusLabel.ForeColor = Color.Red;
-				button.Enabled = true;
-				MessageBox.Show($"Error probing ECU unlock state: {ex.Message}",
-					"Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-				return;
-			}
-
-			if (!unlocked)
-			{
-				statusLabel.Text = "ECU locked";
-				statusLabel.ForeColor = Color.Red;
-				button.Enabled = true;
-				MessageBox.Show($"The ECU did not respond to the unlock probe. Unlock the ECU before downloading {label}.",
-					"ECU Locked", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-				return;
-			}
-
-			using var saveDialog = new SaveFileDialog
-			{
-				Filter = "Binary Files (*.bin)|*.bin|All Files (*.*)|*.*",
-				DefaultExt = "bin",
-				FileName = LoggerPaths.TimestampedPath($"{filePrefix}_{variant}", "bin")
-			};
-
-			if (saveDialog.ShowDialog() != DialogResult.OK)
-			{
-				statusLabel.Text = "Idle";
-				statusLabel.ForeColor = Color.Black;
-				button.Enabled = true;
-				return;
-			}
-
-			progressBar.Value = 0;
-			statusLabel.Text = "Downloading...";
-			statusLabel.ForeColor = Color.Blue;
-
-			var progress = new Progress<(int bytesRead, int totalBytes)>(p =>
-			{
-				progressBar.Maximum = Math.Max(1, p.totalBytes);
-				progressBar.Value = Math.Min(p.bytesRead, progressBar.Maximum);
-				statusLabel.Text = $"Downloading... {p.bytesRead}/{p.totalBytes} bytes";
-			});
-
-			try
-			{
-				bool success = await download(variant, saveDialog.FileName, progress);
-
-				if (success)
-				{
-					statusLabel.Text = "Download complete";
-					statusLabel.ForeColor = Color.Green;
-					MessageBox.Show($"Saved to {saveDialog.FileName}",
-						"Download Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
-				}
-				else
-				{
-					statusLabel.Text = "Download failed";
-					statusLabel.ForeColor = Color.Red;
-					MessageBox.Show("No response from ECU. Ensure the vehicle is connected and the ECU is unlocked.",
-						"Download Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
-				}
-			}
-			catch (Exception ex)
-			{
-				statusLabel.Text = "Error";
-				statusLabel.ForeColor = Color.Red;
-				MessageBox.Show($"Error downloading {label}: {ex.Message}",
-					"Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+				SetStatus(statusLabel, "Error", Color.Red);
+				Notify($"Error downloading {region.Name}: {ex.Message}", "Error", MessageBoxIcon.Error);
 			}
 			finally
 			{
-				button.Enabled = true;
+				(running, runningButton) = (null, null);
+				if (!IsDisposed)
+				{
+					button.Text = "Download";
+					GuiIcons.ApplyToButton(button, GuiIcons.Download);
+					UpdateButtons();
+				}
 			}
 		}
 	}

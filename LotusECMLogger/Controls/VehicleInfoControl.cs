@@ -8,13 +8,11 @@ namespace LotusECMLogger.Controls
         private readonly IVehicleInfoService _vehicleInfoService;
         private readonly IObdResetService _resetService;
         private readonly IVinSetService _vinSetService;
-        private readonly IT6RMAService _rmaService;
         private IHighSpeedLogService _highSpeedLogService;
         private bool _ownsHighSpeedLogService = true;
         private readonly IDynoModeService _dynoModeService;
         private List<VehicleParameterReading> vehicleDataSnapshot = [];
 
-        private enum EcuUnlockState { Unknown, Locked, Unlocked }
         private enum HighSpeedState { Unknown, Unavailable, Available }
 
         private bool _isLoggerActive;
@@ -54,11 +52,9 @@ namespace LotusECMLogger.Controls
             _vehicleInfoService = new VehicleInfoService();
             _resetService = new J2534ObdResetService();
             _vinSetService = new J2534VinSetService();
-            _rmaService = new T6RMAService();
             _highSpeedLogService = new HighSpeedLogService();
             _dynoModeService = new J2534DynoModeService();
             SetupListViewColumns();
-            SetUnlockIndicator(EcuUnlockState.Unknown);
             SetHighSpeedIndicator(HighSpeedState.Unknown);
             GuiIcons.ApplyToButton(readDataButton, GuiIcons.Read);
             GuiIcons.ApplyToButton(resetButton, GuiIcons.UpdateRestore);
@@ -184,7 +180,6 @@ namespace LotusECMLogger.Controls
         {
             readDataButton.Enabled = false;
             readDataButton.Text = "Loading...";
-            SetUnlockIndicator(EcuUnlockState.Unknown);
             SetHighSpeedIndicator(HighSpeedState.Unknown);
 
             // Snapshot UI/shared state on the UI thread; the worker must not read instance fields.
@@ -193,13 +188,12 @@ namespace LotusECMLogger.Controls
             try
             {
                 // All blocking J2534 work runs off the UI thread so the window stays responsive.
-                var (readings, unlockState, highSpeedState) =
+                var (readings, highSpeedState) =
                     await Task.Run(() => GatherVehicleData(loggerActive));
 
                 // Resumes on the UI thread — safe to touch controls and the shared field.
                 vehicleDataSnapshot = readings;
                 UpdateVehicleInfoView();
-                SetUnlockIndicator(unlockState);
                 SetHighSpeedIndicator(highSpeedState);
 
                 MessageBox.Show($"Successfully loaded {readings.Count} vehicle data points!",
@@ -207,7 +201,6 @@ namespace LotusECMLogger.Controls
             }
             catch (Exception ex)
             {
-                SetUnlockIndicator(EcuUnlockState.Unknown);
                 SetHighSpeedIndicator(HighSpeedState.Unknown);
                 MessageBox.Show($"Error loading vehicle data: {ex.Message}", "Load Error",
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
@@ -221,26 +214,20 @@ namespace LotusECMLogger.Controls
 
         // Runs on a thread-pool thread. Performs all J2534 I/O and returns the data; touches no UI
         // and no instance fields that the UI thread also uses, so it cannot race with the UI.
-        private (List<VehicleParameterReading> Readings, EcuUnlockState UnlockState, HighSpeedState HighSpeedState)
+        private (List<VehicleParameterReading> Readings, HighSpeedState HighSpeedState)
             GatherVehicleData(bool loggerActive)
         {
             // Read all ECU identification and learned data. The service opens and disposes its own
-            // ISO15765 session, so the probes below (which open their own separate CAN sessions)
-            // run only after that session is closed.
+            // ISO15765 session, so the probe below (which opens its own CAN session) runs only after
+            // that session is closed.
             var readings = _vehicleInfoService.LoadVehicleData();
-
-            // Probe ECU unlock state via raw-CAN RMA (separate channel, so run only after the
-            // ISO15765 session above has been disposed). The successful data load above doubles
-            // as the liveness check: data present + no RMA reply => genuinely locked; no data at
-            // all => ECU not reachable, so leave the state Unknown.
-            var unlockState = ProbeUnlockState(loggerActive, ecuAlive: readings.Count > 0);
 
             // Probe whether the high-speed channel logger is present, using the same open-session +
             // identify handshake as the High-Speed Log tab's Test Connection button. Opens its own
             // temporary CAN session, so it runs after the channels above are closed.
             var highSpeedState = ProbeHighSpeedState(loggerActive, ecuAlive: readings.Count > 0);
 
-            return (readings, unlockState, highSpeedState);
+            return (readings, highSpeedState);
         }
 
         private void UpdateVehicleInfoView()
@@ -258,30 +245,6 @@ namespace LotusECMLogger.Controls
             }
 
             vehicleInfoView.EndUpdate();
-        }
-
-        // Runs the raw-CAN RMA unlock probe and maps the result to an unlock state. Pure I/O + logic,
-        // no UI — runs on the worker thread; the caller renders the result via SetUnlockIndicator.
-        // A reply => Unlocked; no reply but vehicle data did load (ECU is alive) => Locked;
-        // nothing loaded at all => Unknown (ECU not reachable, not necessarily locked).
-        private EcuUnlockState ProbeUnlockState(bool loggerActive, bool ecuAlive)
-        {
-            // Skip while logging holds the J2534 device; the probe opens its own CAN channel.
-            if (loggerActive)
-                return EcuUnlockState.Unknown;
-
-            try
-            {
-                bool unlocked = _rmaService.IsEcuUnlocked();
-                return unlocked ? EcuUnlockState.Unlocked
-                     : ecuAlive ? EcuUnlockState.Locked
-                     : EcuUnlockState.Unknown;
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Unlock probe failed: {ex.Message}");
-                return EcuUnlockState.Unknown;
-            }
         }
 
         // Probes the ECU's high-speed channel logger with the open-session + identify handshake. Pure
@@ -329,28 +292,6 @@ namespace LotusECMLogger.Controls
                     highSpeedIndicatorLabel.Text = "HS LOGGER: UNKNOWN";
                     highSpeedIndicatorLabel.BackColor = Color.Gainsboro;
                     highSpeedIndicatorLabel.ForeColor = Color.DimGray;
-                    break;
-            }
-        }
-
-        private void SetUnlockIndicator(EcuUnlockState state)
-        {
-            switch (state)
-            {
-                case EcuUnlockState.Unlocked:
-                    unlockIndicatorLabel.Text = "ECU: UNLOCKED";
-                    unlockIndicatorLabel.BackColor = Color.FromArgb(46, 160, 67);
-                    unlockIndicatorLabel.ForeColor = Color.White;
-                    break;
-                case EcuUnlockState.Locked:
-                    unlockIndicatorLabel.Text = "ECU: LOCKED";
-                    unlockIndicatorLabel.BackColor = Color.FromArgb(207, 34, 46);
-                    unlockIndicatorLabel.ForeColor = Color.White;
-                    break;
-                default:
-                    unlockIndicatorLabel.Text = "ECU: UNKNOWN";
-                    unlockIndicatorLabel.BackColor = Color.Gainsboro;
-                    unlockIndicatorLabel.ForeColor = Color.DimGray;
                     break;
             }
         }

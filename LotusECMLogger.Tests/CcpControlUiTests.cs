@@ -350,6 +350,45 @@ public class CcpControlUiTests
         Directory.Delete(directory, recursive: true);
     });
 
+    [Fact]
+    public void TheSnapshotsTabDownloadsFlashOverCcp() => RunInMessageLoop(async form =>
+    {
+        using var slave = new FakeCcpSlave();
+        var region = T6FlashRegion.LearnedData;
+        var flash = new byte[region.Length];
+        new Random(91).NextBytes(flash);
+        slave.Load(region.Address, flash);
+        string directory = Path.Combine(Path.GetTempPath(), "ccp-ui-snapshots-" + Guid.NewGuid().ToString("N"));
+        string file = Path.Combine(directory, "learned.bin");
+        using var host = new CcpSessionHost(() => new SimulatedCcpTransport(slave, speedFactor: 20),
+            new CcpMasterOptions { CommandTimeout = TimeSpan.FromMilliseconds(300) });
+        var control = new SnapshotsControl(host) { Dock = DockStyle.Fill };
+        form.Controls.Add(control);
+        string? suggested = null;
+        var messages = new List<(string Text, MessageBoxIcon Icon)>();
+        control.ChooseFile = name => { suggested = name; return file; };
+        control.Notify = (text, _, icon) => messages.Add((text, icon));
+        var log = new TextBox();
+
+        Named<Button>(control, "downloadLearnedDataButton").PerformClick();
+        await WaitUntil(() => messages.Count > 0, "the download to finish", log, 30);
+        Assert.Equal(MessageBoxIcon.Information, messages[0].Icon);
+        Assert.Contains("checksum of the region matches", messages[0].Text);
+        Assert.Equal(flash, File.ReadAllBytes(file));
+        Assert.Contains("LearnedData_", Path.GetFileName(suggested));
+        await WaitUntil(() => Named<Button>(control, "downloadLearnedDataButton").Text == "Download", "the button to reset", log, 5);
+        await WaitUntil(() => host.LeaseCount == 0, "the session to be released", log, 5);
+
+        if (Environment.GetEnvironmentVariable("CCP_UI_RENDER_DIR") is { Length: > 0 } dir)
+        {
+            Directory.CreateDirectory(dir);
+            using var bitmap = new Bitmap(form.Width, form.Height);
+            form.DrawToBitmap(bitmap, new Rectangle(Point.Empty, form.Size));
+            bitmap.Save(Path.Combine(dir, "snapshots.png"));
+        }
+        Directory.Delete(directory, recursive: true);
+    });
+
     private const string Fan = "CAL_cooling_fan_afterrun";
 
     private static LotusECMLogger.Services.A2l.A2lCalibrationItem A2lItem(string name) =>

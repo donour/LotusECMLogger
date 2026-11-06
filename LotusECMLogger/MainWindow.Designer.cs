@@ -53,13 +53,10 @@ namespace LotusECMLogger
             loggerTab = new TabPage();
             configEditorTab = new TabPage();
             loggingConfigEditorControl = new LotusECMLogger.Controls.LoggingConfigEditorControl();
-            t6RmaTab = new TabPage();
             codingDataTab = new TabPage();
             dtcTab = new TabPage();
             dtcControl = new LotusECMLogger.Controls.DTCControl();
             emissionsTab = new TabPage();
-            liveTuningTab = new TabPage();
-            liveTuningControl = new LotusECMLogger.Controls.LiveTuningDiskMonitorControl();
             snapshotsTab = new TabPage();
             absTab = new TabPage();
             menuStrip1.SuspendLayout();
@@ -72,7 +69,6 @@ namespace LotusECMLogger
             obdLoggingTabControl.SuspendLayout();
             configEditorTab.SuspendLayout();
             dtcTab.SuspendLayout();
-            liveTuningTab.SuspendLayout();
             SuspendLayout();
             // 
             // menuStrip1
@@ -174,7 +170,6 @@ namespace LotusECMLogger
             mainTabControl.Controls.Add(codingDataTab);
             mainTabControl.Controls.Add(dtcTab);
             mainTabControl.Controls.Add(emissionsTab);
-            mainTabControl.Controls.Add(liveTuningTab);
             mainTabControl.Controls.Add(snapshotsTab);
             mainTabControl.Controls.Add(absTab);
             mainTabControl.Dock = DockStyle.Fill;
@@ -230,7 +225,6 @@ namespace LotusECMLogger
             //
             loggingModesTabControl.Controls.Add(highSpeedLogTab);
             loggingModesTabControl.Controls.Add(obdLoggingTab);
-            loggingModesTabControl.Controls.Add(t6RmaTab);
             loggingModesTabControl.Dock = DockStyle.Fill;
             loggingModesTabControl.Location = new Point(0, 0);
             loggingModesTabControl.Name = "loggingModesTabControl";
@@ -317,36 +311,6 @@ namespace LotusECMLogger
             dtcControl.Size = new Size(190, 0);
             dtcControl.TabIndex = 0;
             //
-            // t6RmaTab
-            // 
-            t6RmaTab.Location = new Point(4, 34);
-            t6RmaTab.Margin = new Padding(4);
-            t6RmaTab.Name = "t6RmaTab";
-            t6RmaTab.Size = new Size(984, 575);
-            t6RmaTab.TabIndex = 2;
-            t6RmaTab.Text = "T6 RMA Logging";
-            t6RmaTab.UseVisualStyleBackColor = true;
-            // 
-            // liveTuningTab
-            // 
-            liveTuningTab.Controls.Add(liveTuningControl);
-            liveTuningTab.Location = new Point(4, 244);
-            liveTuningTab.Margin = new Padding(4);
-            liveTuningTab.Name = "liveTuningTab";
-            liveTuningTab.Size = new Size(192, 0);
-            liveTuningTab.TabIndex = 6;
-            liveTuningTab.Text = "Live Tuning";
-            liveTuningTab.UseVisualStyleBackColor = true;
-            // 
-            // liveTuningControl
-            // 
-            liveTuningControl.Dock = DockStyle.Fill;
-            liveTuningControl.Location = new Point(0, 0);
-            liveTuningControl.Margin = new Padding(4, 5, 4, 5);
-            liveTuningControl.Name = "liveTuningControl";
-            liveTuningControl.Size = new Size(192, 0);
-            liveTuningControl.TabIndex = 0;
-            //
             // highSpeedLogTab
             //
             highSpeedLogTab.Location = new Point(4, 34);
@@ -412,7 +376,6 @@ namespace LotusECMLogger
             obdLoggingTabControl.ResumeLayout(false);
             configEditorTab.ResumeLayout(false);
             dtcTab.ResumeLayout(false);
-            liveTuningTab.ResumeLayout(false);
             ResumeLayout(false);
             PerformLayout();
         }
@@ -445,9 +408,6 @@ namespace LotusECMLogger
         private TabPage performanceHistoryTab;
         private TabPage dtcTab;
         private LotusECMLogger.Controls.DTCControl dtcControl;
-        private TabPage t6RmaTab;
-        private TabPage liveTuningTab;
-        private LotusECMLogger.Controls.LiveTuningDiskMonitorControl liveTuningControl;
         private TabPage highSpeedLogTab;
         private TabPage snapshotsTab;
         private TabPage absTab;

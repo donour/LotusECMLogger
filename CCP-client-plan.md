@@ -72,7 +72,7 @@ What it does not do:
 | Interactive live tuning | In scope (Phase 6) | Table editor over a calibration file, synced to ECU RAM over CCP, with a live operating-point cursor. |
 | Table definition format | **A2L files**, "for now" | Standard format, also usable in CANape/INCA/VISION. Accepts the limits in §6. |
 | Source of A2L files | A C# generator in this solution drafts them from the symbol catalogs (added 2026-10-12); the owner reviews them and adds lookup inputs | The catalogs already name tables and axes (`CAL_x`, `CAL_x_X_*`, `CAL_x_Y_*`). Input bindings need per-table checks against the decompile, so they stay manual. The app only *reads* A2L. |
-| Existing RMA-based T6 Live Tuning tab and Snapshots | Unchanged; no CCP back end for them | Out of scope for now. |
+| Existing RMA-based T6 Live Tuning tab and Snapshots | Changed 2026-11-06: RMA removed. T6 Live Tuning and T6 RMA Logging are gone (CCP Tuning, Variables and the High-Speed Log replace them); Snapshots reads flash over CCP (T6 only, T4e/K4/T4 dropped); Erase Model Info writes `coding_cmd` over CCP | The owner's decision: one protocol, which works on stock ECUs. |
 | A2L for the high-speed logger | No: it keeps the symbol CSVs | Limits scope; can move later. |
 
 ## 3. Architecture
@@ -170,8 +170,8 @@ New code goes under `LotusECMLogger/Services/Ccp/`.
   re-initialised before the next START_STOP_ALL, which would otherwise start them. Stop only the releasing consumer's
   lists; DISCONNECT/end-session belongs to the session owner after the last consumer releases it.
   Use bounded subscriber queues so UI/disk work cannot block the receive loop.
-- **One instance is shared** by the CCP tab and the High-Speed Log tab, as `IT6RMAService` is shared between
-  Snapshots and T6 RMA Logging. Two tabs opening separate `J2534Session`s would conflict over the device.
+- **One instance is shared** by the CCP tab, the High-Speed Log tab, Snapshots and Erase Model Info. Two tabs
+  opening separate `J2534Session`s would conflict over the device.
 - **Session commands:** CONNECT (station 0x0000 only), TEST, DISCONNECT, GET_CCP_VERSION, and EXCHANGE_ID
   followed by UPLOAD of the ID string (`Ccp_T6`, `Ccp_GD8`, `Ccp_TCU`).
 - **Transfer validation:** UPLOAD/SHORT_UP/DNLOAD sizes are constrained by the master to 1–5;
@@ -226,7 +226,7 @@ the service owns a `CcpMaster` per logging session (and per Identify), as it pre
 
 **Phase 4 session host**
 - A reference-counted host in `MainWindow` hands one `CcpMaster` to the CCP and High-Speed Log tabs
-  (the `IT6RMAService` pattern), opening the transport on first lease and disconnecting after the last.
+  (and since 2026-11-06 Snapshots and Erase Model Info), opening the transport on first lease and disconnecting after the last.
 - `VehicleInfoControl` currently creates its own `HighSpeedLogService` for `Identify()`, opening a second
   J2534 session; route it through the host.
 
@@ -615,7 +615,7 @@ A vendor `IF_DATA` block (ignored by other tools) could carry these later withou
 - One live logging re-check after the Phase 3 port, including concurrent reads and AEM polling.
 - 2010 Evora and IPS TCU on hardware: deferred with the scope decision in §2.
 - Explain the enable-byte prerequisite on connection failure: a disabled T6 cannot enable itself over CCP.
-  Enabling requires an existing authorised calibration/reflash or separately unlocked RMA workflow.
+  Enabling requires a calibration that sets the byte, flashed by other means.
 
 **Operational risks**
 - **Writes are live.** DNLOAD into CAL RAM changes engine behaviour on the next lookup.

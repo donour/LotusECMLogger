@@ -8,7 +8,7 @@ namespace LotusECMLogger.Models
     /// Maps a firmware/calibration version to the RAM address of its <c>coding_cmd</c> register.
     /// The ECU's 333 ms coding handler polls that one-byte register and, while unlocked, executes
     /// the requested command (e.g. 0x04 = erase model info). The address is firmware-specific, so
-    /// the user selects the matching version before an RMA write is issued.
+    /// the user selects the matching version before the command is written over CCP.
     /// </summary>
     public class CodingCommandTarget
     {

@@ -104,8 +104,7 @@ namespace LotusECMLogger
             ccp.Nodes.Add("ccptraffic", "Traffic");
             ccp.Nodes.Add("ccpselftest", "Self-Test");
 
-            features.Nodes.Add("t6rma", "T6 RMA Logging");
-            features.Nodes.Add("livetuning", "T6 Live Tuning");
+            features.Nodes.Add("snapshots", "Snapshots");
             features.Nodes.Add("flasher", "T6E Calibration Flasher");
             features.Nodes.Add("erasemodel", "Erase Model Info");
             features.Nodes.Add("hc08patch", "HC08 TPS Table Patch");
@@ -196,11 +195,8 @@ namespace LotusECMLogger
                 case "ccpselftest":
                     ShowCcpSelfTestHelp();
                     break;
-                case "t6rma":
-                    ShowT6RmaHelp();
-                    break;
-                case "livetuning":
-                    ShowLiveTuningHelp();
+                case "snapshots":
+                    ShowSnapshotsHelp();
                     break;
                 case "flasher":
                     ShowFlasherHelp();
@@ -276,8 +272,7 @@ namespace LotusECMLogger
             AddBulletPoint("Learned Data Reset: Clear adaptive learning values from the ECU.");
             AddBulletPoint("ABS/ESP Diagnostics: Read fault codes, identification, and live internal state from the Bosch ESP8 ABS module; log all four wheel speeds at 100 Hz; and run the pump/valve routines used for brake bleeding.");
             AddBulletPoint("CCP: Connect to the T6 ECU's calibration interface to read, check and write its memory, watch internal variables, and edit calibration tables live with the engine running - with a cursor showing where the ECU is reading each table, and recordings you can replay to see which cells were used.");
-            AddBulletPoint("T6 RMA Logging: Advanced memory address logging for development.");
-            AddBulletPoint("T6 Live Tuning: Edit calibration values in ECU RAM in real time by monitoring a calibration file on disk, or upload a whole calibration into RAM in one operation (requires an unlocked ECU).");
+            AddBulletPoint("Snapshots: Download the T6 ECU's learned data, calibration and program flash to files over CCP, each checked against the ECU's own checksum.");
             AddBulletPoint("T6E Calibration Flasher: Flash calibration files to the ECU.");
             AddBulletPoint("Erase Model Info: Clear stored model info after a firmware migration so the new firmware activates (Tools menu).");
             AddBulletPoint("HC08 TPS Table Patch: Raise the throttle monitor's copy of the TPS max table in a T6 firmware file to match a tuned calibration, and fix its checksum (Tools menu).");
@@ -311,13 +306,12 @@ namespace LotusECMLogger
             AddBulletPoint("ECU Coding - Modify ECU configuration");
             AddBulletPoint("Diagnostic Trouble Codes - Read and clear fault codes, with a Mode 0x13 sub-tab that reads every code the ECU holds (including TPMS on Series 1 Evoras) in one request");
             AddBulletPoint("Emissions - An OBD-II smog check / I/M pre-check: readiness monitors, MIL, trouble codes, and a pass/fail verdict for the inspection program you choose");
-            AddBulletPoint("T6 RMA Logging - Advanced memory logging");
-            AddBulletPoint("Live Tuning - Real-time calibration editing on unlocked ECUs");
+            AddBulletPoint("Snapshots - Download the ECU's flash (learned data, calibration, program) to files over CCP");
             AddBulletPoint("CCP - The T6 ECU's calibration interface: memory, variables, a table editor with live sync to the ECU, and recording and replay of tuning sessions");
             AddBulletPoint("ABS - Diagnostics for the ABS/ESP module, which is a separate computer from the engine ECU with its own fault memory (Evora; see the ABS/ESP Diagnostics topic)");
 
             AddSubheading("Output Files:");
-            AddParagraph("All loggers write their output beneath a single folder: Documents\\LotusECMLogger. Live Data logs are named LiveData_<timestamp>.csv, T6 RMA logs T6RMA_<timestamp>.csv, and high-speed logs HighSpeed_<timestamp>.csv. Live Tuning calibration files default to the LiveTuning subfolder. The CCP tab saves a backup before every write in the ccp-backups subfolder, and tuning recordings in the recordings subfolder. The folder is created automatically the first time a log is written.");
+            AddParagraph("All loggers write their output beneath a single folder: Documents\\LotusECMLogger. Live Data logs are named LiveData_<timestamp>.csv and high-speed logs HighSpeed_<timestamp>.csv. Snapshots default to the same folder. The CCP tab saves a backup before every write in the ccp-backups subfolder, and tuning recordings in the recordings subfolder. The folder is created automatically the first time a log is written.");
             AddParagraph("Every log shares one CSV layout: a few '#' lines describing the session, then a header row of Timestamp, RelativeTime_ms, and one column per logged value. Timestamps are ISO 8601 to the microsecond and carry the UTC offset, so a log that spans a daylight-saving change stays unambiguous. Numbers always use a decimal point regardless of your Windows regional settings, and an empty cell means no value was available for that row. Columns holding raw ECU memory are written as hex (0x1F) rather than decimal.");
 
             AddParagraph("");
@@ -403,7 +397,7 @@ namespace LotusECMLogger
 
             AddSubheading("Notes and Caution:");
             AddBulletPoint("While logging, the PC is an active node on the vehicle CAN bus and sends configuration commands to the ECU. Use 'Test Connection' first to confirm a healthy link.");
-            AddBulletPoint("The High-Speed Log runs on the CCP session, which it shares with the CCP tab and a tuning recording, so they can run at the same time if the ECU has DAQ lists for all of them. Operations that need the J2534 device in another way (for example the ECU unlock probe on the Vehicle Information tab) are skipped while a session is active.");
+            AddBulletPoint("The High-Speed Log runs on the CCP session, which it shares with the CCP tab and a tuning recording, so they can run at the same time if the ECU has DAQ lists for all of them. Snapshots and Erase Model Info use the same session too.");
         }
 
         private void ShowEcuCodingHelp()
@@ -445,13 +439,6 @@ namespace LotusECMLogger
             AddBulletPoint("Calibration ID: Identifies the software calibration loaded in the ECU.");
             AddBulletPoint("Calibration Verification Numbers (CVN): A checksum value used to verify calibration integrity.");
             AddBulletPoint("In-Use Performance Tracking: Emissions-related tracking data (if available).");
-
-            AddSubheading("ECU Unlock Status:");
-            AddParagraph("After loading vehicle data, the tab probes whether the ECU is unlocked and shows the result in a colored indicator. An unlocked ECU is required for advanced operations such as Erase Model Info, T6 RMA Logging, and T6 Live Tuning.");
-            AddBulletPoint("ECU: UNLOCKED (green) - The ECU answered a raw-CAN memory-access (RMA) probe. Unlocked-only features are available.");
-            AddBulletPoint("ECU: LOCKED (red) - Vehicle data loaded, so the ECU is reachable, but it did not answer the RMA probe. The ECU is running a standard/locked calibration and unlocked-only features will not work.");
-            AddBulletPoint("ECU: UNKNOWN (gray) - The unlock state could not be determined. This happens when no vehicle data loaded at all (ECU not reachable), when the probe errored, or when a logging session is active (the probe needs its own CAN channel, so it is skipped while the logger holds the device).");
-            AddParagraph("The indicator refreshes each time you click 'Load Vehicle Data'. If it reads UNKNOWN while logging is active, stop the logger and load vehicle data again for a definite result.");
 
             AddSubheading("Use Cases:");
             AddBulletPoint("Verify your VIN matches vehicle documentation.");
@@ -886,81 +873,30 @@ namespace LotusECMLogger
             AddBulletPoint("If you are unsure about any part of this procedure, have the brakes bled by a qualified technician. Brakes are not a system to experiment on.");
         }
 
-        private void ShowT6RmaHelp()
+        private void ShowSnapshotsHelp()
         {
-            AddHeading("T6 RMA Logging");
+            AddHeading("Snapshots");
 
-            AddParagraph("The T6 RMA (Remote Memory Access) Logging tab enables direct reading of ECU memory addresses for advanced diagnostics and development. This is an advanced feature intended for developers and advanced users who need to monitor specific memory locations not available through standard OBD-II.");
+            AddParagraph("The Snapshots tab downloads a T6 ECU's flash to .bin files over CCP: the learned data, the calibration and the program. Use it to keep a copy of a car's calibration before tuning or flashing, or to read the learned trims.");
 
             AddSubheading("Requirements:");
-            AddParagraph("This feature requires a debug-enabled ECU with developer calibration. It will not work with standard production ECUs.");
+            AddBulletPoint("A T6 engine ECU from 2011 on, with CCP enabled in its calibration (stock calibrations have it). No unlocked ECU is needed.");
+            AddBulletPoint("Ignition on, and the OBD-II logger stopped. The download shares the CCP session with the CCP and High-Speed Log tabs, so they can stay connected.");
 
             AddSubheading("How to Use:");
-            AddParagraph("1. Memory Address: Enter the hexadecimal address you want to monitor (e.g., 0x40000000). Valid RAM addresses are typically in the range 0x40000000-0x4000FFFF.");
-            AddParagraph("2. Length: Specify the number of bytes to read (1-255).");
-            AddParagraph("3. Polling Interval: Set how often to read the address in milliseconds (10-10000ms).");
-            AddParagraph("4. CSV Output File: Choose where to save the logged data. A timestamped default in Documents\\LotusECMLogger is provided (e.g., T6RMA_20250210_143022.csv). Each row holds one Byte0..ByteN column per byte read, written as raw hex (0x1F); the address, length and interval are recorded in the '#' lines at the top of the file.");
-            AddParagraph("5. Start Logging: Click 'Start Logging' to begin reading and recording the memory contents.");
-            AddParagraph("6. Stop Logging: Click 'Stop Logging' when finished.");
+            AddParagraph("1. Click 'Download' under the region you want. The tab connects, identifies the ECU, and offers a file name with its build and the time.");
+            AddParagraph("2. Choose where to save. The progress bar shows the bytes read; the same button reads 'Cancel' while it runs.");
+            AddParagraph("3. When the read finishes, the ECU checksums the same region itself. The file is saved only if the two agree.");
 
-            AddSubheading("Data Display:");
-            AddParagraph("The 'Latest Data' panel shows:");
-            AddBulletPoint("Hex Dump: Raw hexadecimal values displayed in rows of 16 bytes");
-            AddBulletPoint("ASCII Representation: Text representation of the data");
-            AddBulletPoint("Numeric Interpretations: Values displayed as byte, int16, int32, and float");
+            AddSubheading("Regions:");
+            AddBulletPoint("Learned Data (48 KB, about 17 seconds): the persisted adaptive fuel, idle and knock trims.");
+            AddBulletPoint("Calibration (64 KB, about 23 seconds): the calibration as flashed - fuel and ignition maps, limiters and so on. The CCP Tuning page opens these downloads directly.");
+            AddBulletPoint("Program (768 KB, about 4½ minutes): the compiled firmware.");
 
-            AddSubheading("Output:");
-            AddParagraph("Data is logged as a time series to CSV format, allowing you to analyze memory contents over time. This is useful for reverse engineering, debugging custom calibrations, or monitoring internal ECU variables.");
-
-            AddSubheading("Caution:");
-            AddParagraph("This is an advanced feature. Reading from invalid memory addresses may cause unpredictable behavior or ECU communication errors. Only use this feature if you understand ECU memory architecture.");
-        }
-
-        private void ShowLiveTuningHelp()
-        {
-            AddHeading("T6 Live Tuning");
-
-            AddParagraph("The Live Tuning tab enables real-time calibration editing on unlocked T6 ECUs. It synchronizes a calibration file on disk with the ECU's RAM: the application reads a region of ECU memory to a .cpt file, watches that file for changes, and automatically writes any modified 32-bit words back to the ECU while the engine is running. Edit the file in your calibration editor of choice and the changes take effect on the ECU within a fraction of a second of saving.");
-            AddParagraph("For tuning with a built-in table editor, on stock (locked) firmware too, see CCP > Tuning: it edits tables in a grid and graph, writes each change with read-back verification, and shows where the ECU is reading each table.");
-
-            AddSubheading("Requirements:");
-            AddBulletPoint("Unlocked ECU: Live tuning uses the raw-CAN RMA protocol, which standard locked calibrations do not answer. The 'ECU' indicator on the Vehicle Information tab shows whether the ECU is unlocked.");
-            AddBulletPoint("Valid RAM region: Addresses must lie in the ECU's calibration RAM range (0x40000000-0x4000FFFF). The memory presets (from config\\liveTuning\\memoryConfig.json) provide known-good regions for supported firmware versions.");
-            AddBulletPoint("Logging stopped: Live tuning holds the J2534 device for itself and cannot run alongside a logging session.");
-
-            AddSubheading("How to Use (Read & Start):");
-            AddParagraph("1. Select a memory preset for your firmware, or enter a base address and length manually.");
-            AddParagraph("2. Choose an output directory. The default is Documents\\LotusECMLogger\\LiveTuning.");
-            AddParagraph("3. Click 'Read & Start'. The application reads the ECU memory region into a timestamped .cpt file and immediately begins monitoring it.");
-            AddParagraph("4. Open the .cpt file in your calibration editor and make changes. Each time you save, the changed words are written to the ECU automatically (the file is scanned every 100 ms).");
-            AddParagraph("5. Click 'Stop Monitoring' when finished.");
-
-            AddSubheading("Using an Existing File:");
-            AddParagraph("If you already have a .cpt file that matches the ECU's current calibration, select it under 'Calibration File' and click 'Start Monitoring' to begin synchronizing without re-reading the ECU. The file must correspond to the configured base address, otherwise writes will land at the wrong locations.");
-
-            AddSubheading("Upload to ECU (Whole-Calibration Upload):");
-            AddParagraph("Where monitoring writes individual words as you edit them, 'Upload to ECU' writes an entire .cpt into ECU RAM in one operation - the inverse of 'Read & Start'. Use it to swap in a complete calibration you prepared earlier, or to restore a saved one, without flashing.");
-            AddParagraph("1. Select the file under 'Calibration File' and confirm the base address is right for it (the memory presets set this for you).");
-            AddParagraph("2. Click 'Upload to ECU' and read the confirmation dialog, which shows the exact address range that will be overwritten.");
-            AddParagraph("3. Watch the progress bar and the status log. The upload can be cancelled while it runs.");
-            AddParagraph("The file's own size decides how much is written - no more and no less. The length box on this tab applies to reading, not uploading; if the two disagree the confirmation dialog says so, because that usually means the selected preset does not match the file.");
-
-            AddSubheading("How an Upload Protects You:");
-            AddParagraph("Two checks run around every upload, because writing a whole calibration into a running engine has more ways to go wrong than editing one value.");
-            AddBulletPoint("Before writing: the first 32 bytes of the file are compared against the same bytes already in ECU memory. If they differ, the file almost certainly belongs to a different calibration, a different ECU, or a different memory region, and the upload stops before sending anything. Both headers are shown so you can see what differs, and you can override the check if you genuinely mean to replace the running calibration with an unrelated one.");
-            AddBulletPoint("After writing: the region is read back and compared against the file. RMA writes are fire-and-forget - the ECU never acknowledges them - so this read-back is the only proof that every word actually landed. Any mismatch is reported with a count and the first differing addresses.");
-            AddParagraph("These checks answer different questions. The read-back confirms that what was sent arrived intact; it cannot tell that the wrong file was sent. The pre-flight check is the one that catches that.");
-
-            AddSubheading("Upload Cautions:");
-            AddBulletPoint("The transfer is not atomic. It takes several seconds, and until it finishes the engine is running on a mix of the old and new calibrations. Prefer to upload with the engine off, or at idle in a safe place - not under load.");
-            AddBulletPoint("Cancelling mid-upload leaves that mix in place. Upload again to finish, or cycle the ignition to reload the flashed calibration.");
-            AddBulletPoint("If the ECU is locked it silently discards the writes. The application probes the unlock state first and refuses rather than letting you discover this from a failed verification.");
-            AddBulletPoint("'Upload to ECU' stays greyed out until a valid file is selected under 'Calibration File', and is disabled while monitoring is active. Note that 'Read & Start' does not put the file it creates into that box - browse to it if you want to upload a file you just read.");
-
-            AddSubheading("Important Notes:");
-            AddBulletPoint("Changes are written to ECU RAM only - they are lost on power-off and do not modify the flashed calibration. To make a change permanent, flash it with the T6E Calibration Flasher.");
-            AddBulletPoint("The status log shows every word written, so you can verify each edit as it is applied.");
-            AddBulletPoint("Live tuning modifies a running engine's calibration. Make small, deliberate changes and understand each parameter before editing it.");
+            AddSubheading("Notes:");
+            AddBulletPoint("Snapshots reads flash, which the ECU uses as it was last flashed. Live edits made over CCP change calibration RAM, not flash, so they do not appear in a Calibration download; save them from the CCP Tuning page instead.");
+            AddBulletPoint("Cancelling leaves the CCP session needing to reconnect, which the next CCP operation does by itself.");
+            AddBulletPoint("Older ECU generations (T4e, K4, T4) are not supported: they have no CCP.");
         }
 
         private void ShowFlasherHelp()
@@ -1013,7 +949,8 @@ namespace LotusECMLogger
             AddParagraph("In short: when migrating to a new firmware version, flash the calibration first, then run Erase Model Info so the new firmware claims the model identity. This is normally needed only once per firmware migration, not during everyday use.");
 
             AddSubheading("Requirements:");
-            AddBulletPoint("Unlocked ECU: This operation requires an unlocked/developer calibration. On a standard locked ECU the command is silently ignored. The tool verifies the ECU is unlocked before sending the command.");
+            AddBulletPoint("Unlocked ECU: the firmware only acts on coding commands when the ECU is unlocked - when its calibration's unlock field is set - however the command is sent. Where the build's symbol database says where to look, the tool reads the unlock state first and refuses on a locked ECU.");
+            AddBulletPoint("CCP: the command is sent over the CCP session (ignition on, CCP enabled in the calibration).");
             AddBulletPoint("Correct firmware version selected: The dialog needs to know which firmware is installed so it can target the right command register address. Selecting the wrong version writes to the wrong address.");
             AddBulletPoint("Logging stopped: Erase Model Info is disabled while data logging is active. The menu item stays greyed out until you stop the logger.");
 
@@ -1022,11 +959,12 @@ namespace LotusECMLogger
             AddParagraph("2. Open Tools > Erase Model Info.");
             AddParagraph("3. Select the firmware version currently installed on the ECU. The dialog displays the resolved coding_cmd address so you can verify the selection.");
             AddParagraph("4. Click 'Erase Model Info' and confirm the warning dialog.");
-            AddParagraph("5. The tool confirms the ECU is unlocked and then issues the erase command. A confirmation message appears when complete.");
+            AddParagraph("5. The tool connects, checks that the ECU is the firmware you selected and that it is unlocked, sends the erase command, and waits for the firmware to take it. It reports whether it did.");
             AddParagraph("6. Re-read the ECU coding, or reload Extended Vehicle Information, to verify the model info now reflects the new firmware.");
 
             AddSubheading("How It Works:");
-            AddParagraph("The tool issues an RMA (Remote Memory Access) write of the erase-model command (0x04) to the firmware's coding command register at the address for the selected firmware version. The ECU's coding handler fills the model field with 0xFF and flags an EEPROM write, which is committed on its next cycle. The firmware then re-seeds the field from the installed calibration version on the following coding-initialization pass.");
+            AddParagraph("The tool writes the erase-model command (0x04) over CCP to the firmware's coding command register at the address for the selected firmware version. Every 333 ms the ECU's coding handler runs whatever command is there and clears the register, but only while the ECU is unlocked. The handler fills the model field with 0xFF and flags an EEPROM write, which is committed on its next cycle; the firmware then re-seeds the field from the installed calibration version on the following coding-initialization pass.");
+            AddParagraph("The tool reads the register back for up to two seconds. If it clears, the command ran. If not - a locked ECU, or the wrong firmware selected - the tool clears it again itself, so nothing runs later, and says so.");
 
             AddSubheading("Important Warnings:");
             AddBulletPoint("This operation cannot be undone. The previous model string is overwritten, and the firmware re-seeds it from the installed calibration.");
@@ -1213,24 +1151,6 @@ namespace LotusECMLogger
             AddBulletPoint("Check the SecurityAccess row near the top of the results - memory reads require the unlock to have succeeded");
             AddBulletPoint("Individual locations may be refused by the module while others succeed; this is reported per row and a partial result is still usable");
             AddBulletPoint("The reason for each refusal is shown in the Detail column - 'conditionsNotCorrect' points at vehicle state, 'securityAccessDenied' at the unlock");
-
-            AddSubheading("Live Tuning Issues:");
-
-            AddParagraph("Problem: 'Upload to ECU' is greyed out");
-            AddBulletPoint("Select a file under 'Calibration File' - the button stays disabled until that box holds a path to a file that exists");
-            AddBulletPoint("'Read & Start' does not fill that box in with the file it creates, so browse to the file even if you just read it from the ECU");
-            AddBulletPoint("Stop monitoring if it is running - upload needs the J2534 device to itself");
-            AddBulletPoint("Check the base address parses as 8 hex digits; the button also requires a valid address");
-
-            AddParagraph("Problem: Upload stops with a calibration mismatch");
-            AddBulletPoint("The first 32 bytes of the file do not match ECU memory, so the file is probably for a different calibration, ECU, or memory region. Nothing has been written at this point");
-            AddBulletPoint("Compare the two headers shown in the dialog, then check the selected file and the base address - a preset that does not match the file is the usual cause");
-            AddBulletPoint("If the file really is meant to replace the running calibration with a different one, answer Yes to upload anyway");
-
-            AddParagraph("Problem: Upload finishes but verification reports mismatched bytes");
-            AddBulletPoint("Some writes did not land. ECU RAM now matches neither the old calibration nor the file - upload again, or cycle the ignition to reload the flashed calibration");
-            AddBulletPoint("A locked ECU discards writes silently; confirm the 'ECU' indicator on the Vehicle Information tab reads UNLOCKED");
-            AddBulletPoint("Check the OBD-II and USB connections - a marginal link drops frames, and RMA writes are never acknowledged, so nothing retries them automatically");
 
             AddSubheading("CCP Issues:");
 
