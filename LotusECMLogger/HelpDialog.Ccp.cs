@@ -11,7 +11,8 @@ namespace LotusECMLogger
 
             AddSubheading("Requirements:");
             AddBulletPoint("A T6 engine ECU from 2011 on. CCP is part of the firmware; it does not need an unlocked ECU. (The 2010 Evora's ECU uses a different CCP setup that is not supported yet.)");
-            AddBulletPoint("CCP enabled in the calibration: the CCP enable byte must select a CAN bus. Stock calibrations ship with it set, but a calibration that disables it cannot be enabled over CCP - it needs a calibration that sets it, flashed by other means.");
+            AddBulletPoint("CCP enabled on the OBD-II bus in the calibration. The CCP enable byte - the calibration value CAL_logger_high_speed_logger_enable - selects the CAN bus CCP listens on: 0 is off, 1 is the bus at the OBD-II port, 2 is a second CAN bus that is not at the OBD-II port. It must be 1.");
+            AddBulletPoint("Stock calibrations do not have it at 1. The 2011 Evora NA and S ship with 0, and the Evora 400, GT430 and GT with 2. So a stock car does not answer, and the first step is to flash a calibration with the value set to 1. Set it in your calibration editor: it cannot be turned on over CCP, and the Tuning page refuses to change it.");
             AddBulletPoint("A J2534 device on the OBD-II port, as for every other tab. The session runs on CAN at 500 kbit/s (request 0x350, response 0x351).");
             AddBulletPoint("For table editing: an A2L table definition for the build in config\\a2l. The application ships them for C132E0278 (Evora GT430) and B132E0091 (2011 Evora NA). Every other feature works on any T6 build.");
 
@@ -22,7 +23,7 @@ namespace LotusECMLogger
             AddParagraph("'Disconnect' releases the tab's hold on the session. If the calibration ID matches no known build, reading still works, but writes on the Memory page need a build chosen from its Build list - only do this if you know the firmware matches, because the build decides where calibration RAM is.");
 
             AddSubheading("One Session, Shared:");
-            AddParagraph("The CCP tab, the High-Speed Log tab, a tuning recording, Snapshots, Erase Model Info and the Vehicle Information probe all share one CCP session on the J2534 device, so they can run at the same time. The session closes when the last of them lets go. The ECU has 10 DAQ lists (two each at 100, 50, 20 and 10 Hz, one each at 2 and 1 Hz) shared between everything that streams; the Traffic page shows who holds which.");
+            AddParagraph("The CCP tab, the High-Speed Log, a tuning recording, Snapshots, Erase Model Info and the Vehicle Information probe all share one CCP session on the J2534 device, so they can run at the same time. The session closes when the last of them lets go. The ECU has 10 DAQ lists (two each at 100, 50, 20 and 10 Hz, one each at 2 and 1 Hz) shared between everything that streams; the Traffic page shows who holds which.");
 
             AddSubheading("Pages:");
             AddBulletPoint("Memory - read memory to a hex view or a .bin file, checksum or compare it with a file, and write calibration RAM with backups.");
@@ -35,7 +36,7 @@ namespace LotusECMLogger
             AddParagraph("The connection panel shrinks to its button row and the log to a one-line strip, giving the table editor most of the window. Click '▸ Log' to open the full log.");
 
             AddSubheading("Important:");
-            AddBulletPoint("Everything written over CCP goes to calibration RAM: the ECU uses it on its next table lookup, and it is lost at power-off. Nothing here changes the flashed calibration. To keep a change, save the calibration file and flash it.");
+            AddBulletPoint("Everything written over CCP goes to calibration RAM: the ECU uses it on its next table lookup, and it is lost at power-off. Nothing here changes the flashed calibration. To keep a change, save the calibration on the Tuning page ('Save As…'), build a CRP from it with Tools > Create CRP File…, and flash that with Tools > T6E Calibration Flasher.");
         }
 
         private void ShowCcpMemoryHelp()
@@ -60,7 +61,7 @@ namespace LotusECMLogger
             AddBulletPoint("The CCP enable byte is never changed - changing it would cut the session off mid-write.");
             AddBulletPoint("A backup of the region is saved first, to Documents\\LotusECMLogger\\ccp-backups, and you confirm a summary of what will change.");
             AddBulletPoint("Every write is read back and checked. If the ECU's memory changed since you prepared the write, it stops and asks you to prepare it again.");
-            AddParagraph("'Restore Backup…' writes a saved backup back, with the same guards. Writes are lost at power-off; to keep them, flash a calibration.");
+            AddParagraph("'Restore Backup…' writes a saved backup back, with the same guards. Writes are lost at power-off; to keep them, flash a calibration that contains them (see CRP Files).");
         }
 
         private void ShowCcpTuningHelp()
@@ -117,7 +118,7 @@ namespace LotusECMLogger
             AddSubheading("Cautions:");
             AddBulletPoint("Live edits change a running engine. Make small, deliberate changes, and understand a table before you change it.");
             AddBulletPoint("Writes are not atomic: during a multi-cell edit the ECU can read a table that is only partly updated. 'Hold edits' only stages edits on the PC; Apply still writes them in several steps. Make large changes with the engine off.");
-            AddBulletPoint("Everything written is lost at power-off. Save As keeps it.");
+            AddBulletPoint("Everything written is lost at power-off. 'Save As…' keeps it in a file; flashing that file (as a CRP) puts it in the ECU for good.");
         }
 
         private void ShowCcpRecordingHelp()

@@ -345,7 +345,7 @@ namespace LotusECMLogger.Controls
             noticeLabel.Padding = new Padding(4, 0, 4, 12);
             noticeLabel.Size = new Size(600, 32);
             noticeLabel.TabIndex = 4;
-            noticeLabel.Text = "Downloads read a T6 ECU's flash over CCP (2011 on; no unlock needed) and check each read against the ECU's own checksum. The CCP session is shared with the CCP and High-Speed Log tabs.";
+            noticeLabel.Text = "Downloads read a T6 ECU's flash over CCP (2011 on; no unlock needed) and check each read against the ECU's own checksum. The calibration must enable CCP on the OBD-II bus (CAL_logger_high_speed_logger_enable = 1), which stock calibrations do not. The CCP session is shared with the CCP and High-Speed Log tabs.";
             noticeLabel.TextAlign = ContentAlignment.TopLeft;
             //
             // SnapshotsControl

@@ -8,14 +8,14 @@ With LotusECMLogger, you can log not only generic OBD-II parameters, but also Lo
 - **Supports OBD-II Mode 22**: Manufacturer-specific channels, including advanced Lotus data.
 - **Performance history**: Read the Evora ECU's persistent usage histograms, standing-start results, top speeds/RPM, and retained low-oil/lateral-G events.
 - **Capture Lotus-specific data**: Log unique parameters such as variable cam control, knock control, and more.
-- **High-speed channel logging**: Stream internal ECU channels over CAN at up to 100 Hz per channel — far faster than OBD-II polling — with a searchable symbol catalog for picking channels and optional AEM X-Series wideband integration.
+- **High-speed channel logging**: Stream internal ECU channels over CAN at up to 100 Hz per channel — far faster than OBD-II polling — with a searchable symbol catalog for picking channels and optional AEM X-Series wideband integration. Needs a calibration that enables the ECU's logger (see [CCP requirements](#ccp-requirements)).
 - **ECU configuration & diagnostics**: Read and modify ECU coding, read and clear trouble codes (including pending, permanent, and the Lotus service 0x13 "all codes" list), read freeze frames, program the VIN, and reset learned/adaptive data.
 - **Emissions pre-check**: Read every readiness monitor's support and status, the MIL, trouble codes, and the calibration ID and CVN, and judge them against California Smog Check or federal I/M rules before an inspection.
 - **ABS/ESP diagnostics**: Read the Bosch ESP8 module's identification, coding and fault records, watch its 100 Hz wheel-speed broadcasts, read its internal state, and run the hydraulic bleed/test routines.
 - **Dyno mode**: Enable the ECU's diagnostic override to suppress faults from external systems (such as ABS) during dyno runs.
 - **Memory snapshots**: Download the T6 ECU's learned-data, calibration, and program flash regions to binary files over CCP, each checked against the ECU's own checksum.
 - **CCP calibration interface**: Read, checksum and write ECU memory, watch internal variables, and edit calibration tables live with the engine running - with a cursor showing where the ECU is reading each table, and recordings you can replay to see which cells were used.
-- **Advanced T6e tools**: calibration flashing, CRP container pack/unpack, and model-info erase for firmware migration.
+- **Advanced T6e tools**: calibration flashing, CRP container pack/unpack, model-info erase for firmware migration, and the HC08 throttle-monitor TPS table patch.
 - **Free and open source**: No cost, no restrictions, and community-driven development.
 
 ![GUI](screenshots/Screenshot-20260828.png)
@@ -26,6 +26,12 @@ With LotusECMLogger, you can log not only generic OBD-II parameters, but also Lo
 - **x86 Windows Computer**: Tested with Windows 11, but Windows 7+ is supported. Note that the software is 32bit.
 - **.NET 10 Desktop Runtime (x86)**: Released builds are framework-dependent, so the 32-bit desktop runtime must be installed.
 - **J2534-compliant Pass-Thru Device**: This is a widely supported industry standard. Beware cheap devices that are not standards compliant.
+
+### CCP requirements
+
+The High-Speed Log, Snapshots, the CCP tab and Erase Model Info all talk to the ECU over CCP, the calibration protocol built into T6 engine ECU firmware from 2011 on. OBD-II logging and the other diagnostics do not need it. CCP needs no unlocked ECU, but the calibration must enable it on the CAN bus at the OBD-II port: `CAL_logger_high_speed_logger_enable` must be `1`.
+
+**Stock calibrations do not have it at 1.** The stock 2011 Evora NA and S calibrations (B132E0091, C132E0077) ship with `0` (off), and the stock Evora 400, GT430 and GT calibrations (C132E0271, A132E0263, C132E0278, E132E0288) with `2`, which selects a second CAN bus that is not at the OBD-II port. A stock car therefore does not answer: the first step is to flash a calibration with the value set to `1`. It cannot be turned on over CCP, and the CCP Tuning editor refuses to change it, so set it in your calibration editor. **Test Connection** on the High-Speed Log tab, or the HS LOGGER indicator on Vehicle Information, shows whether the ECU answers.
 
 ## Supported Adapters
 
@@ -47,7 +53,7 @@ Every logger writes beneath one folder — `Documents\LotusECMLogger` — with p
 LotusECMLogger provides a tabbed interface with specialized tools for different diagnostic and logging tasks.
 
 ### Vehicle Information
-The Vehicle Information tab retrieves static and learned data from the ECU. It queries OBD-II Mode 09 for identification data — VIN, ECU name, calibration ID, and calibration verification number (displayed as hex) — and Mode 22 for per-cylinder octane scaler values, which indicate how much knock-based fuel correction has been accumulated for each cylinder. After a load, the tab probes the ECU over CCP and shows an **HS LOGGER indicator**: whether the installed firmware provides the high-speed channel-logger facility used by the High-Speed Log tab.
+The Vehicle Information tab retrieves static and learned data from the ECU. It queries OBD-II Mode 09 for identification data — VIN, ECU name, calibration ID, and calibration verification number (displayed as hex) — and Mode 22 for per-cylinder octane scaler values, which indicate how much knock-based fuel correction has been accumulated for each cylinder. After a load, the tab probes the ECU over CCP and shows an **HS LOGGER indicator**: whether the ECU answers over CCP, which the High-Speed Log, Snapshots and the CCP tab need (see [CCP requirements](#ccp-requirements)).
 
 The tab also hosts three operations:
 
@@ -67,7 +73,7 @@ All logging tools live under a single Logging tab, with sub-tabs for each loggin
 
 Channels can be loaded two ways. JSON presets (per ECU calibration version, from `config/highSpeedLogger`) provide ready-made channel sets for tasks such as ignition tuning, fuel and closed-loop fuel diagnostics, fuel learning, throttle diagnostics, DPM diagnostics, and dyno tuning. **Add Channels…** opens a searchable picker backed by per-ECU symbol catalogs (Ghidra CSV exports in `config/highSpeedLogger/database`), where you filter named ECU variables by text and unit, hide arrays and calibration constants, multi-select, and add them with size, scale, and unit derived automatically from each symbol's type. Either way the channels land in a spreadsheet-style grid where you check the ones to log and pick a per-channel rate from 1, 2, 5, 10, 20, 50, or 100 Hz.
 
-The selection is compiled into a logging program that respects the firmware's packing rules — at most 7 payload bytes per frame, 12 frames per group, and 10 groups — and same-rate groups are staggered across scheduler slots so they do not burst onto the bus together. A **Test Connection** button verifies that the ECU firmware includes the channel-logger facility before you start — standard locked production calibrations generally do not have it. An **AEM Wideband** toggle polls an AEM X-Series wideband (OBDII variant) over OBD-II in parallel and merges lambda/AFR into the CSV as extra columns, with live λ/AFR shown in the status panel. Live status also shows frame counts, drop counts, and last-update time while logging.
+The selection is compiled into a logging program that respects the firmware's packing rules — at most 7 payload bytes per frame, 12 frames per group, and 10 groups — and same-rate groups are staggered across scheduler slots so they do not burst onto the bus together. A **Test Connection** button verifies that the ECU answers before you start — on a stock calibration it does not (see [CCP requirements](#ccp-requirements)). An **AEM Wideband** toggle polls an AEM X-Series wideband (OBDII variant) over OBD-II in parallel and merges lambda/AFR into the CSV as extra columns, with live λ/AFR shown in the status panel. Live status also shows frame counts, drop counts, and last-update time while logging.
 
 **OBD-II Logging** — Contains two sub-tabs:
 
@@ -104,17 +110,6 @@ Continuous monitors (misfire, fuel system, comprehensive components) are never c
 
 This is a pre-check only. It reads the engine ECU alone, while a station queries every emissions module (on an automatic, also the transmission controller). A station also checks visually that the MIL bulb lights with the key on and goes out with the engine running. The check needs the ignition on and logging stopped.
 
-### CCP
-The CCP tab talks to the T6 (2011+) engine ECU's built-in CCP 2.1 calibration interface. It needs no unlocked ECU, only a calibration with CCP enabled (stock calibrations have it). One CCP session is shared by this tab, the High-Speed Log, Snapshots and Erase Model Info.
-
-- **Memory** — read memory to a hex view or `.bin` file, checksum or byte-compare it with a file (named by symbol and table cell), and write calibration RAM with guards: engine off, a backup first, read-back verification, and the CCP enable byte never changed.
-- **Tuning** — open a calibration file and edit its tables in a grid beside a lines or 3D-surface graph (modelled on RaiderLite), with step, multiply, interpolate, smooth, paste and undo. **Live sync** writes each edit to the ECU's calibration RAM as you make it, verified by read-back. A **cursor** shows where the ECU is reading the shown table. **Record** logs every table input, every calibration write and the calibration at start and end; **Open Recording** replays it on a timeline with the cursor, the tables as they were at each moment, and **Cells read** shading each cell by the time the ECU spent there. Tables come from A2L files in `config/a2l` (shipped for C132E0278 and B132E0091).
-- **Variables** — browse the firmware's variables and watch any of them live.
-- **Traffic** — session counters, command latency, DAQ list owners and a decoded command trace.
-- **Self-Test** — a read-only checklist of the connection with a saved report.
-
-Everything written goes to calibration RAM and is lost at power-off; save the calibration and flash it to keep changes.
-
 ### Snapshots
 The Snapshots tab takes one-shot binary downloads of a T6 (2011+) ECU's flash over CCP, saving each to a `.bin` file named after the ECU's build:
 
@@ -122,7 +117,18 @@ The Snapshots tab takes one-shot binary downloads of a T6 (2011+) ECU's flash ov
 - **Calibration** — the active calibration (fuel and ignition maps, limiters, and so on).
 - **Program** — the compiled firmware. This is the largest region and may take several minutes.
 
-No unlocked ECU is needed. After each read, the ECU checksums the region itself and the download is saved only if the two agree. At CCP's roughly 3 KB/s, learned data takes about 17 seconds, the calibration about 23 seconds and the program about 4½ minutes; a download's button cancels it.
+No unlocked ECU is needed, but the calibration must enable CCP on the OBD-II bus, so a car on a stock calibration cannot be downloaded this way (see [CCP requirements](#ccp-requirements)). After each read, the ECU checksums the region itself and the download is saved only if the two agree. At CCP's roughly 3 KB/s, learned data takes about 17 seconds, the calibration about 23 seconds and the program about 4½ minutes; a download's button cancels it.
+
+### CCP
+The CCP tab talks to the T6 (2011+) engine ECU's built-in CCP 2.1 calibration interface. It needs no unlocked ECU, only a calibration that enables CCP on the OBD-II bus, which stock calibrations do not (see [CCP requirements](#ccp-requirements)). One CCP session is shared by this tab, the High-Speed Log, Snapshots and Erase Model Info.
+
+- **Memory** — read memory to a hex view or `.bin` file, checksum or byte-compare it with a file (named by symbol and table cell), and write calibration RAM with guards: engine off, a backup first, read-back verification, and the CCP enable byte never changed.
+- **Tuning** — open a calibration file and edit its tables in a grid beside a lines or 3D-surface graph (modelled on RaiderLite), with step, multiply, interpolate, smooth, paste and undo. **Live sync** writes each edit to the ECU's calibration RAM as you make it, verified by read-back. A **cursor** shows where the ECU is reading the shown table. **Record** logs every table input, every calibration write and the calibration at start and end; **Open Recording** replays it on a timeline with the cursor, the tables as they were at each moment, and **Cells read** shading each cell by the time the ECU spent there. Tables come from A2L files in `config/a2l` (shipped for C132E0278 and B132E0091).
+- **Variables** — browse the firmware's variables and watch any of them live.
+- **Traffic** — session counters, command latency, DAQ list owners and a decoded command trace.
+- **Self-Test** — a read-only checklist of the connection with a saved report.
+
+Everything written goes to calibration RAM and is lost at power-off. To keep a tune, save the calibration from the Tuning page (**Save As**), build a CRP from it with **Tools > Create CRP File**, and flash that with the **T6E Calibration Flasher**.
 
 ### ABS
 The ABS tab talks to the Bosch ESP8 ABS/ESP module over KWP2000 (ISO 14230) on CAN. Everything except the actuation sub-tab is read-only: no service that alters persistent module state — variant recoding, memory writes, DTC clearing — is offered.
@@ -140,13 +146,16 @@ The T6E Calibration Flasher provides a convenient interface for flashing ECU cal
 The flasher does not program the ECU directly. It prepares the calibration file and launches **EFI_PROT.EXE** — the external T6 flash programming utility (part of the T6_ECU_FIX package) — which then carries out the flash from its own console window. When EFI_PROT starts, you select the J2534 pass-thru device to use, so make sure the device is connected first. The vehicle must be powered off for the flashing procedure. Note that EFI_PROT must establish communication with the ECU within a limited time window; if it times out, the ECU locks out flashing. An ignition cycle does **not** clear this lockout — you must remove power from the ECU or wait several minutes before retrying — so be ready to proceed promptly once the tool launches.
 
 ### Erase Model Info
-Erase Model Info clears the model identification stored in the ECU's variant coding so the currently installed firmware can re-initialize it. This is primarily used when migrating firmware versions: flashing a new calibration does not update the stored model info, so the ECU reports a program-version mismatch and the new firmware is not fully activated. Erasing the field (filling it with 0xFF) causes the firmware to re-seed it from the freshly flashed calibration's program version on its next coding-initialization cycle, committing the change to EEPROM. The command is written over CCP. The firmware acts on it only when the ECU is unlocked (its calibration's unlock field is set), so the dialog checks that first where the build's symbol catalog says where to look, refuses if the connected ECU is not the selected firmware, and afterwards confirms the firmware took the command (it clears the command register) - otherwise it clears the register again so nothing runs later. It is disabled while logging is active and cannot be undone.
+Erase Model Info clears the model identification stored in the ECU's variant coding so the currently installed firmware can re-initialize it. This is primarily used when migrating firmware versions: flashing a new calibration does not update the stored model info, so the ECU reports a program-version mismatch and the new firmware is not fully activated. Erasing the field (filling it with 0xFF) causes the firmware to re-seed it from the freshly flashed calibration's program version on its next coding-initialization cycle, committing the change to EEPROM. The command is written over CCP, so the calibration must enable CCP on the OBD-II bus (see [CCP requirements](#ccp-requirements)). The firmware acts on it only when the ECU is unlocked (its calibration's unlock field is set), so the dialog checks that first where the build's symbol catalog says where to look, refuses if it recognises the connected ECU's build and it is not the selected firmware, and afterwards confirms the firmware took the command (it clears the command register) - otherwise it clears the register again so nothing runs later. It is disabled while logging is active and cannot be undone.
 
 ### Unpack CRP File
 Opens a .CRP flash container, decrypts it, and shows its chunk metadata as text. The decrypted firmware and calibration payloads can then be extracted to .bin files. This is a read-only inspection tool that never talks to the ECU.
 
 ### Create CRP File
-Builds a .CRP flash container from a calibration (calrom) file, a firmware (prog) file, or both. You pick the target ECU type and the input files; each input is matched to that ECU's calrom/prog reference address automatically. Like the unpacker, it only reads local files and writes a CRP — it never talks to the ECU.
+Builds a .CRP flash container from a calibration (calrom) file, a firmware (prog) file, or both. You pick the target ECU type and the input files; each input is matched to that ECU's calrom/prog reference address automatically. Like the unpacker, it only reads local files and writes a CRP — it never talks to the ECU. This is also how a live tune is kept: a calibration saved from the CCP Tuning page, or a full calibration download from Snapshots, is packed into a CRP here and then flashed.
+
+### HC08 TPS Table Patch
+The T6 ECU contains a second processor, an HC08 that independently monitors the electronic throttle, and its firmware is embedded in the main firmware (PROG) file with its own copy of the "TPS max vs rpm" table. Calibration editors only change the calibration's copy, so raising that table leaves the monitor enforcing its old, lower limit. This tool compares the two tables in a PROG file and a calibration file, raises the HC08 copy wherever the calibration is higher (it never lowers it), rewrites the HC08 rpm axis if the calibration's breakpoints have moved, and fixes the HC08 checksum that the main processor verifies. It refuses to patch if any of its safety checks fail, saves a timestamped backup, and works on files only — the patched PROG must then be packed with the calibration (**Create CRP File**) and flashed. Only C132E0278 (GT430) firmware is supported so far.
 
 ## Help Menu
 
@@ -155,7 +164,7 @@ Builds a .CRP flash container from a calibration (calrom) file, a firmware (prog
 ## Developer TODOs
 
 ### Architecture
-- **Every diagnostic operation opens its own J2534 device session.** There are 26 `J2534Session.Open()` call sites across 15 service classes, and nine controls carry an `IsLoggerActive` flag whose only job is to disable themselves while another operation owns the device — which is why the UI is full of "stop logging to use X". Fix: a session broker that owns one open device and leases channels per operation, so DTC reads, vehicle info and ABS telemetry can run alongside logging. This is also the natural home for pass-thru device selection (see UI / UX), and would let most of the `IsLoggerActive` gating be deleted. Large change that touches every service — land regression tests first (see Code Quality).
+- **Every OBD-II and ABS operation opens its own J2534 device session.** There are 19 `J2534Session.Open()` call sites across 14 service classes, and ten controls carry an `IsLoggerActive` flag whose only job is to disable themselves while another operation owns the device — which is why the UI is full of "stop logging to use X". The CCP side already works the other way: `CcpSessionHost` owns one session that the CCP tab, High-Speed Log, Snapshots, Erase Model Info and the Vehicle Information probe lease and share. Fix: the same for the device itself — a session broker that owns one open device and leases channels per operation, so DTC reads, vehicle info and ABS telemetry can run alongside logging. This is also the natural home for pass-thru device selection (see UI / UX), and would let most of the `IsLoggerActive` gating be deleted. Large change that touches every service — land regression tests first (see Code Quality).
 
 ### Stability
 - **`OBDLoggerControl.SafeUIInvoke` uses blocking `Invoke`.** The J2534 polling thread blocks until the UI thread has processed each batch, so any UI hitch costs sample rate directly. It also stalls the error path: `Logger_ExceptionOccurred` is raised on the logger thread and marshalled with `Invoke`, and its handler calls `Stop()`, which joins the very thread parked inside that `Invoke` — the UI freezes until the 2 s and 1 s join timeouts expire. Fix: `BeginInvoke`, or better, have the worker publish to a snapshot and let a UI timer render it at a fixed rate.
@@ -183,7 +192,7 @@ Builds a .CRP flash container from a calibration (calrom) file, a firmware (prog
 - **`T6eCodingDecoder` validation rules are incomplete.** Coding validation only covers a subset of models. Add validation rules for S2, Exige, and Emira variants.
 - **`J2534EcuCodingService` program-mismatch repair is unimplemented.** When the ECU is unlocked, read the program-mismatch flag and, if set, optionally clear it by issuing the reset command through the coding handler (command register accepts values 1–7).
 - **`J2534Compat` shim should eventually be removed.** It restores J2534-Sharp v1 throw-on-error semantics on top of the result-based v2 API. Long term, handle `J2534Result`/`J2534Result<T>` (`.IsSuccess`/`.Status`/`.IsTimeout`) explicitly at each call site and delete the shim.
-- **Test coverage is uneven.** `LotusECMLogger.Tests` now covers `CsvSampleSink`, `DiscoveringSampleSink`, `LiveDataReading.ParseCanResponse`, the OBD configuration loaders, `PerformanceHistoryDecoder`, `FreezeFrameDecoder`, `Mode13Decoder`, the emissions check (`EmissionsDecoder`, `EmissionsCheckEvaluator`, `StockSoftwareCatalog`), and CRP pack/unpack round-trips. Still verified only by hand against a car: `T6eCodingDecoder`, `HighSpeedLogPlanner`, `SymbolCatalogLoader`, and the ABS decoders. All of them are pure functions over bytes and files and need no hardware, so extending coverage is the cheapest available safety net — close to a prerequisite for the session-broker work under Architecture.
+- **Test coverage is uneven.** `LotusECMLogger.Tests` now covers `CsvSampleSink`, `DiscoveringSampleSink`, `LiveDataReading.ParseCanResponse`, the OBD configuration loaders, `PerformanceHistoryDecoder`, `FreezeFrameDecoder`, `Mode13Decoder`, the emissions check (`EmissionsDecoder`, `EmissionsCheckEvaluator`, `StockSoftwareCatalog`), CRP pack/unpack round-trips, the HC08 TPS patcher, and the CCP tab end to end against a simulated ECU. `LotusECMLogger.Ccp.Tests` covers the CCP stack: the protocol master and session sharing, the high-speed log planner and service (with golden fixtures for every shipped preset), the A2L reader and generator, the calibration image, live tuning, the live cursor, and recording and replay. Still verified only by hand against a car: `T6eCodingDecoder` and the ABS decoders. Both are pure functions over bytes and files and need no hardware, so extending coverage is the cheapest available safety net — close to a prerequisite for the session-broker work under Architecture.
 
 ### Protocol / Data
 - **Throttle position scaling constant may not be portable.** `LiveDataReading.cs` uses a hard-coded divisor of 77 as the observed max raw throttle value, and PID 0x11 currently appears to be scaled twice (`raw * 100 / 77`, then `* 100 / 255`). Verify against the OBD spec and replace with a single documented or configurable scaling.

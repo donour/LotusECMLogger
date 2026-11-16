@@ -185,7 +185,8 @@ namespace LotusECMLogger.Controls
 			{
 				SetStatus(statusLabel, "No response", Color.Red);
 				Notify($"The ECU did not answer over CCP: {ex.Message}\n\nSwitch the ignition on and check the connection. " +
-					"Snapshots need a T6 ECU (2011 on) whose calibration has CCP enabled.",
+					"Snapshots need a T6 ECU (2011 on) whose calibration enables CCP on the OBD-II bus " +
+					"(CAL_logger_high_speed_logger_enable = 1). Stock calibrations do not.",
 					"Download Failed", MessageBoxIcon.Error);
 			}
 			catch (Exception ex)

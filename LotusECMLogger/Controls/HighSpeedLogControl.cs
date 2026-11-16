@@ -282,7 +282,7 @@ namespace LotusECMLogger.Controls
                 "High-speed logging makes this PC an active node on the vehicle CAN bus at 500 kbit/s and " +
                 "sends configuration commands to the ECU.\n\n" +
                 "• Configure with the engine OFF and the vehicle stationary.\n" +
-                "• The ECU diagnostic bus must be enabled (CAL_ecu_flexcan_diag_bus_select ≠ 0).\n\n" +
+                "• The calibration must enable the logger on the OBD-II bus (CAL_logger_high_speed_logger_enable = 1).\n\n" +
                 "Proceed?",
                 "Start High-Speed Logging", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning);
             if (confirm != DialogResult.OK)

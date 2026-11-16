@@ -77,7 +77,8 @@ namespace LotusECMLogger
 
             // Add feature sub-nodes
             features.Nodes.Add("vehicleinfo", "Extended Vehicle Information");
-            features.Nodes.Add("livedata", "Live Data Logging");
+            features.Nodes.Add("performance", "Performance History");
+            features.Nodes.Add("livedata", "OBD-II Logging");
             features.Nodes.Add("highspeed", "High-Speed Logging");
             features.Nodes.Add("ecucoding", "ECU Coding");
             features.Nodes.Add("setvin", "Set VIN");
@@ -107,6 +108,7 @@ namespace LotusECMLogger
             features.Nodes.Add("snapshots", "Snapshots");
             features.Nodes.Add("flasher", "T6E Calibration Flasher");
             features.Nodes.Add("erasemodel", "Erase Model Info");
+            features.Nodes.Add("crptools", "CRP Files (Unpack / Create)");
             features.Nodes.Add("hc08patch", "HC08 TPS Table Patch");
 
             var adapters = navigationTree.Nodes.Add("adapters", "Supported Adapters");
@@ -131,6 +133,9 @@ namespace LotusECMLogger
                     break;
                 case "vehicleinfo":
                     ShowVehicleInfoHelp();
+                    break;
+                case "performance":
+                    ShowPerformanceHistoryHelp();
                     break;
                 case "livedata":
                     ShowLiveDataHelp();
@@ -204,6 +209,9 @@ namespace LotusECMLogger
                 case "erasemodel":
                     ShowEraseModelHelp();
                     break;
+                case "crptools":
+                    ShowCrpToolsHelp();
+                    break;
                 case "hc08patch":
                     ShowHc08TpsPatchHelp();
                     break;
@@ -262,9 +270,10 @@ namespace LotusECMLogger
             AddBulletPoint("Supports OBD-II Mode 01: Standard parameters like RPM, speed, coolant temperature, etc.");
             AddBulletPoint("Supports OBD-II Mode 22: Manufacturer-specific channels, including advanced Lotus data.");
             AddBulletPoint("Capture Lotus-specific data: Log unique parameters such as variable cam control, knock control, and more.");
-            AddBulletPoint("High-Speed Channel Logging: Stream internal ECU channels over CAN at up to 100 Hz - far faster than OBD-II - for tuning and transient analysis (requires firmware with the channel-logger facility).");
+            AddBulletPoint("High-Speed Channel Logging: Stream internal ECU channels over CAN at up to 100 Hz - far faster than OBD-II - for tuning and transient analysis (needs a calibration with the ECU's high-speed logger enabled; see the High-Speed Logging topic).");
             AddBulletPoint("ECU Coding: Read and modify ECU configuration settings for Lotus T6e ECUs.");
             AddBulletPoint("Extended Vehicle Information: Retrieve VIN, ECU details, and calibration data.");
+            AddBulletPoint("Performance History: Read the Evora ECU's stored usage histograms, standing-start times, top speeds and RPM, and low-oil-pressure and lateral-G events.");
             AddBulletPoint("Set VIN: Program a new VIN to the ECU using OBD-II Mode 0x3B.");
             AddBulletPoint("Dyno Mode: Enable the ECU's diagnostic override to inhibit faults from external systems (such as ABS) during dyno runs.");
             AddBulletPoint("Diagnostic Trouble Codes: Read and clear DTCs from the ECU, including the Lotus-only Mode 0x13 service that returns current, confirmed, and (on Series 1 Evoras) TPMS codes in a single request.");
@@ -273,8 +282,9 @@ namespace LotusECMLogger
             AddBulletPoint("ABS/ESP Diagnostics: Read fault codes, identification, and live internal state from the Bosch ESP8 ABS module; log all four wheel speeds at 100 Hz; and run the pump/valve routines used for brake bleeding.");
             AddBulletPoint("CCP: Connect to the T6 ECU's calibration interface to read, check and write its memory, watch internal variables, and edit calibration tables live with the engine running - with a cursor showing where the ECU is reading each table, and recordings you can replay to see which cells were used.");
             AddBulletPoint("Snapshots: Download the T6 ECU's learned data, calibration and program flash to files over CCP, each checked against the ECU's own checksum.");
-            AddBulletPoint("T6E Calibration Flasher: Flash calibration files to the ECU.");
+            AddBulletPoint("T6E Calibration Flasher: Flash calibration files to the ECU (Tools menu).");
             AddBulletPoint("Erase Model Info: Clear stored model info after a firmware migration so the new firmware activates (Tools menu).");
+            AddBulletPoint("CRP Files: Unpack a .CRP flash container to inspect or extract its contents, or build one from calibration and firmware files (Tools menu).");
             AddBulletPoint("HC08 TPS Table Patch: Raise the throttle monitor's copy of the TPS max table in a T6 firmware file to match a tuned calibration, and fix its checksum (Tools menu).");
             AddBulletPoint("Free and open source: No cost, no restrictions, and community-driven development.");
         }
@@ -294,15 +304,15 @@ namespace LotusECMLogger
             AddSubheading("Quick Start:");
             AddParagraph("1. Connect your J2534 device to your computer via USB and to your vehicle's OBD-II port.");
             AddParagraph("2. Launch LotusECMLogger.");
-            AddParagraph("3. Select an OBD configuration from the 'Config' dropdown in the Live Data tab.");
+            AddParagraph("3. Open the Logging tab, then OBD-II Logging > Logger, and select an OBD configuration from the 'Config' dropdown.");
             AddParagraph("4. Click 'Start' to begin logging data. Data will be saved to a CSV file in the Documents\\LotusECMLogger folder.");
             AddParagraph("5. Click 'Stop' when you're done logging.");
 
             AddSubheading("Navigation:");
             AddParagraph("The application uses a tabbed interface to organize different diagnostic and logging functions. Click on each tab to access different features:");
             AddBulletPoint("Vehicle Information - Read VIN and ECU details, program a new VIN, enable Dyno Mode, and reset learned adaptations");
-            AddBulletPoint("Live Data - Real-time parameter logging, with a Logging Config sub-tab for editing OBD configurations");
-            AddBulletPoint("High-Speed Log - High-rate CAN channel logging (requires firmware with the channel-logger facility)");
+            AddBulletPoint("Performance History - The Evora ECU's stored usage histograms, standing-start times, top speeds and RPM, and retained events");
+            AddBulletPoint("Logging - Two sub-tabs. High-Speed Log: high-rate CAN channel logging (needs a calibration with the ECU's high-speed logger enabled). OBD-II Logging: real-time parameter logging (Logger), with a Logging Config sub-tab for editing OBD configurations");
             AddBulletPoint("ECU Coding - Modify ECU configuration");
             AddBulletPoint("Diagnostic Trouble Codes - Read and clear fault codes, with a Mode 0x13 sub-tab that reads every code the ECU holds (including TPMS on Series 1 Evoras) in one request");
             AddBulletPoint("Emissions - An OBD-II smog check / I/M pre-check: readiness monitors, MIL, trouble codes, and a pass/fail verdict for the inspection program you choose");
@@ -311,27 +321,65 @@ namespace LotusECMLogger
             AddBulletPoint("ABS - Diagnostics for the ABS/ESP module, which is a separate computer from the engine ECU with its own fault memory (Evora; see the ABS/ESP Diagnostics topic)");
 
             AddSubheading("Output Files:");
-            AddParagraph("All loggers write their output beneath a single folder: Documents\\LotusECMLogger. Live Data logs are named LiveData_<timestamp>.csv and high-speed logs HighSpeed_<timestamp>.csv. Snapshots default to the same folder. The CCP tab saves a backup before every write in the ccp-backups subfolder, and tuning recordings in the recordings subfolder. The folder is created automatically the first time a log is written.");
+            AddParagraph("All loggers write their output beneath a single folder: Documents\\LotusECMLogger. OBD-II logs are named LiveData_<timestamp>.csv, high-speed logs HighSpeed_<timestamp>.csv and ABS telemetry logs ABS_Telemetry_<timestamp>.csv. Snapshots default to the same folder. The CCP tab saves a backup before every write in the ccp-backups subfolder, and tuning recordings in the recordings subfolder. The folder is created automatically the first time a log is written.");
             AddParagraph("Every log shares one CSV layout: a few '#' lines describing the session, then a header row of Timestamp, RelativeTime_ms, and one column per logged value. Timestamps are ISO 8601 to the microsecond and carry the UTC offset, so a log that spans a daylight-saving change stays unambiguous. Numbers always use a decimal point regardless of your Windows regional settings, and an empty cell means no value was available for that row. Columns holding raw ECU memory are written as hex (0x1F) rather than decimal.");
 
             AddParagraph("");
             AddParagraph("Some advanced, rarely-used operations live in the Tools menu rather than a tab:");
             AddBulletPoint("T6E Calibration Flasher - Flash a calibration file to the ECU");
             AddBulletPoint("Erase Model Info - Activate a newly flashed firmware version by clearing the stored model info");
+            AddBulletPoint("Unpack CRP File and Create CRP File - Inspect a .CRP flash container, or build one from calibration and firmware files");
             AddBulletPoint("HC08 TPS Table Patch - Bring the HC08 throttle monitor's TPS max table in a firmware file up to your calibration's values before flashing");
+        }
+
+        private void ShowPerformanceHistoryHelp()
+        {
+            AddHeading("Performance History");
+
+            AddParagraph("The Performance History tab reads the statistics the Evora engine ECU keeps about how the car has been used. They are stored permanently in the ECU and survive power cycles, so they describe the car's whole life since the ECU was fitted or last reset - not just the current drive. The data is read with Mode 22 requests (PIDs 0x0300 to 0x0361); nothing is written.");
+
+            AddSubheading("How to Use:");
+            AddParagraph("1. Switch the ignition on and stop any logging session.");
+            AddParagraph("2. Click 'Read Performance History'. The status line shows which ECU variant was recognised and its calibration.");
+            AddParagraph("3. Look through the three pages below.");
+
+            AddSubheading("Overview:");
+            AddBulletPoint("The ECU variant and calibration the read was decoded for.");
+            AddBulletPoint("Total engine runtime, and the distance recorded where the firmware publishes it.");
+            AddBulletPoint("Standing starts: how many, and the fastest and most recent 0-100 km/h and 0-160 km/h times. 'No valid run recorded' means the ECU holds none.");
+            AddBulletPoint("The number of low-oil-pressure events.");
+
+            AddSubheading("Usage:");
+            AddParagraph("The ECU's time-at-condition histograms: throttle position, engine speed, road speed, coolant temperature and lateral acceleration. Each row is one band, with its range, the time spent in it, its share of the category's total, and the ECU's raw count of 100 ms samples.");
+
+            AddSubheading("Events:");
+            AddBulletPoint("The five highest engine speeds and the five highest road speeds recorded.");
+            AddBulletPoint("The three retained low-oil-pressure events and the three retained high-lateral-G events, each with the speed, RPM, peak lateral acceleration and the engine-runtime timestamp stored with it.");
+
+            AddSubheading("Firmware Variants:");
+            AddParagraph("The layout of this data differs between firmware versions. The reader picks a profile from the calibration/program identifier for the firmware it knows: B132E0091 (Evora S1), C132E0271 (Evora 400), C132E0278 (GT430) and E132E0288 (late Evora GT). That decides, for example, whether one PID is the distance or a sixth lateral-G band.");
+            AddBulletPoint("The band limits of the histograms are calibration constants the ECU does not transmit. The Usage page shows the ranges verified in each known firmware beside the ECU's band number.");
+            AddBulletPoint("An unrecognised calibration still reads, but only the fields that mean the same in every known variant are shown.");
+
+            AddSubheading("Requirements:");
+            AddBulletPoint("An Evora engine ECU. Ignition ON, engine running or not.");
+            AddBulletPoint("Logging stopped: the read needs the J2534 device to itself, so it is refused while a logging session is running.");
         }
 
         private void ShowLiveDataHelp()
         {
-            AddHeading("Live Data Logging");
+            AddHeading("OBD-II Logging");
 
-            AddParagraph("The Live Data tab displays real-time OBD-II parameters from your Lotus vehicle in an easy-to-read list format. This is the primary feature for monitoring and logging vehicle data during driving or dyno testing.");
+            AddParagraph("The Logging tab's OBD-II Logging sub-tab displays real-time OBD-II parameters from your Lotus vehicle in an easy-to-read list format, and logs them to CSV. It works on any compatible ECU with no special calibration, which makes it the place to start for monitoring and logging vehicle data during driving or dyno testing. It has two pages: Logger, described here, and Logging Config, an editor for the configurations the Logger uses.");
 
             AddSubheading("How to Use:");
-            AddParagraph("1. Select Configuration: Choose an OBD configuration from the dropdown menu. Different configurations contain different sets of parameters tailored for specific purposes (e.g., general logging, performance tuning, diagnostics).");
+            AddParagraph("1. Select Configuration: On the Logger page, choose an OBD configuration from the 'Config' dropdown. Different configurations contain different sets of parameters tailored for specific purposes (e.g., general logging, performance tuning, diagnostics).");
             AddParagraph("2. Start Logging: Click the 'Start' button to begin data collection. The application will connect to your vehicle's ECU and start reading parameters.");
-            AddParagraph("3. Monitor Data: Watch real-time values update in the list view. The refresh rate is displayed in the status bar at the bottom.");
+            AddParagraph("3. Monitor Data: Watch real-time values update in the list view, with each channel's current, minimum and maximum. The refresh rate is displayed in the status bar at the bottom.");
             AddParagraph("4. Stop Logging: Click 'Stop' when finished. The data will be saved to a CSV file.");
+
+            AddSubheading("Logging Config:");
+            AddParagraph("The Logging Config page creates and edits configuration files: add and remove ECUs, set each ECU's CAN request and response IDs, and build its list of Mode 01 or Mode 22 requests with names, categories, units and PIDs. Configurations are saved as JSON and appear in the Logger's 'Config' dropdown without restarting the application.");
 
             AddSubheading("Output Files:");
             AddParagraph("Log files are automatically saved to the Documents\\LotusECMLogger folder with timestamps in the filename (e.g., LiveData_20250210_143022.csv). These CSV files can be opened in Excel, Google Sheets, or specialized data analysis tools.");
@@ -350,23 +398,23 @@ namespace LotusECMLogger
         {
             AddHeading("High-Speed Logging");
 
-            AddParagraph("The High-Speed Log tab streams internal ECU channels directly over CAN at up to 100 Hz per channel - far faster than the OBD-II Live Data tab. Instead of polling the ECU with request/response messages, it configures the ECU as a programmable sampler that autonomously broadcasts the channels you select. This makes it possible to capture fast transients such as per-cylinder ignition advance and knock retard, throttle and pedal movement, AFR, MAF, load, and torque.");
+            AddParagraph("The High-Speed Log sub-tab of the Logging tab streams internal ECU channels directly over CAN at up to 100 Hz per channel - far faster than OBD-II Logging. Instead of polling the ECU with request/response messages, it configures the ECU as a programmable sampler that autonomously broadcasts the channels you select. This makes it possible to capture fast transients such as per-cylinder ignition advance and knock retard, throttle and pedal movement, AFR, MAF, load, and torque.");
 
             AddSubheading("Requirements (what is needed to enable it):");
             AddBulletPoint("J2534 device and OBD-II connection: The same hardware used elsewhere in the app. High-speed logging communicates over raw CAN at 500 kbit/s.");
-            AddBulletPoint("Firmware with the channel-logger facility: Not every ECU/firmware includes the high-speed channel-logger. Standard locked production calibrations generally do not. Use the 'Test Connection' button (below) or the 'HS LOGGER' indicator on the Extended Vehicle Information tab to confirm the facility is present before relying on it.");
-            AddBulletPoint("Diagnostic CAN bus enabled: The calibration setting CAL_ecu_flexcan_diag_bus_select must be non-zero. If the diagnostic bus is disabled, the ECU will not respond to the logger commands even on capable firmware.");
+            AddBulletPoint("A T6 engine ECU from 2011 on: the logger is the firmware's CCP calibration interface, which every such firmware contains. It does not need an unlocked ECU.");
+            AddBulletPoint("The logger enabled in the calibration, on the OBD-II bus: the calibration value CAL_logger_high_speed_logger_enable must be 1. Stock calibrations do not have it there - the 2011 Evora NA and S ship with 0 (off), and the Evora 400, GT430 and GT with 2 (a second CAN bus that is not at the OBD-II port) - so a stock car does not answer until a calibration with the value set to 1 has been flashed. Set it in your calibration editor; it cannot be changed over CCP, and the CCP Tuning page refuses to edit it.");
             AddBulletPoint("A symbol database for your firmware version: The app ships databases for the supported firmware versions (for example C132E0278 and B132E0091) and uses them to resolve each channel's address, size, scaling, and unit. Presets and the 'Add Channels...' browser are populated from this database.");
 
             AddSubheading("Test Connection:");
-            AddParagraph("Click 'Test Connection' before logging to verify the ECU supports high-speed logging. It opens a short session and sends an identify request, then reports one of:");
-            AddBulletPoint("Connected - channel logger present (green): The facility is available and you can log.");
-            AddBulletPoint("Diagnostic bus is alive, but the ECU did not answer / unexpected protocol (orange): The bus is reachable but this firmware does not provide the high-speed channel-logger.");
-            AddBulletPoint("No response (red): The diagnostic bus is not reachable. Check that the diagnostic bus is enabled, and verify the CAN wiring and 500 kbit/s connection.");
-            AddParagraph("The Extended Vehicle Information tab shows the same result as an 'HS LOGGER' indicator after you load vehicle data.");
+            AddParagraph("Click 'Test Connection' before logging to verify the ECU answers. It connects and asks the ECU to identify itself, then reports one of:");
+            AddBulletPoint("Connected - channel logger present (green): The logger is available and you can log. The line also gives the ECU's ID, CCP version and build.");
+            AddBulletPoint("No response (red): The ECU did not answer. Either the logger is not enabled on the OBD-II bus in this calibration (see Requirements), or the ignition is off or the connection is faulty.");
+            AddBulletPoint("Diagnostic bus is alive, but the ECU did not answer identify / unexpected protocol (orange): Something answered, but not as a T6 logger does - not a supported ECU.");
+            AddParagraph("The Vehicle Information tab shows the same result as an 'HS LOGGER' indicator after you load vehicle data.");
 
             AddSubheading("How to Use:");
-            AddParagraph("1. Open the High-Speed Log tab.");
+            AddParagraph("1. Open the Logging tab and its High-Speed Log sub-tab.");
             AddParagraph("2. (Recommended) Click 'Test Connection' to confirm the ECU supports high-speed logging.");
             AddParagraph("3. Select a preset for your firmware version from the dropdown, or click 'Add Channels...' to search the symbol database and pick channels yourself.");
             AddParagraph("4. In the channel grid, tick the channels to log and set each one's sample rate (Hz).");
@@ -392,8 +440,8 @@ namespace LotusECMLogger
             AddParagraph("Data is saved to CSV with columns: Timestamp (ISO 8601 wall-clock, microsecond resolution), RelativeTime_ms (derived from the adapter's hardware timestamp for accurate inter-frame timing), Label, then one column per logged channel. A frame carries only its own group's channels, so the other columns repeat their most recent value. Files are written to Documents\\LotusECMLogger by default (e.g., HighSpeed_20250210_143022.csv).");
             AddParagraph("The '#' lines at the top describe each channel exactly - for example '# channel: coolant_temp @0x40001836 size=1 signed=0 scale=0.625 offset=-40 rate=20Hz unit=°C' - so the logged values can be turned back into the ECU's raw values. That is what lets the CCP Tuning page replay a high-speed log on its tables (see CCP > Recording & Replay).");
 
-            AddSubheading("How It Differs from Live Data:");
-            AddParagraph("Live Data uses OBD-II request/response (Mode 01/22) and works on any compatible ECU, but is limited by polling. High-Speed Logging streams internal channels at a fixed, hardware-timestamped rate and is far faster, but requires firmware that includes the channel-logger facility.");
+            AddSubheading("How It Differs from OBD-II Logging:");
+            AddParagraph("OBD-II Logging uses OBD-II request/response (Mode 01/22) and works on any compatible ECU, stock calibration included, but is limited by polling. High-Speed Logging streams internal channels at a fixed, hardware-timestamped rate and is far faster, but requires a T6 ECU whose calibration enables the logger on the OBD-II bus.");
 
             AddSubheading("Notes and Caution:");
             AddBulletPoint("While logging, the PC is an active node on the vehicle CAN bus and sends configuration commands to the ECU. Use 'Test Connection' first to confirm a healthy link.");
@@ -427,7 +475,7 @@ namespace LotusECMLogger
         {
             AddHeading("Extended Vehicle Information");
 
-            AddParagraph("The Extended Vehicle Information tab retrieves static vehicle data such as VIN, ECU name, calibration ID, and calibration verification numbers. This information is queried using OBD-II Mode 09 and provides essential identification data about your vehicle's ECU and configuration. It also probes and reports whether the ECU is unlocked, which determines whether advanced operations are available.");
+            AddParagraph("The Vehicle Information tab retrieves static vehicle data such as VIN, ECU name, calibration ID, and calibration verification numbers. This information is queried using OBD-II Mode 09 and provides essential identification data about your vehicle's ECU and configuration, and Mode 22 adds the per-cylinder octane scalers. After a load, the tab also probes the ECU over CCP and shows an 'HS LOGGER' indicator: AVAILABLE when the ECU answers, which is what the High-Speed Log, Snapshots and the CCP tab need; UNAVAILABLE when it does not (see the High-Speed Logging topic for what enables it); UNKNOWN when it could not be checked.");
 
             AddSubheading("How to Use:");
             AddParagraph("1. Load Data: Click 'Load Vehicle Data' to query all available information from your ECU.");
@@ -437,7 +485,8 @@ namespace LotusECMLogger
             AddBulletPoint("Vehicle Identification Number (VIN): The unique 17-character identifier for your vehicle.");
             AddBulletPoint("ECU Name: The internal name/designation of your engine control unit.");
             AddBulletPoint("Calibration ID: Identifies the software calibration loaded in the ECU.");
-            AddBulletPoint("Calibration Verification Numbers (CVN): A checksum value used to verify calibration integrity.");
+            AddBulletPoint("Calibration Verification Numbers (CVN): A checksum value used to verify calibration integrity, shown in hex.");
+            AddBulletPoint("Octane scalers (per cylinder): How much knock-based correction the ECU has learned for each cylinder.");
             AddBulletPoint("In-Use Performance Tracking: Emissions-related tracking data (if available).");
 
             AddSubheading("Use Cases:");
@@ -480,7 +529,7 @@ namespace LotusECMLogger
         {
             AddHeading("Set VIN");
 
-            AddParagraph("The Set VIN dialog programs a new Vehicle Identification Number into the ECU using OBD-II Mode 0x3B. Open it from the 'Set VIN' button on the Extended Vehicle Information tab.");
+            AddParagraph("The Set VIN dialog programs a new Vehicle Identification Number into the ECU using OBD-II Mode 0x3B. Open it from the 'Set VIN' button on the Vehicle Information tab.");
 
             AddSubheading("What Can Be Changed:");
             AddParagraph("The Lotus firmware only allows positions 4–17 of the VIN to be rewritten. The first 3 characters (the WMI, World Manufacturer Identifier) are fixed at 'SCC' for Lotus and cannot be changed by this protocol. The dialog shows the WMI as a read-only field for reference and accepts the remaining 14 characters as editable input.");
@@ -493,11 +542,11 @@ namespace LotusECMLogger
             AddParagraph("Validation runs as you type. The Program button is disabled until the entry passes all checks; the status line below the input pinpoints the first offending character when the entry is invalid.");
 
             AddSubheading("How to Use:");
-            AddParagraph("1. Click 'Load Vehicle Data' on the Extended Vehicle Information tab if you want the current VIN pre-populated.");
+            AddParagraph("1. Click 'Load Vehicle Data' on the Vehicle Information tab if you want the current VIN pre-populated.");
             AddParagraph("2. Click 'Set VIN' to open the programming dialog.");
             AddParagraph("3. Edit the 14-character remainder field. The WMI ('SCC') is shown read-only.");
             AddParagraph("4. Click 'Program' and confirm the warning dialog.");
-            AddParagraph("5. Wait for the success message. The Extended Vehicle Information tab will automatically reload to show the new VIN.");
+            AddParagraph("5. Wait for the success message. The Vehicle Information tab will automatically reload to show the new VIN.");
 
             AddSubheading("Engine Must Be Off:");
             AddParagraph("The Lotus firmware silently discards Mode 0x3B writes while the engine is running — the ECU still acknowledges every chunk with a positive response, but no bytes reach EEPROM. Stop the engine (ignition on, engine off) before programming.");
@@ -565,7 +614,7 @@ namespace LotusECMLogger
 
             AddSubheading("How to Use:");
             AddParagraph("1. Read All Codes: Click 'Read All Codes' to send one Mode 0x13 request and list everything that comes back. Each code is shown with the same plain-English description used by the Standard OBD-II sub-tab, its category, and its raw hexadecimal value.");
-            AddParagraph("2. Request: Leave this on 'Report all - 03 13 FF 00'. The ECU accepts a second, older form ('Bare service - 01 13') that returns exactly the same data; it is offered only for testing against firmware that behaves unexpectedly.");
+            AddParagraph("2. Request: Leave this on 'Report all — 03 13 FF 00'. The ECU accepts a second, older form ('Bare service — 01 13') that returns exactly the same data; it is offered only for testing against firmware that behaves unexpectedly.");
             AddParagraph("3. Raw response: The bytes the ECU actually returned, starting with the 0x53 response code. Because this service is undocumented outside the firmware, keeping the raw bytes with any report makes a surprising result verifiable.");
 
             AddSubheading("Reading the Results:");
@@ -654,7 +703,7 @@ namespace LotusECMLogger
 
             AddSubheading("What is Learned Data?");
             AddParagraph("The ECU continuously adapts to your engine, fuel, and component wear by adjusting various parameters as you drive. On the Lotus T6 these adaptations are stored as 'learned values' in the ECU's EEPROM (protected by a checksum) so they persist across power cycles. They include:");
-            AddBulletPoint("Octane scalers (per cylinder): Knock-based octane learning - one value per cylinder tracking how much knock-based fuel/timing correction has been accumulated. These are also shown on the Extended Vehicle Information tab.");
+            AddBulletPoint("Octane scalers (per cylinder): Knock-based octane learning - one value per cylinder tracking how much knock-based fuel/timing correction has been accumulated. These are also shown on the Vehicle Information tab.");
             AddBulletPoint("Knock retard learning: Learned ignition timing retard derived from knock sensor activity.");
             AddBulletPoint("Throttle tip-in / alpha-N load trim: A learned correction to the throttle-angle-and-speed (alpha-N) airflow model across RPM and throttle position, used when estimating engine load from throttle position. A reset re-seeds this to the base calibration.");
             AddBulletPoint("Torque-to-throttle (TPS) scaling: A learned mapping from requested torque to throttle position across RPM and load. A reset re-seeds this to the base calibration.");
@@ -880,7 +929,8 @@ namespace LotusECMLogger
             AddParagraph("The Snapshots tab downloads a T6 ECU's flash to .bin files over CCP: the learned data, the calibration and the program. Use it to keep a copy of a car's calibration before tuning or flashing, or to read the learned trims.");
 
             AddSubheading("Requirements:");
-            AddBulletPoint("A T6 engine ECU from 2011 on, with CCP enabled in its calibration (stock calibrations have it). No unlocked ECU is needed.");
+            AddBulletPoint("A T6 engine ECU from 2011 on. No unlocked ECU is needed.");
+            AddBulletPoint("CCP enabled on the OBD-II bus in the calibration: CAL_logger_high_speed_logger_enable must be 1. Stock calibrations ship with 0 (off) or 2 (a CAN bus that is not at the OBD-II port), so a stock car does not answer and cannot be downloaded this way until a calibration with the value set to 1 has been flashed. See CCP (Calibration Protocol) > Requirements.");
             AddBulletPoint("Ignition on, and the OBD-II logger stopped. The download shares the CCP session with the CCP and High-Speed Log tabs, so they can stay connected.");
 
             AddSubheading("How to Use:");
@@ -950,8 +1000,8 @@ namespace LotusECMLogger
 
             AddSubheading("Requirements:");
             AddBulletPoint("Unlocked ECU: the firmware only acts on coding commands when the ECU is unlocked - when its calibration's unlock field is set - however the command is sent. Where the build's symbol database says where to look, the tool reads the unlock state first and refuses on a locked ECU.");
-            AddBulletPoint("CCP: the command is sent over the CCP session (ignition on, CCP enabled in the calibration).");
-            AddBulletPoint("Correct firmware version selected: The dialog needs to know which firmware is installed so it can target the right command register address. Selecting the wrong version writes to the wrong address.");
+            AddBulletPoint("CCP: the command is sent over the CCP session, so the ignition must be on and the calibration must enable CCP on the OBD-II bus (CAL_logger_high_speed_logger_enable = 1; stock calibrations do not - see the CCP topic).");
+            AddBulletPoint("Correct firmware version selected: The dialog needs to know which firmware is installed so it can target the right command register address. When the application recognises the connected ECU's build, it refuses a selection that does not match. For a build it does not recognise it cannot check, and a wrong selection writes to the wrong address.");
             AddBulletPoint("Logging stopped: Erase Model Info is disabled while data logging is active. The menu item stays greyed out until you stop the logger.");
 
             AddSubheading("How to Use:");
@@ -968,8 +1018,35 @@ namespace LotusECMLogger
 
             AddSubheading("Important Warnings:");
             AddBulletPoint("This operation cannot be undone. The previous model string is overwritten, and the firmware re-seeds it from the installed calibration.");
-            AddBulletPoint("Selecting the wrong firmware version targets the wrong memory address. Confirm the installed version before proceeding.");
+            AddBulletPoint("On an ECU whose build the application does not recognise, selecting the wrong firmware version targets the wrong memory address. Confirm the installed version before proceeding.");
             AddBulletPoint("The change is written to ECU EEPROM and persists across power cycles.");
+        }
+
+        private void ShowCrpToolsHelp()
+        {
+            AddHeading("CRP Files (Unpack / Create)");
+
+            AddParagraph("A .CRP file is the encrypted container the flash programming tool sends to the ECU. It holds a calibration, a firmware (program) image, or both. Two tools in the Tools menu work with these files. Both read and write local files only - neither talks to the ECU.");
+
+            AddSubheading("Unpack CRP File:");
+            AddParagraph("Tools > Unpack CRP File… opens a .CRP, decrypts it, and shows what it contains.");
+            AddParagraph("1. Click 'Open CRP…' and select the file. The dialog lists each chunk's details as text.");
+            AddParagraph("2. Click 'Extract .bin…' to save the decrypted calibration and firmware as .bin files.");
+            AddParagraph("Use it to see what a CRP will flash before you flash it, or to get the calibration out of a CRP you were given. The CCP Tuning page can also open a .CRP directly.");
+
+            AddSubheading("Create CRP File:");
+            AddParagraph("Tools > Create CRP File… builds a .CRP from a calibration file, a firmware file, or both.");
+            AddParagraph("1. Choose the ECU type. It sets the encryption key and where each file is placed (T6 is the default; T4e, the T6 Caterham and Yaris variants, the Caterham CT1 and the TCU are also offered).");
+            AddParagraph("2. Browse for the calibration (.CPT) file, the firmware (.BIN) file, or both. The ✕ beside each clears it.");
+            AddParagraph("3. Click 'Create CRP…' and choose where to save. With both files, the calibration is written first and the firmware second.");
+
+            AddSubheading("Keeping a Live Tune:");
+            AddParagraph("Edits made on the CCP Tuning page live in the ECU's RAM and are lost at power-off. To keep them: 'Save As…' on the Tuning page, build a CRP from the saved calibration here, then flash it with Tools > T6E Calibration Flasher. A full calibration download from the Snapshots tab converts the same way.");
+
+            AddSubheading("Notes:");
+            AddBulletPoint("Trailing 0xFF padding is stripped from each input before it is packed.");
+            AddBulletPoint("Creating a CRP does not check that the calibration and firmware belong together or suit your car. Only flash files intended for your ECU.");
+            AddBulletPoint("If you changed the 'TPS max' table, run Tools > HC08 TPS Table Patch on the firmware file first, and pack the patched firmware with the calibration.");
         }
 
         private void ShowHc08TpsPatchHelp()
@@ -1081,14 +1158,15 @@ namespace LotusECMLogger
 
             AddSubheading("Connection Issues:");
 
-            AddParagraph("Problem: 'No J2534 device found' or 'Failed to connect'");
+            AddParagraph("Problem: No J2534 device is found, or the connection fails");
+            AddBulletPoint("An error reading 'Sequence contains no elements' means no J2534 driver is installed on this computer: install your device's driver");
             AddBulletPoint("Ensure your J2534 device is connected via USB");
             AddBulletPoint("Install or update device drivers from manufacturer");
             AddBulletPoint("Check Windows Device Manager for hardware issues");
             AddBulletPoint("Try unplugging and reconnecting the device");
             AddBulletPoint("Restart the application after connecting the device");
 
-            AddParagraph("Problem: 'ECM communication timeout'");
+            AddParagraph("Problem: The ECU does not respond (timeouts)");
             AddBulletPoint("Verify your vehicle's ignition is on");
             AddBulletPoint("Check OBD-II connection is secure");
             AddBulletPoint("Ensure vehicle battery has sufficient charge");
@@ -1097,13 +1175,13 @@ namespace LotusECMLogger
 
             AddSubheading("Logging Issues:");
 
-            AddParagraph("Problem: 'Failed to start logger' or 'No data being logged'");
+            AddParagraph("Problem: The logger fails to start, or no data is logged");
             AddBulletPoint("Select a valid OBD configuration from the dropdown");
             AddBulletPoint("Ensure J2534 device is connected before starting");
             AddBulletPoint("Check that no other software is using the J2534 device");
             AddBulletPoint("Verify the selected configuration is compatible with your vehicle");
 
-            AddParagraph("Problem: 'Slow refresh rate' or 'Choppy data'");
+            AddParagraph("Problem: Slow refresh rate or choppy data");
             AddBulletPoint("Reduce the number of parameters being logged");
             AddBulletPoint("Try a different USB port (USB 3.0 recommended)");
             AddBulletPoint("Close other applications that might be using resources");
@@ -1154,9 +1232,10 @@ namespace LotusECMLogger
 
             AddSubheading("CCP Issues:");
 
-            AddParagraph("Problem: 'No CCP reply to Connect'");
-            AddBulletPoint("Switch the ignition on and check the OBD-II and USB connections");
-            AddBulletPoint("The calibration's CCP enable byte must select a CAN bus. Stock calibrations have it set; a calibration that disables it cannot be enabled over CCP");
+            AddParagraph("Problem: 'No CCP reply to Connect', 'No response' on the High-Speed Log or Snapshots tab, or 'HS LOGGER: UNAVAILABLE'");
+            AddBulletPoint("These all mean the ECU did not answer over CCP, which the CCP tab, High-Speed Log, Snapshots and Erase Model Info all use");
+            AddBulletPoint("Most often the calibration does not enable CCP on the OBD-II bus. CAL_logger_high_speed_logger_enable must be 1; stock calibrations ship with 0 (off: 2011 Evora NA and S) or 2 (another CAN bus: Evora 400, GT430 and GT). Flash a calibration with it set to 1 - it cannot be turned on over CCP");
+            AddBulletPoint("Otherwise, switch the ignition on and check the OBD-II and USB connections");
             AddBulletPoint("Only T6 ECUs from 2011 on are supported; the 2010 Evora's ECU is not yet");
 
             AddParagraph("Problem: 'Sync stopped' on the Tuning page");
