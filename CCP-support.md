@@ -476,8 +476,9 @@ EFI's changes to the driver:
 
 1. **Bench test:** the new command behaviors are from static analysis; confirm memory/checksum operations
    and additional target profiles with a real CCP master. Existing DAQ logging has separate validation.
-2. **Enable byte in stock calibrations:** whether `CAL_logger_high_speed_logger_enable` is 0 on production cars.
-   The Exige 410 image has no calibration.
+2. **Enable byte in stock calibrations:** read from the stock `_TAB.cpt` files 2026-11-16: **0** in B132E0091 and
+   C132E0077 (CCP off), **2** in C132E0271, A132E0263, C132E0278 and E132E0288 (FlexCAN C). None ships with 1, so a
+   stock car does not answer at the OBD-II port; the owner's tunes set it to 1. The Exige 410 image has no calibration.
 3. **Event rates per build:** the 100/100/50/50/20/20/10/10/2/1 Hz figures come from B132E0091 only.
 4. **FlexCAN C bitrate and bus wiring per vehicle.**
 5. **Emira:** `Ccp_G12` is in the image, but no dispatcher has been located (different VLE codebase, MPC5777C).

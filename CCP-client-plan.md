@@ -589,8 +589,9 @@ A vendor `IF_DATA` block (ignored by other tools) could carry these later withou
   reads (§4, "Before Phase 6: A2L generator"). Still to confirm: that CANape/INCA read `ROW_DIR` the same way.
 - **A2L formulas:** our reader evaluates `>>`, `&`, `|`, `^` and `~`, so type B inputs can be expressed as VIRTUAL
   measurements. Whether other tools accept those operators is unverified.
-- **Reflash checksum:** whether the flash/CRP path needs a checksum fixed when an edited calibration file is
-  reflashed. Check before Save As output is used for reflashing.
+- **Reflash checksum:** settled 2026-11-16 (owner): a full calibration dump can be converted to a CRP and flashed.
+  So Save As output goes through Tools > Create CRP File… and the T6E Calibration
+  Flasher. Not yet done end to end with a live-tuned file.
 
 **Needs hardware** (`CCP-support.md` §12)
 - BUILD_CHKSUM reply timing on real ECUs (sets `ChecksumPassTimeout`; 20 ms per 256-byte pass is a guess).
