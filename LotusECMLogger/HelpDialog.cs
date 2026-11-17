@@ -403,7 +403,7 @@ namespace LotusECMLogger
             AddSubheading("Requirements (what is needed to enable it):");
             AddBulletPoint("J2534 device and OBD-II connection: The same hardware used elsewhere in the app. High-speed logging communicates over raw CAN at 500 kbit/s.");
             AddBulletPoint("A T6 engine ECU from 2011 on: the logger is the firmware's CCP calibration interface, which every such firmware contains. It does not need an unlocked ECU.");
-            AddBulletPoint("The logger enabled in the calibration, on the OBD-II bus: the calibration value CAL_logger_high_speed_logger_enable must be 1. Stock calibrations do not have it there - the 2011 Evora NA and S ship with 0 (off), and the Evora 400, GT430 and GT with 2 (a second CAN bus that is not at the OBD-II port) - so a stock car does not answer until a calibration with the value set to 1 has been flashed. Set it in your calibration editor; it cannot be changed over CCP, and the CCP Tuning page refuses to edit it.");
+            AddBulletPoint("The logger enabled in the calibration, on the OBD-II bus: the calibration value CAL_ccp_enable must be 1. Stock calibrations do not have it there - the 2011 Evora NA and S ship with 0 (off), and the Evora 400, GT430 and GT with 2 (a second CAN bus that is not at the OBD-II port) - so a stock car does not answer until a calibration with the value set to 1 has been flashed. Set it in your calibration editor; it cannot be changed over CCP, and the CCP Tuning page refuses to edit it.");
             AddBulletPoint("A symbol database for your firmware version: The app ships databases for the supported firmware versions (for example C132E0278 and B132E0091) and uses them to resolve each channel's address, size, scaling, and unit. Presets and the 'Add Channels...' browser are populated from this database.");
 
             AddSubheading("Test Connection:");
@@ -930,7 +930,7 @@ namespace LotusECMLogger
 
             AddSubheading("Requirements:");
             AddBulletPoint("A T6 engine ECU from 2011 on. No unlocked ECU is needed.");
-            AddBulletPoint("CCP enabled on the OBD-II bus in the calibration: CAL_logger_high_speed_logger_enable must be 1. Stock calibrations ship with 0 (off) or 2 (a CAN bus that is not at the OBD-II port), so a stock car does not answer and cannot be downloaded this way until a calibration with the value set to 1 has been flashed. See CCP (Calibration Protocol) > Requirements.");
+            AddBulletPoint("CCP enabled on the OBD-II bus in the calibration: CAL_ccp_enable must be 1. Stock calibrations ship with 0 (off) or 2 (a CAN bus that is not at the OBD-II port), so a stock car does not answer and cannot be downloaded this way until a calibration with the value set to 1 has been flashed. See CCP (Calibration Protocol) > Requirements.");
             AddBulletPoint("Ignition on, and the OBD-II logger stopped. The download shares the CCP session with the CCP and High-Speed Log tabs, so they can stay connected.");
 
             AddSubheading("How to Use:");
@@ -1000,7 +1000,7 @@ namespace LotusECMLogger
 
             AddSubheading("Requirements:");
             AddBulletPoint("Unlocked ECU: the firmware only acts on coding commands when the ECU is unlocked - when its calibration's unlock field is set - however the command is sent. Where the build's symbol database says where to look, the tool reads the unlock state first and refuses on a locked ECU.");
-            AddBulletPoint("CCP: the command is sent over the CCP session, so the ignition must be on and the calibration must enable CCP on the OBD-II bus (CAL_logger_high_speed_logger_enable = 1; stock calibrations do not - see the CCP topic).");
+            AddBulletPoint("CCP: the command is sent over the CCP session, so the ignition must be on and the calibration must enable CCP on the OBD-II bus (CAL_ccp_enable = 1; stock calibrations do not - see the CCP topic).");
             AddBulletPoint("Correct firmware version selected: The dialog needs to know which firmware is installed so it can target the right command register address. When the application recognises the connected ECU's build, it refuses a selection that does not match. For a build it does not recognise it cannot check, and a wrong selection writes to the wrong address.");
             AddBulletPoint("Logging stopped: Erase Model Info is disabled while data logging is active. The menu item stays greyed out until you stop the logger.");
 
@@ -1234,7 +1234,7 @@ namespace LotusECMLogger
 
             AddParagraph("Problem: 'No CCP reply to Connect', 'No response' on the High-Speed Log or Snapshots tab, or 'HS LOGGER: UNAVAILABLE'");
             AddBulletPoint("These all mean the ECU did not answer over CCP, which the CCP tab, High-Speed Log, Snapshots and Erase Model Info all use");
-            AddBulletPoint("Most often the calibration does not enable CCP on the OBD-II bus. CAL_logger_high_speed_logger_enable must be 1; stock calibrations ship with 0 (off: 2011 Evora NA and S) or 2 (another CAN bus: Evora 400, GT430 and GT). Flash a calibration with it set to 1 - it cannot be turned on over CCP");
+            AddBulletPoint("Most often the calibration does not enable CCP on the OBD-II bus. CAL_ccp_enable must be 1; stock calibrations ship with 0 (off: 2011 Evora NA and S) or 2 (another CAN bus: Evora 400, GT430 and GT). Flash a calibration with it set to 1 - it cannot be turned on over CCP");
             AddBulletPoint("Otherwise, switch the ignition on and check the OBD-II and USB connections");
             AddBulletPoint("Only T6 ECUs from 2011 on are supported; the 2010 Evora's ECU is not yet");
 

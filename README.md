@@ -29,7 +29,7 @@ With LotusECMLogger, you can log not only generic OBD-II parameters, but also Lo
 
 ### CCP requirements
 
-The High-Speed Log, Snapshots, the CCP tab and Erase Model Info all talk to the ECU over CCP, the calibration protocol built into T6 engine ECU firmware from 2011 on. OBD-II logging and the other diagnostics do not need it. CCP needs no unlocked ECU, but the calibration must enable it on the CAN bus at the OBD-II port: `CAL_logger_high_speed_logger_enable` must be `1`.
+The High-Speed Log, Snapshots, the CCP tab and Erase Model Info all talk to the ECU over CCP, the calibration protocol built into T6 engine ECU firmware from 2011 on. OBD-II logging and the other diagnostics do not need it. CCP needs no unlocked ECU, but the calibration must enable it on the CAN bus at the OBD-II port: `CAL_ccp_enable` must be `1`.
 
 **Stock calibrations do not have it at 1.** The stock 2011 Evora NA and S calibrations (B132E0091, C132E0077) ship with `0` (off), and the stock Evora 400, GT430 and GT calibrations (C132E0271, A132E0263, C132E0278, E132E0288) with `2`, which selects a second CAN bus that is not at the OBD-II port. A stock car therefore does not answer: the first step is to flash a calibration with the value set to `1`. It cannot be turned on over CCP, and the CCP Tuning editor refuses to change it, so set it in your calibration editor. **Test Connection** on the High-Speed Log tab, or the HS LOGGER indicator on Vehicle Information, shows whether the ECU answers.
 

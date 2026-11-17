@@ -79,6 +79,6 @@ the `ecuVersion`). These CSVs live in the project and are build-copied to the ou
 
 The PC becomes an active node on the vehicle CAN bus at 500 kbit/s and sends configuration commands to
 the ECU. Configure with the **engine off and the vehicle stationary**, and ensure the calibration enables
-the logger on the OBD-II bus (`CAL_logger_high_speed_logger_enable` = 1; stock calibrations ship with 0 or 2). Use **Test Connection** first. Scaling/units are
+the logger on the OBD-II bus (`CAL_ccp_enable` = 1; stock calibrations ship with 0 or 2). Use **Test Connection** first. Scaling/units are
 derived from the symbol types and should be sanity-checked against a known reading before relying on
 them.

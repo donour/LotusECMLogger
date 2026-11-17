@@ -5,7 +5,7 @@
   // from database/C132E0278.csv; `undefined*` types carry inline overrides (firmware analysis).
   //
   // Catalog-name notes (Ghidra names differ from the DPM analysis in a few places):
-  //   dpm_slip_target_source_state  = tc_slip_target_mode_state  @ 0x400028cc
+  //   dpm_slip_target_source_state  = dpm_slip_target_mode       @ 0x400028cc
   //   dpm_wheel_speed_invalid_flags = tc_inhibit_flags           @ 0x400028da
   //   abs_can_rx_health_counter     = tc_enable_condition_1      @ 0x4000281c
   //   abs_can_plausibility_health_counter = tc_enable_condition_2 @ 0x4000281d
@@ -44,7 +44,7 @@
     // ── Slip target ──────────────────────────────────────────────────────────────────────────────
     { "symbol": "dpm_slip_target_base",     "rate": 1 },                     // CAL_dpm_slip_target_base[dpm_level] lookup
     { "symbol": "dpm_slip_target_from_pedal", "rate": 5 },                   // CAL_dpm_slip_target_from_pedal[speed][pedal] lookup
-    { "symbol": "tc_slip_target_mode_state", "name": "dpm_slip_target_source_state", "rate": 20, "unit": "enum" }, // Base mode / adjustable level / invalid
+    { "symbol": "dpm_slip_target_mode", "name": "dpm_slip_target_source_state", "rate": 20, "unit": "enum" }, // Base mode / adjustable level / invalid
     { "symbol": "dpm_slip_target",          "rate": 20 },                    // Final slip target (+ CAL_dpm_slip_target_offset)
 
     // ── Controller (P + I torque cut) ────────────────────────────────────────────────────────────

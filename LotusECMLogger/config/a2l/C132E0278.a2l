@@ -183,9 +183,6 @@
     /begin COMPU_METHOD CM_u16_time_10us "u16_time_10us" RAT_FUNC "%8.0" "us"
       COEFFS 0 1 0 0 0 10
     /end COMPU_METHOD
-    /begin COMPU_METHOD CM_u16_time_4us "u16_time_4us" RAT_FUNC "%8.0" "us"
-      COEFFS 0 1 0 0 0 4
-    /end COMPU_METHOD
     /begin COMPU_METHOD CM_u16_voltage_18_1023v "u16_voltage_18/1023v" RAT_FUNC "%12.4" "V"
       COEFFS 0 1 0 0 0 0.0175953079178886
     /end COMPU_METHOD
@@ -381,6 +378,12 @@
     /begin COMPU_METHOD CM_u8_rspeed_50rpm "u8_rspeed_50rpm" RAT_FUNC "%8.0" "rpm"
       COEFFS 0 1 0 0 0 50
     /end COMPU_METHOD
+    /begin COMPU_METHOD CM_u8_rspeed_5_500rpm "u8_rspeed_5+500rpm" RAT_FUNC "%8.0" "rpm"
+      COEFFS 0 1 -500 0 0 5
+    /end COMPU_METHOD
+    /begin COMPU_METHOD CM_u8_rspeed_5rpm "u8_rspeed_5rpm" RAT_FUNC "%8.0" "rpm"
+      COEFFS 0 1 0 0 0 5
+    /end COMPU_METHOD
     /begin COMPU_METHOD CM_u8_rspeed_8rpm "u8_rspeed_8rpm" RAT_FUNC "%8.0" "rpm"
       COEFFS 0 1 0 0 0 8
     /end COMPU_METHOD
@@ -551,7 +554,7 @@
     /end CHARACTERISTIC
     /begin CHARACTERISTIC CAL_load_alphaN_hold_time "Calibration: load alphaN hold time (ms = val*5)." VALUE 0x40008698 RL_VALUE_UBYTE 0 CM_u8_time_5ms 0 1275
     /end CHARACTERISTIC
-    /begin CHARACTERISTIC CAL_obd_ii_countdown_unknown "Calibration: OBD countdown; u16_time_100ms timer = cal*10." VALUE 0x40008699 RL_VALUE_UBYTE 0 CM_u8_time_s 0 255
+    /begin CHARACTERISTIC CAL_obd_ii_mil_event_hold_time "MIL request (obd_ii_mil_state_flags 0x40) hold after a DTC with config bit 0x20 confirms: obd_ii_dtc_event_timer_100ms = cal*10 (s). Was CAL_obd_ii_countdown_unknown." VALUE 0x40008699 RL_VALUE_UBYTE 0 CM_u8_time_s 0 255
     /end CHARACTERISTIC
     /begin CHARACTERISTIC CAL_ign_target_update_inhibit_timer "Calibration: ign_target_update_inhibit_timer_5ms reload (cal<<1) while engine not running. (0091 0x40008e6a)" VALUE 0x4000869A RL_VALUE_UBYTE 0 CM_u8_time_10ms 0 2550
     /end CHARACTERISTIC
@@ -710,7 +713,7 @@
     /end CHARACTERISTIC
     /begin CHARACTERISTIC CAL_evap_purge_mode_override "Calibration: evap purge override; 0=auto, 1=force purge, 2=inhibit. (0091 0x40008ec6)" VALUE 0x400086F6 RL_VALUE_UBYTE 0 NO_COMPU_METHOD 0 255
     /end CHARACTERISTIC
-    /begin CHARACTERISTIC CAL_closedloop_stft_filter_unknown "Calibration: STFT filter IIR weight for fuel learn (/256)." VALUE 0x400086F7 RL_VALUE_UBYTE 0 CM_u8_factor_1_256 0 99.609375
+    /begin CHARACTERISTIC CAL_closedloop_stft_filter_weight "IIR weight (/256) of stft_bankN into stft_filter_q8_bankN (o2_fuel_learn_100ms). Was CAL_closedloop_stft_filter_unknown." VALUE 0x400086F7 RL_VALUE_UBYTE 0 CM_u8_factor_1_256 0 99.609375
     /end CHARACTERISTIC
     /begin CHARACTERISTIC CAL_evap_purge_conditioning_timer_100ms "Calibration: evap purge conditioning timer reload (100 ms ticks)." VALUE 0x400086F8 RL_VALUE_UBYTE 0 CM_u8_time_100ms 0 25500
     /end CHARACTERISTIC
@@ -763,7 +766,7 @@
     /end CHARACTERISTIC
     /begin CHARACTERISTIC CAL_inj_fuel_learn_time_step "Calibration: fuel learn lean/rich time step (vs LEA_fuel_learn_*_time, i16_time_us). (0091 u8_time_us)" VALUE 0x40008711 RL_VALUE_UBYTE 0 CM_u8_time_us 0 255
     /end CHARACTERISTIC
-    /begin CHARACTERISTIC CAL_sensor_pps_unknown1 "uint8_t" VALUE 0x40008712 RL_VALUE_UBYTE 0 NO_COMPU_METHOD 0 255
+    /begin CHARACTERISTIC CAL_sensor_pps_zero_learn_rate "Pedal track D/E zero-voltage learn: zero -= (zero - sample)*cal/256 when the sample is below the learned zero (floor 0xaa). Was CAL_sensor_pps_unknown1." VALUE 0x40008712 RL_VALUE_UBYTE 0 CM_u8_factor_1_256 0 99.609375
     /end CHARACTERISTIC
     /begin CHARACTERISTIC CAL_sensor_accel_pedal_d_gain "Calibration: pedal track D gain; (v-zero)*cal>>6. (0091 0x40008ee3)" VALUE 0x40008713 RL_VALUE_UBYTE 0 CM_u8_factor_1_64 0 398.4375
     /end CHARACTERISTIC
@@ -804,7 +807,7 @@
     /end CHARACTERISTIC
     /begin CHARACTERISTIC CAL_ign_zero_rpm_threshold "Calibration: ignition zero RPM threshold (RPM = val*125/4+500)." VALUE 0x40008728 RL_VALUE_UBYTE 0 CM_u8_rspeed_125_4_500rpm 500 8468.75
     /end CHARACTERISTIC
-    /begin CHARACTERISTIC CAL_ac_unknown3 "uint8_t" VALUE 0x40008729 RL_VALUE_UBYTE 0 NO_COMPU_METHOD 0 255
+    /begin CHARACTERISTIC CAL_ac_compressor_power_initial "A/C power demand at clutch engage = cal*40 (ac_compressor_power units, clipped 2000..ac_power_limit); the load ramp starts here. Was CAL_ac_unknown3." VALUE 0x40008729 RL_VALUE_UBYTE 0 NO_COMPU_METHOD 0 255
     /end CHARACTERISTIC
     /begin CHARACTERISTIC CAL_engine_roughness_period_history_offset "Calibration: index offset into the engine-speed period history for the roughness measure. (0091 0x40008efa, misnamed CAL_ign_zero_rpm_threshold there)" VALUE 0x4000872A RL_VALUE_UBYTE 0 NO_COMPU_METHOD 0 255
     /end CHARACTERISTIC
@@ -890,9 +893,9 @@
     /end CHARACTERISTIC
     /begin CHARACTERISTIC CAL_cooling_fan_inhibit_resample_period_100ms "u8_time_100ms" VALUE 0x40008763 RL_VALUE_UBYTE 0 CM_u8_time_100ms 0 25500
     /end CHARACTERISTIC
-    /begin CHARACTERISTIC CAL_idle_unknown4 "u8_rspeed_8rpm" VALUE 0x40008764 RL_VALUE_UBYTE 0 CM_u8_rspeed_8rpm 0 2040
+    /begin CHARACTERISTIC CAL_idle_control_low_rpm_offset "idle_control_low_rpm = idle target + cal*8. Was CAL_idle_unknown4." VALUE 0x40008764 RL_VALUE_UBYTE 0 CM_u8_rspeed_8rpm 0 2040
     /end CHARACTERISTIC
-    /begin CHARACTERISTIC CAL_idle_unknown3 "u8_rspeed_8rpm" VALUE 0x40008765 RL_VALUE_UBYTE 0 CM_u8_rspeed_8rpm 0 2040
+    /begin CHARACTERISTIC CAL_idle_control_exit_rpm_offset "idle_control_exit_rpm = idle target + cal*8. Was CAL_idle_unknown3." VALUE 0x40008765 RL_VALUE_UBYTE 0 CM_u8_rspeed_8rpm 0 2040
     /end CHARACTERISTIC
     /begin CHARACTERISTIC CAL_cooling_fan_inhibit_window_start "u8_time_250ms" VALUE 0x40008766 RL_VALUE_UBYTE 0 CM_u8_time_250ms 0 63750
     /end CHARACTERISTIC
@@ -920,10 +923,9 @@
     /begin CHARACTERISTIC CAL_unused_4000877c "Unused: no references in 0278." VAL_BLK 0x4000877C RL_VALUE_UBYTE 0 NO_COMPU_METHOD 0 255
       NUMBER 2
     /end CHARACTERISTIC
-    /begin CHARACTERISTIC CAL_ecu_engine_running_threshold_unknown "Calibration: ECU engine running threshold (2-element array)." VAL_BLK 0x4000877E RL_VALUE_UBYTE 0 NO_COMPU_METHOD 0 255
-      NUMBER 2
+    /begin CHARACTERISTIC CAL_engine_running_period_max "engine_is_running set when engine_period_90deg_us < this (rpm = 15e6/val) and engine_running_confirm_timer is 0. Was CAL_ecu_engine_running_threshold_unknown (uint8_t[2])." VALUE 0x4000877E RL_VALUE_UWORD 0 CM_u8_time_us 0 65535
     /end CHARACTERISTIC
-    /begin CHARACTERISTIC CAL_misc_engine_detection_off "u16_time_4us" VALUE 0x40008780 RL_VALUE_UWORD 0 CM_u16_time_4us 0 262140
+    /begin CHARACTERISTIC CAL_misc_engine_detection_off "engine_is_running cleared when engine_period_90deg_us > this (rpm = 15e6/val). Was typed u16_time_4us." VALUE 0x40008780 RL_VALUE_UWORD 0 CM_u8_time_us 0 65535
     /end CHARACTERISTIC
     /begin CHARACTERISTIC CAL_ecu_vehicle_mode_button_time "Calibration: ECU vehicle mode button time (ms = val*10)." VALUE 0x40008782 RL_VALUE_UWORD 0 CM_u8_time_10ms 0 655350
     /end CHARACTERISTIC
@@ -982,17 +984,17 @@
     /end CHARACTERISTIC
     /begin CHARACTERISTIC CAL_idle_integral_update_period "Calibration: idle PI integral update period (counter reload). (0091 0x40008f92 CAL_idle_unknown3)" VALUE 0x400087C2 RL_VALUE_UBYTE 0 NO_COMPU_METHOD 0 255
     /end CHARACTERISTIC
-    /begin CHARACTERISTIC CAL_idle_air_control_unknown "uint8_t" VALUE 0x400087C3 RL_VALUE_UBYTE 0 NO_COMPU_METHOD 0 255
+    /begin CHARACTERISTIC CAL_idle_integral_max_clamp "Idle PI integral upper clamp: integral/0x2800 <= cal (integral>>10 = 10 mg/s, so cal is 100 mg/s). Was CAL_idle_air_control_unknown." VALUE 0x400087C3 RL_VALUE_UBYTE 0 CM_u8_flow_100mg_s 0 25500
     /end CHARACTERISTIC
-    /begin CHARACTERISTIC CAL_idle_integral_min_clamp "Calibration: idle PI integral lower clamp (integral/0x2800 >= -cal). (0091 0x40008f94, misnamed CAL_injtip_tipout_decay_rate_divider)" VALUE 0x400087C4 RL_VALUE_UBYTE 0 NO_COMPU_METHOD 0 255
+    /begin CHARACTERISTIC CAL_idle_integral_min_clamp "Idle PI integral lower clamp: integral/0x2800 >= -cal (100 mg/s)." VALUE 0x400087C4 RL_VALUE_UBYTE 0 CM_u8_flow_100mg_s 0 25500
     /end CHARACTERISTIC
     /begin CHARACTERISTIC CAL_vehicle_moving_speed_min "Calibration: vehicle moving speed minimum (km/h)." VALUE 0x400087C5 RL_VALUE_UBYTE 0 CM_u8_speed_kph 0 255
     /end CHARACTERISTIC
     /begin CHARACTERISTIC CAL_tpssmooth_decrement_cruise_scale "Calibration: TPS smoothing decrement scale in cruise. (0091 0x40008f96)" VALUE 0x400087C6 RL_VALUE_UBYTE 0 CM_u8_factor_1_255 0 100
     /end CHARACTERISTIC
-    /begin CHARACTERISTIC CAL_idle_unknown2 "u8_rspeed_8rpm" VALUE 0x400087C7 RL_VALUE_UBYTE 0 CM_u8_rspeed_8rpm 0 2040
+    /begin CHARACTERISTIC CAL_idle_control_entry_rpm_offset "idle_control_entry_rpm = idle target + cal*8. obd_ii_idle_speed_control_monitor also compares the raw value (no x8) with the rpm error - firmware unit mismatch. Was CAL_idle_unknown2." VALUE 0x400087C7 RL_VALUE_UBYTE 0 CM_u8_rspeed_8rpm 0 2040
     /end CHARACTERISTIC
-    /begin CHARACTERISTIC CAL_idle_unknown1 "u8_rspeed_8rpm" VALUE 0x400087C8 RL_VALUE_UBYTE 0 CM_u8_rspeed_8rpm 0 2040
+    /begin CHARACTERISTIC CAL_idle_moving_blend_rpm_offset "idle_comp_moving_blend_rpm_high = idle target + cal*8. Was CAL_idle_unknown1." VALUE 0x400087C8 RL_VALUE_UBYTE 0 CM_u8_rspeed_8rpm 0 2040
     /end CHARACTERISTIC
     /begin CHARACTERISTIC CAL_closedloop_prop_gain_lean_slow_switch_scale "u8_factor_1/64" VALUE 0x400087C9 RL_VALUE_UBYTE 0 CM_u8_factor_1_64 0 398.4375
     /end CHARACTERISTIC
@@ -1259,7 +1261,7 @@
     /end CHARACTERISTIC
     /begin CHARACTERISTIC CAL_ign_idle_mode_holdover_time "hold-over timer that keeps the idle/cruise ignition modes selectable for a window after a fuel cut ends." VALUE 0x40008885 RL_VALUE_UBYTE 0 CM_u8_time_10ms 0 2550
     /end CHARACTERISTIC
-    /begin CHARACTERISTIC CAL_closedloop_engine_run_learn_timer_unknown "Calibration: closedloop engine run learn timer (hours)." VALUE 0x40008886 RL_VALUE_UBYTE 0 CM_u8_time_hours 0 255
+    /begin CHARACTERISTIC CAL_closedloop_jump_lean_scale_run_hours_max "Lean jump scaling (IPS/manual CALs) applies while engine_run_timer_total < cal*36000 (100 ms), i.e. cal hours. Was CAL_closedloop_engine_run_learn_timer_unknown." VALUE 0x40008886 RL_VALUE_UBYTE 0 CM_u8_time_hours 0 255
     /end CHARACTERISTIC
     /begin CHARACTERISTIC CAL_closedloop_integral_gain_scale_manual "Calibration: closedloop integral gain scale manual (val/255)." VALUE 0x40008887 RL_VALUE_UBYTE 0 CM_u8_factor_1_255 0 100
     /end CHARACTERISTIC
@@ -1301,9 +1303,9 @@
     /begin CHARACTERISTIC CAL_roughness_enable_load "Calibration: roughness enable load (mg/stroke = val*4; 2-element array)." VAL_BLK 0x4000889E RL_VALUE_UBYTE 0 CM_u8_load_4mg_stroke 0 1020
       NUMBER 2
     /end CHARACTERISTIC
-    /begin CHARACTERISTIC CAL_roughness_unknown6 "Calibration: engine roughness threshold (0091 0x40009070)." VALUE 0x400088A0 RL_VALUE_UBYTE 0 NO_COMPU_METHOD 0 255
+    /begin CHARACTERISTIC CAL_roughness_peak_valley_delta_min "Roughness comp only while roughness_peak_valley_delta >= this (captured crank-speed units). Was CAL_roughness_unknown6." VALUE 0x400088A0 RL_VALUE_UBYTE 0 NO_COMPU_METHOD 0 255
     /end CHARACTERISTIC
-    /begin CHARACTERISTIC CAL_roughness_unknown8 "Calibration: engine roughness count threshold (0091 0x40009071)." VALUE 0x400088A1 RL_VALUE_UBYTE 0 NO_COMPU_METHOD 0 255
+    /begin CHARACTERISTIC CAL_roughness_cycle_period_max "Roughness inhibited (flag 0x8000) when roughness_cycle_period (samples) >= this. Was CAL_roughness_unknown8." VALUE 0x400088A1 RL_VALUE_UBYTE 0 NO_COMPU_METHOD 0 255
     /end CHARACTERISTIC
     /begin CHARACTERISTIC CAL_roughness_delta_rpm_smoothing_factor "Calibration: roughness delta RPM smoothing factor (val/100)." VALUE 0x400088A2 RL_VALUE_UBYTE 0 CM_u8_factor_1_100 0 255
     /end CHARACTERISTIC
@@ -1313,19 +1315,19 @@
     /end CHARACTERISTIC
     /begin CHARACTERISTIC CAL_roughness_direction_count_threshold "Roughness: consecutive same-direction sample count threshold. Was duplicate of _peak_valley_imblance_threshold." VALUE 0x400088A5 RL_VALUE_UBYTE 0 NO_COMPU_METHOD 0 255
     /end CHARACTERISTIC
-    /begin CHARACTERISTIC CAL_roughness_unknown2 "Calibration: engine roughness sum threshold (0091 0x40009076)." VALUE 0x400088A6 RL_VALUE_UBYTE 0 NO_COMPU_METHOD 0 255
+    /begin CHARACTERISTIC CAL_roughness_transition_count_min "Roughness valid (flag 0x80) needs roughness_rise_count + roughness_fall_count >= this. Was CAL_roughness_unknown2." VALUE 0x400088A6 RL_VALUE_UBYTE 0 NO_COMPU_METHOD 0 255
     /end CHARACTERISTIC
     /begin CHARACTERISTIC CAL_roughness_peak_valley_imbalance_threshold "Roughness: max |peak - valley| period difference. (spelling fixed; was duplicate name)" VALUE 0x400088A7 RL_VALUE_UBYTE 0 NO_COMPU_METHOD 0 255
     /end CHARACTERISTIC
-    /begin CHARACTERISTIC CAL_roughness_unknown5 "Calibration: engine roughness window low (0091 0x40009078)." VALUE 0x400088A8 RL_VALUE_UBYTE 0 NO_COMPU_METHOD 0 255
+    /begin CHARACTERISTIC CAL_roughness_cycle_mean_min "Roughness comp only while roughness_cycle_mean >= this. Was CAL_roughness_unknown5." VALUE 0x400088A8 RL_VALUE_UBYTE 0 NO_COMPU_METHOD 0 255
     /end CHARACTERISTIC
-    /begin CHARACTERISTIC CAL_roughness_unknown4 "Calibration: engine roughness window high (0091 0x40009079)." VALUE 0x400088A9 RL_VALUE_UBYTE 0 NO_COMPU_METHOD 0 255
+    /begin CHARACTERISTIC CAL_roughness_cycle_mean_max "Roughness comp only while roughness_cycle_mean <= this (same units as roughness_cycle_mean). Was CAL_roughness_unknown4." VALUE 0x400088A9 RL_VALUE_UBYTE 0 NO_COMPU_METHOD 0 255
     /end CHARACTERISTIC
     /begin CHARACTERISTIC CAL_roughness_ign_adv_min_sign_flipped "Calibration: roughness ignition adv minimum sign flipped (° = val/4)." VALUE 0x400088AA RL_VALUE_UBYTE 0 CM_u8_angle_1_4deg 0 63.75
     /end CHARACTERISTIC
     /begin CHARACTERISTIC CAL_roughness_ign_adv_max "Calibration: roughness ignition adv maximum (° = val/4)." VALUE 0x400088AB RL_VALUE_UBYTE 0 CM_u8_angle_1_4deg 0 63.75
     /end CHARACTERISTIC
-    /begin CHARACTERISTIC CAL_roughness_unknown7 "Calibration: engine roughness gain (0091 0x4000907c)." VALUE 0x400088AC RL_VALUE_UBYTE 0 NO_COMPU_METHOD 0 255
+    /begin CHARACTERISTIC CAL_roughness_ign_gain "ign_comp_roughness_request (1/4 deg) = -roughness_delta_rpm_filtered * cal / 1000, capped by CAL_roughness_ign_adv_max. Was CAL_roughness_unknown7." VALUE 0x400088AC RL_VALUE_UBYTE 0 NO_COMPU_METHOD 0 255
     /end CHARACTERISTIC
     /begin CHARACTERISTIC CAL_wheel_speed_front_dvdt_scaling "Calibration: wheel speed front dvdt scaling (val/255)." VALUE 0x400088AD RL_VALUE_UBYTE 0 CM_u8_factor_1_255 0 100
     /end CHARACTERISTIC
@@ -1359,7 +1361,7 @@
     /end CHARACTERISTIC
     /begin CHARACTERISTIC CAL_cruise_tps_accelerating_threshold "Calibration: cruise throttle position accelerating threshold (val/1023)." VALUE 0x400088BF RL_VALUE_UBYTE 0 CM_u16_factor_1_1023 0 24.9266862170088
     /end CHARACTERISTIC
-    /begin CHARACTERISTIC CAL_cluster_brake_switch_max_speed_ips_unknown "Calibration: cluster brake switch maximum speed IPS (km/h)." VALUE 0x400088C0 RL_VALUE_UBYTE 0 CM_u8_speed_kph 0 255
+    /begin CHARACTERISTIC CAL_ips_gear_engage_brake_speed_max "IPS: below this speed the brake must be pressed for the driver-input brake flag; cluster flag 0x20 (press brake) when stopped below it. Was CAL_cluster_brake_switch_max_speed_ips_unknown." VALUE 0x400088C0 RL_VALUE_UBYTE 0 CM_u8_speed_kph 0 255
     /end CHARACTERISTIC
     /begin CHARACTERISTIC CAL_ign_fixed_timing_ips "Calibration: ignition fixed timing IPS (° = val/4−10)." VALUE 0x400088C1 RL_VALUE_UBYTE 0 CM_u8_angle_1_4_10deg -10 53.75
     /end CHARACTERISTIC
@@ -1390,7 +1392,7 @@
     /end CHARACTERISTIC
     /begin CHARACTERISTIC CAL_vvt_low_load_disable "Calibration: VVT low load disable (boolean flag)." VALUE 0x400088E5 RL_VALUE_UBYTE 0 NO_COMPU_METHOD 0 255
     /end CHARACTERISTIC
-    /begin CHARACTERISTIC CAL_obd_ii_diag_unknown "Calibration: OBD diagnostic enable (tested != 0 with CAL_obd_ii_standards_supported)." VALUE 0x400088E6 RL_VALUE_UBYTE 0 NO_COMPU_METHOD 0 255
+    /begin CHARACTERISTIC CAL_obd_ii_permanent_dtc_enable "With CAL_obd_ii_standards_supported == 1: enables permanent DTC storage and the Mode $0A service. Was CAL_obd_ii_diag_unknown." VALUE 0x400088E6 RL_VALUE_UBYTE 0 NO_COMPU_METHOD 0 255
     /end CHARACTERISTIC
     /begin CHARACTERISTIC CAL_vvt_low_load_map_enable_temp "Calibration: VVT low load MAP enable temperature (°C = val*5/8−40)." VALUE 0x400088E7 RL_VALUE_UBYTE 0 CM_u8_temp_5_8_40c -40 119.375
     /end CHARACTERISTIC
@@ -1402,7 +1404,7 @@
     /end CHARACTERISTIC
     /begin CHARACTERISTIC CAL_tpstarget_pedalmap_low_gear_threshold "Calibration: tpstarget pedalmap low gear threshold." VALUE 0x400088EB RL_VALUE_UBYTE 0 NO_COMPU_METHOD 0 255
     /end CHARACTERISTIC
-    /begin CHARACTERISTIC CAL_logger_high_speed_logger_enable "To enable the built-in highspeed data logger, set this configuration option." VALUE 0x400088EC RL_VALUE_UBYTE 0 NO_COMPU_METHOD 0 255
+    /begin CHARACTERISTIC CAL_ccp_enable "CCP (CAN Calibration Protocol) is an ASAM standard from the 1990s that lets a PC tool connect to an ECU over CAN, read and write its memory, and change calibration values live. In these Lotus ECUs it's Vector's CCP 2.1 driver (Ccp_T6, commands on 0x3" VALUE 0x400088EC RL_VALUE_UBYTE 0 NO_COMPU_METHOD 0 255
     /end CHARACTERISTIC
     /begin CHARACTERISTIC CAL_tpssmooth_parking_threshold_tps "Calibration: tpssmooth parking threshold throttle position (val/255)." VALUE 0x400088ED RL_VALUE_UBYTE 0 CM_u8_factor_1_255 0 100
     /end CHARACTERISTIC
@@ -1452,7 +1454,7 @@
     /end CHARACTERISTIC
     /begin CHARACTERISTIC CAL_ips_torque_reduction_slow_floor_nm "u8_torque_nm" VALUE 0x40008911 RL_VALUE_UBYTE 0 CM_u8_torque_nm 0 255
     /end CHARACTERISTIC
-    /begin CHARACTERISTIC CAL_idle_unknown6 "u8_temp_5/8-40c" VALUE 0x40008912 RL_VALUE_UBYTE 0 CM_u8_temp_5_8_40c -40 119.375
+    /begin CHARACTERISTIC CAL_idle_cold_learn_coolant_temp_min "Cold idle learn (LEA_idle_cold_learning_coolant*) only while this < coolant_temp < CAL_idle_learn_temp_range[0]. Was CAL_idle_unknown6." VALUE 0x40008912 RL_VALUE_UBYTE 0 CM_u8_temp_5_8_40c -40 119.375
     /end CHARACTERISTIC
     /begin CHARACTERISTIC CAL_idle_learn_temp_range "Calibration: idle learn temperature range (°C = val*5/8−40; 2-element array)." VAL_BLK 0x40008913 RL_VALUE_UBYTE 0 CM_u8_temp_5_8_40c -40 119.375
       NUMBER 2
@@ -1476,11 +1478,11 @@
     /end CHARACTERISTIC
     /begin CHARACTERISTIC CAL_dca_freerev_wait_time "Calibration: DCA free-rev wait; dca_active_timer (5 ms) > cal*20." VALUE 0x4000891F RL_VALUE_UBYTE 0 CM_u8_time_100ms 0 25500
     /end CHARACTERISTIC
-    /begin CHARACTERISTIC CAL_dca_ramp_timer_unknown "Calibration: drive-cycle-assist ramp timer (ms = val*20)." VALUE 0x40008920 RL_VALUE_UBYTE 0 CM_u8_time_20ms 0 5100
+    /begin CHARACTERISTIC CAL_dca_ramp_time_max "DCA ends when dca_tps_ramp_index>>2 >= cal (20 ms steps). Was CAL_dca_ramp_timer_unknown." VALUE 0x40008920 RL_VALUE_UBYTE 0 CM_u8_time_20ms 0 5100
     /end CHARACTERISTIC
     /begin CHARACTERISTIC CAL_ecu_rpm_600 "Calibration: ECU RPM 600 (RPM = val*4)." VALUE 0x40008921 RL_VALUE_UBYTE 0 CM_u8_rspeed_4rpm 0 1020
     /end CHARACTERISTIC
-    /begin CHARACTERISTIC CAL_engine_speed_coolant_temp_unknown7 "Calibration: engine speed reference coolant threshold. (0091 0x400090f2)" VALUE 0x40008922 RL_VALUE_UBYTE 0 CM_u8_temp_5_8_40c -40 119.375
+    /begin CHARACTERISTIC CAL_engine_speed_reference_coolant_temp_min "Engine speed reference update disabled while coolant_temp <= this. Was CAL_engine_speed_coolant_temp_unknown7." VALUE 0x40008922 RL_VALUE_UBYTE 0 CM_u8_temp_5_8_40c -40 119.375
     /end CHARACTERISTIC
     /begin CHARACTERISTIC CAL_revlimit_enforce_delay_after_start "Calibration: rev-limit enforce delay after start (ms = val*50)." VALUE 0x40008923 RL_VALUE_UBYTE 0 CM_u8_time_50ms 0 12750
     /end CHARACTERISTIC
@@ -1774,11 +1776,11 @@
     /begin CHARACTERISTIC CAL_sensor_intake_air_scaling "Calibration: sensor intake air scaling (32-element array)." VAL_BLK 0x40008CAA RL_VALUE_UBYTE 0 CM_u8_temp_5_8_40c -40 119.375
       NUMBER 34
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_sensor_aux_temp_X_voltage "Calibration: X axis (voltage) for aux temp sensors unk1/unk2 diag lookup. (0091 0x4000949c CAL_sensor_fuel_pressure_sensor_unused_X_voltage)" 0x40008CCC NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_voltage_5_255v 16 0 5
+    /begin AXIS_PTS CAL_sensor_aux_unused_X_voltage "X axis (0.65..4.63 V) of CAL_sensor_aux_unused. Was CAL_sensor_aux_temp_X_voltage." 0x40008CCC NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_voltage_5_255v 16 0 5
     /end AXIS_PTS
-    /begin CHARACTERISTIC CAL_sensor_aux_temp "Calibration: aux temp sensors unk1/unk2 voltage->temp table. (0091 0x400094ac)" CURVE 0x40008CDC RL_VALUE_UBYTE 0 NO_COMPU_METHOD 0 255
+    /begin CHARACTERISTIC CAL_sensor_aux_unused "16-point table for the vestigial aux inputs (0x5f..0xbd rising with voltage); quantity unknown, 0091 labels it CAL_sensor_fuel_pressure_sensor_unused. Was CAL_sensor_aux_temp." CURVE 0x40008CDC RL_VALUE_UBYTE 0 NO_COMPU_METHOD 0 255
       /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY CM_u8_voltage_5_255v 16 0 5
-        AXIS_PTS_REF CAL_sensor_aux_temp_X_voltage
+        AXIS_PTS_REF CAL_sensor_aux_unused_X_voltage
       /end AXIS_DESCR
     /end CHARACTERISTIC
     /begin AXIS_PTS CAL_injtip_dfco_manual_default_X_coolant_temp "Calibration: X-axis (coolant temp) for the injector tip-in decel fuel cut-off manual default table (°C = val*5/8−40; 4-element array)." 0x40008CEC coolant_temp RL_AXIS_UBYTE 0 CM_u8_temp_5_8_40c 4 -40 119.375
@@ -2942,11 +2944,11 @@
         AXIS_PTS_REF CAL_tpstarget_tour_manual_X_pps
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_closedloop_tps_correction_tour_manual_X_unknown "Calibration: X axis of CAL_closedloop_tps_correction_tour_manual. (0091 0x4000bac2)" 0x4000B2F2 NO_INPUT_QUANTITY RL_AXIS_UWORD 0 NO_COMPU_METHOD 16 0 65535
+    /begin AXIS_PTS CAL_closedloop_tps_correction_tour_manual_X_tps "X axis (throttle position, tps_abs_b_smoothed) of CAL_closedloop_tps_correction_tour_manual. Was ..._X_unknown." 0x4000B2F2 NO_INPUT_QUANTITY RL_AXIS_UWORD 0 NO_COMPU_METHOD 16 0 65535
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_closedloop_tps_correction_tour_manual "Calibration: closed-loop throttle correction, offset-binary." CURVE 0x4000B312 RL_VALUE_UWORD 0 CM_u16_raw_32768 -32768 32767
       /begin AXIS_DESCR COM_AXIS NO_INPUT_QUANTITY NO_COMPU_METHOD 16 0 65535
-        AXIS_PTS_REF CAL_closedloop_tps_correction_tour_manual_X_unknown
+        AXIS_PTS_REF CAL_closedloop_tps_correction_tour_manual_X_tps
       /end AXIS_DESCR
     /end CHARACTERISTIC
     /begin AXIS_PTS CAL_tpstarget_sport_manual_X_pps "Calibration: X-axis (pps) for the tpstarget sport manual table (val/1023; 16-element array)." 0x4000B332 accel_pedal_pos_16bit RL_AXIS_UWORD 0 CM_u16_factor_1_1023 16 0 6406.15835777126
@@ -3350,25 +3352,25 @@
         AXIS_PTS_REF CAL_ecu_engine_speed_target_tour_X_pps
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_idle_error_correction_unknown_X_speed_error "Calibration: X axis (idle speed error + 0x8000, rpm) of CAL_idle_error_correction_unknown." 0x4000C892 V_CAL_idle_error_correction_unknown_X_speed_error RL_AXIS_UWORD 0 CM_u16_rspeed_rpm_32768 16 -32768 32767
+    /begin AXIS_PTS CAL_idle_air_control_integral_X_speed_error "X axis (idle speed error + 0x8000, rpm) of CAL_idle_air_control_integral." 0x4000C892 V_CAL_idle_air_control_integral_X_speed_error RL_AXIS_UWORD 0 CM_u16_rspeed_rpm_32768 16 -32768 32767
     /end AXIS_PTS
-    /begin CHARACTERISTIC CAL_idle_error_correction_unknown "Calibration: idle error correction vs speed error, offset-binary." CURVE 0x4000C8B2 RL_VALUE_UWORD 0 CM_u16_raw_32768 -32768 32767
-      /begin AXIS_DESCR COM_AXIS V_CAL_idle_error_correction_unknown_X_speed_error CM_u16_rspeed_rpm_32768 16 -32768 32767
-        AXIS_PTS_REF CAL_idle_error_correction_unknown_X_speed_error
+    /begin CHARACTERISTIC CAL_idle_air_control_integral "Idle PI integral step vs speed error (offset-binary, clipped -0x9f6..); added to idle_air_control_integral_term each CAL_idle_integral_update_period. Was CAL_idle_error_correction_unknown." CURVE 0x4000C8B2 RL_VALUE_UWORD 0 CM_u16_raw_32768 -32768 32767
+      /begin AXIS_DESCR COM_AXIS V_CAL_idle_air_control_integral_X_speed_error CM_u16_rspeed_rpm_32768 16 -32768 32767
+        AXIS_PTS_REF CAL_idle_air_control_integral_X_speed_error
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_dca_tps_limit_manual_X_time "Calibration: X-axis (time) for the drive-cycle-assist throttle position limit manual table (ms = val*50; 8-element array)." 0x4000C8D2 V_CAL_dca_tps_limit_manual_X_time RL_AXIS_UBYTE 0 CM_u8_time_50ms 8 0 12750
+    /begin AXIS_PTS CAL_dca_tps_limit_manual_X_time "X axis (dca_tps_ramp_index>>2, 20 ms) of CAL_dca_tps_limit_manual. Was typed 50 ms." 0x4000C8D2 V_CAL_dca_tps_limit_manual_X_time RL_AXIS_UBYTE 0 CM_u8_time_20ms 8 0 5100
     /end AXIS_PTS
     /begin CHARACTERISTIC CAL_dca_tps_limit_manual "Calibration: drive-cycle-assist throttle position limit manual (val/255; 8-element array)." CURVE 0x4000C8DA RL_VALUE_UBYTE 0 CM_u8_factor_1_255 0 100
-      /begin AXIS_DESCR COM_AXIS V_CAL_dca_tps_limit_manual_X_time CM_u8_time_50ms 8 0 12750
+      /begin AXIS_DESCR COM_AXIS V_CAL_dca_tps_limit_manual_X_time CM_u8_time_20ms 8 0 5100
         AXIS_PTS_REF CAL_dca_tps_limit_manual_X_time
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_dca_unknown_ips_nolc_X_time "Calibration: X-axis (time) for the drive-cycle-assist IPS nolc table (ms = val*50; 8-element array)." 0x4000C8E2 V_CAL_dca_unknown_ips_nolc_X_time RL_AXIS_UBYTE 0 CM_u8_time_50ms 8 0 12750
+    /begin AXIS_PTS CAL_dca_tps_limit_ips_no_lc_X_time "X axis (dca_tps_ramp_index>>2, 20 ms) of CAL_dca_tps_limit_ips_no_lc. Was CAL_dca_unknown_ips_nolc_X_time (typed 50 ms)." 0x4000C8E2 V_CAL_dca_tps_limit_ips_no_lc_X_time RL_AXIS_UBYTE 0 CM_u8_time_20ms 8 0 5100
     /end AXIS_PTS
-    /begin CHARACTERISTIC CAL_dca_unknown_ips_nolc "Calibration: drive-cycle-assist IPS nolc (val/255; 8-element array)." CURVE 0x4000C8EA RL_VALUE_UBYTE 0 CM_u8_factor_1_255 0 100
-      /begin AXIS_DESCR COM_AXIS V_CAL_dca_unknown_ips_nolc_X_time CM_u8_time_50ms 8 0 12750
-        AXIS_PTS_REF CAL_dca_unknown_ips_nolc_X_time
+    /begin CHARACTERISTIC CAL_dca_tps_limit_ips_no_lc "DCA throttle ramp step vs time for IPS cars without COD[0] bit 2; target = idle TPS delta + val*4 (1/1023). Was CAL_dca_unknown_ips_nolc." CURVE 0x4000C8EA RL_VALUE_UBYTE 0 CM_u8_factor_1_255 0 100
+      /begin AXIS_DESCR COM_AXIS V_CAL_dca_tps_limit_ips_no_lc_X_time CM_u8_time_20ms 8 0 5100
+        AXIS_PTS_REF CAL_dca_tps_limit_ips_no_lc_X_time
       /end AXIS_DESCR
     /end CHARACTERISTIC
     /begin AXIS_PTS CAL_idle_comp_misfire_X_failed_cyl_count "Calibration: X-axis (failed cyl count) for the idle compensation misfire table (8-element array)." 0x4000C8F2 failed_ignition_cyl_count RL_AXIS_UBYTE 0 NO_COMPU_METHOD 8 0 255
@@ -3378,7 +3380,7 @@
         AXIS_PTS_REF CAL_idle_comp_misfire_X_failed_cyl_count
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin CHARACTERISTIC CAL_dca_tps_limit_ips_x_time "Calibration: drive-cycle-assist throttle position limit IPS x time (ms = val*50; 8-element array)." VAL_BLK 0x4000C902 RL_VALUE_UBYTE 0 CM_u8_time_50ms 0 12750
+    /begin CHARACTERISTIC CAL_dca_tps_limit_ips_x_time "X axis (dca_tps_ramp_index>>2, 20 ms) of CAL_dca_tps_limit_ips. Was typed 50 ms." VAL_BLK 0x4000C902 RL_VALUE_UBYTE 0 CM_u8_time_20ms 0 5100
       NUMBER 8
     /end CHARACTERISTIC
     /begin CHARACTERISTIC CAL_dca_tps_limit_ips "Calibration: drive-cycle-assist throttle position limit IPS (val/255; 8-element array)." VAL_BLK 0x4000C90A RL_VALUE_UBYTE 0 CM_u8_factor_1_255 0 100
@@ -3649,7 +3651,7 @@
     /end CHARACTERISTIC
     /begin CHARACTERISTIC CAL_obd_ii_o2_slow_response_limit_rich_to_lean "u16_time_5ms" VALUE 0x4000CA64 RL_VALUE_UWORD 0 CM_u8_time_5ms 0 327675
     /end CHARACTERISTIC
-    /begin CHARACTERISTIC CAL_lea_misfire_baseline_set "bool" VALUE 0x4000CA66 RL_VALUE_UBYTE 0 NO_COMPU_METHOD 0 255
+    /begin CHARACTERISTIC CAL_misfire_baseline_default_select "When it acts: EEPROM_load (line 16749) checks it at every start-up. If the learned data is valid and the coding hasn't changed, but the stored LEA_misfire_baseline_set differs from this CAL, it calls init_lea_misfire_baselines(). So flipping this cal" VALUE 0x4000CA66 RL_VALUE_UBYTE 0 NO_COMPU_METHOD 0 255
     /end CHARACTERISTIC
     /begin CHARACTERISTIC CAL_obd_ii_P050A_idle_error_high "Calibration: P050A idle error high. (0091 0x4000d237)" VALUE 0x4000CA67 RL_VALUE_UBYTE 0 CM_u8_rspeed_2rpm 0 510
     /end CHARACTERISTIC
@@ -3775,7 +3777,7 @@
     /end CHARACTERISTIC
     /begin CHARACTERISTIC CAL_obd_ii_o2_postcat_activity_min "u16_time_5ms" VALUE 0x4000CAC6 RL_VALUE_UWORD 0 CM_u8_time_5ms 0 327675
     /end CHARACTERISTIC
-    /begin CHARACTERISTIC CAL_obd_ii_o2_slow_response_runtime_limit_unknown "u16_time_5ms" VALUE 0x4000CAC8 RL_VALUE_UWORD 0 CM_u8_time_5ms 0 327675
+    /begin CHARACTERISTIC CAL_obd_ii_o2_slow_response_runtime_min "O2 slow-response / post-cat response tests need runtime_since_start > this. Was CAL_obd_ii_o2_slow_response_runtime_limit_unknown." VALUE 0x4000CAC8 RL_VALUE_UWORD 0 CM_u8_time_5ms 0 327675
     /end CHARACTERISTIC
     /begin CHARACTERISTIC CAL_obd_ii_fuel_pressure_sensor_voltage_high "Calibration: fuel pressure sensor voltage high fault limit. 0278-only." VALUE 0x4000CACA RL_VALUE_UWORD 0 CM_u16_voltage_5_1023v 0 320.307917888563
     /end CHARACTERISTIC
@@ -3806,7 +3808,7 @@
     /end CHARACTERISTIC
     /begin CHARACTERISTIC CAL_obd_ii_P0116_coolant_deviation_max "Calibration: P0116 coolant deviation max. (0091 0x4000d2af)" VALUE 0x4000CADF RL_VALUE_UBYTE 0 CM_u8_tempdelta_5_8c 0 159.375
     /end CHARACTERISTIC
-    /begin CHARACTERISTIC CAL_obd_ii_runtime_since_start_threshold_unknown "Calibration: P0116 cold-start window runtime. (0091 0x4000d2b0)" VALUE 0x4000CAE0 RL_VALUE_UWORD 0 CM_u8_time_5ms 0 327675
+    /begin CHARACTERISTIC CAL_obd_ii_P0116_coldstart_runtime_max "P0116 uses CAL_obd_ii_P0116_coolant_deviation_max_coldstart while runtime_since_start < this. Was CAL_obd_ii_runtime_since_start_threshold_unknown." VALUE 0x4000CAE0 RL_VALUE_UWORD 0 CM_u8_time_5ms 0 327675
     /end CHARACTERISTIC
     /begin CHARACTERISTIC CAL_obd_ii_fuel_type "Calibration: OBD-II fuel type." VALUE 0x4000CAE2 RL_VALUE_UBYTE 0 NO_COMPU_METHOD 0 255
     /end CHARACTERISTIC
@@ -3835,7 +3837,7 @@
     /end CHARACTERISTIC
     /begin CHARACTERISTIC CAL_evap_leak_vacuum_decay_sample "Calibration: (0091 0x4000d2c3 CAL_evap_leak_vacuum_decay_sample)" VALUE 0x4000CAF3 RL_VALUE_UBYTE 0 NO_COMPU_METHOD 0 255
     /end CHARACTERISTIC
-    /begin CHARACTERISTIC CAL_cat_check_unknown4 "u16_time_5ms" VALUE 0x4000CAF4 RL_VALUE_UWORD 0 CM_u8_time_5ms 0 327675
+    /begin CHARACTERISTIC CAL_obd_ii_postcat_rich_response_time_max "Time the post-cat O2 has to go rich after the pre-cat does (200 Hz); expiry sets obd_ii_postcat_response_flags 0x20. Was CAL_cat_check_unknown4." VALUE 0x4000CAF4 RL_VALUE_UWORD 0 CM_u8_time_5ms 0 327675
     /end CHARACTERISTIC
     /begin CHARACTERISTIC CAL_obd_ii_commanded_evap_purge_threshold "u16_factor_1/255" VALUE 0x4000CAF6 RL_VALUE_UWORD 0 CM_u8_factor_1_255 0 25700
     /end CHARACTERISTIC
@@ -3912,7 +3914,7 @@
     /end CHARACTERISTIC
     /begin CHARACTERISTIC CAL_obd_ii_cat_monitor_runtime_min "Calibration: cat/O2 monitor runtime min. (0091 CAL_obd_ii_cat_unknown2)" VALUE 0x4000CB2A RL_VALUE_UWORD 0 CM_u8_time_5ms 0 327675
     /end CHARACTERISTIC
-    /begin CHARACTERISTIC CAL_obd_ii_cat_unknown3 "u16_pressure_mbar" VALUE 0x4000CB2C RL_VALUE_UWORD 0 CM_i16_pressure_mbar 0 65535
+    /begin CHARACTERISTIC CAL_obd_ii_cat_o2_monitor_baro_min "Cat/O2 monitors run only while obd_ii_atmospheric_baro > this (mbar). Was CAL_obd_ii_cat_unknown3." VALUE 0x4000CB2C RL_VALUE_UWORD 0 CM_i16_pressure_mbar 0 65535
     /end CHARACTERISTIC
     /begin CHARACTERISTIC CAL_obd_ii_cat_o2_monitor_iat_min "Calibration: cat/O2 monitor needs engine air > this. (0091 CAL_obd_ii_unknown5)" VALUE 0x4000CB2E RL_VALUE_UBYTE 0 CM_u8_temp_5_8_40c -40 119.375
     /end CHARACTERISTIC
@@ -4086,7 +4088,7 @@
     /end CHARACTERISTIC
     /begin CHARACTERISTIC CAL_obd_ii_o2_imbalance_sample_count "Calibration: (0091 0x4000d389 CAL_obd_ii_o2_imbalance_sample_count)" VALUE 0x4000CBB9 RL_VALUE_UBYTE 0 NO_COMPU_METHOD 0 255
     /end CHARACTERISTIC
-    /begin CHARACTERISTIC CAL_obd_ii_o2_slow_response_maf_limit_unknown2 "u16_flow_10mg/s" VALUE 0x4000CBBA RL_VALUE_UWORD 0 CM_u16_flow_10mg_s 0 655350
+    /begin CHARACTERISTIC CAL_obd_ii_o2_slow_response_maf_min "O2 slow-response test needs obd_ii_maf_flow > this. Was ..._maf_limit_unknown2." VALUE 0x4000CBBA RL_VALUE_UWORD 0 CM_u16_flow_10mg_s 0 655350
     /end CHARACTERISTIC
     /begin CHARACTERISTIC CAL_obd_ii_o2_precat_diag_init_counter "u16_time_5ms" VALUE 0x4000CBBC RL_VALUE_UWORD 0 CM_u8_time_5ms 0 327675
     /end CHARACTERISTIC
@@ -4104,7 +4106,7 @@
     /end CHARACTERISTIC
     /begin CHARACTERISTIC CAL_obd_ii_monitor_rpm_min "Calibration: monitor completion needs rpm >= this. (0091 CAL_obd_ii_rpm_unknown1)" VALUE 0x4000CBC6 RL_VALUE_UWORD 0 CM_u8_rspeed_rpm 0 65535
     /end CHARACTERISTIC
-    /begin CHARACTERISTIC CAL_obd_ii_o2_slow_response_maf_limit_unknown "u16_flow_10mg/s" VALUE 0x4000CBC8 RL_VALUE_UWORD 0 CM_u16_flow_10mg_s 0 655350
+    /begin CHARACTERISTIC CAL_obd_ii_o2_slow_response_maf_max "O2 slow-response test needs obd_ii_maf_flow < this. Was ..._maf_limit_unknown." VALUE 0x4000CBC8 RL_VALUE_UWORD 0 CM_u16_flow_10mg_s 0 655350
     /end CHARACTERISTIC
     /begin CHARACTERISTIC CAL_obd_ii_o2_precat_diag_reset_counter "u16_time_5ms" VALUE 0x4000CBCA RL_VALUE_UWORD 0 CM_u8_time_5ms 0 327675
     /end CHARACTERISTIC
@@ -4189,62 +4191,62 @@
     /end CHARACTERISTIC
     /begin CHARACTERISTIC CAL_can_yaw_monitor_startup_delay "Calibration: (0091 0x4000d3d3 CAL_can_yaw_monitor_startup_delay)" VALUE 0x4000CC03 RL_VALUE_UBYTE 0 CM_u8_time_s 0 255
     /end CHARACTERISTIC
-    /begin CHARACTERISTIC CAL_slip_gear_speed_ratios_ips "Calibration: slip detection gear ratios, IPS (rpm/kph x10). (0091 CAL_gsi_rpm_per_kph_ips)" VAL_BLK 0x4000CC04 RL_VALUE_UWORD 0 CM_u16_ratio_1_10rpm_kph 0 6553.5
+    /begin CHARACTERISTIC CAL_gsi_gear_ratio_ips "GSI (gear shift indicator), not TC. rpm per km/h per gear (1/10), IPS. Was CAL_slip_gear_speed_ratios_ips." VAL_BLK 0x4000CC04 RL_VALUE_UWORD 0 CM_u16_ratio_1_10rpm_kph 0 6553.5
       NUMBER 6
     /end CHARACTERISTIC
-    /begin CHARACTERISTIC CAL_slip_gear_speed_ratios_cr "Calibration: slip detection gear ratios, close ratio (rpm/kph x10)." VAL_BLK 0x4000CC10 RL_VALUE_UWORD 0 CM_u16_ratio_1_10rpm_kph 0 6553.5
+    /begin CHARACTERISTIC CAL_gsi_gear_ratio_close "GSI (gear shift indicator), not TC. rpm per km/h per gear (1/10), close-ratio manual (COD[0] bit 16). Was CAL_slip_gear_speed_ratios_cr." VAL_BLK 0x4000CC10 RL_VALUE_UWORD 0 CM_u16_ratio_1_10rpm_kph 0 6553.5
       NUMBER 6
     /end CHARACTERISTIC
-    /begin CHARACTERISTIC CAL_slip_gear_speed_ratios_long "Calibration: slip detection gear ratios, long (rpm/kph x10)." VAL_BLK 0x4000CC1C RL_VALUE_UWORD 0 CM_u16_ratio_1_10rpm_kph 0 6553.5
+    /begin CHARACTERISTIC CAL_gsi_gear_ratio_long "GSI (gear shift indicator), not TC. rpm per km/h per gear (1/10), long-ratio manual. Was CAL_slip_gear_speed_ratios_long." VAL_BLK 0x4000CC1C RL_VALUE_UWORD 0 CM_u16_ratio_1_10rpm_kph 0 6553.5
       NUMBER 6
     /end CHARACTERISTIC
-    /begin CHARACTERISTIC CAL_slip_threshold_1st_Gear "Calibration: slip threshold 1st Gear (RPM = val*4+500)." VALUE 0x4000CC28 RL_VALUE_UBYTE 0 CM_u8_rspeed_4_500rpm 500 1520
+    /begin CHARACTERISTIC CAL_gsi_min_rpm_gear1 "GSI (gear shift indicator), not TC. Min rpm in 1st (rpm = val*5 + 500; was typed *4). Was CAL_slip_threshold_1st_Gear." VALUE 0x4000CC28 RL_VALUE_UBYTE 0 CM_u8_rspeed_5_500rpm 500 1775
     /end CHARACTERISTIC
-    /begin CHARACTERISTIC CAL_slip_threshold_per_gear_manual "Calibration: slip threshold per gear manual (RPM = val*4+500; 5-element array)." VAL_BLK 0x4000CC29 RL_VALUE_UBYTE 0 CM_u8_rspeed_4_500rpm 500 1520
+    /begin CHARACTERISTIC CAL_gsi_min_rpm_manual "GSI (gear shift indicator), not TC. Min rpm in gears 2-6, manual (rpm = val*5 + 500). Was CAL_slip_threshold_per_gear_manual." VAL_BLK 0x4000CC29 RL_VALUE_UBYTE 0 CM_u8_rspeed_5_500rpm 500 1775
       NUMBER 5
     /end CHARACTERISTIC
-    /begin CHARACTERISTIC CAL_slip_slip_threshold_per_gear_ips "Calibration: slip slip threshold per gear IPS (RPM = val*4+500; 5-element array)." VAL_BLK 0x4000CC2E RL_VALUE_UBYTE 0 CM_u8_rspeed_4_500rpm 500 1520
+    /begin CHARACTERISTIC CAL_gsi_min_rpm_ips "GSI (gear shift indicator), not TC. Min rpm in gears 2-6, IPS (rpm = val*5 + 500). Was CAL_slip_slip_threshold_per_gear_ips." VAL_BLK 0x4000CC2E RL_VALUE_UBYTE 0 CM_u8_rspeed_5_500rpm 500 1775
       NUMBER 5
     /end CHARACTERISTIC
-    /begin CHARACTERISTIC CAL_slip_detect_mode "Calibration: slip detect mode (enumerated state)." VALUE 0x4000CC33 RL_VALUE_UBYTE 0 NO_COMPU_METHOD 0 255
+    /begin CHARACTERISTIC CAL_gsi_mode "GSI (gear shift indicator), not TC. GSI mode (enum_slip_detect_mode); >2 also drives the cluster arrows. Was CAL_slip_detect_mode." VALUE 0x4000CC33 RL_VALUE_UBYTE 0 NO_COMPU_METHOD 0 255
     /end CHARACTERISTIC
-    /begin CHARACTERISTIC CAL_slip_inhibit_accel_pedal_min "Calibration: slip inhibit accelerator pedal minimum (val/1023)." VALUE 0x4000CC34 RL_VALUE_UWORD 0 CM_u16_factor_1_1023 0 6406.15835777126
+    /begin CHARACTERISTIC CAL_gsi_pedal_applied_min "GSI (gear shift indicator), not TC. Pedal above this reloads gsi_pedal_applied_timer. Was CAL_slip_inhibit_accel_pedal_min." VALUE 0x4000CC34 RL_VALUE_UWORD 0 CM_u16_factor_1_1023 0 6406.15835777126
     /end CHARACTERISTIC
-    /begin CHARACTERISTIC CAL_slip_steering_angle_max_unknown "Calibration: slip steering angle maximum (° = val/10)." VALUE 0x4000CC36 RL_VALUE_UWORD 0 CM_u16_angle_1_10deg 0 6553.5
+    /begin CHARACTERISTIC CAL_gsi_steering_angle_max "GSI (gear shift indicator), not TC. Advice cancelled while |steering_angle| >= this. Was CAL_slip_timer_reset_steering_angle." VALUE 0x4000CC36 RL_VALUE_UWORD 0 CM_u16_angle_1_10deg 0 6553.5
     /end CHARACTERISTIC
-    /begin CHARACTERISTIC CAL_slip_car_speed_unknown1 "Calibration: slip car speed unknown1 (km/h = val/100)." VALUE 0x4000CC38 RL_VALUE_UWORD 0 CM_u8_speed_1_100kph 0 655.35
+    /begin CHARACTERISTIC CAL_gsi_rpm_in_gear_max "GSI (gear shift indicator), not TC. A gear only qualifies while its rpm-at-speed < this. Was CAL_slip_expected_rpm_max." VALUE 0x4000CC38 RL_VALUE_UWORD 0 CM_u8_rspeed_rpm 0 65535
     /end CHARACTERISTIC
-    /begin CHARACTERISTIC CAL_slip_threshold_car_speed "Calibration: slip threshold car speed (km/h)." VALUE 0x4000CC3A RL_VALUE_UBYTE 0 CM_u8_speed_kph 0 255
+    /begin CHARACTERISTIC CAL_gsi_speed_offset_manual "GSI (gear shift indicator), not TC. Manual: min(speed, cal) subtracted from speed before rpm-in-gear. Was CAL_slip_threshold_car_speed." VALUE 0x4000CC3A RL_VALUE_UBYTE 0 CM_u8_speed_kph 0 255
     /end CHARACTERISTIC
-    /begin CHARACTERISTIC CAL_slip_coldstart_coolant_threshold "Calibration: slip coldstart coolant threshold (°C = val*5/8−40)." VALUE 0x4000CC3B RL_VALUE_UBYTE 0 CM_u8_temp_5_8_40c -40 119.375
+    /begin CHARACTERISTIC CAL_gsi_coldstart_coolant_max "GSI (gear shift indicator), not TC. Cold-start rpm offset applies while engine-off coolant < this. Was CAL_slip_coldstart_coolant_threshold." VALUE 0x4000CC3B RL_VALUE_UBYTE 0 CM_u8_temp_5_8_40c -40 119.375
     /end CHARACTERISTIC
-    /begin CHARACTERISTIC CAL_slip_timer_per_gear_intervention "Calibration: slip timer per gear intervention (ms = val*100)." VALUE 0x4000CC3C RL_VALUE_UBYTE 0 CM_u8_time_100ms 0 25500
+    /begin CHARACTERISTIC CAL_gsi_gear_qualify_time "GSI (gear shift indicator), not TC. Reload for gsi_gear_qualify_timer / gsi_upshift_advisory_timer (100 ms). Was CAL_slip_timer_per_gear_intervention." VALUE 0x4000CC3C RL_VALUE_UBYTE 0 CM_u8_time_100ms 0 25500
     /end CHARACTERISTIC
-    /begin CHARACTERISTIC CAL_slip_inhibit_cornering_base "Calibration: slip inhibit cornering base (val/255)." VALUE 0x4000CC3D RL_VALUE_UBYTE 0 CM_u8_factor_1_255 0 100
+    /begin CHARACTERISTIC CAL_gsi_cornering_limit "GSI (gear shift indicator), not TC. Advice suppressed when gsi_cornering_intensity >= this. Was CAL_slip_inhibit_cornering_base." VALUE 0x4000CC3D RL_VALUE_UBYTE 0 NO_COMPU_METHOD 0 255
     /end CHARACTERISTIC
-    /begin CHARACTERISTIC CAL_slip_inhibit_cornering_offset "Calibration: slip inhibit cornering offset (val/255)." VALUE 0x4000CC3E RL_VALUE_UBYTE 0 CM_u8_factor_1_255 0 100
+    /begin CHARACTERISTIC CAL_gsi_cornering_limit_hyst "GSI (gear shift indicator), not TC. Added to CAL_gsi_cornering_limit while upshift advice is shown. Was CAL_slip_inhibit_cornering_offset." VALUE 0x4000CC3E RL_VALUE_UBYTE 0 NO_COMPU_METHOD 0 255
     /end CHARACTERISTIC
-    /begin CHARACTERISTIC CAL_slip_steering_rate_factor "Calibration: slip steering rate factor (val/100)." VALUE 0x4000CC3F RL_VALUE_UBYTE 0 CM_u8_factor_1_100 0 255
+    /begin CHARACTERISTIC CAL_gsi_steering_rate_gain "GSI (gear shift indicator), not TC. Steering term = gsi_steering_rate * cal / 100. Was CAL_slip_steering_rate_factor." VALUE 0x4000CC3F RL_VALUE_UBYTE 0 CM_u8_factor_1_100 0 255
     /end CHARACTERISTIC
-    /begin CHARACTERISTIC CAL_slip_steering_increase_factor_min "Calibration: slip steering increase factor minimum (val/255)." VALUE 0x4000CC40 RL_VALUE_UBYTE 0 CM_u8_factor_1_255 0 100
+    /begin CHARACTERISTIC CAL_gsi_steering_term_max "GSI (gear shift indicator), not TC. Cap on the steering term (used as a max, not a min). Was CAL_slip_steering_increase_factor_min." VALUE 0x4000CC40 RL_VALUE_UBYTE 0 NO_COMPU_METHOD 0 255
     /end CHARACTERISTIC
-    /begin CHARACTERISTIC CAL_slip_steering_angle_smooth_factor "Calibration: slip steering angle smooth factor (val/255)." VALUE 0x4000CC41 RL_VALUE_UBYTE 0 CM_u8_factor_1_255 0 100
+    /begin CHARACTERISTIC CAL_gsi_steering_rate_filter_weight "GSI (gear shift indicator), not TC. IIR weight (/256) of gsi_steering_rate_filter_q8. Was CAL_slip_steering_angle_smooth_factor." VALUE 0x4000CC41 RL_VALUE_UBYTE 0 CM_u8_factor_1_256 0 99.609375
     /end CHARACTERISTIC
-    /begin CHARACTERISTIC CAL_slip_inhibit_accel_pedal_timer "Calibration: slip inhibit accelerator pedal timer (ms = val*100)." VALUE 0x4000CC42 RL_VALUE_UBYTE 0 CM_u8_time_100ms 0 25500
+    /begin CHARACTERISTIC CAL_gsi_pedal_applied_hold "GSI (gear shift indicator), not TC. Reload of gsi_pedal_applied_timer (100 ms). Was CAL_slip_inhibit_accel_pedal_timer." VALUE 0x4000CC42 RL_VALUE_UBYTE 0 CM_u8_time_100ms 0 25500
     /end CHARACTERISTIC
-    /begin CHARACTERISTIC CAL_gsi_downshift_idle_margin "Calibration: (0091 0x4000d413 CAL_gsi_downshift_idle_margin)" VALUE 0x4000CC43 RL_VALUE_UBYTE 0 NO_COMPU_METHOD 0 255
+    /begin CHARACTERISTIC CAL_gsi_downshift_idle_margin "GSI (gear shift indicator), not TC. Downshift when rpm < idle target - cal*5 (manual)." VALUE 0x4000CC43 RL_VALUE_UBYTE 0 CM_u8_rspeed_5rpm 0 1275
     /end CHARACTERISTIC
-    /begin CHARACTERISTIC CAL_slip_threshold_hysteresis_offset "Calibration: slip threshold hysteresis offset (RPM = val*4+500)." VALUE 0x4000CC44 RL_VALUE_UBYTE 0 CM_u8_rspeed_4_500rpm 500 1520
+    /begin CHARACTERISTIC CAL_gsi_min_rpm_hyst "GSI (gear shift indicator), not TC. Hysteresis subtracted from the min-rpm threshold before *5 (5 rpm units). Was CAL_slip_threshold_hysteresis_offset (typed 4+500)." VALUE 0x4000CC44 RL_VALUE_UBYTE 0 CM_u8_rspeed_5rpm 0 1275
     /end CHARACTERISTIC
-    /begin CHARACTERISTIC CAL_slip_timer_intervention2 "Calibration: slip timer intervention2 (ms = val*100)." VALUE 0x4000CC45 RL_VALUE_UBYTE 0 CM_u8_time_100ms 0 25500
+    /begin CHARACTERISTIC CAL_gsi_downshift_advisory_delay "GSI (gear shift indicator), not TC. Reload of gsi_downshift_advisory_timer / holdoff (100 ms). Was CAL_slip_timer_intervention2." VALUE 0x4000CC45 RL_VALUE_UBYTE 0 CM_u8_time_100ms 0 25500
     /end CHARACTERISTIC
-    /begin CHARACTERISTIC CAL_slip_gear_offset_unknown "Calibration: slip gear offset." VALUE 0x4000CC46 RL_VALUE_UBYTE 0 NO_COMPU_METHOD 0 255
+    /begin CHARACTERISTIC CAL_gsi_recommended_gear_max_step "GSI (gear shift indicator), not TC. Max gears between current and recommended gear. Was CAL_slip_tc_gear_max_step." VALUE 0x4000CC46 RL_VALUE_UBYTE 0 NO_COMPU_METHOD 0 255
     /end CHARACTERISTIC
-    /begin CHARACTERISTIC CAL_slip_threshold_rpm_margin "Calibration: traction: rpm gate = (LEA slip threshold - cal)*5+500. 0278-only." VALUE 0x4000CC47 RL_VALUE_UBYTE 0 NO_COMPU_METHOD 0 255
+    /begin CHARACTERISTIC CAL_gsi_downshift_rpm_margin "GSI (gear shift indicator), not TC. Margin below the current gear min rpm for downshift (5 rpm units). Was CAL_slip_threshold_rpm_margin." VALUE 0x4000CC47 RL_VALUE_UBYTE 0 CM_u8_rspeed_5rpm 0 1275
     /end CHARACTERISTIC
-    /begin CHARACTERISTIC CAL_slip_wheelspeed_front_accel_threshold "Calibration: slip wheelspeed front accelerator threshold." VALUE 0x4000CC48 RL_VALUE_UBYTE 0 NO_COMPU_METHOD 0 255
+    /begin CHARACTERISTIC CAL_gsi_front_wheel_accel_min "GSI (gear shift indicator), not TC. Compared with accel_front_wheels for gsi_flags bits 3/4. Was CAL_slip_wheelspeed_front_accel_threshold." VALUE 0x4000CC48 RL_VALUE_UBYTE 0 NO_COMPU_METHOD 0 255
     /end CHARACTERISTIC
-    /begin CHARACTERISTIC CAL_slip_enable_speed "Calibration: slip enable speed (km/h)." VALUE 0x4000CC49 RL_VALUE_UBYTE 0 CM_u8_speed_kph 0 255
+    /begin CHARACTERISTIC CAL_gsi_first_gear_speed_min "GSI (gear shift indicator), not TC. Manual: speed above which 1st gear counts as moving for gsi_display_gear. Was CAL_slip_enable_speed." VALUE 0x4000CC49 RL_VALUE_UBYTE 0 CM_u8_speed_kph 0 255
     /end CHARACTERISTIC
     /begin CHARACTERISTIC CAL_obd_ii_P0191_stuck_check_count_fueling "Calibration: P0191 stuck-check samples (fueling)." VALUE 0x4000CC4A RL_VALUE_UBYTE 0 NO_COMPU_METHOD 0 255
     /end CHARACTERISTIC
@@ -5553,18 +5555,18 @@
         AXIS_PTS_REF CAL_sensor_tmap_expected_temp_Y_load
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_slip_comp_maf_accum_manual_X_maf_accum "Calibration: X axis (accumulated air, g) of slip comp." 0x4000D95C maf_accumulated_since_start_raw RL_AXIS_UWORD 0 CM_u16_mass_g 4 0 65535
+    /begin AXIS_PTS CAL_gsi_coldstart_rpm_offset_manual_X_air_mass "GSI (gear shift indicator), not TC. X axis (air mass since start) of CAL_gsi_coldstart_rpm_offset_manual. Was CAL_slip_comp_maf_accum_manual_X_maf_accum." 0x4000D95C maf_accumulated_since_start_raw RL_AXIS_UWORD 0 CM_u16_mass_g 4 0 65535
     /end AXIS_PTS
-    /begin CHARACTERISTIC CAL_slip_comp_maf_accum_manual "Calibration: slip compensation MAF accum manual (4-element array)." CURVE 0x4000D964 RL_VALUE_UWORD 0 NO_COMPU_METHOD 0 65535
+    /begin CHARACTERISTIC CAL_gsi_coldstart_rpm_offset_manual "GSI (gear shift indicator), not TC. rpm added to the per-gear min rpm when cold, vs air mass since start. Was CAL_slip_comp_maf_accum_manual." CURVE 0x4000D964 RL_VALUE_UWORD 0 CM_u8_rspeed_rpm 0 65535
       /begin AXIS_DESCR COM_AXIS maf_accumulated_since_start_raw CM_u16_mass_g 4 0 65535
-        AXIS_PTS_REF CAL_slip_comp_maf_accum_manual_X_maf_accum
+        AXIS_PTS_REF CAL_gsi_coldstart_rpm_offset_manual_X_air_mass
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_slip_power_based_rpm_thresholds_X_power "Calibration: X-axis (power) for the slip power based RPM thresholds table (kW = val/100; 8-element array)." 0x4000D96C engine_power_corrected RL_AXIS_UWORD 0 CM_u16_power_1_100kw 8 0 655.35
+    /begin AXIS_PTS CAL_gsi_power_upshift_rpm_X_power "GSI (gear shift indicator), not TC. X axis (engine_power_corrected) of CAL_gsi_power_upshift_rpm. Was CAL_slip_power_based_rpm_thresholds_X_power." 0x4000D96C engine_power_corrected RL_AXIS_UWORD 0 CM_u16_power_1_100kw 8 0 655.35
     /end AXIS_PTS
-    /begin CHARACTERISTIC CAL_slip_power_based_rpm_thresholds "Calibration: slip power based RPM thresholds (RPM; 8-element array)." CURVE 0x4000D97C RL_VALUE_UWORD 0 CM_u8_rspeed_rpm 0 65535
+    /begin CHARACTERISTIC CAL_gsi_power_upshift_rpm "GSI (gear shift indicator), not TC. Power-based upshift rpm vs engine power. Was CAL_slip_power_based_rpm_thresholds." CURVE 0x4000D97C RL_VALUE_UWORD 0 CM_u8_rspeed_rpm 0 65535
       /begin AXIS_DESCR COM_AXIS engine_power_corrected CM_u16_power_1_100kw 8 0 655.35
-        AXIS_PTS_REF CAL_slip_power_based_rpm_thresholds_X_power
+        AXIS_PTS_REF CAL_gsi_power_upshift_rpm_X_power
       /end AXIS_DESCR
     /end CHARACTERISTIC
     /begin AXIS_PTS CAL_load_plausibility_test_delta_X_rpm "Calibration: X-axis (rpm) for the load plausibility test delta table (RPM = val*125/4+500; 8-element array)." 0x4000D98C engine_speed_8bit RL_AXIS_UBYTE 0 CM_u8_rspeed_125_4_500rpm 8 500 8468.75
@@ -5631,11 +5633,11 @@
         AXIS_PTS_REF CAL_misfire_base_threshold_ips_Y_load
       /end AXIS_DESCR
     /end CHARACTERISTIC
-    /begin AXIS_PTS CAL_emissions_cat_efficiency_unknown1_X_coolant_temp "Calibration: X-axis (coolant temp) for the emissions cat efficiency unknown1 table (°C = val*5/8−40; 8-element array)." 0x4000DEE0 coolant_temp_engine_stopped RL_AXIS_UBYTE 0 CM_u8_temp_5_8_40c 8 -40 119.375
+    /begin AXIS_PTS CAL_obd_ii_cat_monitor_min_air_mass_X_soak_coolant_temp "X axis (coolant_temp_engine_stopped) of CAL_obd_ii_cat_monitor_min_air_mass." 0x4000DEE0 coolant_temp_engine_stopped RL_AXIS_UBYTE 0 CM_u8_temp_5_8_40c 8 -40 119.375
     /end AXIS_PTS
-    /begin CHARACTERISTIC CAL_emissions_cat_efficiency_unknown1 "Calibration: cat monitor min accumulated air vs engine-off coolant (compared with accum>>4, 16 g units)." CURVE 0x4000DEE8 RL_VALUE_UBYTE 0 CM_u8_mass_16g 0 4080
+    /begin CHARACTERISTIC CAL_obd_ii_cat_monitor_min_air_mass "Cat monitor minimum accumulated air vs engine-off coolant (compared with accum>>4, 16 g units). Was CAL_emissions_cat_efficiency_unknown1." CURVE 0x4000DEE8 RL_VALUE_UBYTE 0 CM_u8_mass_16g 0 4080
       /begin AXIS_DESCR COM_AXIS coolant_temp_engine_stopped CM_u8_temp_5_8_40c 8 -40 119.375
-        AXIS_PTS_REF CAL_emissions_cat_efficiency_unknown1_X_coolant_temp
+        AXIS_PTS_REF CAL_obd_ii_cat_monitor_min_air_mass_X_soak_coolant_temp
       /end AXIS_DESCR
     /end CHARACTERISTIC
     /begin AXIS_PTS CAL_obd_ii_cat_monitor_threshold_manual_X_maf_flow "X-axis: obd_ii_maf_flow/100 (g/s). Was typed u8_mass_g." 0x4000DEF0 NO_INPUT_QUANTITY RL_AXIS_UBYTE 0 CM_u8_flow_g_s 8 0 255
@@ -6143,6 +6145,9 @@
     /begin MEASUREMENT ign_isr_cyl6_toggle "Alternating-event toggle in ign_isr_cylinder6." UBYTE NO_COMPU_METHOD 0 0 0 255
       ECU_ADDRESS 0x40001469
     /end MEASUREMENT
+    /begin MEASUREMENT misfire_seg_start_time "24-bit eTPU tooth timestamp (crank param 0x3d) latched at teeth 0/12/24/36/48/60; 4 teeth later (now - this) & 0xffffff -> misfire_record_segment_period. Was PTR_4000146c." ULONG NO_COMPU_METHOD 0 0 0 4294967295
+      ECU_ADDRESS 0x4000146C
+    /end MEASUREMENT
     /begin MEASUREMENT etb_driver_spi_cmd "DSPI-C command word for the ETB H-bridge diagnostic read (0x80 after first read)." ULONG NO_COMPU_METHOD 0 0 0 4294967295
       ECU_ADDRESS 0x40001470
     /end MEASUREMENT
@@ -6323,7 +6328,7 @@
     /begin MEASUREMENT accel_pedal_mode "Accelerator pedal mode (enumerated state)." UBYTE NO_COMPU_METHOD 0 0 0 255
       ECU_ADDRESS 0x40001520
     /end MEASUREMENT
-    /begin MEASUREMENT accel_pedal_d_zero_voltage "u16_factor_1/1023" UWORD CM_u16_factor_1_1023 0 0 0 6406.15835777126
+    /begin MEASUREMENT accel_pedal_d_zero_voltage "Learned APP sensor D zero (minimum) voltage. Was typed u16_factor_1/1023 (track E twin is a voltage)." UWORD CM_u16_voltage_5_1023v 0 0 0 320.307917888563
       ECU_ADDRESS 0x40001522
     /end MEASUREMENT
     /begin MEASUREMENT accel_pedal_e_zero_voltage "Learned APP sensor E zero (minimum) voltage." UWORD CM_u16_voltage_5_1023v 0 0 0 320.307917888563
@@ -6452,7 +6457,7 @@
     /begin MEASUREMENT knock_window_irq_phase "Knock window ISR phase toggle." UBYTE NO_COMPU_METHOD 0 0 0 255
       ECU_ADDRESS 0x4000157B
     /end MEASUREMENT
-    /begin MEASUREMENT flexcan_ccp_tx_timeout "Set to 4 (2 ms) when CAN 0x351 (CCP) is sent; if still pending (queue flag 0x08) when it expires the flag is cleared and flexcan_ccp_tx_timeout_count++." UBYTE CM_u8_time_500us 0 0 0 127500
+    /begin MEASUREMENT ccp_tx_watchdog_timer "Set to 4 (2 ms) when CAN 0x351 (CCP) is sent; if still pending (queue flag 0x08) when it expires the flag is cleared and flexcan_ccp_tx_timeout_count++." UBYTE CM_u8_time_500us 0 0 0 127500
       ECU_ADDRESS 0x40001580
     /end MEASUREMENT
     /begin MEASUREMENT chlog_command_buffer "NUL-terminated channel-logger command string scanned by chlog_command_dispatch." UBYTE NO_COMPU_METHOD 0 0 0 255
@@ -7412,10 +7417,10 @@
     /begin MEASUREMENT chargecooler_temp_div_160 "Chargecooler temperature div 160." UWORD NO_COMPU_METHOD 0 0 0 65535
       ECU_ADDRESS 0x4000186A
     /end MEASUREMENT
-    /begin MEASUREMENT sensor_temp_unk1_diag "Lookup result of CAL_sensor_aux_temp." UBYTE NO_COMPU_METHOD 0 0 0 255
+    /begin MEASUREMENT sensor_aux1_lookup_unused "CAL_sensor_aux_unused[sensor_aux1_raw_unused >> 2]; written in adc_convert, read only via the logger channel descriptor table (0x000cea50). Input is never written in 0278, so this is constant. 0091 equivalent: fuel_pressure_unused. Was sensor_temp_un" UBYTE NO_COMPU_METHOD 0 0 0 255
       ECU_ADDRESS 0x4000186C
     /end MEASUREMENT
-    /begin MEASUREMENT sensor_temp_unk2_diag "Lookup result of CAL_sensor_aux_temp." UBYTE NO_COMPU_METHOD 0 0 0 255
+    /begin MEASUREMENT sensor_aux2_lookup_unused "CAL_sensor_aux_unused[sensor_aux2_raw_unused >> 2]; same as sensor_aux1_lookup_unused (logger table 0x000cea62). 0091 equivalent: fuel_pressure_unknown_fallback___. Was sensor_temp_unk2_diag." UBYTE NO_COMPU_METHOD 0 0 0 255
       ECU_ADDRESS 0x4000186D
     /end MEASUREMENT
     /begin MEASUREMENT adc_ch35_voltage "ADC DMA channel 0x35 sample (>>4)." UWORD CM_u16_voltage_5_1023v 0 0 0 320.307917888563
@@ -7559,7 +7564,7 @@
     /begin MEASUREMENT vehicle_mode_change_holdoff "Countdown after a drive-mode change." UBYTE CM_u8_time_10ms 0 0 0 2550
       ECU_ADDRESS 0x400018D9
     /end MEASUREMENT
-    /begin MEASUREMENT vehicle_mode_timer_unknown3 "Vehicle mode timer unknown3 (ms = val*10)." UBYTE CM_u8_time_10ms 0 0 0 2550
+    /begin MEASUREMENT vehicle_mode_change_flash_timer "After a launch->race fallback (ABS 0xA8 state), toggles output siu_gpdo[0xcf] / obd_ii_relay_status bit 7 every 100 ms for 80 x 10 ms. Was vehicle_mode_timer_unknown3." UBYTE CM_u8_time_10ms 0 0 0 2550
       ECU_ADDRESS 0x400018DA
     /end MEASUREMENT
     /begin MEASUREMENT start_input_hold_timer "u8_time_10ms" UBYTE CM_u8_time_10ms 0 0 0 2550
@@ -7589,16 +7594,16 @@
     /begin MEASUREMENT oil_pressure_sensor_voltage_raw "Oil pressure sensor voltage (V = val*5/1023)." UWORD CM_u16_voltage_5_1023v 0 0 0 320.307917888563
       ECU_ADDRESS 0x400018EE
     /end MEASUREMENT
-    /begin MEASUREMENT adc_sample_status "Cleared in adc_sample." ULONG NO_COMPU_METHOD 0 0 0 4294967295
+    /begin MEASUREMENT adc_sample_status "Cleared in adc_sample (was the low half of a uint32 that overlapped sensor_adc_ign_voltage)." UWORD NO_COMPU_METHOD 0 0 0 65535
       ECU_ADDRESS 0x400018F0
     /end MEASUREMENT
-    /begin MEASUREMENT sensor_adc_ign_voltage "Cleared in adc_sample." ULONG NO_COMPU_METHOD 0 0 0 4294967295
+    /begin MEASUREMENT sensor_adc_ign_voltage "Ignition-sense voltage: ADC ch 0x15 >> 4; compared with CAL_ecu_ign_threshold << 2 (ignition on / P0685)." UWORD CM_u16_voltage_5_1023v 0 0 0 320.307917888563
       ECU_ADDRESS 0x400018F2
     /end MEASUREMENT
-    /begin MEASUREMENT sensor_aux_temp2_raw "Aux temperature sensor 2 ADC (>>2 into CAL_sensor_aux_temp). Was sensor_temp_unk2_raw." UWORD NO_COMPU_METHOD 0 0 0 65535
+    /begin MEASUREMENT sensor_aux2_raw_unused "No write reference in 0278 (reads 0). 0091 equivalent: fuel_pressure_voltage_unknown. Was sensor_aux_temp2_raw." UWORD CM_u16_voltage_5_1023v 0 0 0 320.307917888563
       ECU_ADDRESS 0x400018F4
     /end MEASUREMENT
-    /begin MEASUREMENT sensor_aux_temp1_raw "Aux temperature sensor 1 ADC (>>2 into CAL_sensor_aux_temp). Was sensor_temp_unk1_raw." UWORD NO_COMPU_METHOD 0 0 0 65535
+    /begin MEASUREMENT sensor_aux1_raw_unused "No write reference in 0278 (reads 0). In 0091 the equivalent is ADC ch 0x1e >> 4, which 0278 uses for fuel_pressure_voltage. Was sensor_aux_temp1_raw." UWORD CM_u16_voltage_5_1023v 0 0 0 320.307917888563
       ECU_ADDRESS 0x400018F6
     /end MEASUREMENT
     /begin MEASUREMENT trans_fluid_temp_u8 "Transmission fluid temperature (°C = val*5/8−40)." UBYTE CM_u8_temp_5_8_40c 0 0 -40 119.375
@@ -7874,7 +7879,7 @@
     /begin MEASUREMENT etpu_param_alloc_ptr "Next free eTPU parameter-RAM address (etpu_param_alloc)." ULONG NO_COMPU_METHOD 0 0 0 4294967295
       ECU_ADDRESS 0x400019EC
     /end MEASUREMENT
-    /begin MEASUREMENT eTPU_base_unknown "eTPU shared data memory base (0xc3fcc000)." ULONG NO_COMPU_METHOD 0 0 0 4294967295
+    /begin MEASUREMENT etpu_sdm_base "eTPU shared data memory base (0xc3fcc000), used by eTPU_read/write_param helpers. Was eTPU_base_unknown." ULONG NO_COMPU_METHOD 0 0 0 4294967295
       ECU_ADDRESS 0x400019F0
     /end MEASUREMENT
     /begin MEASUREMENT etpu_param_ram_end "End of eTPU parameter RAM (0xc3fc89fc)." ULONG NO_COMPU_METHOD 0 0 0 4294967295
@@ -8492,7 +8497,7 @@
     /begin MEASUREMENT load_u8_tmp "Load axis value for the LEA alpha-N MAF-error lookup." UBYTE NO_COMPU_METHOD 0 0 0 255
       ECU_ADDRESS 0x40001BE5
     /end MEASUREMENT
-    /begin MEASUREMENT load_unknown "Load." ULONG NO_COMPU_METHOD 0 0 0 4294967295
+    /begin MEASUREMENT load_unused "Write-only: cleared to 0 in engine_load, never read. Was load_unknown." ULONG NO_COMPU_METHOD 0 0 0 4294967295
       ECU_ADDRESS 0x40001BE8
     /end MEASUREMENT
     /begin MEASUREMENT ve_for_speed_density "VE for speed density (val/10000)." UWORD CM_u16_factor_1_10000 0 0 0 655.35
@@ -9668,7 +9673,7 @@
     /begin MEASUREMENT misfire_trim_ptr "Pointer to the current cylinder LEA_misfire_trim_cylN table." ULONG NO_COMPU_METHOD 0 0 0 4294967295
       ECU_ADDRESS 0x40001EE4
     /end MEASUREMENT
-    /begin MEASUREMENT misfire_wheel_speed_deviation "LF wheel speed - filtered (rough-road detection)." SLONG NO_COMPU_METHOD 0 0 -2147483648 2147483647
+    /begin MEASUREMENT misfire_wheel_speed_dev_lf "Rough-road: LF wheel speed minus its filtered value." SLONG NO_COMPU_METHOD 0 0 -2147483648 2147483647
       ECU_ADDRESS 0x40001EE8
     /end MEASUREMENT
     /begin MEASUREMENT misfire_wheel_speed_dev_rf "RF wheel speed - filtered (rough-road detection)." SLONG NO_COMPU_METHOD 0 0 -2147483648 2147483647
@@ -9692,7 +9697,7 @@
     /begin MEASUREMENT misfire_wheel_speed_filter_q8_rr "RR wheel speed IIR accumulator (<<8)." ULONG NO_COMPU_METHOD 0 0 0 4294967295
       ECU_ADDRESS 0x40001F04
     /end MEASUREMENT
-    /begin MEASUREMENT misfire_wheel_speed_filt "LF wheel speed, filtered (rough-road detection)." ULONG NO_COMPU_METHOD 0 0 0 4294967295
+    /begin MEASUREMENT misfire_wheel_speed_filt_lf "Rough-road: filtered LF wheel speed (misfire_wheel_speed_filter_q8_lf >> 8)." ULONG NO_COMPU_METHOD 0 0 0 4294967295
       ECU_ADDRESS 0x40001F08
     /end MEASUREMENT
     /begin MEASUREMENT misfire_wheel_speed_filt_rf "RF wheel speed, filtered." ULONG NO_COMPU_METHOD 0 0 0 4294967295
@@ -9722,7 +9727,7 @@
     /begin MEASUREMENT misfire_rpm_load_threshold_scaled "short" SWORD NO_COMPU_METHOD 0 0 -32768 32767
       ECU_ADDRESS 0x40001F2E
     /end MEASUREMENT
-    /begin MEASUREMENT obd_ii_max_misfire_results_emissions "u16_count" UWORD NO_COMPU_METHOD 0 0 0 65535
+    /begin MEASUREMENT obd_ii_max_misfire_results_emissions "Worst misfire emissions-window count this cycle (-> LEA_obd_ii_misfire_emissions_count_max10); Mode 06 misfire result." UWORD NO_COMPU_METHOD 0 0 0 65535
       ECU_ADDRESS 0x40001F34
     /end MEASUREMENT
     /begin MEASUREMENT misfire_emissions_limit "Misfire emissions limit (CAL_misfire_emissions_limit); x10 in Mode 06." UBYTE NO_COMPU_METHOD 0 0 0 255
@@ -9998,10 +10003,10 @@
     /begin MEASUREMENT o2_slow_response_runtime_s "runtime_since_start / 200 (s) snapshot." SWORD NO_COMPU_METHOD 0 0 -32768 32767
       ECU_ADDRESS 0x40002000
     /end MEASUREMENT
-    /begin MEASUREMENT o2_slow_response_timer_b2_a "Countdown loaded from CAL_cat_check_unknown4." UWORD NO_COMPU_METHOD 0 0 0 65535
+    /begin MEASUREMENT obd_ii_postcat_rich_response_timer_b2 "Bank 2 post-cat rich-response countdown. Was o2_slow_response_timer_b2_a." UWORD CM_u8_time_5ms 0 0 0 327675
       ECU_ADDRESS 0x40002002
     /end MEASUREMENT
-    /begin MEASUREMENT o2_slow_response_timer_b1_a "Countdown loaded from CAL_cat_check_unknown4." UWORD NO_COMPU_METHOD 0 0 0 65535
+    /begin MEASUREMENT obd_ii_postcat_rich_response_timer_b1 "Bank 1 post-cat rich-response countdown (CAL_obd_ii_postcat_rich_response_time_max). Was o2_slow_response_timer_b1_a." UWORD CM_u8_time_5ms 0 0 0 327675
       ECU_ADDRESS 0x40002004
     /end MEASUREMENT
     /begin MEASUREMENT o2_slow_response_timer_b2_b "Countdown loaded from CAL_obd_ii_o2_min_voltage_init." UWORD NO_COMPU_METHOD 0 0 0 65535
@@ -10223,7 +10228,7 @@
     /begin MEASUREMENT obd_ii_p0161_health "Debounce health for P0161: reset to its CAL debounce count, decremented on failing samples; DTC fails at 0." UBYTE NO_COMPU_METHOD 0 0 0 255
       ECU_ADDRESS 0x4000207F
     /end MEASUREMENT
-    /begin MEASUREMENT aux_coolant_pump_state_and_diag_ "Aux coolant pump state + diagnostic bits (mode 22; bits 1,4-8 fault -> P123C)." UWORD NO_COMPU_METHOD 0 0 0 65535
+    /begin MEASUREMENT cac_pump_diag_flags "Charge-air-cooler pump diagnostic word (cac_diagnostic_1000hz; Mode 22 PID 0x2C2). Bits 0-3 = pump feedback response-time band, 0x80 = PWM stuck active > 10 s, 0x200 = response measurement running, 0x400 = driver SPI fault; mask 0x1f2 -> P123C. Was a" UWORD NO_COMPU_METHOD 0 0 0 65535
       ECU_ADDRESS 0x40002080
     /end MEASUREMENT
     /begin MEASUREMENT obd_ii_p0076_fail_ticks "Consecutive failing samples for P0076; at obd_ii_monitor_debounce_ticks decrements obd_ii_p0076_health." UWORD NO_COMPU_METHOD 0 0 0 65535
@@ -10667,7 +10672,7 @@
     /begin MEASUREMENT obd_ii_mode2f_flags_enabled "uint32_t" ULONG NO_COMPU_METHOD 0 0 0 4294967295
       ECU_ADDRESS 0x400021D8
     /end MEASUREMENT
-    /begin MEASUREMENT obd_ii_mode2f_flags_state "uint32_t" ULONG NO_COMPU_METHOD 0 0 0 4294967295
+    /begin MEASUREMENT obd_ii_mode2f_flags_state "Active-test state bits shared by Mode $2F and Mode 08 (bit 26 = 0x4000000 set by obd_ii_mode08_processing while its EVAP test runs)." ULONG NO_COMPU_METHOD 0 0 0 4294967295
       ECU_ADDRESS 0x400021DC
     /end MEASUREMENT
     /begin MEASUREMENT obd_ii_2f_trans_pump_requested "Mode $2F trans pump request bits." ULONG NO_COMPU_METHOD 0 0 0 4294967295
@@ -10679,7 +10684,7 @@
     /begin MEASUREMENT obd_ii_mode2f_flags_misc "Mode $2F actuator test bits (third word)." ULONG NO_COMPU_METHOD 0 0 0 4294967295
       ECU_ADDRESS 0x400021E8
     /end MEASUREMENT
-    /begin MEASUREMENT timer_engine_off_unknown1 "Timer engine off unknown1 (ms = val*5)." UWORD CM_u8_time_5ms 0 0 0 327675
+    /begin MEASUREMENT obd_ii_mode2f_engine_stopped_delay "Reloaded with CAL_ecu_obd_mode2F_timer while the engine turns, counts down at 200 Hz once stopped; engine-off Mode $2F tests need 0. Was timer_engine_off_unknown1." UWORD CM_u8_time_5ms 0 0 0 327675
       ECU_ADDRESS 0x400021EC
     /end MEASUREMENT
     /begin MEASUREMENT obd_ii_mode2f_vvti_output_val "Mode $2F VVT test duty (val/256) applied to all four solenoids." UBYTE CM_u8_factor_1_256 0 0 0 99.609375
@@ -10703,7 +10708,7 @@
     /begin MEASUREMENT obd_ii_mode2f_coil_pulse_timer "u8_time_5ms" UBYTE CM_u8_time_5ms 0 0 0 1275
       ECU_ADDRESS 0x40002217
     /end MEASUREMENT
-    /begin MEASUREMENT obd_ii_mode2f_184_timer_unknown "OBD-II: mode2f 184 timer (ms = val*5)." UBYTE CM_u8_time_5ms 0 0 0 1275
+    /begin MEASUREMENT obd_ii_mode2f_starter_relay_timer "Mode $2F 0x184 (starter relay) test timeout: 100 = 0.5 s at 200 Hz; at 0 sets obd_ii_mode2f_flags_state 0x2000. Was obd_ii_mode2f_184_timer_unknown." UBYTE CM_u8_time_5ms 0 0 0 1275
       ECU_ADDRESS 0x40002218
     /end MEASUREMENT
     /begin MEASUREMENT obd_ii_mode2f_timeout "Mode $2F inactivity timeout (CAL_obd_ii_mode2f_timeout)." UWORD CM_u8_time_5ms 0 0 0 327675
@@ -11558,7 +11563,7 @@
     /begin MEASUREMENT cam_park_check_done_inlet_b1 "Park check done inlet b1." UBYTE NO_COMPU_METHOD 0 0 0 255
       ECU_ADDRESS 0x4000243B
     /end MEASUREMENT
-    /begin MEASUREMENT vvt_enable_delay_5ms "CAL_vvt_start_timer[stopped coolant]*20: before this runtime the cams are held parked and sampled; after it closed-loop VVT runs. Was vvt_start_time." UWORD CM_u8_time_5ms 0 0 0 327675
+    /begin MEASUREMENT vvt_start_time "CAL_vvt_start_timer[stopped coolant]*20: before this runtime the cams are held parked and sampled; after it closed-loop VVT runs. Was vvt_start_time." UWORD CM_u8_time_5ms 0 0 0 327675
       ECU_ADDRESS 0x4000243C
     /end MEASUREMENT
     /begin MEASUREMENT obd_ii_vvt_exhaust_error_bank2 "Exhaust cam error bank 2 = target + position (exhaust position is negative-going) (deg = val/4)." SWORD CM_u8_angle_1_4deg 0 0 -8192 8191.75
@@ -11882,7 +11887,7 @@
     /begin MEASUREMENT knock_freq_bin_count "Number of knock frequency bins." UBYTE NO_COMPU_METHOD 0 0 0 255
       ECU_ADDRESS 0x4000252A
     /end MEASUREMENT
-    /begin MEASUREMENT flexcan_ccp_tx_timeout_count "CCP (0x351) transmit timeouts." UBYTE NO_COMPU_METHOD 0 0 0 255
+    /begin MEASUREMENT ccp_tx_stall_count "CCP (0x351) transmit timeouts." UBYTE NO_COMPU_METHOD 0 0 0 255
       ECU_ADDRESS 0x40002530
     /end MEASUREMENT
     /begin MEASUREMENT flexcan_diag_tx_count "flexcan_diagnostics_tx call counter." ULONG NO_COMPU_METHOD 0 0 0 4294967295
@@ -11921,7 +11926,7 @@
     /begin MEASUREMENT ips_shift_active "bool" UBYTE NO_COMPU_METHOD 0 0 0 255
       ECU_ADDRESS 0x40002551
     /end MEASUREMENT
-    /begin MEASUREMENT ips_flags_faults_ "IPS fault bits from CAN 0x202 (bits 5-6)." UBYTE NO_COMPU_METHOD 0 0 0 255
+    /begin MEASUREMENT ips_shift_exec_state "CAN 0x202 byte 2 bits 5-6 from the IPS TCU: 0x40 while the TCU shift-execution supervisor is in state 1 (C132F0395 can_tx_202). Gates DCA and TC slip activation. Was ips_flags_faults?." UBYTE NO_COMPU_METHOD 0 0 0 255
       ECU_ADDRESS 0x40002552
     /end MEASUREMENT
     /begin MEASUREMENT abs_a8_flag2 "ABS/ESP status from CAN 0xA8 (0, 1, 4, 5)." UBYTE NO_COMPU_METHOD 0 0 0 255
@@ -12380,7 +12385,7 @@
     /begin MEASUREMENT cruise_brake_release_timer "Brake release countdown (20). Was brake_timer2." UBYTE CM_u8_time_5ms 0 0 0 1275
       ECU_ADDRESS 0x400026A9
     /end MEASUREMENT
-    /begin MEASUREMENT runaway_protection_timeout_unknown "u8_time_10ms" UBYTE CM_u8_time_10ms 0 0 0 2550
+    /begin MEASUREMENT tcu_torque_request_timeout "Reloaded to 200 (1 s) while no TCU 0xC7 torque request is active or during an IPS shift; the 0xC7 limit is honoured only while non-zero. Counts in torque_model_200hz (was typed 10 ms). Was runaway_protection_timeout_unknown." UBYTE CM_u8_time_5ms 0 0 0 1275
       ECU_ADDRESS 0x400026AA
     /end MEASUREMENT
     /begin MEASUREMENT ign_adv_sum_firing_cyl "Ignition adv sum firing cyl (° = val/4)." SWORD CM_u8_angle_1_4deg 0 0 -8192 8191.75
@@ -12686,7 +12691,7 @@
     /begin MEASUREMENT central_door_locking_present "uint8_t" UBYTE NO_COMPU_METHOD 0 0 0 255
       ECU_ADDRESS 0x40002799
     /end MEASUREMENT
-    /begin MEASUREMENT tps_config_unknown "uint8_t" UBYTE NO_COMPU_METHOD 0 0 0 255
+    /begin MEASUREMENT cod_option_bits_2_3 "Variant coding COD[1] bits 2-3; decoded and re-encoded but never read. Was tps_config_unknown." UBYTE NO_COMPU_METHOD 0 0 0 255
       ECU_ADDRESS 0x4000279A
     /end MEASUREMENT
     /begin MEASUREMENT power_fold_mirrors_installed "uint8_t" UBYTE NO_COMPU_METHOD 0 0 0 255
@@ -13037,55 +13042,55 @@
     /begin MEASUREMENT engine_power_corrected "Engine power corrected (kW = val/100)." UWORD CM_u16_power_1_100kw 0 0 0 655.35
       ECU_ADDRESS 0x40002848
     /end MEASUREMENT
-    /begin MEASUREMENT tc_cornering_intensity_ "Traction control cornering intensity (val/255)." UBYTE CM_u8_factor_1_255 0 0 0 100
+    /begin MEASUREMENT gsi_cornering_intensity "GSI (gear shift indicator), not TC. Steering-rate term + |lat_accel|, capped 255; shift advice suppressed when >= the cornering limit. Was tc_cornering_intensity." UBYTE NO_COMPU_METHOD 0 0 0 255
       ECU_ADDRESS 0x4000284A
     /end MEASUREMENT
-    /begin MEASUREMENT traction_power_based_rpm_threshold "Traction power based RPM threshold (RPM)." UWORD CM_u8_rspeed_rpm 0 0 0 65535
+    /begin MEASUREMENT gsi_power_upshift_rpm "GSI (gear shift indicator), not TC. Power-based upshift rpm from CAL_gsi_power_upshift_rpm[engine_power_corrected]. Was traction_power_based_rpm_threshold." UWORD CM_u8_rspeed_rpm 0 0 0 65535
       ECU_ADDRESS 0x4000284C
     /end MEASUREMENT
-    /begin MEASUREMENT traction_relax_factor_starting "Traction relax factor starting." UWORD NO_COMPU_METHOD 0 0 0 65535
+    /begin MEASUREMENT gsi_coldstart_rpm_offset "GSI (gear shift indicator), not TC. Added to the per-gear min rpm while cold (manual only), from CAL_gsi_coldstart_rpm_offset_manual[air mass since start]. Was traction_relax_factor_starting." UWORD CM_u8_rspeed_rpm 0 0 0 65535
       ECU_ADDRESS 0x4000284E
     /end MEASUREMENT
-    /begin MEASUREMENT traction_slip_detected_gear "Gear in which traction slip was detected (NO_GEAR = none)." UBYTE NO_COMPU_METHOD 0 0 0 255
+    /begin MEASUREMENT gsi_highest_gear_above_min_rpm "GSI (gear shift indicator), not TC. Highest gear whose rpm-at-current-speed exceeds its min rpm (CAL_gsi_min_rpm_*); above current gear -> upshift possible. Was traction_slip_detected_gear." UBYTE NO_COMPU_METHOD 0 0 0 255
       ECU_ADDRESS 0x40002850
     /end MEASUREMENT
-    /begin MEASUREMENT traction_power_limit_gear "Gear at which the traction power limit applies." UBYTE NO_COMPU_METHOD 0 0 0 255
+    /begin MEASUREMENT gsi_highest_gear_above_power_rpm "GSI (gear shift indicator), not TC. Highest gear whose rpm-at-current-speed exceeds gsi_power_upshift_rpm. Was traction_power_limit_gear." UBYTE NO_COMPU_METHOD 0 0 0 255
       ECU_ADDRESS 0x40002851
     /end MEASUREMENT
-    /begin MEASUREMENT tc_is_moving "Traction control is moving (boolean flag)." UBYTE NO_COMPU_METHOD 0 0 0 255
+    /begin MEASUREMENT gsi_vehicle_moving "GSI (gear shift indicator), not TC. Manual: latched moving flag for the display gear. Was tc_is_moving." UBYTE NO_COMPU_METHOD 0 0 0 255
       ECU_ADDRESS 0x40002852
     /end MEASUREMENT
     /begin MEASUREMENT steering_angle_abs_last "Steering angle ABS last (° = val/10)." UWORD CM_u16_angle_1_10deg 0 0 0 6553.5
       ECU_ADDRESS 0x40002854
     /end MEASUREMENT
-    /begin MEASUREMENT steering_angle_smoothed "Smoothed steering angle x256." ULONG NO_COMPU_METHOD 0 0 0 4294967295
+    /begin MEASUREMENT gsi_steering_rate_filter_q8 "GSI (gear shift indicator), not TC. IIR (<<8) of the 100 ms steering-angle increase. Was steering_angle_smoothed." ULONG NO_COMPU_METHOD 0 0 0 4294967295
       ECU_ADDRESS 0x40002858
     /end MEASUREMENT
     /begin MEASUREMENT steering_angle_delta "Steering angle delta (° = val/10)." UWORD CM_u16_angle_1_10deg 0 0 0 6553.5
       ECU_ADDRESS 0x4000285C
     /end MEASUREMENT
-    /begin MEASUREMENT traction_steering_increase_factor "Traction steering increase factor (val/255)." UBYTE CM_u8_factor_1_255 0 0 0 100
+    /begin MEASUREMENT gsi_steering_rate "GSI (gear shift indicator), not TC. Smoothed steering-angle increase per 100 ms (1/10 deg, >>8 of the filter). Was traction_steering_increase_factor (not a /255 factor)." UBYTE NO_COMPU_METHOD 0 0 0 255
       ECU_ADDRESS 0x4000285E
     /end MEASUREMENT
-    /begin MEASUREMENT slip_gear_change_holdoff_timer "u8_time_100ms" UBYTE CM_u8_time_100ms 0 0 0 25500
+    /begin MEASUREMENT gsi_recommended_gear_holdoff_timer "GSI (gear shift indicator), not TC. Min time between recommended-gear changes. Was slip_gear_change_holdoff_timer." UBYTE CM_u8_time_100ms 0 0 0 25500
       ECU_ADDRESS 0x4000285F
     /end MEASUREMENT
-    /begin MEASUREMENT traction_inhibit_accel_pedal_timer "Traction inhibit accelerator pedal timer (ms = val*100)." UBYTE CM_u8_time_100ms 0 0 0 25500
+    /begin MEASUREMENT gsi_pedal_applied_timer "GSI (gear shift indicator), not TC. Reloaded (CAL_gsi_pedal_applied_hold) while the pedal > CAL_gsi_pedal_applied_min; upshift advice needs it non-zero (or cruise). Was traction_inhibit_accel_pedal_timer." UBYTE CM_u8_time_100ms 0 0 0 25500
       ECU_ADDRESS 0x40002860
     /end MEASUREMENT
-    /begin MEASUREMENT gsi_downshift_advisory_timer "u8_time_100ms" UBYTE CM_u8_time_100ms 0 0 0 25500
+    /begin MEASUREMENT gsi_downshift_advisory_timer "GSI (gear shift indicator), not TC. Downshift advice delay (CAL_gsi_downshift_advisory_delay)." UBYTE CM_u8_time_100ms 0 0 0 25500
       ECU_ADDRESS 0x40002861
     /end MEASUREMENT
-    /begin MEASUREMENT traction_timer_per_gear_intervention "Traction timer per gear intervention (ms = val*100)." UBYTE CM_u8_time_100ms 0 0 0 25500
+    /begin MEASUREMENT gsi_upshift_advisory_timer "GSI (gear shift indicator), not TC. Upshift advice delay (CAL_gsi_gear_qualify_time). Was traction_timer_per_gear_intervention." UBYTE CM_u8_time_100ms 0 0 0 25500
       ECU_ADDRESS 0x40002862
     /end MEASUREMENT
-    /begin MEASUREMENT tc_gear_tracker "Gear tracked by TC (0xf = reset)." UBYTE NO_COMPU_METHOD 0 0 0 255
+    /begin MEASUREMENT gsi_display_gear "GSI (gear shift indicator), not TC. Gear latched while advice is shown (0xf = none). Write-only. Was tc_gear_tracker." UBYTE NO_COMPU_METHOD 0 0 0 255
       ECU_ADDRESS 0x4000286A
     /end MEASUREMENT
-    /begin MEASUREMENT traction_control_gear_recommended_ "Traction control gear recommended??." UBYTE NO_COMPU_METHOD 0 0 0 255
+    /begin MEASUREMENT gsi_recommended_gear "GSI (gear shift indicator), not TC. Recommended gear (0xf = none), limited to CAL_gsi_recommended_gear_max_step from the current gear. Write-only. Was tc_gear_recommended." UBYTE NO_COMPU_METHOD 0 0 0 255
       ECU_ADDRESS 0x4000286B
     /end MEASUREMENT
-    /begin MEASUREMENT traction_flags "Traction control state bits (bit2, bit6 cluster lamp). Was traction_flags_unknown." UBYTE NO_COMPU_METHOD 0 0 0 255
+    /begin MEASUREMENT gsi_flags "GSI (gear shift indicator), not TC. bit0 current < min-rpm gear, bit1 current < power gear, bit2 UPSHIFT advice (cluster), bit3 front-wheel accel low, bit4 rpm below downshift point, bit5 lugging (manual), bit6 DOWNSHIFT advice (cluster). Was tractio" UBYTE NO_COMPU_METHOD 0 0 0 255
       ECU_ADDRESS 0x4000286C
     /end MEASUREMENT
     /begin MEASUREMENT fuel_pump_crank_activity_timer "Fuel pump run-on after crank activity (CAL_fuel_pump_prime_time)." UWORD NO_COMPU_METHOD 0 0 0 65535
@@ -13202,7 +13207,7 @@
     /begin MEASUREMENT obd_ii_p0897_health "Debounce health for P0897: reset to its CAL debounce count, decremented on failing samples; DTC fails at 0." UBYTE NO_COMPU_METHOD 0 0 0 255
       ECU_ADDRESS 0x400028BA
     /end MEASUREMENT
-    /begin MEASUREMENT trans_fluid_pump_setup "Cleared in obd_ii_setup_trans_fluid_pump." ULONG NO_COMPU_METHOD 0 0 0 4294967295
+    /begin MEASUREMENT trans_fluid_pump_setup "Cleared in obd_ii_setup_trans_fluid_pump." UWORD NO_COMPU_METHOD 0 0 0 65535
       ECU_ADDRESS 0x400028BC
     /end MEASUREMENT
     /begin MEASUREMENT obd_ii_p2797_health "Debounce health for P2797: reset to its CAL debounce count, decremented on failing samples; DTC fails at 0." UBYTE NO_COMPU_METHOD 0 0 0 255
@@ -13223,7 +13228,7 @@
     /begin MEASUREMENT dpm_slip_target "Driver performance mode slip target (% = val/8)." UWORD CM_u16_slip_1_8pct 0 0 0 8191.875
       ECU_ADDRESS 0x400028CA
     /end MEASUREMENT
-    /begin MEASUREMENT tc_slip_target_mode_state "TC slip target mode state." UBYTE NO_COMPU_METHOD 0 0 0 255
+    /begin MEASUREMENT dpm_slip_target_mode "DPM slip target source: 0 pedal map only, 1 DPM level + pedal, 2 off. Was tc_slip_target_mode_state." UBYTE NO_COMPU_METHOD 0 0 0 255
       ECU_ADDRESS 0x400028CC
     /end MEASUREMENT
     /begin MEASUREMENT dpm_slip_target_base "Driver performance mode clip target base (% = val/8)." UBYTE CM_u16_slip_1_8pct 0 0 0 31.875
@@ -13370,10 +13375,10 @@
     /begin MEASUREMENT timer_main_start2_40002F04 "TCR1 timestamp after the CAN diagnostics step." ULONG CM_u32_time_100ns 0 0 0 429496729500
       ECU_ADDRESS 0x40002F04
     /end MEASUREMENT
-    /begin MEASUREMENT timing_flexcan_diag_last "Last CAN diagnostics duration." ULONG CM_u32_time_100ns 0 0 0 429496729500
+    /begin MEASUREMENT loop_duration_main_pretask_ticks "Last CAN diagnostics duration." ULONG CM_u32_time_100ns 0 0 0 429496729500
       ECU_ADDRESS 0x40002F08
     /end MEASUREMENT
-    /begin MEASUREMENT timing_flexcan_diag_max "Max CAN diagnostics duration." ULONG CM_u32_time_100ns 0 0 0 429496729500
+    /begin MEASUREMENT loop_duration_main_pretask_ticks_max "Max CAN diagnostics duration." ULONG CM_u32_time_100ns 0 0 0 429496729500
       ECU_ADDRESS 0x40002F0C
     /end MEASUREMENT
     /begin MEASUREMENT etpu_elapsed_max_ticks "u32_time_100ns" ULONG CM_u32_time_100ns 0 0 0 429496729500
@@ -13421,7 +13426,7 @@
     /begin MEASUREMENT sport_button_toggle_state "uint8_t" UBYTE NO_COMPU_METHOD 0 0 0 255
       ECU_ADDRESS 0x40003043
     /end MEASUREMENT
-    /begin MEASUREMENT brake_pedal_switch_state_always_zero_ "Brake pedal switch state always zero? (boolean flag)." UBYTE NO_COMPU_METHOD 0 0 0 255
+    /begin MEASUREMENT brake_pedal_switch_input "digital_input_debounced[4]: debounced brake pedal switch (written by the debounce loop via index); sets brake_switch bit 0x10, used by left-foot braking. Was brake_pedal_switch_state_always_zero?." UBYTE NO_COMPU_METHOD 0 0 0 255
       ECU_ADDRESS 0x40003044
     /end MEASUREMENT
     /begin MEASUREMENT tc_button_toggle_state "uint8_t" UBYTE NO_COMPU_METHOD 0 0 0 255
@@ -13991,16 +13996,16 @@
     /begin MEASUREMENT LEA_obd_ii_cat_b2_switch_ratio "Bank 2 post/pre switch ratio x1000; max in LEA_obd_ii_monitor_12." UWORD CM_u16_factor_1_1000 0 0 0 6553.5
       ECU_ADDRESS 0x40004998
     /end MEASUREMENT
-    /begin MEASUREMENT LEA_obd_ii_cat_mode06_result1 "Cat monitor Mode 06 time result (x5 ms)." UWORD CM_u8_time_5ms 0 0 0 327675
+    /begin MEASUREMENT LEA_obd_ii_postcat_l2r_time_sum_b1 "Saved obd_ii_postcat_l2r_time_sum_b1 (obd_ii_catalyst_monitor_200hz). Mode 06 MID 1: x5 / CAL_obd_ii_o2_slow_response_sample_count vs CAL_obd_ii_o2_slow_response_limit_lean_to_rich. Was LEA_obd_ii_cat_mode06_result1." UWORD CM_u8_time_5ms 0 0 0 327675
       ECU_ADDRESS 0x4000499A
     /end MEASUREMENT
-    /begin MEASUREMENT LEA_obd_ii_cat_mode06_result2 "Cat monitor Mode 06 time result (x5 ms)." UWORD CM_u8_time_5ms 0 0 0 327675
+    /begin MEASUREMENT LEA_obd_ii_postcat_r2l_time_sum_b1 "Saved obd_ii_postcat_r2l_time_sum_b1. Mode 06 MID 1: vs CAL_obd_ii_o2_slow_response_limit_rich_to_lean. Was LEA_obd_ii_cat_mode06_result2." UWORD CM_u8_time_5ms 0 0 0 327675
       ECU_ADDRESS 0x4000499C
     /end MEASUREMENT
-    /begin MEASUREMENT LEA_obd_ii_cat_mode06_result3 "Cat monitor Mode 06 time result (x5 ms)." UWORD CM_u8_time_5ms 0 0 0 327675
+    /begin MEASUREMENT LEA_obd_ii_postcat_l2r_time_sum_b2 "Saved obd_ii_postcat_l2r_time_sum_b2. Mode 06 MID 2. Was LEA_obd_ii_cat_mode06_result3." UWORD CM_u8_time_5ms 0 0 0 327675
       ECU_ADDRESS 0x4000499E
     /end MEASUREMENT
-    /begin MEASUREMENT LEA_obd_ii_cat_mode06_result4 "Cat monitor Mode 06 time result (x5 ms)." UWORD CM_u8_time_5ms 0 0 0 327675
+    /begin MEASUREMENT LEA_obd_ii_postcat_r2l_time_sum_b2 "Saved obd_ii_postcat_r2l_time_sum_b2. Mode 06 MID 2. Was LEA_obd_ii_cat_mode06_result4." UWORD CM_u8_time_5ms 0 0 0 327675
       ECU_ADDRESS 0x400049A0
     /end MEASUREMENT
     /begin MEASUREMENT LEA_obd_ii_evap_P0441_test_result "Evap P0441 purge-flow test result (0xFF = not run; Mode 06). Was evap_p0441_test_result_pressure." UWORD NO_COMPU_METHOD 0 0 0 65535
@@ -14015,10 +14020,10 @@
     /begin MEASUREMENT LEA_unused_400049a6 "Only reset; never read." UWORD NO_COMPU_METHOD 0 0 0 65535
       ECU_ADDRESS 0x400049A6
     /end MEASUREMENT
-    /begin MEASUREMENT LEA_obd_ii_evap_leak_check_result "Evap leak check result (obd_ii_eval_leak_check_result; Mode 06 x40)." SWORD NO_COMPU_METHOD 0 0 -32768 32767
+    /begin MEASUREMENT LEA_obd_ii_evap_p0442_leak_metric "Saved obd_ii_eval_leak_check_result (EVAP small leak); Mode 06 x40 vs LEA_obd_ii_evap_P0442_decay_limit x40. Was LEA_obd_ii_evap_leak_check_result." SWORD NO_COMPU_METHOD 0 0 -32768 32767
       ECU_ADDRESS 0x400049A8
     /end MEASUREMENT
-    /begin MEASUREMENT LEA_obd_ii_evap_leak_check_value2 "Evap leak check second value (DAT_40001e74; Mode 06 x40)." SWORD NO_COMPU_METHOD 0 0 -32768 32767
+    /begin MEASUREMENT LEA_obd_ii_evap_p0456_leak_decay "Saved evap_leak_decay (EVAP very small leak); Mode 06 x40 vs LEA_obd_ii_evap_P0456_decay_limit x40. Was LEA_obd_ii_evap_leak_check_value2." SWORD NO_COMPU_METHOD 0 0 -32768 32767
       ECU_ADDRESS 0x400049AA
     /end MEASUREMENT
     /begin MEASUREMENT LEA_obd_ii_evap_P0442_decay_limit "Evap P0442 decay limit used (Mode 06 x40)." UBYTE NO_COMPU_METHOD 0 0 0 255
@@ -14033,16 +14038,16 @@
     /begin MEASUREMENT LEA_pad_400049af "Padding." UBYTE NO_COMPU_METHOD 0 0 0 255
       ECU_ADDRESS 0x400049AF
     /end MEASUREMENT
-    /begin MEASUREMENT LEA_obd_ii_vvt_mode06_result1 "VVT Mode 06 error count (vs CAL_obd_ii_vvt_error_fail_count; 0xFF = not tested)." UBYTE NO_COMPU_METHOD 0 0 0 255
+    /begin MEASUREMENT LEA_obd_ii_vvt_inlet_b1_over_advanced_count "Saved obd_ii_vvt_inlet_b1_over_advanced_count (0xff = no result). Mode 06 MID 0x35 TID 0x88, limit CAL_obd_ii_vvt_error_fail_count. Was LEA_obd_ii_vvt_mode06_result1." UBYTE NO_COMPU_METHOD 0 0 0 255
       ECU_ADDRESS 0x400049BC
     /end MEASUREMENT
-    /begin MEASUREMENT LEA_obd_ii_vvt_mode06_result2 "VVT Mode 06 error count (vs CAL_obd_ii_vvt_error_fail_count; 0xFF = not tested)." UBYTE NO_COMPU_METHOD 0 0 0 255
+    /begin MEASUREMENT LEA_obd_ii_vvt_inlet_b1_over_retarded_count "Saved obd_ii_vvt_inlet_b1_over_retarded_count (0xff = no result). Mode 06 MID 0x35 TID 0x89. Was LEA_obd_ii_vvt_mode06_result2." UBYTE NO_COMPU_METHOD 0 0 0 255
       ECU_ADDRESS 0x400049BD
     /end MEASUREMENT
-    /begin MEASUREMENT LEA_obd_ii_vvt_mode06_result3 "VVT Mode 06 error count (vs CAL_obd_ii_vvt_error_fail_count; 0xFF = not tested)." UBYTE NO_COMPU_METHOD 0 0 0 255
+    /begin MEASUREMENT LEA_obd_ii_vvt_inlet_b2_over_advanced_count "Saved obd_ii_vvt_inlet_b2_over_advanced_count (0xff = no result). Mode 06 MID 0x36 TID 0x88. Was LEA_obd_ii_vvt_mode06_result3." UBYTE NO_COMPU_METHOD 0 0 0 255
       ECU_ADDRESS 0x400049BE
     /end MEASUREMENT
-    /begin MEASUREMENT LEA_obd_ii_vvt_mode06_result4 "VVT Mode 06 error count (vs CAL_obd_ii_vvt_error_fail_count; 0xFF = not tested)." UBYTE NO_COMPU_METHOD 0 0 0 255
+    /begin MEASUREMENT LEA_obd_ii_vvt_inlet_b2_over_retarded_count "Saved obd_ii_vvt_inlet_b2_over_retarded_count (0xff = no result). Mode 06 MID 0x36 TID 0x89. Was LEA_obd_ii_vvt_mode06_result4." UBYTE NO_COMPU_METHOD 0 0 0 255
       ECU_ADDRESS 0x400049BF
     /end MEASUREMENT
     /begin MEASUREMENT LEA_misfire_baseline_set "Misfire baselines initialised (compared with CAL_lea_misfire_baseline_set on load). Was lea_misfire_baseline_set." UBYTE NO_COMPU_METHOD 0 0 0 255
@@ -14069,10 +14074,10 @@
     /begin MEASUREMENT LEA_fuel_level_check_fuel_used_window "Fuel-used window target (CAL_evap_fuel_used_window_level_* x100000)." ULONG NO_COMPU_METHOD 0 0 0 4294967295
       ECU_ADDRESS 0x400049EC
     /end MEASUREMENT
-    /begin MEASUREMENT LEA_obd_ii_fuel_trim_mode06_result1 "Fuel trim Mode 06 result (from DAT_40001d88)." SWORD NO_COMPU_METHOD 0 0 -32768 32767
+    /begin MEASUREMENT LEA_obd_ii_o2_imbalance_metric_b1 "Saved o2_imbalance_metric_b1 (obd_ii_evaluate_fuel_trim_monitors); Mode 06 MID 0x81 vs CAL_obd_ii_o2_imbalance_threshold. Was LEA_obd_ii_fuel_trim_mode06_result1." SWORD NO_COMPU_METHOD 0 0 -32768 32767
       ECU_ADDRESS 0x400049F0
     /end MEASUREMENT
-    /begin MEASUREMENT LEA_obd_ii_fuel_trim_mode06_result2 "Fuel trim Mode 06 result (from DAT_40001d7c)." SWORD NO_COMPU_METHOD 0 0 -32768 32767
+    /begin MEASUREMENT LEA_obd_ii_o2_imbalance_metric_b2 "Saved o2_imbalance_metric_b2; Mode 06 MID 0x82 vs CAL_obd_ii_o2_imbalance_threshold. Was LEA_obd_ii_fuel_trim_mode06_result2." SWORD NO_COMPU_METHOD 0 0 -32768 32767
       ECU_ADDRESS 0x400049F2
     /end MEASUREMENT
     /begin MEASUREMENT LEA_circuit_fault_history_bits "Electrical circuit monitor fault history bits (Mode 22 readout). Was wrongly LEA_unused_400049f4." UWORD NO_COMPU_METHOD 0 0 0 65535
@@ -16208,24 +16213,6 @@
     /begin MEASUREMENT hc08_obd_flags "HC08 status bits reported to OBD: bit4 safety-fallback (SF) mode active, bit6/7 HC08 / ETB module internal fault (P2107)." UBYTE NO_COMPU_METHOD 0 0 0 255
       ECU_ADDRESS 0x40004F33
     /end MEASUREMENT
-    /begin MEASUREMENT misfire_baseline_cyl6_q8 "Misfire learned baseline table cyl 6 ((LEA_misfire_baseline_cyl6 - 128) << 8)." SWORD NO_COMPU_METHOD 0 0 -32768 32767
-      ECU_ADDRESS 0x40005600
-    /end MEASUREMENT
-    /begin MEASUREMENT misfire_baseline_cyl5_q8 "Misfire learned baseline table cyl 5 ((LEA_misfire_baseline_cyl5 - 128) << 8)." SWORD NO_COMPU_METHOD 0 0 -32768 32767
-      ECU_ADDRESS 0x40005734
-    /end MEASUREMENT
-    /begin MEASUREMENT misfire_baseline_cyl4_q8 "Misfire learned baseline table cyl 4 ((LEA_misfire_baseline_cyl4 - 128) << 8)." SWORD NO_COMPU_METHOD 0 0 -32768 32767
-      ECU_ADDRESS 0x40005868
-    /end MEASUREMENT
-    /begin MEASUREMENT misfire_baseline_cyl3_q8 "Misfire learned baseline table cyl 3 ((LEA_misfire_baseline_cyl3 - 128) << 8)." SWORD NO_COMPU_METHOD 0 0 -32768 32767
-      ECU_ADDRESS 0x4000599C
-    /end MEASUREMENT
-    /begin MEASUREMENT misfire_baseline_cyl2_q8 "Misfire learned baseline table cyl 2 ((LEA_misfire_baseline_cyl2 - 128) << 8)." SWORD NO_COMPU_METHOD 0 0 -32768 32767
-      ECU_ADDRESS 0x40005AD0
-    /end MEASUREMENT
-    /begin MEASUREMENT misfire_baseline_cyl1_q8 "Misfire learned baseline table cyl 1 ((LEA_misfire_baseline_cyl1 - 128) << 8)." SWORD NO_COMPU_METHOD 0 0 -32768 32767
-      ECU_ADDRESS 0x40005C04
-    /end MEASUREMENT
     /begin MEASUREMENT obd_ii_iumpr_group_numerator "IUMPR group minimum table (stride 8): +0 numerator." UWORD NO_COMPU_METHOD 0 0 0 65535
       ECU_ADDRESS 0x40005FD0
     /end MEASUREMENT
@@ -16310,23 +16297,17 @@
     /begin MEASUREMENT throttle_cmd_lowpass_state "Biquad low-pass state for throttle_command_actuator (init_tps_biquad_filters)." ULONG NO_COMPU_METHOD 0 0 0 4294967295
       ECU_ADDRESS 0x400061B0
     /end MEASUREMENT
-    /begin MEASUREMENT tps_unknown_history "Throttle position history (structure)." ULONG NO_COMPU_METHOD 0 0 0 4294967295
+    /begin MEASUREMENT tps_b_lowpass_state "Biquad low-pass state producing tps_abs_b_smoothed (init_tps_biquad_filters). Was tps_unknown_history." ULONG NO_COMPU_METHOD 0 0 0 4294967295
       ECU_ADDRESS 0x400061D4
     /end MEASUREMENT
     /begin MEASUREMENT tps_smooth_filter_state "Throttle position smooth filter state (structure)." ULONG NO_COMPU_METHOD 0 0 0 4294967295
       ECU_ADDRESS 0x400061F8
     /end MEASUREMENT
-    /begin MEASUREMENT knock_freq_bin_index "uint8_t" UBYTE NO_COMPU_METHOD 0 0 0 255
-      ECU_ADDRESS 0x40006620
-    /end MEASUREMENT
-    /begin MEASUREMENT knock_energy_sum "Knock DSP total bin energy (mode1); per-window sums in mode4." SLONG NO_COMPU_METHOD 0 0 -2147483648 2147483647
+    /begin MEASUREMENT knock_energy_sum "Mode 1: total bin energy (scalar, with knock_energy_x2_sum at +4). Mode 4: per-cylinder total energy int[6] indexed by the previous cylinder; passed to knock_detect_and_update_baseline." SLONG NO_COMPU_METHOD 0 0 -2147483648 2147483647
       ECU_ADDRESS 0x40006848
     /end MEASUREMENT
     /begin MEASUREMENT knock_energy_x2_sum "Knock DSP total of knock_bin_energy_x2." SLONG NO_COMPU_METHOD 0 0 -2147483648 2147483647
       ECU_ADDRESS 0x4000684C
-    /end MEASUREMENT
-    /begin MEASUREMENT knock_bin_energy "int" SLONG NO_COMPU_METHOD 0 0 -2147483648 2147483647
-      ECU_ADDRESS 0x40006874
     /end MEASUREMENT
     /begin MEASUREMENT chlog_response "Channel-logger response frame byte 0 (0xff), buffer runs to 0x40007d3c." UBYTE NO_COMPU_METHOD 0 0 0 255
       ECU_ADDRESS 0x400068A0
@@ -16442,16 +16423,16 @@
     /begin MEASUREMENT eh_table_registered "Set once eh_register_table has run." ULONG NO_COMPU_METHOD 0 0 0 4294967295
       ECU_ADDRESS 0x40008158
     /end MEASUREMENT
+    /begin MEASUREMENT V_CAL_dca_tps_limit_ips_no_lc_X_time "Input of CAL_dca_tps_limit_ips_no_lc_X_time: (dca_tps_ramp_index >> 2) & 0xff" SLONG CM_V_CAL_dca_tps_limit_ips_no_lc_X_time 0 0 -2147483648 2147483647
+      /begin VIRTUAL dca_tps_ramp_index /end VIRTUAL
+    /end MEASUREMENT
+    /begin COMPU_METHOD CM_V_CAL_dca_tps_limit_ips_no_lc_X_time "raw input of CAL_dca_tps_limit_ips_no_lc_X_time" FORM "%8.0" ""
+      /begin FORMULA "(X1 >> 2) & 0xff" /end FORMULA
+    /end COMPU_METHOD
     /begin MEASUREMENT V_CAL_dca_tps_limit_manual_X_time "Input of CAL_dca_tps_limit_manual_X_time: (dca_tps_ramp_index >> 2) & 0xff" SLONG CM_V_CAL_dca_tps_limit_manual_X_time 0 0 -2147483648 2147483647
       /begin VIRTUAL dca_tps_ramp_index /end VIRTUAL
     /end MEASUREMENT
     /begin COMPU_METHOD CM_V_CAL_dca_tps_limit_manual_X_time "raw input of CAL_dca_tps_limit_manual_X_time" FORM "%8.0" ""
-      /begin FORMULA "(X1 >> 2) & 0xff" /end FORMULA
-    /end COMPU_METHOD
-    /begin MEASUREMENT V_CAL_dca_unknown_ips_nolc_X_time "Input of CAL_dca_unknown_ips_nolc_X_time: (dca_tps_ramp_index >> 2) & 0xff" SLONG CM_V_CAL_dca_unknown_ips_nolc_X_time 0 0 -2147483648 2147483647
-      /begin VIRTUAL dca_tps_ramp_index /end VIRTUAL
-    /end MEASUREMENT
-    /begin COMPU_METHOD CM_V_CAL_dca_unknown_ips_nolc_X_time "raw input of CAL_dca_unknown_ips_nolc_X_time" FORM "%8.0" ""
       /begin FORMULA "(X1 >> 2) & 0xff" /end FORMULA
     /end COMPU_METHOD
     /begin MEASUREMENT V_CAL_dpm_slip_target_from_pedal_Y_pps "Input of CAL_dpm_slip_target_from_pedal_Y_pps: accel_pedal_latched >> 2 & 0xff" SLONG CM_V_CAL_dpm_slip_target_from_pedal_Y_pps 0 0 -2147483648 2147483647
@@ -16508,6 +16489,12 @@
     /begin COMPU_METHOD CM_V_CAL_fuel_pump_command_X_pressure "raw input of CAL_fuel_pump_command_X_pressure" FORM "%8.0" ""
       /begin FORMULA "X1 * 0x32" /end FORMULA
     /end COMPU_METHOD
+    /begin MEASUREMENT V_CAL_idle_air_control_integral_X_speed_error "Input of CAL_idle_air_control_integral_X_speed_error: (obd_ii_idle_speed_error + 0x8000) & 0xffff" SLONG CM_V_CAL_idle_air_control_integral_X_speed_error 0 0 -2147483648 2147483647
+      /begin VIRTUAL obd_ii_idle_speed_error /end VIRTUAL
+    /end MEASUREMENT
+    /begin COMPU_METHOD CM_V_CAL_idle_air_control_integral_X_speed_error "raw input of CAL_idle_air_control_integral_X_speed_error" FORM "%8.0" ""
+      /begin FORMULA "(X1 + 0x8000) & 0xffff" /end FORMULA
+    /end COMPU_METHOD
     /begin MEASUREMENT V_CAL_idle_air_control_proportional_X_speed_error "Input of CAL_idle_air_control_proportional_X_speed_error: (obd_ii_idle_speed_error + 0x8000) & 0xffff" SLONG CM_V_CAL_idle_air_control_proportional_X_speed_error 0 0 -2147483648 2147483647
       /begin VIRTUAL obd_ii_idle_speed_error /end VIRTUAL
     /end MEASUREMENT
@@ -16519,12 +16506,6 @@
     /end MEASUREMENT
     /begin COMPU_METHOD CM_V_CAL_idle_comp_accel_pedal_pos_X_pps "raw input of CAL_idle_comp_accel_pedal_pos_X_pps" FORM "%8.0" ""
       /begin FORMULA "(X1 >> 2) & 0xff" /end FORMULA
-    /end COMPU_METHOD
-    /begin MEASUREMENT V_CAL_idle_error_correction_unknown_X_speed_error "Input of CAL_idle_error_correction_unknown_X_speed_error: (obd_ii_idle_speed_error + 0x8000) & 0xffff" SLONG CM_V_CAL_idle_error_correction_unknown_X_speed_error 0 0 -2147483648 2147483647
-      /begin VIRTUAL obd_ii_idle_speed_error /end VIRTUAL
-    /end MEASUREMENT
-    /begin COMPU_METHOD CM_V_CAL_idle_error_correction_unknown_X_speed_error "raw input of CAL_idle_error_correction_unknown_X_speed_error" FORM "%8.0" ""
-      /begin FORMULA "(X1 + 0x8000) & 0xffff" /end FORMULA
     /end COMPU_METHOD
     /begin MEASUREMENT V_CAL_ign_comp_startup_tps_X_maf_accum "Input of CAL_ign_comp_startup_tps_X_maf_accum: (maf_accumulated_since_start_raw >> 3) & 0xff" SLONG CM_V_CAL_ign_comp_startup_tps_X_maf_accum 0 0 -2147483648 2147483647
       /begin VIRTUAL maf_accumulated_since_start_raw /end VIRTUAL
@@ -16692,7 +16673,6 @@
         CAL_closedloop_derivative_gain_table
         CAL_closedloop_derivative_gain_table_X_rpm
         CAL_closedloop_derivative_gain_table_Y_load
-        CAL_closedloop_engine_run_learn_timer_unknown
         CAL_closedloop_entry_delay_power_enrich
         CAL_closedloop_entry_delay_time_cruise
         CAL_closedloop_fuel_learn_baro_min
@@ -16705,6 +16685,7 @@
         CAL_closedloop_integral_gain_table
         CAL_closedloop_integral_gain_table_X_rpm
         CAL_closedloop_integral_gain_table_Y_load
+        CAL_closedloop_jump_lean_scale_run_hours_max
         CAL_closedloop_jump_lean_scaling_ips
         CAL_closedloop_lean_protect_max_rpm
         CAL_closedloop_maf_accum_min
@@ -16730,7 +16711,7 @@
         CAL_closedloop_proportional_gain_rich_table_X_rpm
         CAL_closedloop_proportional_gain_rich_table_Y_load
         CAL_closedloop_proportional_gain_scale
-        CAL_closedloop_stft_filter_unknown
+        CAL_closedloop_stft_filter_weight
         CAL_closedloop_stft_idle_max_limit
         CAL_closedloop_stft_increment_period
         CAL_closedloop_stft_jump_lean_scale
@@ -16738,7 +16719,7 @@
         CAL_closedloop_stft_ramp_interval_manual
         CAL_closedloop_tipout_rpm_threshold
         CAL_closedloop_tps_correction_tour_manual
-        CAL_closedloop_tps_correction_tour_manual_X_unknown
+        CAL_closedloop_tps_correction_tour_manual_X_tps
       /end REF_CHARACTERISTIC
     /end GROUP
     /begin GROUP G_Fuel_dfco "dfco"
@@ -17145,20 +17126,20 @@
     /begin GROUP G_Ignition_roughness "roughness"
       /begin REF_CHARACTERISTIC
         CAL_roughness_cycle_count_threshold
+        CAL_roughness_cycle_mean_max
+        CAL_roughness_cycle_mean_min
+        CAL_roughness_cycle_period_max
         CAL_roughness_delta_rpm_smoothing_factor
         CAL_roughness_direction_count_threshold
         CAL_roughness_enable_load
         CAL_roughness_enable_rpm
         CAL_roughness_ign_adv_max
         CAL_roughness_ign_adv_min_sign_flipped
+        CAL_roughness_ign_gain
         CAL_roughness_min_edge_count
+        CAL_roughness_peak_valley_delta_min
         CAL_roughness_peak_valley_imbalance_threshold
-        CAL_roughness_unknown2
-        CAL_roughness_unknown4
-        CAL_roughness_unknown5
-        CAL_roughness_unknown6
-        CAL_roughness_unknown7
-        CAL_roughness_unknown8
+        CAL_roughness_transition_count_min
       /end REF_CHARACTERISTIC
     /end GROUP
     /begin GROUP G_Airflow "Airflow and load" ROOT
@@ -17237,8 +17218,8 @@
         CAL_sensor_adc_baro_high_limit
         CAL_sensor_adc_baro_low_limit
         CAL_sensor_airtemp_tmaf_filter_alpha
-        CAL_sensor_aux_temp
-        CAL_sensor_aux_temp_X_voltage
+        CAL_sensor_aux_unused
+        CAL_sensor_aux_unused_X_voltage
         CAL_sensor_baro_gain
         CAL_sensor_baro_offset
         CAL_sensor_baro_sensor_failure_fallback
@@ -17290,7 +17271,7 @@
         CAL_sensor_oil_pressure_expected_X_engine_speed
         CAL_sensor_pps_correlation_enable_max
         CAL_sensor_pps_correlation_max_delta
-        CAL_sensor_pps_unknown1
+        CAL_sensor_pps_zero_learn_rate
         CAL_sensor_temp_diagnostic_startup_delay
         CAL_sensor_tmap_expected_temp
         CAL_sensor_tmap_expected_temp_X_rpm
@@ -17433,9 +17414,10 @@
         CAL_idle_air_base_ips_ingear_tour_X_rpm
         CAL_idle_air_base_ips_neutral_tour
         CAL_idle_air_base_ips_neutral_tour_X_rpm
+        CAL_idle_air_control_integral
+        CAL_idle_air_control_integral_X_speed_error
         CAL_idle_air_control_proportional
         CAL_idle_air_control_proportional_X_speed_error
-        CAL_idle_air_control_unknown
         CAL_idle_air_decay_period
         CAL_idle_air_decay_period_X_phase
         CAL_idle_air_fast_decay_period
@@ -17465,6 +17447,7 @@
         CAL_idle_clutch_antistall_comp
         CAL_idle_clutch_antistall_comp_X_clutch_voltage
         CAL_idle_clutch_antistall_speed_threshold
+        CAL_idle_cold_learn_coolant_temp_min
         CAL_idle_comp_ac
         CAL_idle_comp_ac_X_ac_load
         CAL_idle_comp_accel_pedal_pos
@@ -17502,11 +17485,12 @@
         CAL_idle_comp_vehicle_speed_manual_X_carspeed
         CAL_idle_comp_while_moving
         CAL_idle_comp_while_moving_X_rpm
+        CAL_idle_control_entry_rpm_offset
+        CAL_idle_control_exit_rpm_offset
+        CAL_idle_control_low_rpm_offset
         CAL_idle_dashpot_decel_threshold
         CAL_idle_dashpot_rpm_lift_max
         CAL_idle_dashpot_rpm_lift_max_X_rpm
-        CAL_idle_error_correction_unknown
-        CAL_idle_error_correction_unknown_X_speed_error
         CAL_idle_exit_rpm_offset
         CAL_idle_flow_adj1_maf_accum_max
         CAL_idle_flow_integral_adj_max
@@ -17514,6 +17498,7 @@
         CAL_idle_high_rpm_transient_air_comp
         CAL_idle_high_rpm_transient_air_decay_step
         CAL_idle_high_rpm_transient_runtime_min
+        CAL_idle_integral_max_clamp
         CAL_idle_integral_max_on_exit
         CAL_idle_integral_min_clamp
         CAL_idle_integral_update_period
@@ -17524,6 +17509,7 @@
         CAL_idle_low_car_speed_enter
         CAL_idle_low_car_speed_exit
         CAL_idle_monitor_voltage_operating_range
+        CAL_idle_moving_blend_rpm_offset
         CAL_idle_rpm_ramp_step
         CAL_idle_rpm_ramp_step_ips
         CAL_idle_sensor_fault_coolant_temp
@@ -17537,18 +17523,12 @@
         CAL_idle_target_manual_tour_X_coolant_temp
         CAL_idle_tps_max_opening
         CAL_idle_underspeed_latch_rpm_delta
-        CAL_idle_unknown1
-        CAL_idle_unknown2
-        CAL_idle_unknown3
-        CAL_idle_unknown4
-        CAL_idle_unknown6
       /end REF_CHARACTERISTIC
     /end GROUP
     /begin GROUP G_Torque "Torque and limits" ROOT
       /begin SUB_GROUP
         G_Torque_dpm
         G_Torque_revlimit
-        G_Torque_slip
         G_Torque_torque
         G_Torque_wheel
       /end SUB_GROUP
@@ -17626,39 +17606,6 @@
         CAL_revlimit_torque_limit_confirmation_threshold
         CAL_revlimit_trim_per_gear
         CAL_revlimit_trim_per_gear_X_gear
-      /end REF_CHARACTERISTIC
-    /end GROUP
-    /begin GROUP G_Torque_slip "slip"
-      /begin REF_CHARACTERISTIC
-        CAL_slip_car_speed_unknown1
-        CAL_slip_coldstart_coolant_threshold
-        CAL_slip_comp_maf_accum_manual
-        CAL_slip_comp_maf_accum_manual_X_maf_accum
-        CAL_slip_detect_mode
-        CAL_slip_enable_speed
-        CAL_slip_gear_offset_unknown
-        CAL_slip_gear_speed_ratios_cr
-        CAL_slip_gear_speed_ratios_ips
-        CAL_slip_gear_speed_ratios_long
-        CAL_slip_inhibit_accel_pedal_min
-        CAL_slip_inhibit_accel_pedal_timer
-        CAL_slip_inhibit_cornering_base
-        CAL_slip_inhibit_cornering_offset
-        CAL_slip_power_based_rpm_thresholds
-        CAL_slip_power_based_rpm_thresholds_X_power
-        CAL_slip_slip_threshold_per_gear_ips
-        CAL_slip_steering_angle_max_unknown
-        CAL_slip_steering_angle_smooth_factor
-        CAL_slip_steering_increase_factor_min
-        CAL_slip_steering_rate_factor
-        CAL_slip_threshold_1st_Gear
-        CAL_slip_threshold_car_speed
-        CAL_slip_threshold_hysteresis_offset
-        CAL_slip_threshold_per_gear_manual
-        CAL_slip_threshold_rpm_margin
-        CAL_slip_timer_intervention2
-        CAL_slip_timer_per_gear_intervention
-        CAL_slip_wheelspeed_front_accel_threshold
       /end REF_CHARACTERISTIC
     /end GROUP
     /begin GROUP G_Torque_torque "torque"
@@ -17825,11 +17772,12 @@
       /begin REF_CHARACTERISTIC
         CAL_engine_accel_lookback_teeth
         CAL_engine_roughness_period_history_offset
+        CAL_engine_running_period_max
         CAL_engine_speed_3_limit
         CAL_engine_speed_3_threshold_2
         CAL_engine_speed_3_threshold_3
         CAL_engine_speed_avg_samples
-        CAL_engine_speed_coolant_temp_unknown7
+        CAL_engine_speed_reference_coolant_temp_min
       /end REF_CHARACTERISTIC
     /end GROUP
     /begin GROUP G_Cooling_oil "oil"
@@ -17843,23 +17791,10 @@
     /end GROUP
     /begin GROUP G_Emissions "Emissions and evaporative" ROOT
       /begin SUB_GROUP
-        G_Emissions_cat
-        G_Emissions_emissions
         G_Emissions_evap
         G_Emissions_exhaust
         G_Emissions_misfire
       /end SUB_GROUP
-    /end GROUP
-    /begin GROUP G_Emissions_cat "cat"
-      /begin REF_CHARACTERISTIC
-        CAL_cat_check_unknown4
-      /end REF_CHARACTERISTIC
-    /end GROUP
-    /begin GROUP G_Emissions_emissions "emissions"
-      /begin REF_CHARACTERISTIC
-        CAL_emissions_cat_efficiency_unknown1
-        CAL_emissions_cat_efficiency_unknown1_X_coolant_temp
-      /end REF_CHARACTERISTIC
     /end GROUP
     /begin GROUP G_Emissions_evap "evap"
       /begin REF_CHARACTERISTIC
@@ -17979,6 +17914,7 @@
         CAL_misfire_base_threshold_manual
         CAL_misfire_base_threshold_manual_X_rpm
         CAL_misfire_base_threshold_manual_Y_load
+        CAL_misfire_baseline_default_select
         CAL_misfire_cat_damage_limit
         CAL_misfire_cat_damage_limit_X_rpm
         CAL_misfire_cat_damage_limit_Y_load
@@ -18125,6 +18061,7 @@
         CAL_obd_ii_P0113
         CAL_obd_ii_P0113_debounce_count
         CAL_obd_ii_P0116
+        CAL_obd_ii_P0116_coldstart_runtime_max
         CAL_obd_ii_P0116_coolant_deviation_max
         CAL_obd_ii_P0116_coolant_deviation_max_coldstart
         CAL_obd_ii_P0116_coolant_stopped_min
@@ -18575,6 +18512,8 @@
         CAL_obd_ii_cat_monitor_init_counter_2
         CAL_obd_ii_cat_monitor_low_speed_max
         CAL_obd_ii_cat_monitor_maf_min
+        CAL_obd_ii_cat_monitor_min_air_mass
+        CAL_obd_ii_cat_monitor_min_air_mass_X_soak_coolant_temp
         CAL_obd_ii_cat_monitor_min_engine_runtime
         CAL_obd_ii_cat_monitor_run_time_min
         CAL_obd_ii_cat_monitor_runtime_min
@@ -18585,11 +18524,11 @@
         CAL_obd_ii_cat_monitor_threshold_manual
         CAL_obd_ii_cat_monitor_threshold_manual_X_maf_flow
         CAL_obd_ii_cat_monitor_window_time
+        CAL_obd_ii_cat_o2_monitor_baro_min
         CAL_obd_ii_cat_o2_monitor_iat_min
         CAL_obd_ii_cat_precat_o2_lean_thresh
         CAL_obd_ii_cat_precat_o2_rich_thresh
         CAL_obd_ii_cat_switch_ratio_fail_threshold
-        CAL_obd_ii_cat_unknown3
         CAL_obd_ii_cold_start_ambient_high_margin
         CAL_obd_ii_cold_start_ambient_low_margin
         CAL_obd_ii_cold_start_coolant_agree_tol
@@ -18614,9 +18553,7 @@
         CAL_obd_ii_coolant_rationality_holdoff_time
         CAL_obd_ii_coolant_rationality_sample_count
         CAL_obd_ii_coolant_warmup_thresholds
-        CAL_obd_ii_countdown_unknown
         CAL_obd_ii_crank_cam_error_count_max
-        CAL_obd_ii_diag_unknown
         CAL_obd_ii_drive_cycle_car_speed_min
         CAL_obd_ii_drive_cycle_idle_time
         CAL_obd_ii_drive_cycle_runtime
@@ -18667,6 +18604,7 @@
         CAL_obd_ii_map_sensor_voltage_high
         CAL_obd_ii_map_sensor_voltage_low
         CAL_obd_ii_mat_ambient_heatsoak_delta
+        CAL_obd_ii_mil_event_hold_time
         CAL_obd_ii_mode06_o2_switch_time_max
         CAL_obd_ii_mode06_o2_switch_time_min
         CAL_obd_ii_mode08_evap_test_duration
@@ -18718,9 +18656,9 @@
         CAL_obd_ii_o2_slow_response_arm_dwell
         CAL_obd_ii_o2_slow_response_limit_lean_to_rich
         CAL_obd_ii_o2_slow_response_limit_rich_to_lean
-        CAL_obd_ii_o2_slow_response_maf_limit_unknown
-        CAL_obd_ii_o2_slow_response_maf_limit_unknown2
-        CAL_obd_ii_o2_slow_response_runtime_limit_unknown
+        CAL_obd_ii_o2_slow_response_maf_max
+        CAL_obd_ii_o2_slow_response_maf_min
+        CAL_obd_ii_o2_slow_response_runtime_min
         CAL_obd_ii_o2_slow_response_sample_count
         CAL_obd_ii_o2_switch_time_min
         CAL_obd_ii_o2_switch_time_threshold
@@ -18730,11 +18668,12 @@
         CAL_obd_ii_oil_pressure_sensor_voltage_high
         CAL_obd_ii_oil_pressure_switch_low_voltage
         CAL_obd_ii_paddle_shift_voltage_stable_time
+        CAL_obd_ii_permanent_dtc_enable
         CAL_obd_ii_postcat_o2_mean_filter_gain
         CAL_obd_ii_postcat_o2_switch_band_lean
         CAL_obd_ii_postcat_o2_switch_band_rich
+        CAL_obd_ii_postcat_rich_response_time_max
         CAL_obd_ii_readiness_bit3_enable
-        CAL_obd_ii_runtime_since_start_threshold_unknown
         CAL_obd_ii_similar_cond_debounce_reload
         CAL_obd_ii_similar_cond_load_tol
         CAL_obd_ii_similar_cond_load_window
@@ -18777,11 +18716,41 @@
     /end GROUP
     /begin GROUP G_Driveline_gsi "gsi"
       /begin REF_CHARACTERISTIC
+        CAL_gsi_coldstart_coolant_max
+        CAL_gsi_coldstart_rpm_offset_manual
+        CAL_gsi_coldstart_rpm_offset_manual_X_air_mass
+        CAL_gsi_cornering_limit
+        CAL_gsi_cornering_limit_hyst
+        CAL_gsi_downshift_advisory_delay
         CAL_gsi_downshift_idle_margin
+        CAL_gsi_downshift_rpm_margin
+        CAL_gsi_first_gear_speed_min
+        CAL_gsi_front_wheel_accel_min
+        CAL_gsi_gear_qualify_time
+        CAL_gsi_gear_ratio_close
+        CAL_gsi_gear_ratio_ips
+        CAL_gsi_gear_ratio_long
+        CAL_gsi_min_rpm_gear1
+        CAL_gsi_min_rpm_hyst
+        CAL_gsi_min_rpm_ips
+        CAL_gsi_min_rpm_manual
+        CAL_gsi_mode
+        CAL_gsi_pedal_applied_hold
+        CAL_gsi_pedal_applied_min
+        CAL_gsi_power_upshift_rpm
+        CAL_gsi_power_upshift_rpm_X_power
+        CAL_gsi_recommended_gear_max_step
+        CAL_gsi_rpm_in_gear_max
+        CAL_gsi_speed_offset_manual
+        CAL_gsi_steering_angle_max
+        CAL_gsi_steering_rate_filter_weight
+        CAL_gsi_steering_rate_gain
+        CAL_gsi_steering_term_max
       /end REF_CHARACTERISTIC
     /end GROUP
     /begin GROUP G_Driveline_ips "ips"
       /begin REF_CHARACTERISTIC
+        CAL_ips_gear_engage_brake_speed_max
         CAL_ips_revmatch_p_gain
         CAL_ips_revmatch_p_gain_X_rpm
         CAL_ips_revmatch_rpm_tolerance
@@ -18832,6 +18801,7 @@
         CAL_ac_compressor_engine_speed_min
         CAL_ac_compressor_max_coolant_temp_max
         CAL_ac_compressor_max_coolant_temp_min
+        CAL_ac_compressor_power_initial
         CAL_ac_compressor_power_offset
         CAL_ac_compressor_runtime_min
         CAL_ac_compressor_soft_engage_time
@@ -18871,7 +18841,6 @@
         CAL_ac_output_pwm_freq
         CAL_ac_shutdown_delay
         CAL_ac_tps_inhibit_timer
-        CAL_ac_unknown3
       /end REF_CHARACTERISTIC
     /end GROUP
     /begin GROUP G_Cruise "Cruise control" ROOT
@@ -18947,7 +18916,6 @@
     /end GROUP
     /begin GROUP G_Vehicle_cluster "cluster"
       /begin REF_CHARACTERISTIC
-        CAL_cluster_brake_switch_max_speed_ips_unknown
         CAL_cluster_coolant_warning
         CAL_cluster_coolant_warning_test_enable
         CAL_cluster_dte_min_distance_threshold
@@ -18977,15 +18945,15 @@
         CAL_dca_enable_tps_margin
         CAL_dca_enable_untested
         CAL_dca_freerev_wait_time
-        CAL_dca_ramp_timer_unknown
+        CAL_dca_ramp_time_max
         CAL_dca_stationary_wait_time
         CAL_dca_tps_initial_offset
         CAL_dca_tps_limit_ips
+        CAL_dca_tps_limit_ips_no_lc
+        CAL_dca_tps_limit_ips_no_lc_X_time
         CAL_dca_tps_limit_ips_x_time
         CAL_dca_tps_limit_manual
         CAL_dca_tps_limit_manual_X_time
-        CAL_dca_unknown_ips_nolc
-        CAL_dca_unknown_ips_nolc_X_time
       /end REF_CHARACTERISTIC
     /end GROUP
     /begin GROUP G_Vehicle_vehicle "vehicle"
@@ -19000,11 +18968,10 @@
     /begin GROUP G_Other "Other" ROOT
       /begin SUB_GROUP
         G_Other_base
+        G_Other_ccp
         G_Other_driver
         G_Other_ecu
         G_Other_hc08
-        G_Other_lea
-        G_Other_logger
         G_Other_misc
         G_Other_prog
         G_Other_unused
@@ -19013,6 +18980,11 @@
     /begin GROUP G_Other_base "base"
       /begin REF_CHARACTERISTIC
         CAL_base
+      /end REF_CHARACTERISTIC
+    /end GROUP
+    /begin GROUP G_Other_ccp "ccp"
+      /begin REF_CHARACTERISTIC
+        CAL_ccp_enable
       /end REF_CHARACTERISTIC
     /end GROUP
     /begin GROUP G_Other_driver "driver"
@@ -19030,7 +19002,6 @@
         CAL_ecu_cvn
         CAL_ecu_data_base
         CAL_ecu_engine_breakin_distance
-        CAL_ecu_engine_running_threshold_unknown
         CAL_ecu_engine_speed_decel_hysteresis_rpm
         CAL_ecu_engine_speed_reference_enable
         CAL_ecu_engine_speed_target_dec_gain
@@ -19065,16 +19036,6 @@
     /begin GROUP G_Other_hc08 "hc08"
       /begin REF_CHARACTERISTIC
         CAL_hc08_status_mode_flag_bit7
-      /end REF_CHARACTERISTIC
-    /end GROUP
-    /begin GROUP G_Other_lea "lea"
-      /begin REF_CHARACTERISTIC
-        CAL_lea_misfire_baseline_set
-      /end REF_CHARACTERISTIC
-    /end GROUP
-    /begin GROUP G_Other_logger "logger"
-      /begin REF_CHARACTERISTIC
-        CAL_logger_high_speed_logger_enable
       /end REF_CHARACTERISTIC
     /end GROUP
     /begin GROUP G_Other_misc "misc"

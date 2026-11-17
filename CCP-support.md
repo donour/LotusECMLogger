@@ -115,7 +115,7 @@ Replies and DAQ data share one DTO identifier, as CCP intends; byte 0 tells them
 
 ### The enable byte (T6 2011+)
 
-`CAL_logger_high_speed_logger_enable` (typed `enum_flexcan_bus_select` in C132E0278) controls the CCP slave.
+`CAL_ccp_enable` (typed `enum_flexcan_bus_select` in C132E0278) controls the CCP slave.
 It is read live by the RX handlers, the TX functions and the 2 kHz scheduler:
 
 | Value | Effect |

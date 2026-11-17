@@ -19,7 +19,7 @@ namespace LotusECMLogger
 
             AddSubheading("Requirements:");
             AddBulletPoint("A T6 engine ECU from 2011 on. CCP is part of the firmware; it does not need an unlocked ECU. (The 2010 Evora's ECU uses a different CCP setup that is not supported yet.)");
-            AddBulletPoint("CCP enabled on the OBD-II bus in the calibration. The CCP enable byte - the calibration value CAL_logger_high_speed_logger_enable - selects the CAN bus CCP listens on: 0 is off, 1 is the bus at the OBD-II port, 2 is a second CAN bus that is not at the OBD-II port. It must be 1.");
+            AddBulletPoint("CCP enabled on the OBD-II bus in the calibration. The CCP enable byte - the calibration value CAL_ccp_enable - selects the CAN bus CCP listens on: 0 is off, 1 is the bus at the OBD-II port, 2 is a second CAN bus that is not at the OBD-II port. It must be 1.");
             AddBulletPoint("Stock calibrations do not have it at 1. The 2011 Evora NA and S ship with 0, and the Evora 400, GT430 and GT with 2. So a stock car does not answer, and the first step is to flash a calibration with the value set to 1. Set it in your calibration editor: it cannot be turned on over CCP, and the Tuning page refuses to change it.");
             AddBulletPoint("A J2534 device on the OBD-II port, as for every other tab. The session runs on CAN at 500 kbit/s (request 0x350, response 0x351).");
             AddBulletPoint("For table editing: an A2L table definition for the build in config\\a2l. The application ships them for C132E0278 (Evora GT430) and B132E0091 (2011 Evora NA). Every other feature works on any T6 build.");
