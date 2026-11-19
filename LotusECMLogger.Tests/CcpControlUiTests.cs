@@ -17,6 +17,14 @@ namespace LotusECMLogger.Tests;
 public class CcpControlUiTests
 {
     private static readonly CcpBuildProfile Gt430 = CcpBuildProfile.Known.Single(p => p.Build == "C132E0278");
+    private static readonly EcuLoadMap EcuMap = EcuLoadMap.For("C132E0278")!;
+
+    /// <summary>The firmware's own load figures (6g): the whole timer interrupt last took 118 µs, at most 286.</summary>
+    private static void LoadEcuFigures(FakeCcpSlave slave)
+    {
+        slave.Load(EcuMap.SlotLastAddress(0), [0, 0, 0x04, 0x9C]); // 1180 × 0.1 µs
+        slave.Load(EcuMap.SlotMaxAddress(0), [0, 0, 0x0B, 0x2C]);  // 2860 × 0.1 µs
+    }
 
     [Fact]
     public void TheCcpTabDrivesASimulatedSessionEndToEnd() => RunInMessageLoop(async form =>
@@ -120,6 +128,7 @@ public class CcpControlUiTests
         slave.Load(A2lItem(Fan + "_Y_coolant_temp").Address, Enumerable.Range(0, 8).Select(i => (byte)(10 * i)).ToArray());
         slave.Load(0x4000183A, [90]); // temp_engine_air: halfway between points 2 and 3
         slave.Load(0x40001836, [30]); // coolant_temp: on point 3
+        LoadEcuFigures(slave);
         string directory = Path.Combine(Path.GetTempPath(), "ccp-ui-tuning-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(directory);
         string file = Path.Combine(directory, "stock.bin");
@@ -207,6 +216,17 @@ public class CcpControlUiTests
             "the live cursor");
         Assert.Contains("Live", Descendants(control).OfType<Label>().Single(l => l.Text.StartsWith("Live")).Text);
 
+        // The ECU load strip: the firmware's own figures, over two DAQ lists of its own; Reset maxima writes one RAM byte.
+        await Until(() => panel.EcuStrip.DisplayText.Contains("ISR 118 µs (max 286 of 500)"), "the ECU load figures");
+        Assert.Equal(2, host.Master!.GetDaqAllocations().Count(a => a.Owner == EcuLoadMonitor.OwnerName));
+        panel.ShowEcuDetails();
+        await Until(() => panel.EcuDetailRows.Count == EcuLoadMap.SlotCount + 5, "the ECU load details");
+        Assert.Equal(["Slot 0: whole interrupt", "500 µs", "118 µs", "286 µs", "57%"], panel.EcuDetailRows[0]);
+        panel.CloseEcuDetails();
+        await panel.ResetEcuMaximaAsync();
+        Assert.Equal(1, transport!.With(s => s.Peek(EcuMap.StatsResetRequest)));
+        Assert.Contains("ECU load: reset the slot and interrupt-period maxima", log.Text);
+
         // Save As keeps the edits in a new file; the source is untouched.
         string tuned = Path.Combine(directory, "tuned.bin");
         panel.SaveAs(tuned);
@@ -240,6 +260,7 @@ public class CcpControlUiTests
         slave.Load(A2lItem(Fan + "_Y_coolant_temp").Address, Enumerable.Range(0, 8).Select(i => (byte)(10 * i)).ToArray());
         slave.Load(AirTemp, [90]);     // halfway between X points 2 and 3
         slave.Load(CoolantTemp, [30]); // on Y point 3
+        LoadEcuFigures(slave);
         string directory = Path.Combine(Path.GetTempPath(), "ccp-ui-recording-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(directory);
         string file = Path.Combine(directory, "stock.bin");
@@ -282,6 +303,9 @@ public class CcpControlUiTests
         await Task.Delay(200);
         Assert.DoesNotContain(CcpVariableWatch.OwnerName, Owners());
         Assert.All(host.Master!.GetDaqAllocations().Where(a => a.Owner == TuningRecorder.OwnerName), a => Assert.Equal(0, a.Gaps));
+        // The recording logs the ECU load channels as well: the strip reads it, and the page's own watch has stopped.
+        Assert.DoesNotContain(EcuLoadMonitor.OwnerName, Owners());
+        await Until(() => panel.EcuStrip.DisplayText.Contains("ISR 118 µs"), "the ECU load figures from the recording");
 
         // A live edit is recorded as a write; then the ECU's input moves to X point 5.
         panel.Grid!.SelectData([(5, 3)]);
@@ -313,6 +337,7 @@ public class CcpControlUiTests
         await Until(() => panel.Grid?.OperatingPoint is { X: { } x, Y: { } y } && x == new AxisPosition(5, 0) && y == new AxisPosition(3, 0),
             "the replayed cursor");
         Assert.StartsWith("Replay", Descendants(control).OfType<Label>().Single(l => l.Text.StartsWith("Replay ")).Text);
+        await Until(() => panel.EcuStrip.DisplayText.Contains("ISR 118 µs (max 286 of 500)"), "the replayed ECU load figures");
 
         // Cells read: the time at each cell, shared as the lookup interpolates.
         Find<CheckBox>(control, c => c.Text == "Cells read").Checked = true;

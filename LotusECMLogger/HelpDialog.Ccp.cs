@@ -120,6 +120,17 @@ namespace LotusECMLogger
             AddBulletPoint("The cursor shows where the inputs are, not proof that the ECU is using that table at the moment: some tables apply only to one gearbox, mode or condition.");
             AddBulletPoint("Each table's cursor uses a DAQ list. Turn 'Cursor' off to free it, or record (below), which streams every input at once.");
 
+            AddSubheading("ECU Load:");
+            AddParagraph("With 'ECU' on, a line under the cursor's shows the ECU's own load figures - timings and a stack watermark the firmware keeps for itself - so you can see whether it is keeping up while you tune, and what your own logging costs it. They are available for the GT430 (C132E0278) and the 2011 Evora NA (B132E0091).");
+            AddBulletPoint("Loop: how long the ECU's main loop took last time, and the longest since power-on. The main loop calculates load, fuel, spark and torque, and never waits, so this is how stale those results can get.");
+            AddBulletPoint("ISR: how long the 2 kHz timer interrupt took last time, and its maximum, against its 500 µs budget. Amber past half of it; red at the whole of it, when a tick overran. The ECU samples DAQ inside this interrupt, so it includes the cost of every DAQ list the app runs.");
+            AddBulletPoint("Tick late: how much later than 500 µs the interrupt has started at worst. Amber at over 10% late; red when a tick was missed.");
+            AddBulletPoint("Stack: the deepest the stack has gone, of its 4 KB. 'Measuring' just after power-on, while the ECU finds it. Amber at 75%, red at 95%. The ECU has no other free memory to watch: all its RAM is laid out when the firmware is built.");
+            AddBulletPoint("CCP stalls and sync losses: how many times since the figures appeared the ECU could not send a CCP reply in time (amber), and lost engine position sync (red).");
+            AddParagraph("Click the line for the full table: each of the interrupt's rates with its last and longest time (the 200 Hz slot includes everything slower, and the 10 Hz slot everything slower than it), the interrupt period, the main loop, the CCP background step and the stack. 'Reset maxima' clears the interrupt figures by writing one byte of the ECU's RAM (not the calibration); the main-loop and CCP figures are kept from power-on.");
+            AddBulletPoint("The figures are wall time, including time taken by higher-priority interrupts (crank, injection, knock, CAN), so they grow with engine speed.");
+            AddBulletPoint("They use two DAQ lists (about 50 frames a second). Turn 'ECU' off to free them. A recording made with 'ECU' on logs them too, and its replay shows them.");
+
             AddSubheading("Saving:");
             AddParagraph("'Save As…' writes the calibration in the layout it was opened in (a .CRP is saved as its calibration chunk). It never overwrites the file you opened, and an existing file of the same name is backed up first. To flash the result, build a CRP with Tools > Create CRP File… and use the T6E Calibration Flasher.");
 
@@ -141,7 +152,7 @@ namespace LotusECMLogger
             AddParagraph("3. Click 'Record'. The ECU's calibration is saved first (instantly from live sync's copy when one checksum confirms it, otherwise read in about 9 seconds), then logging starts. The bar shows the elapsed time and the number of writes.");
             AddParagraph("4. Tune and drive. Every write live sync makes is recorded.");
             AddParagraph("5. Click 'Stop Recording'. The calibration is saved again, if the session is still connected.");
-            AddParagraph("Every variable an A2L axis reads is always recorded, so any table can be replayed afterwards, not just the ones you looked at. They take one 20 Hz DAQ list. While recording, the cursor reads the recording instead of streaming each table separately, so switching tables costs the log nothing.");
+            AddParagraph("Every variable an A2L axis reads is always recorded, so any table can be replayed afterwards, not just the ones you looked at. They take one 20 Hz DAQ list. While recording, the cursor reads the recording instead of streaming each table separately, so switching tables costs the log nothing. With 'ECU' on, the ECU load figures are recorded too, and the line under the grid reads them from the recording.");
 
             AddSubheading("Recording Files:");
             AddParagraph("Recordings are saved in Documents\\LotusECMLogger\\recordings, named after the build and time. Each is four files:");
@@ -191,7 +202,7 @@ namespace LotusECMLogger
             AddParagraph("The Traffic page shows what the CCP session is doing, for diagnosing a slow or unreliable connection.");
             AddBulletPoint("Counters: commands, replies, error replies, timeouts, stray and malformed frames, DAQ frames and unrouted DAQ frames for the session.");
             AddBulletPoint("Latency: the last, mean, 95th percentile and worst command round trip. On a car with a good adapter it is under 2 ms.");
-            AddBulletPoint("DAQ lists: which list belongs to whom (High-Speed Log, Variable watch, a tuning recording or cursor, the self-test), its rate, size, samples, overruns, drops and gaps. A gap means another consumer started streaming, which can cost a few frames.");
+            AddBulletPoint("DAQ lists: which list belongs to whom (High-Speed Log, Variable watch, a tuning recording, cursor or ECU load, the self-test), its rate, size, samples, overruns, drops and gaps. A gap means another consumer started streaming, which can cost a few frames.");
             AddBulletPoint("Trace: every command and reply, decoded. 'Pause' freezes it, 'Clear View' empties it and 'Save Trace…' writes it to a file. DAQ frames are counted, not traced.");
         }
 
@@ -206,7 +217,7 @@ namespace LotusECMLogger
             AddBulletPoint("Variable table: the firmware's table of variables reads back intact.");
             AddBulletPoint("Command latency: how long commands take (a warning above a few milliseconds usually points at the adapter or its driver).");
             AddBulletPoint("Memory read and checksum: calibration RAM reads, and the ECU's checksum agrees with what was read.");
-            AddBulletPoint("DAQ event rates and concurrent access: each event channel streams at its rate while memory is read. This needs every DAQ list, so it is skipped while the High-Speed Log, a variable watch, a cursor or a recording is running.");
+            AddBulletPoint("DAQ event rates and concurrent access: each event channel streams at its rate while memory is read. This needs every DAQ list, so it is skipped while the High-Speed Log, a variable watch, a cursor, the ECU load figures or a recording is running.");
             AddBulletPoint("Engine speed and session counters: a live value, and no timeouts or bad frames during the session.");
 
             AddParagraph("Click 'Run Self-Test', then 'Save Report…' to keep the results as a text file.");

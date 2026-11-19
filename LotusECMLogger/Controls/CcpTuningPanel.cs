@@ -149,12 +149,13 @@ namespace LotusECMLogger.Controls
             var valueBar = Bar(Caption("Fine"), fineField, Caption("Coarse"), coarseField, Caption("Value"), valueField, multiplyButton,
                 undoButton, redoButton, copyButton, pasteButton);
             var actionBar = Bar(Caption("Interpolate"), interpolateButton, verticalButton, horizontalButton, smoothButton, revertButton,
-                graphBox, changesBox, cursorBox);
+                graphBox, changesBox, cursorBox, ecuBox);
             valueBar.Dock = actionBar.Dock = DockStyle.Top;
             editorSplit.Panel2.Controls.Add(graphPane);
             var editor = new Panel { Dock = DockStyle.Fill };
             editor.Controls.Add(editorSplit);
             editor.Controls.Add(liveLabel);
+            editor.Controls.Add(ecuStrip);
             editor.Controls.Add(statusLabel);
             editor.Controls.Add(actionBar);
             editor.Controls.Add(valueBar);
@@ -171,6 +172,7 @@ namespace LotusECMLogger.Controls
             Controls.Add(topBar);
             InitializeRecording();
             InitializeReplay();
+            InitializeEcuLoad();
             GuiIcons.ApplyToButton(recordButton, "\uE7C8");
 
             Confirm = text => MessageBox.Show(this, text, "Live tuning", MessageBoxButtons.YesNo, MessageBoxIcon.Warning,
@@ -392,6 +394,7 @@ namespace LotusECMLogger.Controls
                     graphPane.SetData(graphData = GraphData.From(image, current));
                 }
                 EnsureCursor();
+                EnsureEcuLoad();
                 MarkChangedItems();
                 ShowStatus();
                 UpdateState();
@@ -477,6 +480,7 @@ namespace LotusECMLogger.Controls
                         TaskContinuationOptions.OnlyOnFaulted);
                 }
                 cursorTimer.Dispose();
+                DisposeEcuLoad();
                 playTimer.Dispose();
                 recordTimer.Dispose();
                 if (recorder is { } running)

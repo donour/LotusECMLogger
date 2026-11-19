@@ -10,8 +10,6 @@
  *   torque_limit_dpm_spark: also at another address; this one (0x4000163C) is named torque_limit_dpm_spark_4000163C.
  *   torque_limit_dpm_throttle: also at another address; this one (0x4000163E) is named torque_limit_dpm_throttle_4000163E.
  *   exhaust_flap_state: also at another address; this one (0x40001B11) is named exhaust_flap_state_40001B11.
- *   timer_main_start1: also at another address; this one (0x40002F00) is named timer_main_start1_40002F00.
- *   timer_main_start2: also at another address; this one (0x40002F04) is named timer_main_start2_40002F04.
  */
 /begin PROJECT C132E0278 "Lotus T6 C132E0278"
   /begin HEADER ""
@@ -6769,13 +6767,13 @@
     /begin MEASUREMENT ecu_unlocked "ECU unlocked (boolean flag)." UBYTE NO_COMPU_METHOD 0 0 0 255
       ECU_ADDRESS 0x40001678
     /end MEASUREMENT
-    /begin MEASUREMENT free_ram_overrun_flag "Free ram overrun flag (boolean flag)." UBYTE NO_COMPU_METHOD 0 0 0 255
+    /begin MEASUREMENT stack_peak_found "Free ram overrun flag (boolean flag)." UBYTE NO_COMPU_METHOD 0 0 0 255
       ECU_ADDRESS 0x40001680
     /end MEASUREMENT
-    /begin MEASUREMENT free_ram_count "Free (0x55-filled) RAM found by freeram_counter, in 16-byte blocks." ULONG NO_COMPU_METHOD 0 0 0 4294967295
+    /begin MEASUREMENT stack_peak_usage "Free (0x55-filled) RAM found by freeram_counter, in 16-byte blocks." ULONG NO_COMPU_METHOD 0 0 0 4294967295
       ECU_ADDRESS 0x40001684
     /end MEASUREMENT
-    /begin MEASUREMENT free_ram_scan_ptr "Scan pointer for the free-RAM 0x55 pattern check." ULONG NO_COMPU_METHOD 0 0 0 4294967295
+    /begin MEASUREMENT stack_peak_addr "Scan pointer for the free-RAM 0x55 pattern check." ULONG NO_COMPU_METHOD 0 0 0 4294967295
       ECU_ADDRESS 0x40001688
     /end MEASUREMENT
     /begin MEASUREMENT cal_copy_status "Cleared at start of copyCAL2RAM." UBYTE NO_COMPU_METHOD 0 0 0 255
@@ -11890,7 +11888,7 @@
     /begin MEASUREMENT ccp_tx_stall_count "CCP (0x351) transmit timeouts." UBYTE NO_COMPU_METHOD 0 0 0 255
       ECU_ADDRESS 0x40002530
     /end MEASUREMENT
-    /begin MEASUREMENT flexcan_diag_tx_count "flexcan_diagnostics_tx call counter." ULONG NO_COMPU_METHOD 0 0 0 4294967295
+    /begin MEASUREMENT ccp_background_count "flexcan_diagnostics_tx call counter." ULONG NO_COMPU_METHOD 0 0 0 4294967295
       ECU_ADDRESS 0x40002538
     /end MEASUREMENT
     /begin MEASUREMENT obd_ii_defer_send "OBD-II: defer send (boolean flag)." UBYTE NO_COMPU_METHOD 0 0 0 255
@@ -13369,16 +13367,16 @@
     /begin MEASUREMENT timing_main_loop_max "Max main-loop duration." ULONG CM_u32_time_100ns 0 0 0 429496729500
       ECU_ADDRESS 0x40002EFC
     /end MEASUREMENT
-    /begin MEASUREMENT timer_main_start1_40002F00 "TCR1 timestamp at the start of the main loop." ULONG CM_u32_time_100ns 0 0 0 429496729500
+    /begin MEASUREMENT timer_ccp_background_start "TCR1 timestamp at the start of the main loop." ULONG CM_u32_time_100ns 0 0 0 429496729500
       ECU_ADDRESS 0x40002F00
     /end MEASUREMENT
-    /begin MEASUREMENT timer_main_start2_40002F04 "TCR1 timestamp after the CAN diagnostics step." ULONG CM_u32_time_100ns 0 0 0 429496729500
+    /begin MEASUREMENT timer_ccp_background_end "TCR1 timestamp after the CAN diagnostics step." ULONG CM_u32_time_100ns 0 0 0 429496729500
       ECU_ADDRESS 0x40002F04
     /end MEASUREMENT
-    /begin MEASUREMENT loop_duration_main_pretask_ticks "Last CAN diagnostics duration." ULONG CM_u32_time_100ns 0 0 0 429496729500
+    /begin MEASUREMENT timing_ccp_background_last "Last CAN diagnostics duration." ULONG CM_u32_time_100ns 0 0 0 429496729500
       ECU_ADDRESS 0x40002F08
     /end MEASUREMENT
-    /begin MEASUREMENT loop_duration_main_pretask_ticks_max "Max CAN diagnostics duration." ULONG CM_u32_time_100ns 0 0 0 429496729500
+    /begin MEASUREMENT timing_ccp_background_max "Max CAN diagnostics duration." ULONG CM_u32_time_100ns 0 0 0 429496729500
       ECU_ADDRESS 0x40002F0C
     /end MEASUREMENT
     /begin MEASUREMENT etpu_elapsed_max_ticks "u32_time_100ns" ULONG CM_u32_time_100ns 0 0 0 429496729500

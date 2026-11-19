@@ -85,14 +85,32 @@ namespace LotusECMLogger.Controls
             }
             string log = path ?? Path.Combine(RecordingDirectory,
                 string.Create(CultureInfo.InvariantCulture, $"{image.Build.Build}_{DateTime.Now:yyyyMMdd-HHmmss}.csv"));
+            int presetCount = extra.Channels.Count;
+            // The ECU load channels too (6g), so the strip keeps working from the recording and replays with it.
+            int ecuCount = 0;
+            if (ecuBox.Checked && EcuLoadMap.For(image.Build.Build) is { } ecuMap)
+            {
+                var logged = extra.Channels.Select(c => (c.Item1.Address, (int)c.Item1.Size)).ToHashSet();
+                var ecuChannels = ecuMap.Channels().Where(c => logged.Add((c.Channel.Address, c.Channel.Size))).ToList();
+                extra.Channels.AddRange(ecuChannels);
+                ecuCount = ecuChannels.Count;
+            }
             var (module, build, sync) = (a2l, image.Build, session);
             await context.RunAsync("Start recording", async ct =>
             {
+                // The recording logs what the page's own ECU-load watch streams: free its DAQ lists first.
+                if (ecuCount > 0)
+                {
+                    ecuFor = default;
+                    ++ecuGeneration;
+                    await StopEcuMonitorAsync();
+                }
                 var started = await TuningRecorder.StartAsync(host, master, module, build, extra.Channels, log, sync, cancellationToken: ct);
                 started.Failed += OnRecordingFailed;
                 recorder = started;
                 context.Log($"Recording to {started.Files.Log}: {started.InputCount} axis input(s) at {TuningRecorder.InputRateHz} Hz" +
-                    (extra.Preset is { } p ? $" and {started.Channels.Count - started.InputCount} channel(s) from {p}" : "") +
+                    (extra.Preset is { } p ? $", {presetCount} channel(s) from {p}" : "") +
+                    (ecuCount > 0 ? $", {ecuCount} ECU load channel(s)" : "") +
                     $". The calibration at the start is saved{(sync is null ? "" : "; live sync's writes are recorded")}.");
             });
             if (recorder is not null) recordTimer.Start();

@@ -13,8 +13,6 @@
  *   accel_pedal_track_d_selected: also at another address; this one (0x400024AB) is named accel_pedal_track_d_selected_400024AB.
  *   ADC_TSCR: also at another address; this one (0x4000299C) is named ADC_TSCR_4000299C.
  *   ADC_TBCR: also at another address; this one (0x400029A0) is named ADC_TBCR_400029A0.
- *   timer_main_start1: also at another address; this one (0x40002B68) is named timer_main_start1_40002B68.
- *   timer_main_start2: also at another address; this one (0x40002B6C) is named timer_main_start2_40002B6C.
  *   LEA_obd_ii_P0141_flags: also at another address; this one (0x400046B6) is named LEA_obd_ii_P0141_flags_400046B6.
  *   LEA_obd_ii_P0141_fail_counter: also at another address; this one (0x400046B7) is named LEA_obd_ii_P0141_fail_counter_400046B7.
  *   LEA_obd_ii_P0141_pass_counter: also at another address; this one (0x400046B8) is named LEA_obd_ii_P0141_pass_counter_400046B8.
@@ -5552,10 +5550,10 @@
     /begin MEASUREMENT task_timing_stats_reset_request "bool" UBYTE NO_COMPU_METHOD 0 0 0 255
       ECU_ADDRESS 0x400015D7
     /end MEASUREMENT
-    /begin MEASUREMENT etpu_elapsed_min_ticks "undefined4" ULONG NO_COMPU_METHOD 0 0 0 4294967295
+    /begin MEASUREMENT isr_period_min_ticks "undefined4" ULONG NO_COMPU_METHOD 0 0 0 4294967295
       ECU_ADDRESS 0x400015E8
     /end MEASUREMENT
-    /begin MEASUREMENT etpu_elapsed_max_captured_ticks "undefined4" ULONG NO_COMPU_METHOD 0 0 0 4294967295
+    /begin MEASUREMENT isr_period_max_ticks "undefined4" ULONG NO_COMPU_METHOD 0 0 0 4294967295
       ECU_ADDRESS 0x400015EC
     /end MEASUREMENT
     /begin MEASUREMENT runtime_since_start "Time since the current engine start. Log as a time base for traces. (ms; raw*5)" ULONG CM_u8_time_5ms 0 0 0 21474836475
@@ -8726,22 +8724,22 @@
     /begin MEASUREMENT timer_main3 "undefined4" ULONG NO_COMPU_METHOD 0 0 0 4294967295
       ECU_ADDRESS 0x40002B5C
     /end MEASUREMENT
-    /begin MEASUREMENT loop_duration_main_ticks_unknown2 "undefined4" ULONG NO_COMPU_METHOD 0 0 0 4294967295
+    /begin MEASUREMENT timing_main_loop_last "u32_time_100ns" ULONG CM_u32_time_100ns 0 0 0 429496729500
       ECU_ADDRESS 0x40002B60
     /end MEASUREMENT
-    /begin MEASUREMENT loop_duration_main_ticks_unknown "undefined4" ULONG NO_COMPU_METHOD 0 0 0 4294967295
+    /begin MEASUREMENT timing_main_loop_max "u32_time_100ns" ULONG CM_u32_time_100ns 0 0 0 429496729500
       ECU_ADDRESS 0x40002B64
     /end MEASUREMENT
-    /begin MEASUREMENT timer_main_start1_40002B68 "undefined4" ULONG NO_COMPU_METHOD 0 0 0 4294967295
+    /begin MEASUREMENT timer_ccp_background_start "u32_time_100ns" ULONG CM_u32_time_100ns 0 0 0 429496729500
       ECU_ADDRESS 0x40002B68
     /end MEASUREMENT
-    /begin MEASUREMENT timer_main_start2_40002B6C "undefined4" ULONG NO_COMPU_METHOD 0 0 0 4294967295
+    /begin MEASUREMENT timer_ccp_background_end "u32_time_100ns" ULONG CM_u32_time_100ns 0 0 0 429496729500
       ECU_ADDRESS 0x40002B6C
     /end MEASUREMENT
-    /begin MEASUREMENT loop_duration_main_pretask_ticks "u32_time_100ns" ULONG CM_u32_time_100ns 0 0 0 429496729500
+    /begin MEASUREMENT timing_ccp_background_last "u32_time_100ns" ULONG CM_u32_time_100ns 0 0 0 429496729500
       ECU_ADDRESS 0x40002B70
     /end MEASUREMENT
-    /begin MEASUREMENT loop_duration_main_pretask_ticks_max "u32_time_100ns" ULONG CM_u32_time_100ns 0 0 0 429496729500
+    /begin MEASUREMENT timing_ccp_background_max "u32_time_100ns" ULONG CM_u32_time_100ns 0 0 0 429496729500
       ECU_ADDRESS 0x40002B74
     /end MEASUREMENT
     /begin MEASUREMENT etb_driver_spi_diag "undefined1" UBYTE NO_COMPU_METHOD 0 0 0 255

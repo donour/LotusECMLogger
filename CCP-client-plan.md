@@ -9,8 +9,9 @@ calibration writes) plus diagnostics tooling (trace, statistics, variable watch,
 verified on a car 2026-10-24 (2011 Evora NA, B132E0091), including the J2534 latency fix. Phase 6 started 2026-10-24:
 the A2L generator, the 6a reader, the 6b calibration image, 6c live sync, the 6d editor and the 6e live cursor are done;
 live tuning and the cursor worked on a GT430 (C132E0278) on 2026-11-03. 6f, recording a tuning session and replaying it
-(cursor, calibration at each moment, cells read), is done in code 2026-11-05; not yet used on a car. Next: record and
-replay on a car, and review of the drafted axis inputs. Scope narrowed to T6 2011+ for now (§2).**
+(cursor, calibration at each moment, cells read), is done in code 2026-11-05; not yet used on a car. 6g, an ECU load
+monitor on the Tuning page, is done in code (2026-11-17); not yet on a car. Next: record and replay on a car, and review of the drafted axis
+inputs. Scope narrowed to T6 2011+ for now (§2).**
 The protocol core, target/build profiles, transport contract, J2534 transport and deterministic fake slave
 are implemented. Cross-platform tests exercise the command sequence, firmware quirks and runtime-registry format.
 The fake loads real PROG/CAL from CRP and exposes `ICcpTransport`; see [`CcpSimulator/README.md`](CcpSimulator/README.md).
@@ -468,6 +469,127 @@ generated file into CANape or INCA.
   - **Timeline.** Play and pause at 0.25–16×, click or drag to seek, a tick at each write.
   - **Not yet.** Per-cell statistics of another channel (e.g. mean wideband error per cell, from the AEM source),
     and dimming tables that a mode flag says were not in use.
+- **6g, ECU load monitor.** *Done in code 2026-11-17*; not yet on a car. While tuning, show whether the ECU is
+  keeping up, and what the app's own DAQ lists cost it. Read from both decompiles
+  (`t6-patch/disassembly/evora/{C132E0278,B13200091}`), `C132E0278/analysis/RUNTIME_ARCHITECTURE_ANALYSIS.md`, and the
+  GT430 program's disassembly of the main loop (the decompile gives two pairs of timestamps the same names).
+  - **What the firmware measures.**
+    - The **background loop** (`main`) runs with no wait, and it computes load, fuel, spark, torque and throttle
+      request. So there is no idle time and no "CPU %". The loop period is the measure that matters: it is how old
+      those results can get.
+    - The **CCP background step** (`flexcan_diagnostics_tx`, run each loop pass when `CAL_ccp_enable` is set) works
+      through a pending BUILD_CHKSUM 256 bytes per pass, then sends the reply. Live sync's checksum before each
+      batch therefore adds to the loop.
+    - The **2 kHz timer ISR** is the lowest-priority interrupt (INTC priority 1). It runs eleven rate slots and
+      times each one. Times are TCR1 ticks of 0.1 µs (24-bit wrap, handled by the firmware). They are wall time,
+      including preemption by crank/injection (14), knock (15) and CAN (2–3) interrupts.
+    - The slots nest. Slot 0 is the whole ISR (budget 500 µs). Slot 2 (200 Hz) contains slots 3–10, and slot 6
+      (10 Hz) contains 7–10. Slot 11 of the max array is the longest ISR entry-to-entry period.
+
+      | Slot | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 |
+      |---|---|---|---|---|---|---|---|---|---|---|---|
+      | Rate | ISR | 1 kHz | 200 Hz | 100 | 50 | 20 | 10 | 5 | 3.33 | 2 | 1 |
+
+    - **Maxima are sticky.** The ISR clears the slot maxima and the period min/max when
+      `task_timing_stats_reset_request` is non-zero, then clears the request. The main-loop and CCP-background
+      maxima are only reset at power-on. Because the ECU holds the peaks, sampling slowly misses none.
+    - **Stack watermark.** There is no heap; RAM is laid out statically, so "free memory" means stack headroom.
+      `freeram_fill_0x55` fills 0x4000F000–0x4000FDFF with 0x55. Each loop pass, `freeram_counter` walks a scan
+      pointer up 16 bytes while the sentinel is intact, and steps it down once the stack (growing down from
+      0x40010000) has written there. The pointer therefore sits at the deepest the stack has reached.
+      - Used = 0x40010000 − ptr; free = ptr − 0x4000F000. The minimum shown is 512 B, because the top 0x200 bytes
+        are not filled.
+      - `stack_peak_usage` is (0x40010000 − ptr) × 255 / 4096, the share of the 4 KB used, out of 255.
+      - `stack_peak_found` latches in normal running. It means the scan has reached the stack, not that the stack
+        overflowed. A pointer below 0x4000F000 would be a real overflow.
+    - **DAQ runs inside the 2 kHz ISR** (event channels are countdowns there; `CCP-support.md`), so slot 0 includes
+      the cost of every running DAQ list. The monitor measures the app's own load on the ECU.
+    - `main` sets `main_diagnostic_flags` bit 1 when `SIU_RSR` bit 4 (0x08000000, WDRS in the MPC5534 manual, to
+      confirm) is set: a "the last reset was the watchdog" flag readable from RAM.
+  - **Variables** (`EcuLoadMap`; catalog names as of the 2026-11-17 update, addresses are what count):
+
+    | Shown as | C132E0278 | B132E0091 | Scaling | Rate |
+    |---|---|---|---|---|
+    | Main loop, last | `timing_main_loop_last` 0x40002EF8 | same, 0x40002B60 | u32 × 0.1 µs | 5 Hz |
+    | Main loop, max (since power-on) | `timing_main_loop_max` 0x40002EFC | same, 0x40002B64 | u32 × 0.1 µs | 5 Hz |
+    | CCP background step, max (since power-on) | `timing_ccp_background_max` 0x40002F0C | same, 0x40002B74 | u32 × 0.1 µs | 5 Hz |
+    | ISR period, last | `isr_period_ticks` 0x40002EEC | `etpu_elapsed_time` 0x40002B54 | u32 × 0.1 µs (nominal 500 µs) | 5 Hz |
+    | ISR period, min | `isr_period_min_ticks` 0x40001710 | same, 0x400015E8 | u32 × 0.1 µs | 5 Hz |
+    | Slot time, last (slots 0, 2) | `task_last_execution_time[0]`, `[2]` 0x40002EC0, EC8 | same, 0x40002B28, B30 | u32 × 0.1 µs | 5 Hz |
+    | Slot time, max (slots 0–11) | `task_max_execution_time[]` 0x40002F10 | same, 0x40002B78 | u32 × 0.1 µs | 1 Hz |
+    | Stack scan pointer / found | `stack_peak_addr` 0x40001688 / `stack_peak_found` 0x40001680 | same, 0x40001578 / 0x40001570 | address; bool | 5 Hz |
+    | CCP transmit stalls | `ccp_tx_stall_count` 0x40002530 | same, 0x40002260 | u8 count (Δ since watching began) | 5 Hz |
+    | Engine sync losses | `engine_sync_reset_count` 0x4000173A | same, 0x40001612 | u8 count (Δ since watching began) | 5 Hz |
+    | Reset maxima (write only) | `task_timing_stats_reset_request` 0x400016F3 | same, 0x400015D7 | write 1 | — |
+
+    - Two DAQ lists. Each 4-byte value fills a frame, so the three counters and the stack flag ride in the first
+      three: 8 frames at 5 Hz and 12 at 1 Hz, about 52 frames a second, under 3% of the 2,000 frames/s the ECU's
+      DAQ queue drains. The slow-moving maxima share the fast list because a third list would cost more than the
+      frames.
+    - The interrupt-period maximum is slot 11 of the max array, so `isr_period_max_ticks` is not streamed.
+    - Other builds get a map once their decompile has been checked. The slot structure is assumed to be the same
+      in every build: B132E0091's code has the same shape, and its slot 11 is the ISR period.
+  - **As built.**
+    - **`EcuLoadMap`** (`Services/Tuning/EcuLoad.cs`): the per-build address table and its channels. It is not
+      resolved from catalog names, which drift; `EcuLoadTests` checks every address against the build's catalog
+      (inside a symbol of the size read).
+    - **`EcuLoadSample`**, **`EcuLoadCounters`**, **`EcuLoadText`:** the figures from any `IRawValueSource` (µs, stack
+      bytes), the warning levels, counter increases (wrapping at 256, reset when a replay seeks back), and the strip's
+      segments. All pure, with tests.
+    - **`EcuLoadMonitor`:** the two lists on the shared session (DAQ owner "ECU load"), through a
+      `CcpVariableWatch` that now takes a rate per variable and an owner name. `ResetMaximaAsync` writes 1 to the
+      reset byte with `WriteVerifiedAsync` allowed exactly that byte; the ISR clears it within 500 µs, so a
+      read-back of 0 is taken as success.
+    - **Start order.** The page's watch starts once connected and identified, and is not restarted per table.
+      GET_DAQ_SIZE resets the ECU's whole transmit queue, so a per-table cursor restart can drop a sample; the
+      held maxima make that harmless.
+    - **Recording.** With the ECU switch on, Record adds the map's channels to the log and stops the page's own
+      watch first, so the lists are not held twice. While recording the strip reads the recorder, and a replay
+      shows the strip at time t. Loop time can later be plotted against rpm.
+  - **UI.**
+    - **Tuning page:** an ECU switch beside Cursor (on by default; off frees the lists). Below the live line, one
+      strip, for example: `ECU  loop 1.92 ms (max 3.41)   ISR 118 µs (max 286 of 500)   tick late max +41 µs
+      stack 1.2 of 4 KB   CCP stalls 0   sync losses 0`.
+    - **Colours:**
+
+      | Signal | Amber | Red |
+      |---|---|---|
+      | Slot 0 max | over 250 µs | 500 µs or more (a tick overran) |
+      | ISR period max | over 550 µs | 1,000 µs or more (a tick was missed) |
+      | Stack | 75% used | 95% used (past 100%: below the sentinel area) |
+      | CCP stalls | rising | — |
+      | Sync losses | — | rising |
+
+      The main loop has no known budget, so it shows its value without a colour.
+    - **Clicking the strip** opens the slot table (rate, period, last, max, max as a share of the period), the
+      interrupt period, main loop, CCP step and stack, and **Reset maxima** (live watch only).
+    - Dropped from the plan: loops per second. The loop never waits, so its rate is 1 / its period, which the
+      strip already shows.
+  - **Not yet.**
+    - The slot table on the Traffic tab, beside the DAQ list owners, to show what starting the High-Speed Log costs
+      in slot 0.
+    - **MPC5534 registers.** Read them only by memory upload, never in a DAQ list. The DAQ copy runs inside the
+      2 kHz ISR, and a bus error there takes the ECU down. Bench-check each address first.
+      - `SIU_RSR` 0xC3F9000C (`siu_rsr` in both catalogs) is the cause of the last reset (power-on, external,
+        loss of clock/lock, watchdog, checkstop, software). Read it once on connect; "last reset: watchdog" after
+        a session is the sign of a crash. `main_diagnostic_flags` bit 1 may give the watchdog case from RAM.
+      - FlexCAN A `ECR` 0xFFFC001C holds the transmit and receive error counters of the OBD-II bus, with the
+        app's traffic on it. It is safe to read; poll it at 1 Hz by upload. Do **not** read `ESR` (0xFFFC0020):
+        its error bits clear on read.
+      - Lower value: the eTPU idle count (presence and offset on the MPC5534's eTPU to check; in neither catalog)
+        and the eQADC `FISRn` overflow flags (ADC queue overruns).
+      - Not available: the e200z3 has no memory-mapped performance counters. The time base, decrementer and
+        watchdog are SPRs, which CCP cannot read.
+    - Maps for the other builds (C132E0077, C132E0271, A132E0263, E132E0288, A138E0112).
+  - **Catalog notes** (the owner's): the 2026-11-17 update applied the renames. Still open in C132E0278: the
+    duplicate `timer_main_start1` (0x40002EF0, TCR1 at the top of the loop) and `timer_main_start2` (0x40001A2C, the
+    core time base there); the stack symbols keep their old comments, and `stack_peak_usage` could be typed
+    `u32_factor_1/255` to read as a percentage.
+  - **To check on the car:**
+    - The main-loop period at idle and at high rpm (expected to grow with rpm as crank and injection interrupts
+      preempt it).
+    - Slot 0 with only the Tuning page's lists, against with the High-Speed Log running too.
+    - The stack figure after a drive, and that Reset maxima brings the slot maxima down.
 
 ## 5. Live tuning: findings that shape the design
 

@@ -35,20 +35,35 @@ namespace LotusECMLogger.Services
         public long Dropped => _subscription.Stream.Dropped;
         public bool IsActive => _subscription.IsActive;
 
-        public static async Task<CcpVariableWatch> StartAsync(CcpMaster master, IReadOnlyList<CcpVariable> variables, int rateHz,
+        public static Task<CcpVariableWatch> StartAsync(CcpMaster master, IReadOnlyList<CcpVariable> variables, int rateHz,
             CancellationToken cancellationToken = default)
         {
-            ArgumentNullException.ThrowIfNull(master);
             if (variables is null || variables.Count == 0) throw new ArgumentException("Choose at least one variable to watch.", nameof(variables));
-            if (variables.FirstOrDefault(v => !v.Watchable) is { } large)
+            return StartAsync(master, variables.Select(v => (v, rateHz)).ToList(), OwnerName, cancellationToken);
+        }
+
+        /// <summary>
+        /// As <see cref="StartAsync(CcpMaster, IReadOnlyList{CcpVariable}, int, CancellationToken)"/>, each variable at its own
+        /// rate, shown as <paramref name="owner"/> in the DAQ allocation view. Variables of one rate share DAQ lists.
+        /// </summary>
+        public static async Task<CcpVariableWatch> StartAsync(CcpMaster master, IReadOnlyList<(CcpVariable Variable, int RateHz)> variables,
+            string owner, CancellationToken cancellationToken = default)
+        {
+            ArgumentNullException.ThrowIfNull(master);
+            ArgumentException.ThrowIfNullOrEmpty(owner);
+            if (variables is null || variables.Count == 0) throw new ArgumentException("Choose at least one variable to watch.", nameof(variables));
+            if (variables.Select(v => v.Variable).FirstOrDefault(v => !v.Watchable) is { } large)
                 throw new ArgumentException($"{large.Name} is {large.Size} bytes; only 1, 2 and 4-byte values can be watched. Read it instead.");
-            var channels = variables.Select(v => v.ToChannel()).ToList();
+            var channels = variables.Select(v => v.Variable.ToChannel()).ToList();
             var index = new Dictionary<HighSpeedChannel, int>(ReferenceEqualityComparer.Instance);
             for (int i = 0; i < channels.Count; i++) index[channels[i]] = i;
-            var plan = HighSpeedLogPlanner.Plan(channels.Select(c => (c, rateHz)).ToList(), master.Target);
-            var subscription = await master.StartDaqAsync(HighSpeedLogPlanner.ToDaqLists(plan), OwnerName, cancellationToken)
+            var plan = HighSpeedLogPlanner.Plan(channels.Select((c, i) => (c, variables[i].RateHz)).ToList(), master.Target);
+            var subscription = await master.StartDaqAsync(HighSpeedLogPlanner.ToDaqLists(plan), owner, cancellationToken)
                 .ConfigureAwait(false);
-            return new CcpVariableWatch(subscription, plan, index, variables) { RateHz = rateHz };
+            return new CcpVariableWatch(subscription, plan, index, variables.Select(v => v.Variable).ToList())
+            {
+                RateHz = variables.Max(v => v.RateHz),
+            };
         }
 
         /// <summary>The latest value of each variable, aligned with <see cref="Variables"/> (null until first sampled).</summary>
