@@ -52,15 +52,6 @@ public class T6SymbolRegistryTests
     }
 
     [Fact]
-    public void RawQueryReturnsEntriesAddressRatherThanHeaderAddress()
-    {
-        uint entries = T6SymbolRegistry.ParseEntriesAddress([0, 0x0C, 0x02, 0xE4]);
-        Assert.Equal((uint)0xC02E4, entries);
-        Assert.Equal((uint)0xC02B8, entries - T6SymbolRegistry.HeaderSize);
-        Assert.Equal((uint)0xCE984, T6SymbolRegistry.ParseEntriesAddress([0, 0x0C, 0xE9, 0x84]));
-    }
-
-    [Fact]
     public void VerifiedProfilePointersAgreeWithRawMemoryDispatchers()
     {
         Assert.Equal((uint)0xC02E4, CcpBuildProfile.Known.Single(p => p.Build == "B132E0091").SymbolEntriesAddress);
@@ -68,27 +59,6 @@ public class T6SymbolRegistryTests
         Assert.Equal((uint)0xCE958, entries - T6SymbolRegistry.HeaderSize);
         Assert.Equal((uint)0xD2EF4, CcpBuildProfile.Known.Single(p => p.Build == "E132E0288").SymbolEntriesAddress);
         Assert.Null(CcpBuildProfile.Known.Single(p => p.Build == "C132F0395").SymbolEntriesAddress);
-    }
-
-    [Theory]
-    [InlineData(0)] [InlineData(0x100000)] [InlineData(0x40000000)] [InlineData(0xFFFFFFFF)]
-    public void RejectsInvalidDiscoveryPointers(uint address)
-    {
-        var bytes = new byte[4];
-        BinaryPrimitives.WriteUInt32BigEndian(bytes, address);
-        Assert.Throws<InvalidDataException>(() => T6SymbolRegistry.ParseEntriesAddress(bytes));
-    }
-
-    [Fact]
-    public void ParsesTerminatedListAndIgnoresFollowingBatchData()
-    {
-        var bytes = Table(3)[44..].Concat(new byte[6]).Concat(new byte[] { 0xFF, 0xFF }).ToArray();
-        var entries = T6SymbolRegistry.ParseTerminatedEntries(bytes);
-        Assert.Equal(3, entries.Count);
-        Assert.Equal(new T6SymbolEntry(2, 0x40000040, 4), entries[2]);
-        Assert.Throws<InvalidDataException>(() => T6SymbolRegistry.ParseTerminatedEntries(Table(3)[44..]));
-        Assert.Throws<InvalidDataException>(() => T6SymbolRegistry.ParseTerminatedEntries(bytes[..^9]));
-        Assert.Throws<InvalidDataException>(() => T6SymbolRegistry.ParseTerminatedEntries(new byte[6]));
     }
 
     [Theory]
@@ -127,8 +97,6 @@ public class T6SymbolRegistryTests
         Assert.Throws<ArgumentOutOfRangeException>(() => T6SymbolRegistry.ParseTable(Table(1), 1025));
         Assert.Throws<InvalidDataException>(() => T6SymbolRegistry.ParseTable(Table(1)[..^1], 1));
         Assert.Throws<InvalidDataException>(() => T6SymbolRegistry.ParseTable(Table(1).Concat(new byte[2]).ToArray(), 1));
-        Assert.Throws<InvalidDataException>(() => T6SymbolRegistry.ParseTerminatedEntries(
-            Table(1025)[44..].Concat(new byte[6]).ToArray()));
     }
 
     [Fact]

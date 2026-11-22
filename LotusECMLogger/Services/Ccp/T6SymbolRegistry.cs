@@ -44,38 +44,6 @@ public sealed class T6SymbolRegistry
         return new(buildId, version, Array.AsReadOnly(entries));
     }
 
-    /// <summary>
-    /// Parses an entry-array download with a six-zero-byte terminator, as lib/ltacc.py does.
-    /// Trailing bytes from a batched read are ignored after the terminator. A missing terminator,
-    /// truncated entry or more than MaximumEntries entries is rejected rather than reading indefinitely.
-    /// </summary>
-    public static IReadOnlyList<T6SymbolEntry> ParseTerminatedEntries(ReadOnlySpan<byte> bytes)
-    {
-        var entries = new List<T6SymbolEntry>();
-        for (int offset = 0; offset + EntrySize <= bytes.Length; offset += EntrySize)
-        {
-            var record = bytes.Slice(offset, EntrySize);
-            if (record.IndexOfAnyExcept((byte)0) < 0)
-            {
-                if (entries.Count == 0) throw new InvalidDataException("The T6 registry is empty.");
-                return entries.AsReadOnly();
-            }
-            if (entries.Count == MaximumEntries) throw new InvalidDataException("T6 registry exceeds the discovery limit.");
-            entries.Add(ParseEntry(record, entries.Count));
-        }
-        throw new InvalidDataException("T6 registry is truncated or lacks its zero terminator.");
-    }
-
-    /// <summary>Decodes the four-byte raw-memory discovery reply and checks its T6 flash range.</summary>
-    public static uint ParseEntriesAddress(ReadOnlySpan<byte> reply)
-    {
-        if (reply.Length != 4) throw new InvalidDataException("The registry pointer reply must contain four bytes.");
-        uint address = BinaryPrimitives.ReadUInt32BigEndian(reply);
-        if (address < HeaderSize || address > 0x100000 - EntrySize)
-            throw new InvalidDataException("The registry entry-array pointer is outside T6 flash.");
-        return address;
-    }
-
     private static T6SymbolEntry ParseEntry(ReadOnlySpan<byte> record, int index)
     {
         uint address = BinaryPrimitives.ReadUInt32BigEndian(record);
