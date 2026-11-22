@@ -450,6 +450,11 @@ namespace LotusECMLogger
             return result;
         }
 
+        // TODO: GetAllRawValues() and the per-option convenience properties below (OilCoolingSystem … OilSumpSystem) are
+        // unused: the application works through the by-name API (EcuCodingControl calls GetOptionRawValue and
+        // SetOptionValue). Remove them, and update the examples that use them in T6eCodingDecoder_README.md and its
+        // copy in references/.
+
         /// <summary>
         /// Get all raw numeric values as a dictionary
         /// </summary>
