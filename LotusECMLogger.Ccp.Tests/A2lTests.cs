@@ -15,6 +15,39 @@ public sealed class A2lTests
     private static A2lResolvedModule Generated(string build) =>
         A2lLayout.Resolve(A2lParser.Parse(A2lGenerator.Generate(Catalog(Build(build)), Build(build)).Text));
 
+    /// <summary>
+    /// CCP writes are split into DNLOADs that end on 4-byte boundaries (<see cref="CcpMaster.DownloadChunkLength"/>), so a
+    /// value is never half written between two of them only if every value is at most 4 bytes and naturally aligned.
+    /// </summary>
+    /// <remarks>
+    /// The exceptions are catalog entries typed as 4 bytes that are not 4-byte values: <c>CAL_o2_threshold_postcat</c> is
+    /// two u16 thresholds (C132E0278 names them rich and lean) and its size is inferred, so it is read-only; the other two
+    /// are unused, typed "undefined" and "uint32_t" by guess. A DNLOAD boundary can fall in their middle.
+    /// </remarks>
+    private static readonly HashSet<string> KnownMisaligned =
+        ["B132E0091:CAL_o2_threshold_postcat", "B132E0091:CAL_ac_unused_40008ef6", "B132E0091:CAL_unused5"];
+
+    [Theory]
+    [InlineData("B132E0091")]
+    [InlineData("C132E0278")]
+    public void ShippedA2lValuesAreNaturallyAlignedSoNoDownloadSplitsOne(string build)
+    {
+        var resolved = A2lLayout.Resolve(A2lParser.ParseFile(Path.GetFullPath(Path.Combine(
+            AppContext.BaseDirectory, "..", "..", "..", "..", "LotusECMLogger", "config", "a2l", $"{build}.a2l"))));
+        Assert.NotEmpty(resolved.Items);
+        var misaligned = new List<string>();
+        foreach (var item in resolved.Items.Values.Where(i => !KnownMisaligned.Contains($"{build}:{i.Name}")))
+        {
+            int size = item.ElementSize;
+            if (size is not (1 or 2 or 4)) { misaligned.Add($"{item.Name}: {size}-byte elements"); continue; }
+            for (int y = 0; y < item.CountY; y++)
+                for (int x = 0; x < item.CountX; x++)
+                    if (item.CellAddress(x, y) % (uint)size != 0)
+                        misaligned.Add($"{item.Name}[{x},{y}] at 0x{item.CellAddress(x, y):X8} ({size} bytes)");
+        }
+        Assert.True(misaligned.Count == 0, string.Join("\n", misaligned.Distinct().Take(20)));
+    }
+
     /// <summary>The cell lookup_3D_uint8_interpolated returns when both inputs hit axis points exactly:
     /// <c>lut[y * size_x + x]</c> (C132E0278.c:22510, <c>lut[(int)(short)uVar9 * (int)(short)uVar12 + (int)(short)uVar10]</c>,
     /// uVar9 the y index, uVar12 = size_x, uVar10 the x index).</summary>

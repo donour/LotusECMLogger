@@ -69,16 +69,42 @@ public sealed class CcpMasterMemoryTests : IDisposable
     }
 
     [Fact]
-    public async Task WriteUsesDownload6ThenDownloadAndReadsBack()
+    public async Task WriteUsesAlignedDownloadsAndReadsBack()
     {
         var bytes = Pattern(14, 3);
+        uint start = Calibration.Start + 1; // CAL_base is 4-aligned, so this starts one past a boundary
         await ConnectAsync();
-        await _master.WriteVerifiedAsync(Calibration.Start, bytes, Calibration);
-        Assert.Equal(bytes, _simulation.With(s => Enumerable.Range(0, 14).Select(i => s.Peek(Calibration.Start + (uint)i)).ToArray()));
+        await _master.WriteVerifiedAsync(start, bytes, Calibration);
+        Assert.Equal(bytes, _simulation.With(s => Enumerable.Range(0, 14).Select(i => s.Peek(start + (uint)i)).ToArray()));
         var commands = _script.Sent.Select(c => (CcpCommandCode)c[0]).ToArray();
-        Assert.Equal([CcpCommandCode.SetMta, CcpCommandCode.Download6, CcpCommandCode.Download6, CcpCommandCode.Download,
-            CcpCommandCode.SetMta, CcpCommandCode.Upload, CcpCommandCode.Upload, CcpCommandCode.Upload], commands);
-        Assert.Equal((byte)2, _script.Sent[3][2]); // final DNLOAD carries the two remaining bytes
+        Assert.Equal([CcpCommandCode.SetMta, CcpCommandCode.Download, CcpCommandCode.Download, CcpCommandCode.Download,
+            CcpCommandCode.Download, CcpCommandCode.SetMta, CcpCommandCode.Upload, CcpCommandCode.Upload, CcpCommandCode.Upload], commands);
+        // Up to the boundary, then whole aligned words, then the rest.
+        Assert.Equal([3, 4, 4, 3], _script.Sent.Where(c => c[0] == (byte)CcpCommandCode.Download).Select(c => (int)c[2]).ToArray());
+    }
+
+    [Theory]
+    [InlineData(0x40000000u, 1, 1)]
+    [InlineData(0x40000000u, 9, 4)]
+    [InlineData(0x40000001u, 9, 3)]
+    [InlineData(0x40000002u, 9, 2)]
+    [InlineData(0x40000003u, 9, 1)]
+    [InlineData(0x40000002u, 1, 1)]
+    public void DownloadChunksEndOnFourByteBoundaries(uint address, int remaining, int expected) =>
+        Assert.Equal(expected, CcpMaster.DownloadChunkLength(address, remaining));
+
+    [Fact]
+    public void NoAlignedValueIsSplitAcrossDownloads()
+    {
+        for (uint start = 0; start < 8; start++)
+            for (int length = 1; length <= 24; length++)
+            {
+                var boundaries = new List<uint>();
+                for (int sent = 0; sent < length; sent += CcpMaster.DownloadChunkLength(start + (uint)sent, length - sent))
+                    if (sent > 0) boundaries.Add(start + (uint)sent);
+                // A boundary on a multiple of 4 cannot fall inside a naturally aligned 1-, 2- or 4-byte value.
+                Assert.All(boundaries, b => Assert.Equal(0u, b % 4));
+            }
     }
 
     [Fact]
@@ -110,13 +136,13 @@ public sealed class CcpMasterMemoryTests : IDisposable
     {
         await ConnectAsync();
         int downloads = 0;
-        _script.Drop = cro => cro[0] == (byte)CcpCommandCode.Download6 && ++downloads == 2;
+        _script.Drop = cro => cro[0] == (byte)CcpCommandCode.Download && ++downloads == 2;
         var error = await Assert.ThrowsAsync<CcpWriteException>(
             () => _master.WriteVerifiedAsync(Calibration.Start, Pattern(18), Calibration));
-        Assert.Equal(6, error.BytesAcknowledged);
+        Assert.Equal(4, error.BytesAcknowledged);
         Assert.IsType<CcpTimeoutException>(error.InnerException);
         Assert.Equal(CcpSessionState.Uncertain, _master.State);
-        Assert.Equal(2, _script.Sent.Count(c => c[0] == (byte)CcpCommandCode.Download6));
+        Assert.Equal(2, _script.Sent.Count(c => c[0] == (byte)CcpCommandCode.Download));
     }
 
     [Fact]

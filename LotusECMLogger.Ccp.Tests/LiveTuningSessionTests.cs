@@ -62,6 +62,64 @@ public sealed class LiveTuningSessionTests : IAsyncLifetime
 
     private static uint CellAddress(int x, int y) => Table.CellAddress(x, y);
 
+    /// <summary>
+    /// Replays the DNLOADs a write sent over the region as it was, and checks that after each one every cell of
+    /// <paramref name="item"/> holds its old or its new value: the ECU can run a lookup between two DNLOADs.
+    /// </summary>
+    private void AssertNoCellTornBetweenDownloads(A2lCalibrationItem item, byte[] before, byte[] after)
+    {
+        var state = (byte[])before.Clone();
+        uint mta = 0;
+        int downloads = 0;
+        foreach (var cro in _script.Sent)
+        {
+            var code = (CcpCommandCode)cro[0];
+            if (code == CcpCommandCode.SetMta) { mta = System.Buffers.Binary.BinaryPrimitives.ReadUInt32BigEndian(cro.AsSpan(4)); continue; }
+            if (code is not (CcpCommandCode.Download or CcpCommandCode.Download6)) continue;
+            var data = code == CcpCommandCode.Download ? cro.AsSpan(3, cro[2]) : cro.AsSpan(2, 6);
+            data.CopyTo(state.AsSpan((int)(mta - Cal)));
+            mta += (uint)data.Length;
+            downloads++;
+            for (int y = 0; y < item.CountY; y++)
+                for (int x = 0; x < item.CountX; x++)
+                {
+                    int offset = (int)(item.CellAddress(x, y) - Cal);
+                    var cell = state.AsSpan(offset, item.ElementSize);
+                    Assert.True(cell.SequenceEqual(before.AsSpan(offset, item.ElementSize)) ||
+                        cell.SequenceEqual(after.AsSpan(offset, item.ElementSize)),
+                        $"{item.Name}[{x},{y}] was {Convert.ToHexString(cell)} after DNLOAD {downloads}: neither " +
+                        $"{Convert.ToHexString(before.AsSpan(offset, item.ElementSize))} nor {Convert.ToHexString(after.AsSpan(offset, item.ElementSize))}");
+                }
+        }
+        Assert.True(downloads > 1, "The edit should take several DNLOADs.");
+    }
+
+    /// <summary>
+    /// A paste over a 16-bit table whose first cell changes only in its low byte, so the run starts at an odd address.
+    /// Chunks counted from there (as six-byte DNLOAD_6s were) end inside every few cells; aligned chunks never do.
+    /// </summary>
+    [Fact]
+    public async Task AMultiCellLiveEditNeverLeavesACellHalfWritten()
+    {
+        var table = A2l.Value.Items.Values
+            .Where(i => i.IsEditable && i.ElementSize == 2 && i.Kind is A2lItemKind.Curve or A2lItemKind.Map && i.ElementCount >= 8)
+            .OrderBy(i => i.Name, StringComparer.Ordinal).First();
+        var session = await Start();
+        var before = Ecu();
+        Assert.All(Enumerable.Range(0, table.ElementSize * table.ElementCount), i => Assert.Equal(0, before[(int)(table.Address - Cal) + i]));
+        var cells = Enumerable.Range(0, table.CountY).SelectMany(y => Enumerable.Range(0, table.CountX).Select(x =>
+        {
+            int k = y * table.CountX + x;
+            return new CellValue(x, y, k == 0 ? 0x11 : ((1 + k % 100) << 8) | (1 + k % 200)); // both bytes change after cell 0
+        })).ToList();
+        session.Image.SetRaw(table, cells);
+        await session.WhenIdleAsync();
+        Assert.Equal(LiveTuningStatus.Syncing, session.Status);
+        var after = Ecu();
+        Assert.Equal(session.Image.Bytes(Cal, (int)Gt430.CalibrationSize).ToArray(), after);
+        AssertNoCellTornBetweenDownloads(table, before, after);
+    }
+
     [Fact]
     public async Task ALiveEditIsWrittenAndVerifiedAtOnce()
     {

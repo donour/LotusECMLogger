@@ -197,6 +197,11 @@ namespace LotusECMLogger
                 await using var lease = await host.AcquireAsync();
                 var master = lease.Master;
                 var identification = await master.IdentifyAsync();
+                // TODO: An unrecognised ECU (Build null, e.g. E132E0302, which has no build profile) skips the firmware
+                // and unlock checks below and still writes to the unverified coding_cmd address from codingCommands.json.
+                // Refuse instead. Also, on NotExecuted CcpCodingCommand.SendAsync writes 0 back rather than the byte
+                // that was there, so at a wrong address it clobbers a live RAM variable while this dialog reports
+                // "nothing changed": read the original byte first and restore that. No engine-off check either.
                 if (identification.Build is { } build)
                 {
                     if (!IsFor(target, build))

@@ -78,11 +78,11 @@ public sealed partial class CcpMaster
     // ---- Writes --------------------------------------------------------------------------------
 
     /// <summary>
-    /// DNLOAD_6/DNLOAD the bytes, then read them back. Refuses any byte outside <paramref name="allowed"/>.
-    /// This is the mechanism only: engine-off confirmation, backups, build checks and enable-byte
-    /// preservation belong to the calibration-write layer above it. The DNLOAD reply's MTA field is ignored
-    /// (this firmware leaves it stale). An interrupted write throws <see cref="CcpWriteException"/> and is never
-    /// retried, because DNLOAD post-increments MTA0.
+    /// DNLOAD the bytes in 4-byte-aligned chunks (see <see cref="DownloadChunkLength"/>), then read them back.
+    /// Refuses any byte outside <paramref name="allowed"/>. This is the mechanism only: engine-off confirmation,
+    /// backups, build checks and enable-byte preservation belong to the calibration-write layer above it. The DNLOAD
+    /// reply's MTA field is ignored (this firmware leaves it stale). An interrupted write throws
+    /// <see cref="CcpWriteException"/> and is never retried, because DNLOAD post-increments MTA0.
     /// </summary>
     public Task WriteVerifiedAsync(uint address, ReadOnlyMemory<byte> data, CcpMemoryRange allowed,
         IProgress<int>? progress = null, CancellationToken cancellationToken = default)
@@ -100,10 +100,9 @@ public sealed partial class CcpMaster
             {
                 while (sent < bytes.Length)
                 {
-                    int count = Math.Min(6, bytes.Length - sent);
+                    int count = DownloadChunkLength(address + (uint)sent, bytes.Length - sent);
                     var chunk = bytes.AsMemory(sent, count);
-                    await ExchangeAsync(c => count == 6 ? CcpFrame.Download6(c, chunk.Span) : CcpFrame.Download(c, chunk.Span),
-                        ct).ConfigureAwait(false);
+                    await ExchangeAsync(c => CcpFrame.Download(c, chunk.Span), ct).ConfigureAwait(false);
                     sent += count;
                     progress?.Report(sent);
                 }
@@ -123,6 +122,19 @@ public sealed partial class CcpMaster
             if (mismatched > 0) throw new CcpWriteVerificationException(address + (uint)first, mismatched);
             return true;
         }, cancellationToken);
+    }
+
+    /// <summary>
+    /// How many bytes the DNLOAD at <paramref name="address"/> carries: up to the next 4-byte-aligned address, so every
+    /// chunk ends on one (the run's last chunk excepted). The firmware applies a DNLOAD with a byte loop, and a lookup
+    /// can run in the round trip before the next one; a chunk boundary inside a value would leave it half old, half
+    /// new, which can be far from both. Calibration values are naturally aligned and at most 4 bytes
+    /// (<c>A2lTests</c> checks the shipped A2Ls), so no value is split across two DNLOADs.
+    /// </summary>
+    public static int DownloadChunkLength(uint address, int remaining)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(remaining, 1);
+        return Math.Min(remaining, 4 - (int)(address & 3));
     }
 
     // ---- Checksum ------------------------------------------------------------------------------
