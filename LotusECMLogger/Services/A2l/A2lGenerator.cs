@@ -322,6 +322,11 @@ namespace LotusECMLogger.Services.A2l
         /// <summary>The conversion and the physical limits of the full raw range.</summary>
         private static (string Method, double Lower, double Upper) Scaling(Symbol s, CompuMethods compu)
         {
+            // TODO: These limits are the whole raw range of the type, so CalibrationImage.SetPhysical's limit check
+            // almost never refuses anything (and SetRaw skips it). In Live mode a typo (250 for 25.0 in an ignition
+            // cell) goes straight to a running engine if it fits the type. Give the safety-critical tables (spark,
+            // fuel, rev/torque limits, throttle) real limits, e.g. hand-set in a per-build overrides file applied here
+            // or as EXTENDED_LIMITS, and/or have the editor confirm large relative changes while live sync is on.
             var (min, max) = DataType(s).RawRange();
             double a = s.Type.Scale * min + s.Type.Offset, b = s.Type.Scale * max + s.Type.Offset;
             return (compu.For(s), Math.Min(a, b), Math.Max(a, b));

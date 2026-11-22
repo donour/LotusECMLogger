@@ -240,7 +240,7 @@ namespace LotusECMLogger
             }
         }
 
-        private void CmdButton_Click(object? sender, EventArgs e)
+        private async void CmdButton_Click(object? sender, EventArgs e)
         {
             if (string.IsNullOrWhiteSpace(programPathTextBox.Text))
             {
@@ -365,62 +365,62 @@ namespace LotusECMLogger
                 }
             }
 
+            // TODO: EFI_PROT.EXE is an old 32-bit console program and almost certainly reads its arguments in the ANSI code
+            // page, not Unicode. A CRP path with characters outside that code page (an accented user name, a localized
+            // OneDrive folder) would reach it as '?' and fail. Investigate with such a path; if it fails, mitigate, e.g.
+            // copy the CRP to an ASCII-only path before launching, or refuse such paths with an explanation.
+            Process? process;
             try
             {
-                // Create a batch file to execute the command with proper argument handling
-                string batchFilePath = Path.Combine(Path.GetTempPath(), $"T6EFlasher_{Guid.NewGuid()}.bat");
-
-                using (var writer = new StreamWriter(batchFilePath))
-                {
-                    writer.WriteLine($"@echo on");
-                    writer.WriteLine($"cd /d \"{workingDirectoryTextBox.Text}\"");
-                    if (!string.IsNullOrEmpty(fileToFlash))
-                    {
-                        writer.WriteLine($"\"{programPath}\" \"{fileToFlash}\"");
-                    }
-                    else
-                    {
-                        writer.WriteLine($"\"{programPath}\"");
-                    }
-                    writer.WriteLine($"pause");
-                }
-
-                var startInfo = new ProcessStartInfo
-                {
-                    FileName = batchFilePath,
-                    UseShellExecute = true,
-                    CreateNoWindow = false,
-                    WindowStyle = ProcessWindowStyle.Normal
-                };
-
-                string displayArgs = !string.IsNullOrEmpty(fileToFlash) ? $"\"{fileToFlash}\"" : "";
-                statusLabel.Text = $"Launching: \"{programPath}\" {displayArgs}".Trim();
-
-                var process = Process.Start(startInfo);
-                if (process != null)
-                {
-                    statusLabel.Text = $"Program launched successfully (PID: {process.Id})";
-
-                    // Clean up the batch file after a delay
-                    Task.Delay(1000).ContinueWith(_ =>
-                    {
-                        try { File.Delete(batchFilePath); }
-                        catch { /* Ignore cleanup errors */ }
-                    });
-                }
-                else
-                {
-                    statusLabel.Text = "Program launch failed";
-                    try { File.Delete(batchFilePath); }
-                    catch { /* Ignore cleanup errors */ }
-                }
+                process = StartFlasher(programPath, fileToFlash, workingDirectoryTextBox.Text);
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error launching program via CMD: {ex.Message}", "Launch Error",
+                MessageBox.Show($"Error launching the flash program: {ex.Message}", "Launch Error",
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
                 statusLabel.Text = "Error occurred";
+                return;
             }
+            if (process is null)
+            {
+                statusLabel.Text = "Program launch failed";
+                return;
+            }
+
+            // One flasher at a time: two would fight over the J2534 device mid-flash.
+            cmdButton.Enabled = false;
+            statusLabel.Text = $"Flasher running in its own window (PID {process.Id}). Follow its prompts there.";
+            statusLabel.ForeColor = SystemColors.ControlText;
+            using (process)
+            {
+                try { await process.WaitForExitAsync(); }
+                catch (Exception ex) { Debug.WriteLine($"T6EFlasher: waiting for the flasher failed: {ex.Message}"); }
+            }
+            if (IsDisposed) return;
+            cmdButton.Enabled = true;
+            statusLabel.Text = "Flasher window closed. Check its output to confirm the flash succeeded.";
+        }
+
+        /// <summary>
+        /// Runs the flasher the way the vendor's Prog_T6_ECU_FIX.bat does (the program and the file, then PAUSE, so its
+        /// window stays open for its final output), without writing a script: one cmd.exe with the paths passed as
+        /// environment variables. cmd substitutes them in a single pass, so a '%' in a path is not expanded again, and
+        /// the quotes around them keep '&amp;' and the like literal. /d skips AutoRun commands, /v:off keeps '!' literal,
+        /// and /s strips only the outer quotes.
+        /// </summary>
+        private static Process? StartFlasher(string programPath, string fileToFlash, string workingDirectory)
+        {
+            var startInfo = new ProcessStartInfo("cmd.exe")
+            {
+                // A console child of a GUI app gets its own visible window.
+                UseShellExecute = false,
+                CreateNoWindow = false,
+                Arguments = "/d /v:off /s /c \"\"%EFI_PROGRAM%\" \"%EFI_FILE%\" & pause\"",
+            };
+            if (!string.IsNullOrWhiteSpace(workingDirectory)) startInfo.WorkingDirectory = workingDirectory;
+            startInfo.Environment["EFI_PROGRAM"] = programPath;
+            startInfo.Environment["EFI_FILE"] = fileToFlash;
+            return Process.Start(startInfo);
         }
 
         private void CloseButton_Click(object? sender, EventArgs e)
