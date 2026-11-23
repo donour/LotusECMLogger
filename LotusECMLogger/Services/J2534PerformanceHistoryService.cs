@@ -1,4 +1,4 @@
-using SAE.J2534;
+using LotusECMLogger.Services.Links;
 using System.Diagnostics;
 using System.Text;
 
@@ -10,19 +10,27 @@ namespace LotusECMLogger.Services
         private static readonly ushort[] SupportPages = [0x0300, 0x0320, 0x0340, 0x0360];
         private static readonly IReadOnlyDictionary<ushort, int> DataPids = BuildDataPidMap();
 
+        // Before the link existed, each read waited for up to eight messages at 150 ms each.
+        private const int ReplyTimeoutMs = 1200;
+
+        private readonly ILinkProvider _links;
+
+        public J2534PerformanceHistoryService() : this(J2534LinkProvider.Instance) { }
+
+        public J2534PerformanceHistoryService(ILinkProvider links) =>
+            _links = links ?? throw new ArgumentNullException(nameof(links));
+
         public PerformanceHistorySnapshot LoadPerformanceHistory()
         {
-            using var session = J2534Session.Open();
-            J2534Channel channel = session.OpenIso15765();
-            channel.StartMessageFilter(ECUDefinition.ECM.CreateFlowControlFilter()).ThrowIfError();
+            using var link = _links.OpenDiagnostic(ECUDefinition.ECM);
 
-            string calibrationId = ReadCalibrationId(channel);
+            string calibrationId = ReadCalibrationId(link);
             var supportedPids = new HashSet<ushort>();
             var availableSupportPages = new HashSet<ushort>();
 
             foreach (ushort page in SupportPages)
             {
-                byte[]? bitmap = ReadMode22Payload(channel, page, 4);
+                byte[]? bitmap = ReadMode22Payload(link, page, 4);
                 if (bitmap == null)
                     continue;
 
@@ -37,7 +45,7 @@ namespace LotusECMLogger.Services
                 if (availableSupportPages.Contains(page) && !supportedPids.Contains(pid))
                     continue;
 
-                byte[]? payload = ReadMode22Payload(channel, pid, width);
+                byte[]? payload = ReadMode22Payload(link, pid, width);
                 if (payload != null)
                     payloads[pid] = payload;
             }
@@ -48,14 +56,14 @@ namespace LotusECMLogger.Services
             return PerformanceHistoryDecoder.Decode(calibrationId, payloads);
         }
 
-        private static string ReadCalibrationId(J2534Channel channel)
+        private static string ReadCalibrationId(IDiagnosticLink link)
         {
             var identifiers = new List<string>();
 
             // Mode 09 PID 04 normally carries the Lotus part/calibration number used to select
             // a profile (for example C132E0278). Keep the Mode 22 program string as a second
             // source because some calibrations leave one of the two identifiers blank.
-            byte[] mode09 = new Iso15765Service(channel)
+            byte[] mode09 = new Iso15765Service(link)
                 .GetPID(OBDIIMode.RequestVehicleInformation, 0x04);
             if (Identifier(mode09) is { } fromMode09) identifiers.Add(fromMode09);
 
@@ -63,7 +71,7 @@ namespace LotusECMLogger.Services
             var mode22 = new List<byte>(32);
             foreach (ushort pid in pids)
             {
-                byte[]? chunk = ReadMode22Payload(channel, pid, 4);
+                byte[]? chunk = ReadMode22Payload(link, pid, 4);
                 if (chunk != null)
                     mode22.AddRange(chunk);
             }
@@ -79,33 +87,15 @@ namespace LotusECMLogger.Services
             return string.IsNullOrWhiteSpace(value) ? null : value;
         }
 
-        private static byte[]? ReadMode22Payload(J2534Channel channel, ushort pid, int payloadLength)
+        private static byte[]? ReadMode22Payload(IDiagnosticLink link, ushort pid, int payloadLength)
         {
             try
             {
-                byte pidHigh = (byte)(pid >> 8);
-                byte pidLow = (byte)pid;
-                channel.SendMessage([0x00, 0x00, 0x07, 0xE0, 0x22, pidHigh, pidLow]);
-
-                for (int retry = 0; retry < 8; retry++)
-                {
-                    GetMessagesResult response = channel.ReadMessages(1, 150);
-                    if (response.Messages.Length == 0)
-                        continue;
-
-                    byte[] data = response.Messages[0].Data;
-                    // Skip transmit echoes/confirmations and unrelated traffic. A positive response is
-                    // [7E8 header] 62 <pid high> <pid low> <payload>.
-                    if (data.Length >= 7 + payloadLength &&
-                        data[2] == 0x07 && data[3] == 0xE8 &&
-                        data[4] == 0x62 && data[5] == pidHigh && data[6] == pidLow)
-                        return data[7..(7 + payloadLength)];
-
-                    // A matching negative response means retrying the same unsupported PID is pointless.
-                    if (data.Length >= 7 && data[2] == 0x07 && data[3] == 0xE8 &&
-                        data[4] == 0x7F && data[5] == 0x22)
-                        return null;
-                }
+                // A positive response is [7E8 header] 62 <pid high> <pid low> <payload>. A negative
+                // response (unsupported PID) comes back as a null payload.
+                var reply = link.Exchange([0x22, (byte)(pid >> 8), (byte)pid], echoLength: 2, timeoutMs: ReplyTimeoutMs);
+                if (reply.Message is byte[] data && data.Length >= 7 + payloadLength)
+                    return data[7..(7 + payloadLength)];
             }
             catch (Exception ex)
             {

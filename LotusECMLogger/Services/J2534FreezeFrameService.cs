@@ -1,9 +1,15 @@
-using SAE.J2534;
+using LotusECMLogger.Services.Links;
 
 namespace LotusECMLogger.Services
 {
     public sealed class J2534FreezeFrameService : IFreezeFrameService
     {
+        private readonly ILinkProvider _links;
+
+        public J2534FreezeFrameService() : this(J2534LinkProvider.Instance) { }
+
+        public J2534FreezeFrameService(ILinkProvider links) => _links = links ?? throw new ArgumentNullException(nameof(links));
+
         // NRCs some firmwares return for PID 0x02 instead of a zeroed DTC when no frame
         // is stored: 0x12 subFunctionNotSupported, 0x31 requestOutOfRange.
         private static readonly byte[] NoFrameStoredNrcs = [0x12, 0x31];
@@ -12,11 +18,8 @@ namespace LotusECMLogger.Services
         {
             try
             {
-                using var session = J2534Session.Open();
-                J2534Channel channel = session.OpenIso15765();
-                channel.StartMessageFilter(ECUDefinition.ECM.CreateFlowControlFilter()).ThrowIfError();
-
-                var iso = new Iso15765Service(channel);
+                using var link = _links.OpenDiagnostic(ECUDefinition.ECM);
+                var iso = new Iso15765Service(link);
 
                 // PID 0x02 first: the DTC that captured the frame. A zeroed code means
                 // nothing is stored, so there is no point querying the data PIDs.

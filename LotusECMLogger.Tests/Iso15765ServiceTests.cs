@@ -4,13 +4,12 @@ namespace LotusECMLogger.Tests
 {
     /// <summary>
     /// Covers the pure request builders and response parsers inside <see cref="Iso15765Service"/>
-    /// against canned buffers, so they can be checked without a J2534 device. Every buffer carries
-    /// the 4-byte CAN ID header the J2534 ISO15765 channel prepends: 0x7E0 on requests to the ECM,
-    /// 0x7E8 on its responses.
+    /// against canned buffers, so they can be checked without a J2534 device. Requests are built
+    /// without a CAN ID header (the diagnostic link adds it); responses carry the 4-byte header the
+    /// J2534 ISO15765 channel prepends, 0x7E8 for the ECM.
     /// </summary>
     public sealed class Iso15765ServiceTests
     {
-        private static readonly byte[] RequestHeader = [0x00, 0x00, 0x07, 0xE0];
 
         /// <summary>Prepends the ECM response header the J2534 channel delivers.</summary>
         private static byte[] Response(params byte[] tail) => [0x00, 0x00, 0x07, 0xE8, .. tail];
@@ -142,7 +141,7 @@ namespace LotusECMLogger.Tests
         {
             byte[] message = Iso15765Service.BuildModeMessage(OBDIIMode.ShowFreezeFrameData, 0x0C, 0x01);
 
-            Assert.Equal([.. RequestHeader, 0x02, 0x0C, 0x01], message);
+            Assert.Equal([0x02, 0x0C, 0x01], message);
         }
 
         [Fact]
@@ -151,7 +150,7 @@ namespace LotusECMLogger.Tests
             byte[] message = Iso15765Service.BuildMultiPIDMessage(
                 OBDIIMode.RequestVehicleInformation, [0x02, 0x04]);
 
-            Assert.Equal([.. RequestHeader, 0x09, 0x02, 0x04], message);
+            Assert.Equal([0x09, 0x02, 0x04], message);
         }
 
         [Fact]
@@ -160,7 +159,7 @@ namespace LotusECMLogger.Tests
             byte[] message = Iso15765Service.BuildMultiPIDMessage(
                 OBDIIMode.ShowCurrentData, [0x04, 0x05, 0x0B, 0x0C, 0x0D, 0x0F]);
 
-            Assert.Equal(RequestHeader.Length + 1 + 6, message.Length);
+            Assert.Equal(1 + 6, message.Length);
         }
 
         [Fact]
@@ -184,14 +183,14 @@ namespace LotusECMLogger.Tests
         [Fact]
         public void BuildMode13Request_ReportAll_AddsSubFunction()
         {
-            Assert.Equal([.. RequestHeader, 0x13, 0xFF, 0x00],
+            Assert.Equal([0x13, 0xFF, 0x00],
                 Iso15765Service.BuildMode13Request(Mode13RequestForm.ReportAll));
         }
 
         [Fact]
         public void BuildMode13Request_BareService_IsServiceByteOnly()
         {
-            Assert.Equal([.. RequestHeader, 0x13],
+            Assert.Equal([0x13],
                 Iso15765Service.BuildMode13Request(Mode13RequestForm.BareService));
         }
 
@@ -201,7 +200,7 @@ namespace LotusECMLogger.Tests
             // The firmware reads the single receive frame directly and reassembles no multi-frame
             // request, so the ISO-TP payload must stay within a single frame's 7 bytes.
             foreach (var form in Enum.GetValues<Mode13RequestForm>())
-                Assert.True(Iso15765Service.BuildMode13Request(form).Length - RequestHeader.Length <= 7);
+                Assert.True(Iso15765Service.BuildMode13Request(form).Length <= 7);
         }
     }
 }

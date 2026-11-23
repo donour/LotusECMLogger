@@ -1,19 +1,22 @@
-using SAE.J2534;
+using LotusECMLogger.Services.Links;
 
 namespace LotusECMLogger.Services
 {
 	public sealed class J2534ObdResetService : IObdResetService
 	{
+		private readonly ILinkProvider _links;
+
+		public J2534ObdResetService() : this(J2534LinkProvider.Instance) { }
+
+		public J2534ObdResetService(ILinkProvider links) => _links = links ?? throw new ArgumentNullException(nameof(links));
+
 		public (bool success, string errorMessage) PerformLearningReset()
 		{
 			try
 			{
-				using var session = J2534Session.Open();
-				J2534Channel channel = session.OpenIso15765();
+				using var link = _links.OpenDiagnostic(ECUDefinition.ECM);
 
-				channel.StartMessageFilter(ECUDefinition.ECM.CreateFlowControlFilter()).ThrowIfError();
-
-				var iso = new Iso15765Service(channel);
+				var iso = new Iso15765Service(link);
 				iso.SendLearningDataClear();
 
 				return (true, "");
@@ -25,5 +28,3 @@ namespace LotusECMLogger.Services
 		}
 	}
 }
-
-

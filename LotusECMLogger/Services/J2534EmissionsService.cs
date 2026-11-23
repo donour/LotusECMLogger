@@ -1,10 +1,16 @@
 using System.Text;
-using SAE.J2534;
+using LotusECMLogger.Services.Links;
 
 namespace LotusECMLogger.Services
 {
     public sealed class J2534EmissionsService : IEmissionsService
     {
+        private readonly ILinkProvider _links;
+
+        public J2534EmissionsService() : this(J2534LinkProvider.Instance) { }
+
+        public J2534EmissionsService(ILinkProvider links) => _links = links ?? throw new ArgumentNullException(nameof(links));
+
         private const byte MonitorStatusSinceClearPid = 0x01;
         private const byte ObdStandardPid = 0x1C;
         private const byte MonitorStatusThisCyclePid = 0x41;
@@ -13,11 +19,8 @@ namespace LotusECMLogger.Services
         {
             try
             {
-                using var session = J2534Session.Open();
-                J2534Channel channel = session.OpenIso15765();
-                channel.StartMessageFilter(ECUDefinition.ECM.CreateFlowControlFilter()).ThrowIfError();
-
-                var iso = new Iso15765Service(channel);
+                using var link = _links.OpenDiagnostic(ECUDefinition.ECM);
+                var iso = new Iso15765Service(link);
                 var warnings = new List<string>();
 
                 var (supported, supportError) = QuerySupportedPids(iso);

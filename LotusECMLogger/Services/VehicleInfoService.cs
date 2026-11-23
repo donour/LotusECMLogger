@@ -1,4 +1,4 @@
-using SAE.J2534;
+using LotusECMLogger.Services.Links;
 using System.Diagnostics;
 using System.Text;
 
@@ -12,25 +12,27 @@ namespace LotusECMLogger.Services
     /// </summary>
     public class VehicleInfoService : IVehicleInfoService
     {
+        private readonly ILinkProvider _links;
+
+        public VehicleInfoService() : this(J2534LinkProvider.Instance) { }
+
+        public VehicleInfoService(ILinkProvider links) => _links = links ?? throw new ArgumentNullException(nameof(links));
+
         public List<VehicleParameterReading> LoadVehicleData()
         {
             var readings = new List<VehicleParameterReading>();
 
             // Temporary connection scoped to this load; disposed before the caller runs any
             // probes that need their own separate CAN session.
-            using var session = J2534Session.Open();
-            var channel = session.OpenIso15765();
+            using var link = _links.OpenDiagnostic(ECUDefinition.ECM);
 
-            // Setup message filter for the Lotus ECM
-            channel.StartMessageFilter(ECUDefinition.ECM.CreateFlowControlFilter()).ThrowIfError();
-
-            var iso15765Service = new Iso15765Service(channel);
+            var iso15765Service = new Iso15765Service(link);
 
             // Query for available PIDs on service 0x09
             var availablePIDs = iso15765Service.GetSupportedPIDs(OBDIIMode.RequestVehicleInformation);
 
             // Mode 0x22 extended identification (serial, hardware, crypto flags, type, cal version)
-            readings.AddRange(QueryMode22ExtendedInfo(channel));
+            readings.AddRange(QueryMode22ExtendedInfo(link));
 
             // Load values for all available Mode 0x09 PIDs
             foreach (var pid in availablePIDs)
@@ -53,7 +55,7 @@ namespace LotusECMLogger.Services
                 }
             }
 
-            readings.AddRange(QueryLearnedValues(channel));
+            readings.AddRange(QueryLearnedValues(link));
 
             return readings;
         }
@@ -155,12 +157,12 @@ namespace LotusECMLogger.Services
             return null;
         }
 
-        private static List<VehicleParameterReading> QueryMode22ExtendedInfo(J2534Channel channel)
+        private static List<VehicleParameterReading> QueryMode22ExtendedInfo(IDiagnosticLink link)
         {
             var results = new List<VehicleParameterReading>();
 
             // ECU_serial_number: PID 0x020E, 4 bytes
-            var serialBytes = ReadMode22Payload(channel, 0x0E, 4);
+            var serialBytes = ReadMode22Payload(link, 0x0E, 4);
             if (serialBytes != null)
                 results.Add(new VehicleParameterReading
                 {
@@ -170,7 +172,7 @@ namespace LotusECMLogger.Services
                 });
 
             // hardware_number: PID 0x020F, 4 bytes
-            var hwBytes = ReadMode22Payload(channel, 0x0F, 4);
+            var hwBytes = ReadMode22Payload(link, 0x0F, 4);
             if (hwBytes != null)
                 results.Add(new VehicleParameterReading
                 {
@@ -180,7 +182,7 @@ namespace LotusECMLogger.Services
                 });
 
             // crypto_flags: PID 0x0210, 4 bytes
-            var cryptoBytes = ReadMode22Payload(channel, 0x10, 4);
+            var cryptoBytes = ReadMode22Payload(link, 0x10, 4);
             if (cryptoBytes != null)
                 results.Add(new VehicleParameterReading
                 {
@@ -190,7 +192,7 @@ namespace LotusECMLogger.Services
                 });
 
             // ECU_type: PID 0x0211, 4 bytes
-            var typeBytes = ReadMode22Payload(channel, 0x11, 4);
+            var typeBytes = ReadMode22Payload(link, 0x11, 4);
             if (typeBytes != null)
                 results.Add(new VehicleParameterReading
                 {
@@ -205,7 +207,7 @@ namespace LotusECMLogger.Services
             var versionBytes = new List<byte>();
             foreach (var pid in calVersionPids)
             {
-                var chunk = ReadMode22Payload(channel, pid, 4);
+                var chunk = ReadMode22Payload(link, pid, 4);
                 if (chunk != null) versionBytes.AddRange(chunk);
             }
             if (versionBytes.Count > 0)
@@ -221,25 +223,14 @@ namespace LotusECMLogger.Services
 
         // Sends a Mode 22 request with PID [0x02, pid] and returns payloadLength bytes
         // starting at data[7], or null if the ECU does not respond with a matching positive response.
-        private static byte[]? ReadMode22Payload(J2534Channel channel, byte pid, int payloadLength)
+        private static byte[]? ReadMode22Payload(IDiagnosticLink link, byte pid, int payloadLength)
         {
             try
             {
-                byte[] request = [0x00, 0x00, 0x07, 0xE0, 0x22, 0x02, pid];
-                channel.SendMessage(request);
-
-                for (int i = 0; i < 10; i++)
-                {
-                    var response = channel.ReadMessages(1, 250);
-                    if (response.Messages.Length > 0)
-                    {
-                        var data = response.Messages[0].Data;
-                        // 4 ISO-TP header + 0x62 + 2 PID bytes + payload
-                        if (data.Length >= 7 + payloadLength &&
-                            data[4] == 0x62 && data[5] == 0x02 && data[6] == pid)
-                            return data[7..(7 + payloadLength)];
-                    }
-                }
+                var reply = link.Exchange([0x22, 0x02, pid], echoLength: 2);
+                // 4 ISO-TP header + 0x62 + 2 PID bytes + payload
+                if (reply.Message is byte[] data && data.Length >= 7 + payloadLength)
+                    return data[7..(7 + payloadLength)];
             }
             catch (Exception ex)
             {
@@ -272,13 +263,13 @@ namespace LotusECMLogger.Services
         }
 
         /// <summary>Reads the learned octane scalers and regional fuel-learn state.</summary>
-        private static List<VehicleParameterReading> QueryLearnedValues(J2534Channel channel)
+        private static List<VehicleParameterReading> QueryLearnedValues(IDiagnosticLink link)
         {
             var results = new List<VehicleParameterReading>();
 
             foreach (var (pidLow, name, unit, decimals) in LearnedValueChannels())
             {
-                if (ReadMode22Value(channel, pidLow) is double value)
+                if (ReadMode22Value(link, pidLow) is double value)
                 {
                     results.Add(new VehicleParameterReading
                     {
@@ -297,13 +288,13 @@ namespace LotusECMLogger.Services
         /// payload width comes from that table too, so it is stated once rather than restated here.
         /// Null when the ECU does not answer or the PID has no shared decoder.
         /// </summary>
-        private static double? ReadMode22Value(J2534Channel channel, byte pidLow)
+        private static double? ReadMode22Value(IDiagnosticLink link, byte pidLow)
         {
             ushort pid = (ushort)(0x0200 | pidLow);
             if (!ObdPidDecoders.Mode22.TryGetValue(pid, out var decoder))
                 return null;
 
-            byte[]? payload = ReadMode22Payload(channel, pidLow, decoder.Width);
+            byte[]? payload = ReadMode22Payload(link, pidLow, decoder.Width);
             if (payload == null)
                 return null;
 

@@ -1,18 +1,21 @@
-using SAE.J2534;
+using LotusECMLogger.Services.Links;
 
 namespace LotusECMLogger.Services
 {
     public sealed class J2534DtcService : IDtcService
     {
+        private readonly ILinkProvider _links;
+
+        public J2534DtcService() : this(J2534LinkProvider.Instance) { }
+
+        public J2534DtcService(ILinkProvider links) => _links = links ?? throw new ArgumentNullException(nameof(links));
+
         public (bool success, string errorMessage, DtcReadResult result) ReadCodes()
         {
             try
             {
-                using var session = J2534Session.Open();
-                J2534Channel channel = session.OpenIso15765();
-                channel.StartMessageFilter(ECUDefinition.ECM.CreateFlowControlFilter()).ThrowIfError();
-
-                var iso = new Iso15765Service(channel);
+                using var link = _links.OpenDiagnostic(ECUDefinition.ECM);
+                var iso = new Iso15765Service(link);
                 var stored = iso.ReadDtcs(OBDIIMode.ShowStoredDiagnosticTroubleCodes);
 
                 // Pending and permanent codes each degrade to a note instead of an error:
@@ -59,11 +62,8 @@ namespace LotusECMLogger.Services
         {
             try
             {
-                using var session = J2534Session.Open();
-                J2534Channel channel = session.OpenIso15765();
-                channel.StartMessageFilter(ECUDefinition.ECM.CreateFlowControlFilter()).ThrowIfError();
-
-                var iso = new Iso15765Service(channel);
+                using var link = _links.OpenDiagnostic(ECUDefinition.ECM);
+                var iso = new Iso15765Service(link);
                 return iso.ClearDiagnosticInformation();
             }
             catch (Exception ex)

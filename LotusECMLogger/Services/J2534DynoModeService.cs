@@ -1,4 +1,4 @@
-using SAE.J2534;
+using LotusECMLogger.Services.Links;
 
 namespace LotusECMLogger.Services
 {
@@ -6,30 +6,27 @@ namespace LotusECMLogger.Services
 	{
 		// Mode 0x2F (output control) PID 0x0170: enables the ECU's diagnostic override
 		// ("dyno mode"). The request takes no arguments; a positive response echoes 6F 01 70.
-		private static readonly byte[] DynoModeRequest = [0x00, 0x00, 0x07, 0xE0, 0x2F, 0x01, 0x70];
+		private static readonly byte[] DynoModeRequest = [0x2F, 0x01, 0x70];
 		private const int SendCount = 5;
+		private const int ReplyTimeoutMs = 250;
+
+		private readonly ILinkProvider _links;
+
+		public J2534DynoModeService() : this(J2534LinkProvider.Instance) { }
+
+		public J2534DynoModeService(ILinkProvider links) => _links = links ?? throw new ArgumentNullException(nameof(links));
 
 		public (bool success, string errorMessage) EnableDynoMode()
 		{
 			try
 			{
-				using var session = J2534Session.Open();
-				J2534Channel channel = session.OpenIso15765();
-
-				channel.StartMessageFilter(ECUDefinition.ECM.CreateFlowControlFilter()).ThrowIfError();
+				using var link = _links.OpenDiagnostic(ECUDefinition.ECM);
 
 				bool acknowledged = false;
 				for (int i = 0; i < SendCount; i++)
 				{
-					channel.SendMessage(DynoModeRequest);
-
-					var response = channel.ReadMessages(1, 250);
-					if (response.Messages.Length > 0)
-					{
-						var data = response.Messages[0].Data;
-						if (data.Length >= 7 && data[4] == 0x6F && data[5] == 0x01 && data[6] == 0x70)
-							acknowledged = true;
-					}
+					if (link.Exchange(DynoModeRequest, echoLength: 2, timeoutMs: ReplyTimeoutMs).IsPositive)
+						acknowledged = true;
 				}
 
 				return acknowledged

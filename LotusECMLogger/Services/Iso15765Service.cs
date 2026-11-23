@@ -1,4 +1,4 @@
-﻿using SAE.J2534;
+﻿using LotusECMLogger.Services.Links;
 using System.Text;
 
 namespace LotusECMLogger.Services
@@ -24,16 +24,18 @@ namespace LotusECMLogger.Services
         ReadAllDiagnosticTroubleCodes = 0x13
     }
 
-
+    /// <summary>
+    /// OBD-II and Lotus services on an <see cref="IDiagnosticLink"/> to the ECM. Requests are built
+    /// without the CAN ID header (the link adds it); replies arrive with it, as the J2534 ISO 15765
+    /// channel delivers them, so the decoders index them from byte 4.
+    /// </summary>
     internal class Iso15765Service
     {
-        private readonly static byte[] ECM_HEADER = [0x00, 0x00, 0x07, 0xE0];
+        private readonly IDiagnosticLink _link;
 
-        private readonly J2534Channel _channel;
-
-        public Iso15765Service(J2534Channel channel)
+        public Iso15765Service(IDiagnosticLink link)
         {
-            _channel = channel ?? throw new ArgumentNullException(nameof(channel));
+            _link = link ?? throw new ArgumentNullException(nameof(link));
         }
 
         // Mode 0x3B (Lotus VIN write). Each sub-function writes a chunk of the VIN
@@ -88,44 +90,20 @@ namespace LotusECMLogger.Services
 
         private (bool ok, string error) SendVinChunk(byte subFunc, byte[] vinBytes, int start, int count)
         {
-            // Request: ECM_HEADER + 0x3B + sub_func + <count> VIN bytes
-            var request = new byte[ECM_HEADER.Length + 2 + count];
-            Array.Copy(ECM_HEADER, request, ECM_HEADER.Length);
-            request[ECM_HEADER.Length] = 0x3B;
-            request[ECM_HEADER.Length + 1] = subFunc;
-            Array.Copy(vinBytes, start, request, ECM_HEADER.Length + 2, count);
+            // Request: 0x3B + sub_func + <count> VIN bytes. The positive reply (0x7B) echoes the sub-function.
+            byte[] request = [0x3B, subFunc, .. vinBytes.AsSpan(start, count)];
 
-            _channel.SendMessage(request);
-
-            for (int i = 0; i < 10; i++)
-            {
-                var response = _channel.ReadMessages(1, 250);
-                if (response.Messages.Length == 0)
-                    continue;
-
-                var data = response.Messages[0].Data;
-                // Skip echoes of our own transmit and TX confirmation frames.
-                if (data.Length < 6 || data[2] != 0x07 || data[3] != 0xE8)
-                    continue;
-
-                // Positive response: 0x7B (= 0x3B | 0x40) followed by sub-function echo.
-                if (data[4] == 0x7B && data[5] == subFunc)
-                    return (true, "");
-
-                // Negative response: 0x7F 0x3B <NRC>
-                if (data.Length >= 7 && data[4] == 0x7F && data[5] == 0x3B)
-                    return (false, $"ECU rejected sub-function 0x{subFunc:X2} (NRC 0x{data[6]:X2}). Is the engine off?");
-            }
-
+            var reply = _link.Exchange(request, echoLength: 1);
+            if (reply.IsPositive)
+                return (true, "");
+            if (reply.Nrc is byte nrc)
+                return (false, $"ECU rejected sub-function 0x{subFunc:X2} (NRC 0x{nrc:X2}). Is the engine off?");
             return (false, $"No response from ECU for VIN sub-function 0x{subFunc:X2}.");
         }
 
         public void SendLearningDataClear()
         {
-            byte[] request = new byte[ECM_HEADER.Length + 1];
-            Array.Copy(ECM_HEADER, request, ECM_HEADER.Length);
-            request[ECM_HEADER.Length] = (byte)OBDIIMode.ResetLearnedValues;
-            _channel.SendMessage(request);
+            _link.Send([(byte)OBDIIMode.ResetLearnedValues]);
         }
 
         /// <summary>
@@ -135,32 +113,11 @@ namespace LotusECMLogger.Services
         /// </summary>
         public (bool success, string errorMessage) ClearDiagnosticInformation()
         {
-            byte[] request = new byte[ECM_HEADER.Length + 1];
-            Array.Copy(ECM_HEADER, request, ECM_HEADER.Length);
-            request[ECM_HEADER.Length] = (byte)OBDIIMode.ClearDiagnosticTroubleCodesAndStoredValues;
-            _channel.SendMessage(request);
-
-            for (int i = 0; i < 10; i++)
-            {
-                var response = _channel.ReadMessages(1, 250);
-                if (response.Messages.Length == 0)
-                    continue;
-
-                var data = response.Messages[0].Data;
-                // Skip echoes of our own transmit and TX confirmation frames.
-                if (data.Length < 5 || data[2] != 0x07 || data[3] != 0xE8)
-                    continue;
-
-                // Positive response: 0x44 (= 0x04 | 0x40).
-                if (data[4] == 0x44)
-                    return (true, "");
-
-                // Negative response: 0x7F 0x04 <NRC>
-                if (data.Length >= 7 && data[4] == 0x7F &&
-                    data[5] == (byte)OBDIIMode.ClearDiagnosticTroubleCodesAndStoredValues)
-                    return (false, $"ECU rejected the clear request (NRC 0x{data[6]:X2}). Try with the ignition on and the engine off.");
-            }
-
+            var reply = _link.Exchange([(byte)OBDIIMode.ClearDiagnosticTroubleCodesAndStoredValues]);
+            if (reply.IsPositive)
+                return (true, "");
+            if (reply.Nrc is byte nrc)
+                return (false, $"ECU rejected the clear request (NRC 0x{nrc:X2}). Try with the ignition on and the engine off.");
             return (false, "No response from ECU for the clear request.");
         }
 
@@ -170,30 +127,14 @@ namespace LotusECMLogger.Services
         /// parses the positive response into individual codes. Returns an empty list when the
         /// ECU responds with no codes.
         /// </summary>
-        /// <exception cref="IOException">Thrown when the ECU does not respond.</exception>
+        /// <exception cref="IOException">Thrown when the ECU rejects the request or does not respond.</exception>
         public List<DiagnosticTroubleCode> ReadDtcs(OBDIIMode mode)
         {
-            byte[] request = new byte[ECM_HEADER.Length + 1];
-            Array.Copy(ECM_HEADER, request, ECM_HEADER.Length);
-            request[ECM_HEADER.Length] = (byte)mode;
-            _channel.SendMessage(request);
-
-            byte expectedResponse = (byte)(0x40 | (byte)mode);
-
-            for (int retry = 0; retry < 10; retry++)
-            {
-                var response = _channel.ReadMessages(1, 250);
-                if (response.Messages.Length == 0)
-                    continue;
-
-                // Response from ECM: [0x00, 0x00, 0x07, 0xE8] <SID|0x40> <payload...>
-                var data = response.Messages[0].Data;
-                if (data.Length < 5 || data[2] != 0x07 || data[3] != 0xE8 || data[4] != expectedResponse)
-                    continue;
-
+            var reply = _link.Exchange([(byte)mode]);
+            if (reply.Message is byte[] data)
                 return ParseDtcResponse(data);
-            }
-
+            if (reply.Nrc is byte nrc)
+                throw new IOException($"ECU rejected the DTC request (NRC 0x{nrc:X2}).");
             throw new IOException("No response from ECU for DTC request.");
         }
 
@@ -234,30 +175,16 @@ namespace LotusECMLogger.Services
         /// <exception cref="IOException">The ECU rejected the request or did not answer.</exception>
         public byte[] ReadAllDtcsMode13(Mode13RequestForm form = Mode13RequestForm.ReportAll)
         {
-            _channel.SendMessage(BuildMode13Request(form));
-
             // On a TPMS-equipped car the ECU interrogates the TPMS module before answering,
             // which can push the first response frame out to ~40 ms — past the 50 ms OBD-II
-            // default, hence the deliberately generous read window here.
-            for (int retry = 0; retry < 10; retry++)
-            {
-                var response = _channel.ReadMessages(1, 250);
-                if (response.Messages.Length == 0)
-                    continue;
+            // default, hence the default (generous) reply window here.
+            var reply = _link.Exchange(BuildMode13Request(form));
+            if (reply.Message is byte[] data)
+                return data;
 
-                // Skip echoes of our own transmit, TX confirmations and first-frame indications.
-                var data = response.Messages[0].Data;
-                if (data.Length < 5 || data[2] != 0x07 || data[3] != 0xE8)
-                    continue;
-
-                if (data[4] == Mode13Decoder.PositiveSid)
-                    return data;
-
-                // Negative response: 0x7F 0x13 <NRC> — firmware without the service.
-                if (data.Length >= 7 && data[4] == 0x7F &&
-                    data[5] == (byte)OBDIIMode.ReadAllDiagnosticTroubleCodes)
-                    throw new IOException($"ECU rejected the Mode 0x13 request (NRC 0x{data[6]:X2}).");
-            }
+            // Negative response: 0x7F 0x13 <NRC> — firmware without the service.
+            if (reply.Nrc is byte nrc)
+                throw new IOException($"ECU rejected the Mode 0x13 request (NRC 0x{nrc:X2}).");
 
             throw new IOException("No response from ECU for the Mode 0x13 request.");
         }
@@ -265,17 +192,10 @@ namespace LotusECMLogger.Services
         // Form A is the bare service byte; Form B adds the 0xFF00 "report all" sub-function.
         // Both fit in one frame, which matters: the firmware reads the eight receive-buffer
         // bytes directly and reassembles no multi-frame request.
-        internal static byte[] BuildMode13Request(Mode13RequestForm form)
-        {
-            byte[] payload = form == Mode13RequestForm.BareService
+        internal static byte[] BuildMode13Request(Mode13RequestForm form) =>
+            form == Mode13RequestForm.BareService
                 ? [(byte)OBDIIMode.ReadAllDiagnosticTroubleCodes]
                 : [(byte)OBDIIMode.ReadAllDiagnosticTroubleCodes, 0xFF, 0x00];
-
-            var request = new byte[ECM_HEADER.Length + payload.Length];
-            Array.Copy(ECM_HEADER, request, ECM_HEADER.Length);
-            Array.Copy(payload, 0, request, ECM_HEADER.Length, payload.Length);
-            return request;
-        }
 
         /// <summary>
         /// Service 0x02: requests one freeze frame PID. Returns the full raw response buffer
@@ -284,29 +204,9 @@ namespace LotusECMLogger.Services
         /// </summary>
         public (byte[]? response, byte? nrc) ReadFreezeFrameRaw(byte pid, byte frame = 0x00)
         {
-            _channel.SendMessage(BuildModeMessage(OBDIIMode.ShowFreezeFrameData, pid, frame));
-
-            for (int retry = 0; retry < 10; retry++)
-            {
-                var response = _channel.ReadMessages(1, 250);
-                if (response.Messages.Length == 0)
-                    continue;
-
-                // Skip echoes of our own transmit and TX confirmation frames.
-                var data = response.Messages[0].Data;
-                if (data.Length < 7 || data[2] != 0x07 || data[3] != 0xE8)
-                    continue;
-
-                // Positive response: 0x42 <pid> <frame> <data...>
-                if (data[4] == 0x42 && data[5] == pid && data[6] == frame)
-                    return (data, null);
-
-                // Negative response: 0x7F 0x02 <NRC>
-                if (data[4] == 0x7F && data[5] == (byte)OBDIIMode.ShowFreezeFrameData)
-                    return (null, data[6]);
-            }
-
-            return (null, null);
+            // Positive response: 0x42 <pid> <frame> <data...>
+            var reply = _link.Exchange(BuildModeMessage(OBDIIMode.ShowFreezeFrameData, pid, frame), echoLength: 2);
+            return (reply.Message, reply.Nrc);
         }
 
         /// <summary>
@@ -317,29 +217,8 @@ namespace LotusECMLogger.Services
         public (byte[]? response, byte? nrc) ReadCurrentDataRaw(byte pid)
         {
             // A single-PID request: BuildModeMessage's trailing byte would ask for PID 0x00 too.
-            _channel.SendMessage(BuildMultiPIDMessage(OBDIIMode.ShowCurrentData, [pid]));
-
-            for (int retry = 0; retry < 10; retry++)
-            {
-                var response = _channel.ReadMessages(1, 250);
-                if (response.Messages.Length == 0)
-                    continue;
-
-                // Skip echoes of our own transmit and TX confirmation frames.
-                var data = response.Messages[0].Data;
-                if (data.Length < 7 || data[2] != 0x07 || data[3] != 0xE8)
-                    continue;
-
-                // Positive response: 0x41 <pid> <data...>
-                if (data[4] == 0x41 && data[5] == pid)
-                    return (data, null);
-
-                // Negative response: 0x7F 0x01 <NRC>
-                if (data[4] == 0x7F && data[5] == (byte)OBDIIMode.ShowCurrentData)
-                    return (null, data[6]);
-            }
-
-            return (null, null);
+            var reply = _link.Exchange(BuildMultiPIDMessage(OBDIIMode.ShowCurrentData, [pid]), echoLength: 1);
+            return (reply.Message, reply.Nrc);
         }
 
         public List<int> GetSupportedPIDs(OBDIIMode mode)
@@ -358,15 +237,16 @@ namespace LotusECMLogger.Services
                 if (mode == OBDIIMode.RequestVehicleInformation)
                 {
                     switch (pid)
-                    {                       
+                    {
                         case 0x02:
                         case 0x04:
                         case 0x06:
                         case 0x0A:
-                            var resp = GetMultiMessageRequest(_channel, mode, [pid]);
+                            var resp = GetMultiMessageRequest(mode, [pid]);
                             if (resp.Length >= 2)
                             {
-                                return resp[2..];                            }
+                                return resp[2..];
+                            }
                             else
                             {
                                 throw new IOException("Invalid response length");
@@ -374,7 +254,8 @@ namespace LotusECMLogger.Services
                         default:
                             return [];
                     }
-                } else
+                }
+                else
                 {
                     throw new NotImplementedException();
                 }
@@ -391,31 +272,9 @@ namespace LotusECMLogger.Services
         {
             try
             {
-                // Send request for supported PIDs (PID 0x00)
-                byte[] request = BuildModeMessage(mode, 0x00);
-                _channel.SendMessage(request);
-
-                byte expectedResponse = (byte)(0x40 | (byte)mode);
-
-                for (int i = 0; i < 100; i++) // only wait for 100 messages
-                {
-                    // Get response with timeout
-                    var response = _channel.ReadMessages(1, 1000);
-                    if (response.Messages.Length == 0)
-                        continue;
-
-                    // Skip echoes of our own transmit and TX-confirmation frames; only accept the
-                    // ECM's supported-PIDs response ([..0x07,0xE8] <SID|0x40> 0x00 <bitmask...>).
-                    // Accepting the first non-empty frame would return an empty list on an echo
-                    // and give up before the real response arrives.
-                    var data = response.Messages[0].Data;
-                    if (data.Length < 6 || data[2] != 0x07 || data[3] != 0xE8 ||
-                        data[4] != expectedResponse || data[5] != 0x00)
-                        continue;
-
-                    return ParseSupportedPIDsResponse(data, mode);
-                }
-                return [];
+                // Request the supported-PIDs bitmask (PID 0x00); the reply echoes the PID.
+                var reply = _link.Exchange(BuildModeMessage(mode, 0x00), echoLength: 1);
+                return reply.Message is byte[] data ? ParseSupportedPIDsResponse(data, mode) : [];
             }
             catch (Exception ex)
             {
@@ -424,16 +283,9 @@ namespace LotusECMLogger.Services
             }
         }
 
-        internal static byte[] BuildModeMessage(OBDIIMode mode, byte pid, byte trailing = 0x00)
-        {
-            // Use Lotus ECM header. The trailing byte is the frame number for Mode 02.
-            var message = new byte[ECM_HEADER.Length + 3];
-            Array.Copy(ECM_HEADER, message, ECM_HEADER.Length);
-            message[ECM_HEADER.Length] = (byte)mode;
-            message[ECM_HEADER.Length + 1] = pid;
-            message[ECM_HEADER.Length + 2] = trailing;
-            return message;
-        }
+        internal static byte[] BuildModeMessage(OBDIIMode mode, byte pid, byte trailing = 0x00) =>
+            // The trailing byte is the frame number for Mode 02.
+            [(byte)mode, pid, trailing];
 
         internal static byte[] BuildMultiPIDMessage(OBDIIMode mode, List<int> pids)
         {
@@ -442,9 +294,8 @@ namespace LotusECMLogger.Services
                 throw new ArgumentOutOfRangeException(nameof(pids), "PID list must contain between 1 and 6 PIDs.");
             }
 
-            var message = new byte[ECM_HEADER.Length + 1 + pids.Count];
-            Array.Copy(ECM_HEADER, message, ECM_HEADER.Length);
-            message[ECM_HEADER.Length] = (byte)mode;
+            var message = new byte[1 + pids.Count];
+            message[0] = (byte)mode;
             for (int i = 0; i < pids.Count; i++)
             {
                 int pid = pids[i];
@@ -452,7 +303,7 @@ namespace LotusECMLogger.Services
                 {
                     throw new ArgumentOutOfRangeException(nameof(pids), "Each PID must be between 0x00 and 0xFF.");
                 }
-                message[ECM_HEADER.Length + 1 + i] = (byte)pid;
+                message[1 + i] = (byte)pid;
             }
             return message;
         }
@@ -498,46 +349,27 @@ namespace LotusECMLogger.Services
             return supportedPIDs;
         }
 
-        private static byte[] readMultiFrameResponse(J2534Channel channel, OBDIIMode mode)
+        // Before the link existed, each attempt read up to eleven messages at 250 ms each.
+        private const int MultiMessageAttempts = 4;
+        private const int MultiMessageReplyTimeoutMs = 2750;
+
+        /// <summary>
+        /// Sends a request and returns the positive reply after its SID ([pid, ...data]), retrying
+        /// while the ECU is silent. Only the SID is matched, as before the link existed.
+        /// </summary>
+        /// <exception cref="IOException">The ECU rejected the request or never answered.</exception>
+        private byte[] GetMultiMessageRequest(OBDIIMode mode, List<int> pids)
         {
-            int first_message_retries = 10;
-            do
+            var request = BuildMultiPIDMessage(mode, pids);
+            for (int attempt = 0; attempt < MultiMessageAttempts; attempt++)
             {
-                var first_response = channel.ReadMessages(1, 250);
-                if (first_response.Messages.Length > 0)
-                {
-                    var first_msg = first_response.Messages[0].Data; 
-                    // check for header and mode match
-                    if (
-                        first_msg.Length > 4 &&
-                        first_msg[2] == 0x07 &&
-                        first_msg[3] == 0xE8 && 
-                        first_msg[4] == ((int)mode | 0x40)                       
-                        )
-                    {
-                        return first_msg[5..];
-                    }
-                }
-
-
-            } while (first_message_retries-- > 0);
-            return [];
-        }
-        public static byte[] GetMultiMessageRequest(J2534Channel channel, OBDIIMode mode, List<int> pids)
-        {
-            int retry_count = 3;
-            do { 
-                var request = BuildMultiPIDMessage(mode, pids);
-                channel.SendMessage(request);
-
-                var result = readMultiFrameResponse(channel, mode);
-                if (result.Length > 0)
-                {
-                    return result;
-                }
-            } while (retry_count-- > 0);
+                var reply = _link.Exchange(request, echoLength: 0, timeoutMs: MultiMessageReplyTimeoutMs);
+                if (reply.Message is byte[] data && data.Length > 5)
+                    return data[5..];
+                if (reply.Nrc is byte nrc)
+                    throw new IOException($"ECU rejected the Mode 0x{(byte)mode:X2} request (NRC 0x{nrc:X2}).");
+            }
             throw new IOException("Failed to get multi-message response");
-
         }
     }
 }

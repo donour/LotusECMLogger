@@ -1,4 +1,4 @@
-using SAE.J2534;
+using LotusECMLogger.Services.Links;
 
 namespace LotusECMLogger.Services
 {
@@ -9,22 +9,24 @@ namespace LotusECMLogger.Services
 	// in the firmware); the reset path is one of those commands.
 	public sealed class J2534EcuCodingService : IEcuCodingService
 	{
+		private readonly ILinkProvider _links;
+
+		public J2534EcuCodingService() : this(J2534LinkProvider.Instance) { }
+
+		public J2534EcuCodingService(ILinkProvider links) => _links = links ?? throw new ArgumentNullException(nameof(links));
+
 		public T6eCodingDecoder ReadCoding()
 		{
-			using var session = J2534Session.Open();
-			J2534Channel channel = session.OpenIso15765();
-
-			channel.StartMessageFilter(ECUDefinition.ECM.CreateFlowControlFilter()).ThrowIfError();
-
-			return ReadCodingInternal(channel);
+			using var link = _links.OpenDiagnostic(ECUDefinition.ECM);
+			return ReadCodingInternal(link);
 		}
 
 		public (bool success, string errorMessage) WriteCoding(T6eCodingDecoder coding)
 		{
 			try
 			{
-				using var session = J2534Session.Open();
-				return WriteRawCanCoding(coding, session.OpenCan());
+				using var link = _links.OpenCan();
+				return WriteRawCanCoding(coding, link);
 			}
 			catch (Exception ex)
 			{
@@ -36,73 +38,17 @@ namespace LotusECMLogger.Services
 		private const byte CodingPidLow = 0x63;
 		private const byte CodingPidHigh = 0x64;
 
-		// Bounds the read so a silent ECU (ignition off, wrong module) fails in ~3 s instead of
-		// hanging. A live ECU answers both PIDs well inside the first window; the slack covers an
-		// ECU still busy just after key-on, and the retries cover a dropped request or reply.
+		// Bounds the read so a silent ECU (ignition off, wrong module) fails in a few seconds instead
+		// of hanging. A live ECU answers well inside the first window; the slack covers an ECU still
+		// busy just after key-on, and the retries cover a dropped request or reply. A "response
+		// pending" (NRC 0x78) extends the wait inside the link (ISO 14229 P2*server), up to its cap.
 		private const int ReadAttempts = 3;
 		private const int ReadAttemptWindowMs = 1000;
-		private const int ReadPollMs = 100;
 
-		// responsePending (NRC 0x78) means "still working": per ISO 14229 the tester waits up to
-		// P2*server (5 s) for the final reply instead of re-sending. The hard cap keeps an ECU that
-		// answers 0x78 forever from recreating the hang this bound exists to prevent.
-		private const byte NrcResponsePending = 0x78;
-		private const int ResponsePendingExtensionMs = 5000;
-		private const int MaxReadMs = 10000;
-
-		private static T6eCodingDecoder ReadCodingInternal(J2534Channel channel)
+		private static T6eCodingDecoder ReadCodingInternal(IDiagnosticLink link)
 		{
-			byte[]? codingLow = null;
-			byte[]? codingHigh = null;
-			var total = System.Diagnostics.Stopwatch.StartNew();
-
-			for (int attempt = 0; attempt < ReadAttempts && (codingLow is null || codingHigh is null); attempt++)
-			{
-				// Re-request only what is still missing, so a retry cannot pile up duplicate replies.
-				if (codingLow is null)
-					channel.SendMessage(BuildCodingRequest(CodingPidLow)).ThrowIfError();
-				if (codingHigh is null)
-					channel.SendMessage(BuildCodingRequest(CodingPidHigh)).ThrowIfError();
-
-				var window = System.Diagnostics.Stopwatch.StartNew();
-				long windowMs = ReadAttemptWindowMs;
-				while (window.ElapsedMilliseconds < windowMs && total.ElapsedMilliseconds < MaxReadMs &&
-					(codingLow is null || codingHigh is null))
-				{
-					GetMessagesResult resp = channel.ReadMessages(2, ReadPollMs);
-
-					// J2534 reports TIMEOUT whenever fewer messages than requested arrived, so the
-					// messages are consumed before the status is judged.
-					foreach (var message in resp.Messages)
-					{
-						var reply = ParseCodingResponse(message.Data);
-						if (reply.Value is not null)
-						{
-							if (reply.Pid == CodingPidLow)
-								codingLow = reply.Value;
-							else
-								codingHigh = reply.Value;
-						}
-						else if (reply.Nrc == NrcResponsePending)
-						{
-							// Keep listening in this window rather than re-sending into a busy ECU.
-							windowMs = Math.Max(windowMs, window.ElapsedMilliseconds + ResponsePendingExtensionMs);
-						}
-						else if (reply.Nrc is byte nrc)
-						{
-							throw new IOException($"ECU rejected the coding read (NRC 0x{nrc:X2}).");
-						}
-					}
-
-					// Anything other than "nothing (more) arrived" means the adapter itself failed —
-					// e.g. it was unplugged — which an empty read would otherwise disguise as silence.
-					if (!resp.IsSuccess && !resp.IsTimeout && !resp.IsBufferEmpty &&
-						resp.Status != ResultCode.BUFFER_OVERFLOW)
-					{
-						throw new J2534Exception(resp.Status, $"J2534 read failed during coding read: {resp.Status}");
-					}
-				}
-			}
+			byte[]? codingLow = ReadCodingWord(link, CodingPidLow);
+			byte[]? codingHigh = ReadCodingWord(link, CodingPidHigh);
 
 			if (codingLow is null || codingHigh is null)
 			{
@@ -127,8 +73,22 @@ namespace LotusECMLogger.Services
 			}
 		}
 
-		private static byte[] BuildCodingRequest(byte pidLow) =>
-			[0x00, 0x00, 0x07, 0xE0, 0x22, 0x02, pidLow];
+		/// <summary>Reads one coding word; null when the ECU stays silent through every attempt.</summary>
+		/// <exception cref="IOException">The ECU rejected the read.</exception>
+		private static byte[]? ReadCodingWord(IDiagnosticLink link, byte pidLow)
+		{
+			for (int attempt = 0; attempt < ReadAttempts; attempt++)
+			{
+				var reply = link.Exchange(BuildCodingRequest(pidLow), echoLength: 2, timeoutMs: ReadAttemptWindowMs);
+				if (reply.Message is byte[] data && ParseCodingResponse(data).Value is byte[] value)
+					return value;
+				if (reply.Nrc is byte nrc)
+					throw new IOException($"ECU rejected the coding read (NRC 0x{nrc:X2}).");
+			}
+			return null;
+		}
+
+		private static byte[] BuildCodingRequest(byte pidLow) => [0x22, 0x02, pidLow];
 
 		/// <summary>
 		/// One classified frame from the coding read: a coding value (<see cref="Value"/> set), a
@@ -161,28 +121,25 @@ namespace LotusECMLogger.Services
 			return CodingResponse.Ignored;
 		}
 
-		private static (bool success, string errorMessage) WriteRawCanCoding(T6eCodingDecoder codingDecoder, J2534Channel canChannel)
+		// The coding must be persisted to all modules, each addressed by a distinct arbitration
+		// ID (0x500 through 0x505).
+		private const uint FirstCodingCanId = 0x500;
+		private const uint LastCodingCanId = 0x505;
+		private const int CodingFrameSpacingMs = 100;
+
+		private static (bool success, string errorMessage) WriteRawCanCoding(T6eCodingDecoder codingDecoder, ICanLink canLink)
 		{
 			try
 			{
-				byte[] highBytes = codingDecoder.GetHighBytes();
-				byte[] lowBytes = codingDecoder.GetLowBytes();
+				// Eight data bytes: the high coding word, then the low one.
+				byte[] data = [.. codingDecoder.GetHighBytes(), .. codingDecoder.GetLowBytes()];
 
-				byte[] canMessage = new byte[12];
-				canMessage[0] = 0x00;
-				canMessage[1] = 0x00;
-				canMessage[2] = 0x05;
-
-				Array.Copy(highBytes, 0, canMessage, 4, 4);
-				Array.Copy(lowBytes, 0, canMessage, 8, 4);
-
-				// The coding must be persisted to all modules, each addressed by a
-				// distinct arbitration ID (0x500 through 0x505).
-				for (byte arbIdLow = 0x00; arbIdLow <= 0x05; arbIdLow++)
+				// The link throws when the adapter rejects a frame, so a failed send is reported
+				// instead of the write claiming success.
+				for (uint canId = FirstCodingCanId; canId <= LastCodingCanId; canId++)
 				{
-					canMessage[3] = arbIdLow;
-					canChannel.SendMessage(canMessage);
-					Thread.Sleep(100);
+					canLink.Send(canId, data);
+					Thread.Sleep(CodingFrameSpacingMs);
 				}
 
 				return (true, "");
