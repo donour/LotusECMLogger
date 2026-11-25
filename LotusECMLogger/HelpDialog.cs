@@ -580,7 +580,7 @@ namespace LotusECMLogger
             AddParagraph("2. View Details: Each code is displayed with its module (ECM or TCU), a plain-English description, its category, and its type (stored, pending, or permanent). Hover over a row to see the full description when it is wider than the column.");
             AddParagraph("3. Read Freeze Frame: Click 'Read Freeze Frame' to retrieve the engine snapshot (Mode 02) the ECU captured at the moment a trouble code set - the triggering code plus engine parameters such as RPM, coolant temperature, and fuel trims. Parameters the application cannot decode are shown as raw bytes. The freeze frame is engine-only.");
             AddParagraph("4. Clear Engine Codes: After addressing the underlying issues, click 'Clear Engine Codes' to erase stored fault codes from the engine ECU memory. Transmission codes are not affected.");
-            AddParagraph("5. Clear Transmission Codes: Click 'Clear Transmission Codes' to send the same Mode 04 clear to the TCU only. On some transmission modules this also resets learned shift data, so the transmission may relearn its behaviour; engine codes and the engine freeze frame are not affected.");
+            AddParagraph("5. Clear TCU Codes: Click 'Clear TCU Codes' to send the same Mode 04 clear to the TCU only. On some transmission modules this also resets learned shift data, so the transmission may relearn its behaviour; engine codes and the engine freeze frame are not affected.");
 
             AddSubheading("Understanding DTCs:");
             AddParagraph("Diagnostic trouble codes are alphanumeric codes that identify specific faults detected by the ECU. They follow a standard format:");

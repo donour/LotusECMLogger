@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using LotusECMLogger.Services;
 
 namespace LotusECMLogger.Controls
@@ -300,7 +300,7 @@ namespace LotusECMLogger.Controls
             finally
             {
                 SetBusy(false);
-                clearTcuCodesButton.Text = "Clear Transmission Codes";
+                clearTcuCodesButton.Text = "Clear TCU Codes";
             }
         }
     }
