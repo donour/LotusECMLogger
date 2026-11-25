@@ -21,12 +21,17 @@ namespace LotusECMLogger.Controls
             ("Bare service — 01 13", Mode13RequestForm.BareService),
         ];
 
-        private bool isLoggerActive;
+        // Whether someone else (OBD-II logging, the ABS probe or sniff, the T6 flasher) holds the whole
+
+        // adapter; the broker refuses every other use meanwhile (J2534-session-broker-plan.md, Phase 7).
+
+        private readonly AdapterAvailability adapter;
         private bool isBusy;
 
         public Mode13Control()
         {
             InitializeComponent();
+            adapter = AdapterAvailability.Track(this, UpdateUIState);
             SetupListViewColumns();
             noteLabel.Text = "Service 0x13 returns current, confirmed and TPMS codes as one list — " +
                 "the ECU does not mark which group a code came from.";
@@ -35,24 +40,9 @@ namespace LotusECMLogger.Controls
             GuiIcons.ApplyToButton(readAllButton, GuiIcons.Read);
         }
 
-        /// <summary>
-        /// True while the main logger is running. The read opens its own J2534 session, which
-        /// cannot coexist with active logging, so the action is disabled meanwhile.
-        /// </summary>
-        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
-        public bool IsLoggerActive
-        {
-            get => isLoggerActive;
-            set
-            {
-                isLoggerActive = value;
-                UpdateUIState();
-            }
-        }
-
         private void UpdateUIState()
         {
-            bool enabled = !isLoggerActive && !isBusy;
+            bool enabled = !adapter.Blocked && !isBusy;
             readAllButton.Enabled = enabled;
             requestFormComboBox.Enabled = enabled;
         }

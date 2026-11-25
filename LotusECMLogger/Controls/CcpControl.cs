@@ -27,7 +27,9 @@ namespace LotusECMLogger.Controls
         private T6SymbolRegistry? registry;
         private (uint Address, byte[] Bytes)? lastRead;
         private CancellationTokenSource? operation;
-        private bool isLoggerActive;
+        // Whether someone else (OBD-II logging, the ABS probe or sniff, the T6 flasher) holds the whole
+        // adapter; the broker refuses every other use meanwhile (J2534-session-broker-plan.md, Phase 7).
+        private readonly AdapterAvailability adapter;
         // The build writes use: the identified one, or one the user chose for an unrecognised ECU.
         private CcpBuildProfile? writeBuild;
         private CcpBuildSource writeBuildSource;
@@ -51,6 +53,7 @@ namespace LotusECMLogger.Controls
         public CcpControl()
         {
             InitializeComponent();
+            adapter = AdapterAvailability.Track(this, UpdateUIState);
             infoListView.Columns.Add("Item", 180);
             infoListView.Columns.Add("Value", 640);
             noteLabel.Text = "Connect, identify, read and checksum ECU memory over CCP. " +
@@ -105,21 +108,6 @@ namespace LotusECMLogger.Controls
             host.Changed += OnHostChanged;
             ShowInfo();
             UpdateUIState();
-        }
-
-        /// <summary>
-        /// True while the OBD logger holds the J2534 adapter. Connecting would need the adapter too, so it is
-        /// disabled meanwhile; an open session is left alone.
-        /// </summary>
-        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
-        public bool IsLoggerActive
-        {
-            get => isLoggerActive;
-            set
-            {
-                isLoggerActive = value;
-                UpdateUIState();
-            }
         }
 
         /// <summary>The Tuning page, for UI tests.</summary>
@@ -577,7 +565,7 @@ namespace LotusECMLogger.Controls
             bool idle = host is not null && !IsBusy;
             var state = Master?.State;
             bool needsSession = lease is null || state is CcpSessionState.Uncertain or CcpSessionState.Faulted or CcpSessionState.Disposed;
-            connectButton.Enabled = idle && !isLoggerActive && needsSession;
+            connectButton.Enabled = idle && !adapter.Blocked && needsSession;
             connectButton.Text = lease is null ? "Connect" : "Reconnect";
             disconnectButton.Enabled = host is not null && lease is not null;
             readRegistryButton.Enabled = idle && IsConnected && identification?.Build?.SymbolEntriesAddress is not null;

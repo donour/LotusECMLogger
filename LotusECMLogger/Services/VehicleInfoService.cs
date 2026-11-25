@@ -1,3 +1,4 @@
+using LotusECMLogger.Services.Broker;
 using LotusECMLogger.Services.Links;
 using System.Diagnostics;
 using System.Text;
@@ -14,7 +15,10 @@ namespace LotusECMLogger.Services
     {
         private readonly ILinkProvider _links;
 
-        public VehicleInfoService() : this(J2534LinkProvider.Instance) { }
+        public VehicleInfoService() : this(J2534Broker.Shared) { }
+
+        /// <summary>On <paramref name="broker"/>, as the app runs it.</summary>
+        public VehicleInfoService(J2534Broker broker) : this(broker.Links("the vehicle information read")) { }
 
         public VehicleInfoService(ILinkProvider links) => _links = links ?? throw new ArgumentNullException(nameof(links));
 

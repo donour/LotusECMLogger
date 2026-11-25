@@ -15,32 +15,26 @@ namespace LotusECMLogger.Controls
 		private readonly Dictionary<string, Label> codingValidationLabels = new Dictionary<string, Label>();
 		private readonly ToolTip validationToolTip;
 
-		private bool isLoggerActive;
-		[DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
-		public bool IsLoggerActive
-		{
-			get => isLoggerActive;
-			set
-			{
-				isLoggerActive = value;
-				UpdateButtonStates();
-			}
-		}
+		// Whether someone else (OBD-II logging, the ABS probe or sniff, the T6 flasher) holds the whole
 
+		// adapter; the broker refuses every other use meanwhile (J2534-session-broker-plan.md, Phase 7).
+
+		private readonly AdapterAvailability adapter;
 		// True while a coding read is running in the background; keeps both device buttons off so
 		// a second session cannot be opened on the adapter mid-read.
 		private bool isReading;
 
 		private void UpdateButtonStates()
 		{
-			readCodesButton.Enabled = !isLoggerActive && !isReading;
-			writeCodesButton.Enabled = !isLoggerActive && !isReading && modifiedCodingDecoder != null;
+			readCodesButton.Enabled = !adapter.Blocked && !isReading;
+			writeCodesButton.Enabled = !adapter.Blocked && !isReading && modifiedCodingDecoder != null;
 		}
 
 		public EcuCodingControl(IEcuCodingService service)
 		{
 			this.service = service;
 			InitializeComponent();
+			adapter = AdapterAvailability.Track(this, UpdateButtonStates);
 			components ??= new System.ComponentModel.Container();
 			validationToolTip = new ToolTip(components);
 
@@ -54,12 +48,6 @@ namespace LotusECMLogger.Controls
 
 		private async void readCodesButton_Click(object? sender, EventArgs e)
 		{
-			if (IsLoggerActive)
-			{
-				MessageBox.Show("Cannot read codes while logging is active. Please stop the logger first.", "Logger Active", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-				return;
-			}
-
 			try
 			{
 				isReading = true;
@@ -157,12 +145,6 @@ namespace LotusECMLogger.Controls
 
 		private void writeCodesButton_Click(object? sender, EventArgs e)
 		{
-			if (IsLoggerActive)
-			{
-				MessageBox.Show("Cannot write codes while logging is active. Please stop the logger first.", "Logger Active", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-				return;
-			}
-
 			if (modifiedCodingDecoder == null)
 			{
 				MessageBox.Show("No coding data loaded. Please read codes first.", "No Data", MessageBoxButtons.OK, MessageBoxIcon.Warning);
@@ -236,7 +218,7 @@ namespace LotusECMLogger.Controls
 			}
 			finally
 			{
-				writeCodesButton.Enabled = !IsLoggerActive;
+				writeCodesButton.Enabled = !adapter.Blocked;
 				writeCodesButton.Text = "Write Codes";
 			}
 		}

@@ -463,7 +463,7 @@ namespace LotusECMLogger
             AddSubheading("Safety Features:");
             AddBulletPoint("Automatic Backup: Before writing any changes, the application creates a timestamped backup file containing both original and modified configurations.");
             AddBulletPoint("Confirmation Dialog: You must confirm before writing changes to the ECU.");
-            AddBulletPoint("Logger Interlock: ECU coding operations are disabled while data logging is active to prevent conflicts.");
+            AddBulletPoint("Adapter interlock: reading and writing coding are unavailable while OBD-II logging or another whole-adapter tool is running. A write is also refused while something else is talking to the ECM, such as a connected CCP session; the message says what to stop.");
             AddBulletPoint("Bitfield Display: The current coding bitfield value is displayed for reference and verification.");
 
             AddSubheading("Important Warnings:");
@@ -512,7 +512,7 @@ namespace LotusECMLogger
             AddParagraph("The 'Dyno Mode' button on the Vehicle Information tab enables the ECU's diagnostic override, commonly known as dyno mode. While active, the ECU inhibits fault reactions triggered by external systems such as ABS - useful on a chassis dyno, where the driven and undriven wheels turning at different speeds would otherwise raise faults and trigger torque intervention.");
 
             AddSubheading("How to Use:");
-            AddParagraph("1. Stop any active logging session (the button is disabled while the logger is running).");
+            AddParagraph("1. Stop OBD-II logging if it is running (the button is unavailable while it is), and disconnect the CCP tab: the reset needs the ECM to itself.");
             AddParagraph("2. Click 'Dyno Mode' on the Vehicle Information tab.");
             AddParagraph("3. Confirm the warning dialog. The application sends the enable request and reports success or failure.");
 
@@ -522,7 +522,7 @@ namespace LotusECMLogger
             AddSubheading("Important Notes:");
             AddBulletPoint("Dyno mode is not persistent: it is cleared when the vehicle is powered off. There is no explicit disable command - cycle the ignition to return to normal operation.");
             AddBulletPoint("Only enable dyno mode on a dyno or for controlled testing. Suppressing faults from systems such as ABS on the road removes safety interventions.");
-            AddBulletPoint("The button is unavailable while data logging is active; stop the logger first.");
+            AddBulletPoint("The button is unavailable while OBD-II logging or another whole-adapter tool is running, and the reset is refused while something else is talking to the ECM.");
         }
 
         private void ShowSetVinHelp()
@@ -563,7 +563,7 @@ namespace LotusECMLogger
             AddSubheading("Important Warnings:");
             AddBulletPoint("Lotus firmware checks for acceptable VINs — values it does not recognize as valid for the vehicle generation may affect features that depend on VIN-derived configuration (gear ratios, model detection, etc.).");
             AddBulletPoint("The change is written to ECU EEPROM and persists across power cycles. It is reversible only by programming the original VIN back.");
-            AddBulletPoint("VIN programming is disabled while data logging is active. Stop the logger before using this feature.");
+            AddBulletPoint("VIN programming is unavailable while OBD-II logging is running, and is refused while something else is talking to the ECM (a connected CCP session, for example).");
             AddBulletPoint("The WMI ('SCC') is enforced by the firmware. Any attempt to send a different WMI is ignored — the existing manufacturer code is preserved by the protocol.");
         }
 
@@ -635,7 +635,7 @@ namespace LotusECMLogger
 
             AddSubheading("Requirements:");
             AddBulletPoint("Ignition ON, engine running or not.");
-            AddBulletPoint("Logging stopped: the read needs the J2534 device to itself, so the button is disabled while a logging session is running.");
+            AddBulletPoint("OBD-II logging stopped: the button is unavailable while logging or another whole-adapter tool runs. The read works alongside a connected CCP session.");
 
             AddSubheading("Vehicle Coverage:");
             AddParagraph("The protocol was reverse-engineered from Evora firmware B132E0091 and is present across the T6e family, including calibrations E132E0288, C132E0278, and C132E0271. Attempting the read on an ECU without the service is harmless - it simply does not answer.");
@@ -693,7 +693,7 @@ namespace LotusECMLogger
 
             AddSubheading("Requirements:");
             AddBulletPoint("Ignition ON, engine running or not.");
-            AddBulletPoint("Logging stopped: the check needs the J2534 device to itself, so the button is disabled while a logging session is running.");
+            AddBulletPoint("OBD-II logging stopped: the button is unavailable while logging or another whole-adapter tool runs. The check works alongside a connected CCP session.");
         }
 
         private void ShowLearnedDataHelp()
@@ -755,7 +755,7 @@ namespace LotusECMLogger
             AddSubheading("Connection Requirements:");
             AddBulletPoint("The same J2534 device and OBD-II connection used by every other tab.");
             AddBulletPoint("Ignition ON. With the ignition off the module is asleep and will not answer or broadcast anything.");
-            AddBulletPoint("Logging stopped. Every ABS operation needs the J2534 device to itself, so the buttons are disabled while a logging session is running.");
+            AddBulletPoint("OBD-II logging stopped: the ABS buttons are unavailable while logging or another whole-adapter tool runs. They work alongside a connected CCP session.");
 
             AddSubheading("Vehicle Coverage:");
             AddParagraph("This support was developed against the Bosch ESP8.1 module fitted to the Lotus Evora (Bosch part number 0265951336, Lotus part number B132J0142). Other Lotus models use different ABS modules. The reads are harmless to attempt on any car - an unsupported module simply does not answer - but the decoded values and the actuation routines are specific to this module and should not be trusted elsewhere.");
@@ -869,7 +869,7 @@ namespace LotusECMLogger
             AddParagraph("A wheel showing '-' rather than a speed means the module is reporting that sensor's reading as unavailable, which is itself a strong indication of a sensor or wiring fault.");
 
             AddSubheading("Note:");
-            AddParagraph("While the monitor is running it holds the J2534 device, so the other ABS operations are disabled until you stop it. If the monitor stops on its own with an error, the device connection was lost - check the adapter and the OBD connection.");
+            AddParagraph("The monitor only listens, so the module reads, the precondition check and actuation stay available while it runs; Test Connection and Sniff Bus need the whole adapter, so they wait until you stop it. If the monitor stops on its own with an error, the device connection was lost - check the adapter and the OBD connection.");
         }
 
         private void ShowAbsActuationHelp()
@@ -974,6 +974,7 @@ namespace LotusECMLogger
             AddSubheading("How EFI_PROT Works:");
             AddParagraph("LotusECMLogger does not flash the ECU itself. It prepares the calibration file (converting CPT to CRP if needed) and then launches EFI_PROT.EXE - the external T6 flash programming utility - with that file. All communication with the ECU happens inside EFI_PROT's own console window, which stays open after the application hands off to it.");
             AddBulletPoint("Select a J2534 device: When EFI_PROT starts, it prompts you to choose the J2534 pass-thru device to use for the flash. Make sure your device is connected before launching.");
+            AddBulletPoint("The adapter is released to EFI_PROT: LotusECMLogger stops using it while the flash program runs, and the other tabs stay greyed out until its window closes. Launching is refused while OBD-II logging, a CCP session or another feature is using the adapter; stop it first.");
             AddBulletPoint("Power off the vehicle: The flashing procedure requires the vehicle to be powered off. Follow EFI_PROT's prompts for the correct ignition state during the process.");
             AddBulletPoint("Mind the timeout: EFI_PROT must establish communication with the ECU within a limited time window. If it does not, the ECU locks out flashing. An ignition cycle does NOT clear this lockout - you must remove power from the ECU or wait several minutes before it will accept flashing again. Have your device connected and be ready to proceed promptly once you launch.");
 
@@ -1003,7 +1004,7 @@ namespace LotusECMLogger
             AddBulletPoint("Unlocked ECU: the firmware only acts on coding commands when the ECU is unlocked - when its calibration's unlock field is set - however the command is sent. Where the build's symbol database says where to look, the tool reads the unlock state first and refuses on a locked ECU.");
             AddBulletPoint("CCP: the command is sent over the CCP session, so the ignition must be on and the calibration must enable CCP on the OBD-II bus (CAL_ccp_enable = 1; stock calibrations do not - see the CCP topic).");
             AddBulletPoint("Correct firmware version selected: The dialog needs to know which firmware is installed so it can target the right command register address. When the application recognises the connected ECU's build, it refuses a selection that does not match. For a build it does not recognise it cannot check, and a wrong selection writes to the wrong address.");
-            AddBulletPoint("Logging stopped: Erase Model Info is disabled while data logging is active. The menu item stays greyed out until you stop the logger.");
+            AddBulletPoint("OBD-II logging stopped: Erase Model Info is unavailable while logging or another whole-adapter tool runs. The menu item stays greyed out until it stops.");
 
             AddSubheading("How to Use:");
             AddParagraph("1. Stop any active logging session.");

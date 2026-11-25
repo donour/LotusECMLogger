@@ -27,7 +27,11 @@ namespace LotusECMLogger.Controls
         /// </summary>
         private readonly IAbsService? absService;
 
-        private bool isLoggerActive;
+        // Whether someone else (OBD-II logging, the ABS probe or sniff, the T6 flasher) holds the whole
+
+        // adapter; the broker refuses every other use meanwhile (J2534-session-broker-plan.md, Phase 7).
+
+        private readonly AdapterAvailability adapter;
         private CancellationTokenSource? routineCts;
 
         /// <summary>
@@ -37,6 +41,7 @@ namespace LotusECMLogger.Controls
         public AbsControl()
         {
             InitializeComponent();
+            adapter = AdapterAvailability.Track(this, UpdateUIState, null, J2534AbsService.ProbeHolder, J2534AbsService.SniffHolder);
             PopulateRoutines();
 
             GuiIcons.ApplyToButton(readInfoButton, GuiIcons.Dtc);
@@ -74,21 +79,6 @@ namespace LotusECMLogger.Controls
             absService.TelemetryReceived -= OnTelemetryReceived;
             absService.TelemetryError -= OnTelemetryError;
             (absService as IDisposable)?.Dispose();
-        }
-
-        /// <summary>
-        /// True while the main logger is running. Every ABS operation opens its own J2534 session,
-        /// which cannot coexist with active logging, so the actions are disabled meanwhile.
-        /// </summary>
-        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
-        public bool IsLoggerActive
-        {
-            get => isLoggerActive;
-            set
-            {
-                isLoggerActive = value;
-                UpdateUIState();
-            }
         }
 
         /// <summary>Selectable actuation routines, plus the guide's full 3-phase bleeding sequence.</summary>
@@ -132,25 +122,26 @@ namespace LotusECMLogger.Controls
         // ── Shared UI state ─────────────────────────────────────────────────────────────
 
         /// <summary>
-        /// Every action opens its own J2534 session and none may overlap, so they are enabled and
-        /// disabled together. Telemetry monitoring holds the device, so it disables the rest too.
+        /// The actions run one at a time (each is one conversation with the module), so they are enabled and
+        /// disabled together, and none while someone else holds the whole adapter. The telemetry monitor only
+        /// listens, so the module reads and actuation stay available while it runs; the connection probe and
+        /// the bus sniff need the whole adapter, so they wait for it to stop.
         /// </summary>
         private void SetActionsEnabled(bool enabled)
         {
-            bool on = enabled && !isLoggerActive && !IsMonitoringTelemetry;
+            bool on = enabled && !adapter.Blocked;
 
-            testConnectionButton.Enabled = on;
+            testConnectionButton.Enabled = on && !IsMonitoringTelemetry;
             readInfoButton.Enabled = on;
             moduleInfoButton.Enabled = on;
-            sniffBusButton.Enabled = on;
+            sniffBusButton.Enabled = on && !IsMonitoringTelemetry;
             readLiveStateButton.Enabled = on;
             checkPreconditionsButton.Enabled = on;
             runRoutineButton.Enabled = on;
             routineComboBox.Enabled = on;
             durationNumeric.Enabled = on && SelectedRoutine?.IsBleedSequence == false;
 
-            // The telemetry monitor is the one action that stays available while it owns the device.
-            startTelemetryButton.Enabled = enabled && !isLoggerActive && !IsMonitoringTelemetry;
+            startTelemetryButton.Enabled = on && !IsMonitoringTelemetry;
             stopTelemetryButton.Enabled = IsMonitoringTelemetry;
             logTelemetryCheckBox.Enabled = !IsMonitoringTelemetry;
         }
@@ -158,8 +149,8 @@ namespace LotusECMLogger.Controls
         private void UpdateUIState()
         {
             SetActionsEnabled(true);
-            if (isLoggerActive)
-                statusLabel.Text = "Stop logging to use the ABS module.";
+            if (adapter.Reason is string reason)
+                statusLabel.Text = reason;
         }
 
         // The results grids can't be copied out of the window, so mirror every run to a text file
@@ -206,7 +197,7 @@ namespace LotusECMLogger.Controls
             Func<(bool success, string errorMessage, IReadOnlyList<AbsReportRow> rows)> operation,
             string successStatus)
         {
-            if (isLoggerActive)
+            if (adapter.Blocked)
                 return false;
 
             string originalText = button.Text;
@@ -301,7 +292,7 @@ namespace LotusECMLogger.Controls
 
         private void startTelemetryButton_Click(object sender, EventArgs e)
         {
-            if (isLoggerActive || IsMonitoringTelemetry)
+            if (adapter.Blocked || IsMonitoringTelemetry)
                 return;
 
             string? csvPath = null;
@@ -423,7 +414,7 @@ namespace LotusECMLogger.Controls
 
         private async void runRoutineButton_Click(object sender, EventArgs e)
         {
-            if (isLoggerActive || SelectedRoutine is not RoutineChoice choice)
+            if (adapter.Blocked || SelectedRoutine is not RoutineChoice choice)
                 return;
 
             int seconds = choice.IsBleedSequence ? choice.DefaultSeconds : (int)durationNumeric.Value;
@@ -536,7 +527,7 @@ namespace LotusECMLogger.Controls
 
         private async void sniffBusButton_Click(object sender, EventArgs e)
         {
-            if (isLoggerActive)
+            if (adapter.Blocked)
                 return;
 
             SetActionsEnabled(false);

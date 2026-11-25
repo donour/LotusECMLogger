@@ -1,3 +1,4 @@
+using LotusECMLogger.Services.Broker;
 using LotusECMLogger.Services.Links;
 
 namespace LotusECMLogger.Services
@@ -10,10 +11,25 @@ namespace LotusECMLogger.Services
 	public sealed class J2534EcuCodingService : IEcuCodingService
 	{
 		private readonly ILinkProvider _links;
+		private readonly ILinkProvider _writeLinks;
 
-		public J2534EcuCodingService() : this(J2534LinkProvider.Instance) { }
+		// The write changes the ECM's coding, so it holds the ECM while it runs (plan §3.4); the read shares.
+		public J2534EcuCodingService() : this(J2534Broker.Shared) { }
 
-		public J2534EcuCodingService(ILinkProvider links) => _links = links ?? throw new ArgumentNullException(nameof(links));
+		/// <summary>On <paramref name="broker"/>, as the app runs it.</summary>
+		public J2534EcuCodingService(J2534Broker broker) : this(
+			broker.Links("the ECU coding read"),
+			broker.EcuExclusiveLinks(ECUDefinition.ECM, "the ECU coding write")) { }
+
+		public J2534EcuCodingService(ILinkProvider links) : this(links, links) { }
+
+		/// <param name="links">For the read.</param>
+		/// <param name="writeLinks">For the write.</param>
+		public J2534EcuCodingService(ILinkProvider links, ILinkProvider writeLinks)
+		{
+			_links = links ?? throw new ArgumentNullException(nameof(links));
+			_writeLinks = writeLinks ?? throw new ArgumentNullException(nameof(writeLinks));
+		}
 
 		public T6eCodingDecoder ReadCoding()
 		{
@@ -25,7 +41,7 @@ namespace LotusECMLogger.Services
 		{
 			try
 			{
-				using var link = _links.OpenCan();
+				using var link = _writeLinks.OpenCan();
 				return WriteRawCanCoding(coding, link);
 			}
 			catch (Exception ex)

@@ -7,6 +7,6 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../CrpTools/CrpTools.csproj" />
-    <Compile Include="../LotusECMLogger/Services/Ccp/*.cs" Exclude="../LotusECMLogger/Services/Ccp/J2534CcpTransport.cs" Link="Ccp/%(Filename)%(Extension)" />
+    <Compile Include="../LotusECMLogger/Services/Ccp/*.cs" Link="Ccp/%(Filename)%(Extension)" />
   </ItemGroup>
 </Project>

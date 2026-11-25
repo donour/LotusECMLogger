@@ -136,6 +136,7 @@ New code goes under `LotusECMLogger/Services/Ccp/`.
   Extended in Phase 2a for auxiliary sources: optional extra receive IDs, a raw send to a non-CRO ID,
   and the CAN ID on each `CcpReceivedFrame`. CCP code never sees auxiliary frames.
 - `J2534CcpTransport`: raw CAN through `J2534Session`, PASS filters on the target's DTO ID plus any auxiliary IDs.
+  Replaced 2026-11-25 by `BrokerCcpTransport` on the shared J2534 broker (J2534-session-broker-plan.md, Phase 5).
 - `SimulatedCcpTransport` (`CcpSimulator`): thread-safe wrapper over `FakeCcpSlave` that advances virtual
   time on each `Read`, so the real `CcpMaster` receive thread can drive the deterministic fake.
 - `FakeCcpSlave` (`CcpSimulator`, reusable in tests): an in-memory slave that reproduces this firmware's behaviour, so the master

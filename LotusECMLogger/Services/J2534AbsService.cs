@@ -1,3 +1,5 @@
+using LotusECMLogger.Services.Broker;
+using LotusECMLogger.Services.Ccp;
 using LotusECMLogger.Services.Logging;
 using SAE.J2534;
 
@@ -12,6 +14,11 @@ namespace LotusECMLogger.Services
     /// Read services (identification, coding, memory, DTCs) and the hydraulic actuation routines
     /// are implemented. Services that alter persistent state — variant recoding (0x3B), memory
     /// write (0x3D), DTC clear (0x14) — are deliberately absent, matching the guide's scope.
+    ///
+    /// Every operation goes through the J2534 broker (J2534-session-broker-plan.md, Phase 6): KWP reads
+    /// and the passive telemetry share the adapter with CCP and OBD diagnostics; actuation holds the
+    /// ABS module to itself (EcuExclusive) from session entry to the restored default session; the
+    /// connection probe and the bus sniff, which listen to everything, hold the whole adapter.
     /// </summary>
     public sealed class J2534AbsService : IAbsService, IDisposable
     {
@@ -25,8 +32,23 @@ namespace LotusECMLogger.Services
         private static readonly byte[] SessionCandidates =
             [AbsProtocol.SessionProgramming, AbsProtocol.SessionTester, AbsProtocol.SessionExtended];
 
-        /// <summary>Guards the J2534 device: one operation (or the telemetry monitor) at a time.</summary>
-        private readonly object _deviceLock = new();
+        // How each operation names itself when the broker refuses someone else ("... is running").
+        internal const string ActuationHolder = "ABS actuation";
+        internal const string BleedHolder = "the ABS bleed";
+        internal const string TelemetryHolder = "ABS telemetry";
+        internal const string ProbeHolder = "the ABS connection probe";
+        internal const string SniffHolder = "the CAN bus sniff";
+
+        private readonly J2534Broker _broker;
+
+        /// <summary>
+        /// One KWP conversation with the module at a time: sessions and SecurityAccess are module-wide
+        /// state, so two of this service's operations must not interleave their requests.
+        /// </summary>
+        private readonly object _kwpLock = new();
+
+        /// <summary>Guards the telemetry monitor's thread and token.</summary>
+        private readonly object _telemetryLock = new();
 
         private Thread? _telemetryThread;
         private CancellationTokenSource? _telemetryCts;
@@ -37,6 +59,10 @@ namespace LotusECMLogger.Services
 
         public bool IsMonitoringTelemetry => _monitoring;
 
+        public J2534AbsService() : this(J2534Broker.Shared) { }
+
+        public J2534AbsService(J2534Broker broker) => _broker = broker ?? throw new ArgumentNullException(nameof(broker));
+
         // ═══════════════════════════════════════════════════════════════════════════════
         // §7 / §6 — identification and coding records
         // ═══════════════════════════════════════════════════════════════════════════════
@@ -45,10 +71,9 @@ namespace LotusECMLogger.Services
         {
             try
             {
-                EnsureDeviceFree();
-                lock (_deviceLock)
+                lock (_kwpLock)
                 {
-                    using var abs = AbsKwpSession.Open();
+                    using var abs = AbsKwpSession.Open(_broker.Links("the ABS module scan"));
                     var rows = new List<AbsReportRow>();
 
                     // Open a session. Identification reads work without SecurityAccess on this
@@ -147,10 +172,9 @@ namespace LotusECMLogger.Services
         {
             try
             {
-                EnsureDeviceFree();
-                lock (_deviceLock)
+                lock (_kwpLock)
                 {
-                    using var abs = AbsKwpSession.Open();
+                    using var abs = AbsKwpSession.Open(_broker.Links("the ABS live-state read"));
                     var rows = new List<AbsReportRow>();
 
                     // The guide puts memory reads in the default session; this module wants one of its
@@ -215,10 +239,9 @@ namespace LotusECMLogger.Services
         {
             try
             {
-                EnsureDeviceFree();
-                lock (_deviceLock)
+                lock (_kwpLock)
                 {
-                    using var abs = AbsKwpSession.Open();
+                    using var abs = AbsKwpSession.Open(_broker.Links("the ABS fault-code read"));
 
                     // ReadDtcByStatus: report all DTCs by status mask (18 00 FF 00) — the exact request
                     // the reference tester used, which the ABS answers with no session and no unlock.
@@ -269,7 +292,7 @@ namespace LotusECMLogger.Services
 
         public void StartTelemetryMonitor(string? csvFilePath)
         {
-            lock (_deviceLock)
+            lock (_telemetryLock)
             {
                 if (_monitoring)
                     throw new InvalidOperationException("ABS telemetry monitoring is already running.");
@@ -290,7 +313,7 @@ namespace LotusECMLogger.Services
         public void StopTelemetryMonitor()
         {
             Thread thread;
-            lock (_deviceLock)
+            lock (_telemetryLock)
             {
                 // Keyed on the thread, not on _monitoring: a monitor that stopped itself after an
                 // error has already cleared _monitoring but still needs its state cleaned up here.
@@ -301,10 +324,10 @@ namespace LotusECMLogger.Services
                 thread = _telemetryThread;
             }
 
-            // Joined outside the lock: the loop takes the device lock on its way out.
+            // Joined outside the lock, so a loop on its way out is never waiting for it.
             thread.Join(TimeSpan.FromSeconds(3));
 
-            lock (_deviceLock)
+            lock (_telemetryLock)
             {
                 _telemetryCts?.Dispose();
                 _telemetryCts = null;
@@ -316,15 +339,17 @@ namespace LotusECMLogger.Services
         /// <summary>
         /// Reads the module's broadcasts and decodes them until cancelled. Nothing is transmitted, so
         /// this is safe with the vehicle in motion — the guide's recommended way to log while driving.
+        /// It holds a Shared lease and listens to the three broadcast ids on the broker's CAN channel, so
+        /// CCP and OBD diagnostics keep working alongside it.
         /// </summary>
         private void TelemetryLoop(string? csvFilePath, CancellationToken token)
         {
             ISampleSink? sink = null;
             try
             {
-                using var session = J2534Session.Open();
-                J2534Channel channel = session.OpenCan();
-                channel.StartMessageFilter(PassAllFilter()).ThrowIfError();
+                using var lease = _broker.Acquire(LeaseKind.Shared, TelemetryHolder);
+                using var link = lease.OpenCan(null); // passive: it holds no module
+                using var frames = SubscribeTelemetry(link);
 
                 if (!string.IsNullOrWhiteSpace(csvFilePath))
                 {
@@ -342,23 +367,13 @@ namespace LotusECMLogger.Services
 
                 while (!token.IsCancellationRequested)
                 {
-                    var read = channel.ReadMessages(64, 50);
                     bool updated = false;
 
-                    foreach (var message in read.Messages)
+                    foreach (var frame in ReadFrames(frames, 50, token))
                     {
-                        byte[] data = message.Data;
-                        if (data is null || data.Length < 5)
-                            continue;
-
-                        uint id = FrameId(data);
-                        if (id is not (AbsTelemetryDecoder.FrontWheelsCanId
-                            or AbsTelemetryDecoder.RearWheelsCanId
-                            or AbsTelemetryDecoder.EspStatusCanId))
-                            continue;
-
+                        uint id = frame.CanId;
                         AbsTelemetrySample previous = sample;
-                        sample = AbsTelemetryDecoder.Apply(sample, id, data[4..]);
+                        sample = AbsTelemetryDecoder.Apply(sample, id, frame.Data.ToArray());
                         if (ReferenceEquals(previous, sample))
                             continue;
 
@@ -429,27 +444,20 @@ namespace LotusECMLogger.Services
         {
             try
             {
-                EnsureDeviceFree();
-                lock (_deviceLock)
+                // Passive, like the monitor, so it can run while the monitor does.
+                using var lease = _broker.Acquire(LeaseKind.Shared, "the ABS telemetry snapshot");
+                using var link = lease.OpenCan(null);
+                using var frames = SubscribeTelemetry(link);
+
+                var sample = new AbsTelemetrySample();
+                DateTime deadline = DateTime.UtcNow.AddMilliseconds(durationMs);
+                while (DateTime.UtcNow < deadline)
                 {
-                    using var session = J2534Session.Open();
-                    J2534Channel channel = session.OpenCan();
-                    channel.StartMessageFilter(PassAllFilter()).ThrowIfError();
-
-                    var sample = new AbsTelemetrySample();
-                    DateTime deadline = DateTime.UtcNow.AddMilliseconds(durationMs);
-                    while (DateTime.UtcNow < deadline)
-                    {
-                        foreach (var message in channel.ReadMessages(64, 25).Messages)
-                        {
-                            byte[] data = message.Data;
-                            if (data is { Length: >= 5 })
-                                sample = AbsTelemetryDecoder.Apply(sample, FrameId(data), data[4..]);
-                        }
-                    }
-
-                    return (true, "", sample);
+                    foreach (var frame in ReadFrames(frames, 25, CancellationToken.None))
+                        sample = AbsTelemetryDecoder.Apply(sample, frame.CanId, frame.Data.ToArray());
                 }
+
+                return (true, "", sample);
             }
             catch (Exception ex)
             {
@@ -509,20 +517,22 @@ namespace LotusECMLogger.Services
 
         public (bool success, string errorMessage, AbsRoutineResult result) RunRoutine(
             byte routineType, int seconds, IProgress<AbsRoutineProgress>? progress, CancellationToken cancellationToken)
-            => RunRoutines([(routineType, seconds)], progress, cancellationToken);
+            => RunRoutines([(routineType, seconds)], ActuationHolder, progress, cancellationToken);
 
         public (bool success, string errorMessage, AbsRoutineResult result) RunBleedSequence(
             IProgress<AbsRoutineProgress>? progress, CancellationToken cancellationToken)
-            => RunRoutines(AbsProtocol.BleedSequence, progress, cancellationToken);
+            => RunRoutines(AbsProtocol.BleedSequence, BleedHolder, progress, cancellationToken);
 
         /// <summary>
         /// Runs a sequence of actuation routines on one diagnostic session. Every routine that is
         /// started is stopped again and the module is returned to the default session, whatever the
         /// outcome — the guide is explicit that leaving a routine running can strand the hydraulic
-        /// unit in an intermediate valve state until the next power cycle.
+        /// unit in an intermediate valve state until the next power cycle. The ABS module is held
+        /// (EcuExclusive, as <paramref name="holder"/>) for all of it, including that clean-up.
         /// </summary>
         private (bool success, string errorMessage, AbsRoutineResult result) RunRoutines(
             IReadOnlyList<(byte Type, int Seconds)> sequence,
+            string holder,
             IProgress<AbsRoutineProgress>? progress,
             CancellationToken cancellationToken)
         {
@@ -541,10 +551,9 @@ namespace LotusECMLogger.Services
                     return (false, $"Preconditions not met: {preconditions.BlockingReason}",
                         new AbsRoutineResult { Rows = rows });
 
-                EnsureDeviceFree();
-                lock (_deviceLock)
+                lock (_kwpLock)
                 {
-                    using var abs = AbsKwpSession.Open();
+                    using var abs = AbsKwpSession.Open(_broker.EcuExclusiveLinks(Abs, holder));
 
                     // Actuation needs the programming session and SecurityAccess level 1.
                     var (sessionOk, sessionDetail, _) = abs.EnterSession(SessionCandidates);
@@ -704,14 +713,14 @@ namespace LotusECMLogger.Services
         {
             try
             {
-                EnsureDeviceFree();
-                lock (_deviceLock)
+                // It listens to every id and sends to ids across the whole diagnostic range, so it holds the
+                // whole adapter, on a channel of its own.
+                using (var lease = _broker.Acquire(LeaseKind.DeviceExclusive, ProbeHolder))
                 {
-                    using var session = J2534Session.Open();
-                    J2534Channel channel = session.OpenCan();
+                    IJ2534Channel channel = lease.OpenExclusiveChannel(BrokerProtocol.Can);
 
                     // Pass-all filter so we can learn the broadcast baseline and catch a reply on any id.
-                    channel.StartMessageFilter(PassAllFilter()).ThrowIfError();
+                    channel.StartFilter(PassAllFilter());
 
                     var rows = new List<AbsReportRow>();
 
@@ -784,7 +793,7 @@ namespace LotusECMLogger.Services
         /// and StartDiagnosticSession (which changes only volatile session state, never module data).
         /// </summary>
         private static List<string> Probe(
-            J2534Channel channel, uint requestId, byte[] payload, HashSet<uint> baseline, int listenMs)
+            IJ2534Channel channel, uint requestId, byte[] payload, HashSet<uint> baseline, int listenMs)
         {
             // Raw ISO-TP single frame: [4-byte CAN id][PCI = payload length][payload] padded to 8.
             byte[] frame = new byte[12];
@@ -794,15 +803,14 @@ namespace LotusECMLogger.Services
             frame[3] = (byte)(requestId & 0xFF);
             frame[4] = (byte)payload.Length;
             Array.Copy(payload, 0, frame, 5, payload.Length);
-            channel.SendMessage(frame);
+            channel.Send(frame);
 
             var results = new List<string>();
             var seen = new HashSet<string>();
             DateTime deadline = DateTime.UtcNow.AddMilliseconds(listenMs);
             while (DateTime.UtcNow < deadline)
             {
-                var read = channel.ReadMessages(64, 25);
-                foreach (var msg in read.Messages)
+                foreach (var msg in channel.Read(64, 25))
                 {
                     byte[] data = msg.Data;
                     if (data is null || data.Length < 5)
@@ -826,15 +834,14 @@ namespace LotusECMLogger.Services
         /// Listens for <paramref name="durationMs"/> ms and returns the latest payload seen for
         /// every distinct CAN id (id -> hex of the bytes after the 4-byte id).
         /// </summary>
-        private static Dictionary<uint, string> Listen(J2534Channel channel, int durationMs)
+        private static Dictionary<uint, string> Listen(IJ2534Channel channel, int durationMs)
         {
             var seen = new Dictionary<uint, string>();
             DateTime deadline = DateTime.UtcNow.AddMilliseconds(durationMs);
 
             while (DateTime.UtcNow < deadline)
             {
-                var result = channel.ReadMessages(64, 25);
-                foreach (var msg in result.Messages)
+                foreach (var msg in channel.Read(64, 25))
                 {
                     byte[] data = msg.Data;
                     if (data is null || data.Length < 4)
@@ -869,20 +876,19 @@ namespace LotusECMLogger.Services
         {
             try
             {
-                EnsureDeviceFree();
-                lock (_deviceLock)
+                // A pass-all capture of every frame: it holds the whole adapter, on a channel of its own.
+                using (var lease = _broker.Acquire(LeaseKind.DeviceExclusive, SniffHolder))
                 {
-                    using var session = J2534Session.Open();
                     // CAN_ID_BOTH so we also capture 29-bit ids, in case the ABS uses extended addressing.
-                    J2534Channel channel = session.OpenChannel(Protocol.CAN, Baud.CAN, ConnectFlag.CAN_ID_BOTH);
-                    channel.StartMessageFilter(PassAllFilter()).ThrowIfError();
+                    IJ2534Channel channel = lease.OpenExclusiveChannel(BrokerProtocol.CanWithExtendedIds);
+                    channel.StartFilter(PassAllFilter());
 
                     // Phase 1 — learn the periodic broadcast ids while the tester is idle.
                     progress?.Report("Learning bus baseline (5s) — keep the reference tester idle…");
                     var baseline = new HashSet<uint>();
                     DateTime b0 = DateTime.UtcNow;
                     while ((DateTime.UtcNow - b0).TotalSeconds < 5)
-                        foreach (var m in channel.ReadMessages(64, 50).Messages)
+                        foreach (var m in channel.Read(64, 50))
                             if (m.Data is { Length: >= 4 })
                                 baseline.Add(FrameId(m.Data));
 
@@ -895,7 +901,7 @@ namespace LotusECMLogger.Services
                     DateTime start = DateTime.UtcNow;
                     while ((DateTime.UtcNow - start).TotalSeconds < captureSeconds && frames.Count < 20000)
                     {
-                        foreach (var m in channel.ReadMessages(64, 50).Messages)
+                        foreach (var m in channel.Read(64, 50))
                         {
                             byte[] data = m.Data;
                             if (data is null || data.Length < 4)
@@ -941,16 +947,37 @@ namespace LotusECMLogger.Services
         private static uint FrameId(byte[] data) =>
             (uint)((data[0] << 24) | (data[1] << 16) | (data[2] << 8) | data[3]);
 
-        /// <summary>
-        /// Rejects an operation that would open the J2534 device while the telemetry monitor owns it.
-        /// Only one channel set can be open at a time, and a second open would fail deeper down with a
-        /// far less obvious error.
-        /// </summary>
-        private void EnsureDeviceFree()
+        /// <summary>One ordered stream of the three telemetry broadcasts (three CAN filters).</summary>
+        private static CcpStream<BrokerCanFrame> SubscribeTelemetry(BrokerCanLink link)
         {
-            if (_monitoring)
-                throw new InvalidOperationException(
-                    "ABS telemetry monitoring is running — stop it before running another ABS operation.");
+            var frames = link.Subscribe(AbsTelemetryDecoder.FrontWheelsCanId);
+            link.AddId(frames, AbsTelemetryDecoder.RearWheelsCanId);
+            link.AddId(frames, AbsTelemetryDecoder.EspStatusCanId);
+            return frames;
+        }
+
+        /// <summary>
+        /// The frames that arrive within <paramref name="waitMs"/> (all of them once the first is in).
+        /// Throws when the stream ends: the adapter failed or the lease was released.
+        /// </summary>
+        private static List<BrokerCanFrame> ReadFrames(CcpStream<BrokerCanFrame> stream, int waitMs, CancellationToken token)
+        {
+            var frames = new List<BrokerCanFrame>();
+            using (var wait = CancellationTokenSource.CreateLinkedTokenSource(token))
+            {
+                wait.CancelAfter(waitMs);
+                try
+                {
+                    if (!stream.Reader.WaitToReadAsync(wait.Token).AsTask().GetAwaiter().GetResult())
+                        throw new IOException("The CAN channel was closed.");
+                }
+                catch (OperationCanceledException)
+                {
+                    // nothing within the wait
+                }
+            }
+            while (stream.Reader.TryRead(out var frame)) frames.Add(frame);
+            return frames;
         }
 
         public void Dispose() => StopTelemetryMonitor();

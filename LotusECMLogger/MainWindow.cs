@@ -1,4 +1,5 @@
 using LotusECMLogger.Services;
+using LotusECMLogger.Services.Broker;
 using LotusECMLogger.Services.Ccp;
 using LotusECMLogger.Controls;
 using System.Diagnostics;
@@ -21,9 +22,14 @@ namespace LotusECMLogger
         private readonly TabPage ccpTab = new("CCP") { Name = "ccpTab", UseVisualStyleBackColor = true };
         private CcpControl? ccpControl;
 
+        // Erase Model Info needs a CCP session: off while someone else holds the whole adapter (it used to be
+        // switched off by the logger's state; the controls follow the broker the same way, Phase 7).
+        private readonly AdapterAvailability adapter;
+
         public MainWindow()
         {
             InitializeComponent();
+            adapter = AdapterAvailability.Track(this, UpdateAdapterMenus);
 
             // The CCP tab sits beside Snapshots, the other direct ECU-memory tool.
             mainTabControl.TabPages.Insert(mainTabControl.TabPages.IndexOf(snapshotsTab) + 1, ccpTab);
@@ -31,7 +37,11 @@ namespace LotusECMLogger
 
             // Handle form closing to ensure logger is stopped
             this.FormClosing += MainWindow_FormClosing;
-            this.FormClosed += (_, _) => ccpHost.Dispose();
+            this.FormClosed += (_, _) =>
+            {
+                ccpHost.Dispose();
+                J2534Broker.Shared.Dispose();
+            };
 
             // Wire up logging config editor event (references obdLoggerControl, must be done in code)
             loggingConfigEditorControl.ConfigurationSaved += configName => obdLoggerControl?.RefreshAvailableConfigurations(configName);
@@ -43,7 +53,6 @@ namespace LotusECMLogger
                 {
                     Dock = DockStyle.Fill
                 };
-                obdLoggerControl.LoggerStateChanged += OnLoggerStateChanged;
                 obdLoggerControl.RefreshRateUpdated += OnRefreshRateUpdated;
                 loggerTab.Controls.Clear();
                 loggerTab.Controls.Add(obdLoggerControl);
@@ -59,8 +68,7 @@ namespace LotusECMLogger
             {
                 performanceHistoryControl = new PerformanceHistoryControl
                 {
-                    Dock = DockStyle.Fill,
-                    IsLoggerActive = false
+                    Dock = DockStyle.Fill
                 };
                 performanceHistoryTab.Controls.Add(performanceHistoryControl);
             }
@@ -76,8 +84,7 @@ namespace LotusECMLogger
                 var ecuService = new J2534EcuCodingService();
                 var ecuControl = new EcuCodingControl(ecuService)
                 {
-                    Dock = DockStyle.Fill,
-                    IsLoggerActive = false
+                    Dock = DockStyle.Fill
                 };
                 codingDataTab.Controls.Clear();
                 codingDataTab.Controls.Add(ecuControl);
@@ -93,8 +100,7 @@ namespace LotusECMLogger
             {
                 var snapshotsControl = new SnapshotsControl(ccpHost)
                 {
-                    Dock = DockStyle.Fill,
-                    IsLoggerActive = false
+                    Dock = DockStyle.Fill
                 };
                 snapshotsTab.Controls.Clear();
                 snapshotsTab.Controls.Add(snapshotsControl);
@@ -112,8 +118,7 @@ namespace LotusECMLogger
                 vehicleInfoControl.HighSpeedProbeService = hsService;
                 var hsControl = new HighSpeedLogControl(hsService)
                 {
-                    Dock = DockStyle.Fill,
-                    IsLoggerActive = false
+                    Dock = DockStyle.Fill
                 };
                 highSpeedLogTab.Controls.Clear();
                 highSpeedLogTab.Controls.Add(hsControl);
@@ -127,7 +132,7 @@ namespace LotusECMLogger
             // Add the CCP tab (connect, identify, read and checksum ECU memory over the shared session)
             try
             {
-                ccpControl = new CcpControl(ccpHost) { Dock = DockStyle.Fill, IsLoggerActive = false };
+                ccpControl = new CcpControl(ccpHost) { Dock = DockStyle.Fill };
                 ccpTab.Controls.Clear();
                 ccpTab.Controls.Add(ccpControl);
             }
@@ -143,8 +148,7 @@ namespace LotusECMLogger
                 var absService = new J2534AbsService();
                 var absControl = new AbsControl(absService)
                 {
-                    Dock = DockStyle.Fill,
-                    IsLoggerActive = false
+                    Dock = DockStyle.Fill
                 };
                 absTab.Controls.Clear();
                 absTab.Controls.Add(absControl);
@@ -160,8 +164,7 @@ namespace LotusECMLogger
             {
                 var emissionsControl = new EmissionsControl(new J2534EmissionsService())
                 {
-                    Dock = DockStyle.Fill,
-                    IsLoggerActive = false
+                    Dock = DockStyle.Fill
                 };
                 emissionsTab.Controls.Clear();
                 emissionsTab.Controls.Add(emissionsControl);
@@ -170,52 +173,6 @@ namespace LotusECMLogger
             {
                 MessageBox.Show($"Failed to initialize Emissions tab: {ex.Message}", "Startup Error",
                     MessageBoxButtons.OK, MessageBoxIcon.Warning);
-            }
-        }
-
-        /// <summary>
-        /// Handle logger state changes and propagate to other controls
-        /// </summary>
-        private void OnLoggerStateChanged(bool isLogging)
-        {
-            try
-            {
-                var ecuControl = codingDataTab.Controls.OfType<EcuCodingControl>().FirstOrDefault();
-                if (ecuControl != null)
-                    ecuControl.IsLoggerActive = isLogging;
-
-                vehicleInfoControl.IsLoggerActive = isLogging;
-
-                if (performanceHistoryControl != null)
-                    performanceHistoryControl.IsLoggerActive = isLogging;
-
-                dtcControl.IsLoggerActive = isLogging;
-
-                var hsControl = highSpeedLogTab.Controls.OfType<HighSpeedLogControl>().FirstOrDefault();
-                if (hsControl != null)
-                    hsControl.IsLoggerActive = isLogging;
-
-                var snapshotsControl = snapshotsTab.Controls.OfType<SnapshotsControl>().FirstOrDefault();
-                if (snapshotsControl != null)
-                    snapshotsControl.IsLoggerActive = isLogging;
-
-                var absControl = absTab.Controls.OfType<AbsControl>().FirstOrDefault();
-                if (absControl != null)
-                    absControl.IsLoggerActive = isLogging;
-
-                var emissionsControl = emissionsTab.Controls.OfType<EmissionsControl>().FirstOrDefault();
-                if (emissionsControl != null)
-                    emissionsControl.IsLoggerActive = isLogging;
-
-                if (ccpControl != null)
-                    ccpControl.IsLoggerActive = isLogging;
-
-                // Erasing model info opens the CCP session on the J2534 device the logger is using.
-                eraseModelInfoToolStripMenuItem.Enabled = !isLogging;
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[OnLoggerStateChanged] {ex}");
             }
         }
 
@@ -247,6 +204,8 @@ namespace LotusECMLogger
             var t6eFlasher = new T6EFlasher();
             t6eFlasher.ShowDialog(this);
         }
+
+        private void UpdateAdapterMenus() => eraseModelInfoToolStripMenuItem.Enabled = !adapter.Blocked;
 
         private void EraseModelInfoToolStripMenuItem_Click(object sender, EventArgs e)
         {

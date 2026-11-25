@@ -1,9 +1,10 @@
 namespace LotusECMLogger.Services.Links
 {
     /// <summary>
-    /// Raw CAN access (no ISO-TP). Today only the ECU coding write uses it, so it only sends;
-    /// receiving by CAN ID is added when the ABS telemetry moves onto it
-    /// (J2534-session-broker-plan.md, Phase 6). Disposing the link releases the adapter.
+    /// Raw CAN access (no ISO-TP). Today only the ECU coding write uses it, so the interface only
+    /// sends; the broker's <see cref="Broker.BrokerCanLink"/> also receives by CAN ID, for the ABS
+    /// telemetry and CCP (J2534-session-broker-plan.md, Phases 5 and 6). Disposing the link releases
+    /// its lease.
     /// </summary>
     public interface ICanLink : IDisposable
     {

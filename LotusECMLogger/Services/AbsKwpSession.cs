@@ -1,4 +1,4 @@
-using SAE.J2534;
+using LotusECMLogger.Services.Links;
 
 namespace LotusECMLogger.Services
 {
@@ -24,54 +24,34 @@ namespace LotusECMLogger.Services
     }
 
     /// <summary>
-    /// Owns a J2534 ISO-TP connection to the Bosch ESP8 ABS/ESP module and implements the KWP2000
-    /// request layer on top of it: session control, SecurityAccess, keep-alive, responsePending
-    /// handling, and ReadMemoryByAddress with format-byte discovery.
-    ///
-    /// The J2534 device performs ISO-TP segmentation and reassembly (the flow-control filter set up
-    /// in <see cref="Open"/>), so a request is written as [4-byte CAN id][KWP payload] and a
-    /// multi-frame response arrives already joined — the manual FF/CF/FC handling in the guide's
-    /// reference client is not needed here.
+    /// The KWP2000 request layer for the Bosch ESP8 ABS/ESP module over an <see cref="IDiagnosticLink"/>
+    /// to it: session control, SecurityAccess, keep-alive and ReadMemoryByAddress with format-byte
+    /// discovery. The link (the J2534 broker's ISO 15765 channel) does the ISO-TP segmentation, the
+    /// reply matching and the responsePending (NRC 0x78) waits, so the manual FF/CF/FC handling in the
+    /// guide's reference client is not needed here.
     /// </summary>
     internal sealed class AbsKwpSession : IDisposable
     {
         private static readonly ECUDefinition Abs = ECUDefinition.ABS;
 
-        /// <summary>Per-read timeout; the loop below spans the responsePending (P2*) window.</summary>
-        private const int ReadTimeoutMs = 250;
-        private const int ReadAttempts = 20;
+        /// <summary>
+        /// The reply budget the old read loop had (20 reads of 250 ms). Each responsePending extends it,
+        /// inside the link, up to its 10 s cap.
+        /// </summary>
+        private const int ReplyTimeoutMs = 5000;
 
         /// <summary>The module drops the session after ~5 s of silence; refresh well inside that.</summary>
         private static readonly TimeSpan KeepAliveInterval = TimeSpan.FromSeconds(2);
 
-        private readonly J2534Session _session;
-        private readonly J2534Channel _channel;
+        private readonly IDiagnosticLink _link;
 
         private DateTime _lastActivity = DateTime.UtcNow;
         private byte? _acceptedAal;
 
-        private AbsKwpSession(J2534Session session, J2534Channel channel)
-        {
-            _session = session;
-            _channel = channel;
-        }
+        private AbsKwpSession(IDiagnosticLink link) => _link = link;
 
-        /// <summary>Opens the device, an ISO 15765 channel, and the ABS flow-control filter.</summary>
-        public static AbsKwpSession Open()
-        {
-            J2534Session session = J2534Session.Open();
-            try
-            {
-                J2534Channel channel = session.OpenIso15765();
-                channel.StartMessageFilter(Abs.CreateFlowControlFilter()).ThrowIfError();
-                return new AbsKwpSession(session, channel);
-            }
-            catch
-            {
-                session.Dispose();
-                throw;
-            }
-        }
+        /// <summary>Opens a link to the ABS module from <paramref name="links"/> (which decides the lease).</summary>
+        public static AbsKwpSession Open(ILinkProvider links) => new(links.OpenDiagnostic(Abs));
 
         /// <summary>The session byte currently accepted by the module, or null if none was entered.</summary>
         public byte? ActiveSession { get; private set; }
@@ -85,49 +65,24 @@ namespace LotusECMLogger.Services
         /// </summary>
         public KwpResponse Request(params byte[] kwpPayload)
         {
-            byte[] header = Abs.GetRequestHeader();
-            byte[] message = new byte[header.Length + kwpPayload.Length];
-            Array.Copy(header, message, header.Length);
-            Array.Copy(kwpPayload, 0, message, header.Length, kwpPayload.Length);
-            _channel.SendMessage(message);
+            DiagnosticReply reply;
+            try
+            {
+                // The link accepts only the ABS response id with SID + 0x40, or 7F <SID> <NRC>.
+                reply = _link.Exchange(kwpPayload, echoLength: 0, timeoutMs: ReplyTimeoutMs);
+            }
+            catch (Exception ex) when (ex is IOException or J2534Exception)
+            {
+                // A refused send or a failed adapter is one failed request, as a timeout is: callers
+                // report it and still run their clean-up (stopping a routine, restoring the session).
+                return KwpResponse.Failure($"ABS request failed: {ex.Message}");
+            }
             _lastActivity = DateTime.UtcNow;
 
-            byte requestSid = kwpPayload[0];
-            byte expectedResponseSid = (byte)(requestSid | AbsProtocol.PositiveResponseFlag);
-
-            for (int attempt = 0; attempt < ReadAttempts; attempt++)
-            {
-                var response = _channel.ReadMessages(1, ReadTimeoutMs);
-                if (response.Messages.Length == 0)
-                    continue;
-
-                byte[] data = response.Messages[0].Data;
-                // Accept only frames from the ABS response id; skip our own TX echoes and other traffic.
-                if (data.Length < 5 || !Abs.MatchesResponse(data))
-                    continue;
-
-                byte sid = data[4];
-                if (sid == expectedResponseSid)
-                {
-                    _lastActivity = DateTime.UtcNow;
-                    return KwpResponse.Positive(data[5..]);
-                }
-
-                // Negative response: [header] 7F <requestSid> <nrc>
-                if (sid == AbsProtocol.NegativeResponseSid && data.Length >= 7 && data[5] == requestSid)
-                {
-                    byte nrc = data[6];
-                    if (nrc == AbsProtocol.NrcResponsePending)
-                    {
-                        _lastActivity = DateTime.UtcNow;
-                        continue; // still working — keep waiting for the final response
-                    }
-
-                    return KwpResponse.Negative(nrc);
-                }
-                // Some other frame from the ABS id — ignore and keep reading.
-            }
-
+            if (reply.Message is byte[] data)
+                return KwpResponse.Positive(data[5..]);
+            if (reply.Nrc is byte nrc)
+                return KwpResponse.Negative(nrc);
             return KwpResponse.Failure("No response from ABS module (timeout).");
         }
 
@@ -201,12 +156,14 @@ namespace LotusECMLogger.Services
         /// </summary>
         public void TesterPresent()
         {
-            byte[] header = Abs.GetRequestHeader();
-            byte[] message = new byte[header.Length + 2];
-            Array.Copy(header, message, header.Length);
-            message[header.Length] = AbsProtocol.SidTesterPresent;
-            message[header.Length + 1] = AbsProtocol.TesterPresentSuppressResponse;
-            _channel.SendMessage(message);
+            try
+            {
+                _link.Send([AbsProtocol.SidTesterPresent, AbsProtocol.TesterPresentSuppressResponse]);
+            }
+            catch (Exception ex) when (ex is IOException or J2534Exception)
+            {
+                // Fire-and-forget, as before: a lost keep-alive shows up as the next request failing.
+            }
             _lastActivity = DateTime.UtcNow;
         }
 
@@ -282,6 +239,6 @@ namespace LotusECMLogger.Services
             return response;
         }
 
-        public void Dispose() => _session.Dispose();
+        public void Dispose() => _link.Dispose();
     }
 }

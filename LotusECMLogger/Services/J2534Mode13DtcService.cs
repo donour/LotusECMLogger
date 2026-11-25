@@ -1,3 +1,4 @@
+using LotusECMLogger.Services.Broker;
 using LotusECMLogger.Services.Links;
 
 namespace LotusECMLogger.Services
@@ -12,7 +13,10 @@ namespace LotusECMLogger.Services
     {
         private readonly ILinkProvider _links;
 
-        public J2534Mode13DtcService() : this(J2534LinkProvider.Instance) { }
+        public J2534Mode13DtcService() : this(J2534Broker.Shared) { }
+
+        /// <summary>On <paramref name="broker"/>, as the app runs it.</summary>
+        public J2534Mode13DtcService(J2534Broker broker) : this(broker.Links("the Mode 0x13 read")) { }
 
         public J2534Mode13DtcService(ILinkProvider links) => _links = links ?? throw new ArgumentNullException(nameof(links));
 

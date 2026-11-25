@@ -1,13 +1,21 @@
+using LotusECMLogger.Services.Broker;
 using LotusECMLogger.Services.Logging;
-using SAE.J2534;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 
 namespace LotusECMLogger.Services
 {
+    /// <summary>
+    /// The OBD-II logger. It holds the adapter on a DeviceExclusive broker lease while it logs and drives its own
+    /// ISO 15765 channel directly (J2534-session-broker-plan.md §3.3), so nothing else can use the adapter meanwhile
+    /// and nothing sits between its polling loop and the DLL.
+    /// </summary>
     internal class J2534LoggingService : IDisposable
     {
         public const int LogFileToUIRatio = 8; // UI update every 8th log entry
+
+        /// <summary>How the logger names itself when the broker refuses someone else ("... is running").</summary>
+        public const string LeaseHolder = "OBD-II logging";
         public event Action<List<LiveDataReading>>? DataLogged;
         public event Action<Exception>? ExceptionOccurred;
 
@@ -15,7 +23,9 @@ namespace LotusECMLogger.Services
         private readonly MultiECUConfiguration multiEcuConfig;
         private Thread? loggerThread;
         private Thread? csvWriterThread;
-        private J2534Session? session;
+        private readonly J2534Broker broker;
+        private BrokerLease? lease;
+        private IJ2534Channel? channel;
 
         /// <summary>
         /// The single stop signal for the logger thread. A token carries the memory barriers that a
@@ -43,7 +53,7 @@ namespace LotusECMLogger.Services
         /// </summary>
         public bool PrefixReadingsWithEcuName { get; set; } = true;
 
-        public bool IsConnected => session != null && !cts.IsCancellationRequested;
+        public bool IsConnected => lease != null && !cts.IsCancellationRequested;
 
         /// <summary>
         /// Creates logger with multi-ECU configuration for logging from multiple control units
@@ -52,12 +62,15 @@ namespace LotusECMLogger.Services
         /// <param name="logger_DataLogged">Data received callback</param>
         /// <param name="exceptionHandler">Exception handler callback</param>
         /// <param name="configuration">Multi-ECU configuration</param>
+        /// <param name="broker">The adapter's broker; the app's <see cref="J2534Broker.Shared"/> when omitted.</param>
         public J2534LoggingService(
             string filename,
             Action<List<LiveDataReading>> logger_DataLogged,
             Action<Exception> exceptionHandler,
-            MultiECUConfiguration configuration)
+            MultiECUConfiguration configuration,
+            J2534Broker? broker = null)
         {
+            this.broker = broker ?? J2534Broker.Shared;
             this.outputFilename = filename;
             this.multiEcuConfig = configuration;
             this.DataLogged += logger_DataLogged;
@@ -112,7 +125,9 @@ namespace LotusECMLogger.Services
                 throw new InvalidOperationException(
                     "This logging session has already been stopped. Create a new J2534LoggingService.");
 
-            session = J2534Session.Open();
+            // Taken here rather than on the logger thread, so a refusal ("the CCP session is running"), a missing
+            // adapter or a refused filter reaches the caller instead of the exception callback.
+            OpenChannel();
             try
             {
                 // Start CSV writer thread first
@@ -133,8 +148,37 @@ namespace LotusECMLogger.Services
             }
             catch (Exception ex)
             {
+                if (loggerThread is not { IsAlive: true }) ReleaseLease(); // a running logger thread releases it
                 OnExceptionOccurred(ex);
             }
+        }
+
+        /// <summary>Takes the adapter and sets up the logger's channel: one flow-control filter per configured ECU.</summary>
+        private void OpenChannel()
+        {
+            lease = broker.Acquire(LeaseKind.DeviceExclusive, LeaseHolder);
+            try
+            {
+                channel = lease.OpenExclusiveChannel(BrokerProtocol.Iso15765);
+                foreach (var filter in multiEcuConfig.GetAllFlowControlFilters())
+                {
+                    channel.StartFilter(filter);
+                    Debug.WriteLine($"Added flow control filter: Pattern=0x{BitConverter.ToString(filter.Pattern).Replace("-", "")}, FlowControl=0x{BitConverter.ToString(filter.FlowControl).Replace("-", "")}");
+                }
+            }
+            catch
+            {
+                ReleaseLease();
+                throw;
+            }
+        }
+
+        /// <summary>Closes the logger's channel and gives the adapter back to the broker.</summary>
+        private void ReleaseLease()
+        {
+            var held = Interlocked.Exchange(ref lease, null);
+            channel = null;
+            held?.Dispose();
         }
 
         private void RunLoggerWithExceptionHandling()
@@ -234,15 +278,8 @@ namespace LotusECMLogger.Services
         {
             try
             {
-                J2534Channel Channel = session!.OpenIso15765();
-
-                // Set up flow control filters for ALL ECUs in the configuration
-                var filters = multiEcuConfig.GetAllFlowControlFilters().ToList();
-                foreach (var filter in filters)
-                {
-                    Channel.StartMessageFilter(filter).ThrowIfError();
-                    Debug.WriteLine($"Added flow control filter: Pattern=0x{BitConverter.ToString(filter.Pattern).Replace("-", "")}, FlowControl=0x{BitConverter.ToString(filter.FlowControl).Replace("-", "")}");
-                }
+                // The channel and its filters were set up by Start (OpenChannel).
+                IJ2534Channel Channel = channel!;
 
                 // Build all messages grouped by ECU
                 var messagesByEcu = multiEcuConfig.BuildAllMessagesByECU();
@@ -268,7 +305,8 @@ namespace LotusECMLogger.Services
                     {
                         foreach (var chunk in messages.Chunk(5))
                         {
-                            Channel.SendMessages(Array.ConvertAll(chunk, b => new SAE.J2534.Message(b, Channel.DefaultTxFlags)));
+                            // One DLL call per chunk; a refused batch is one missed poll, as it always was.
+                            Channel.SendBatch(chunk);
                             readings.AddRange(ReadPendingMessages(Channel, ecu));
                         }
                     }
@@ -291,8 +329,7 @@ namespace LotusECMLogger.Services
             }
             finally
             {
-                session?.Dispose();
-                session = null;
+                ReleaseLease();
             }
         }
 
@@ -318,21 +355,22 @@ namespace LotusECMLogger.Services
         /// <summary>
         /// Read pending messages and parse them with ECU context
         /// </summary>
-        /// <param name="channel">J2534 channel</param>
+        /// <param name="channel">The logger's exclusive ISO 15765 channel</param>
         /// <param name="expectedEcu">ECU we expect responses from (for context-aware parsing)</param>
-        private List<LiveDataReading> ReadPendingMessages(J2534Channel channel, ECUDefinition expectedEcu)
+        private List<LiveDataReading> ReadPendingMessages(IJ2534Channel channel, ECUDefinition expectedEcu)
         {
             List<LiveDataReading> readings = [];
 
-            // v2 ReadMessages returns an empty GetMessagesResult on timeout (Messages.Length == 0
-            // ends the loop) rather than throwing, so no timeout handling is needed here.
-            GetMessagesResult resp;
+            // A zero-timeout read returns an empty list when nothing is buffered, which ends the loop. Unlike
+            // the raw ReadMessages it throws on an adapter failure (unplugged), which stops logging with an
+            // error instead of polling an absent adapter for ever.
+            IReadOnlyList<ReceivedMessage> resp;
             do
             {
-                resp = channel.ReadMessages(1, 0);
-                if (resp.Messages.Length > 0)
+                resp = channel.Read(1, 0);
+                if (resp.Count > 0)
                 {
-                    var mesg = resp.Messages[0];
+                    var mesg = resp[0];
 
                     // Try to find which ECU this response is from
                     var matchingEcu = multiEcuConfig.FindECUForResponse(mesg.Data);
@@ -351,7 +389,7 @@ namespace LotusECMLogger.Services
                         readings.AddRange(LiveDataReading.ParseCanResponse(mesg.Data));
                     }
                 }
-            } while (resp.Messages.Length > 0);
+            } while (resp.Count > 0);
 
             return readings;
         }

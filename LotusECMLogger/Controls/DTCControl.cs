@@ -8,12 +8,17 @@ namespace LotusECMLogger.Controls
         private readonly IDtcService dtcService = new J2534DtcService();
         private readonly IFreezeFrameService freezeFrameService = new J2534FreezeFrameService();
 
-        private bool isLoggerActive;
+        // Whether someone else (OBD-II logging, the ABS probe or sniff, the T6 flasher) holds the whole
+
+        // adapter; the broker refuses every other use meanwhile (J2534-session-broker-plan.md, Phase 7).
+
+        private readonly AdapterAvailability adapter;
         private bool isBusy;
 
         public DTCControl()
         {
             InitializeComponent();
+            adapter = AdapterAvailability.Track(this, UpdateUIState);
             SetupListViewColumns();
             SetupFreezeFrameColumns();
             ApplyTabIcons();
@@ -34,29 +39,11 @@ namespace LotusECMLogger.Controls
             mode13Tab.ImageIndex = 1;
         }
 
-        /// <summary>
-        /// True while the main logger is running. Every DTC operation opens its own J2534
-        /// session, which cannot coexist with active logging, so the actions are disabled
-        /// meanwhile.
-        /// </summary>
-        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
-        public bool IsLoggerActive
-        {
-            get => isLoggerActive;
-            set
-            {
-                isLoggerActive = value;
-                // The Mode 0x13 tab opens its own session too, so it shares the same lockout.
-                mode13Control.IsLoggerActive = value;
-                UpdateUIState();
-            }
-        }
-
         // The J2534 device is exclusive, so a running operation disables every button,
         // not just its own.
         private void UpdateUIState()
         {
-            bool enabled = !isLoggerActive && !isBusy;
+            bool enabled = !adapter.Blocked && !isBusy;
             readCodesButton.Enabled = enabled;
             readFreezeFrameButton.Enabled = enabled;
             clearCodesButton.Enabled = enabled;

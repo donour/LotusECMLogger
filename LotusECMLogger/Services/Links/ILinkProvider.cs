@@ -1,9 +1,8 @@
 namespace LotusECMLogger.Services.Links
 {
     /// <summary>
-    /// Where services get their links from. <see cref="J2534LinkProvider"/> opens a J2534 session
-    /// per link, as every service did before; the planned session broker will implement this on
-    /// one shared device. Tests pass a scripted fake.
+    /// Where services get their links from: a <see cref="Broker.BrokerLease"/>, or the broker's
+    /// <see cref="Broker.J2534Broker.Links"/> (a lease per link). Tests pass a scripted fake.
     /// </summary>
     public interface ILinkProvider
     {

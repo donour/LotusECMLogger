@@ -30,7 +30,9 @@ namespace LotusECMLogger.Controls
         private readonly IEmissionsService? emissionsService;
 
         private EmissionsCheckResult? lastResult;
-        private bool isLoggerActive;
+        // Whether someone else (OBD-II logging, the ABS probe or sniff, the T6 flasher) holds the whole
+        // adapter; the broker refuses every other use meanwhile (J2534-session-broker-plan.md, Phase 7).
+        private readonly AdapterAvailability adapter;
         private bool isBusy;
 
         /// <summary>
@@ -40,6 +42,7 @@ namespace LotusECMLogger.Controls
         public EmissionsControl()
         {
             InitializeComponent();
+            adapter = AdapterAvailability.Track(this, UpdateUIState);
             SetupColumns();
             PopulateSelectors();
             GuiIcons.ApplyToButton(runCheckButton, GuiIcons.Emissions);
@@ -57,24 +60,9 @@ namespace LotusECMLogger.Controls
         private IEmissionsService Service => emissionsService
             ?? throw new InvalidOperationException("EmissionsControl was created without an IEmissionsService.");
 
-        /// <summary>
-        /// True while the main logger is running. The check opens its own J2534 session, which
-        /// cannot coexist with active logging, so the action is disabled meanwhile.
-        /// </summary>
-        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
-        public bool IsLoggerActive
-        {
-            get => isLoggerActive;
-            set
-            {
-                isLoggerActive = value;
-                UpdateUIState();
-            }
-        }
-
         private void UpdateUIState()
         {
-            runCheckButton.Enabled = !isLoggerActive && !isBusy && emissionsService != null;
+            runCheckButton.Enabled = !adapter.Blocked && !isBusy && emissionsService != null;
         }
 
         private void SetupColumns()

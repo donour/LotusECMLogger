@@ -41,6 +41,27 @@ ISO-TP protocol implementation:
 - Response aggregation with timeout handling
 - Runs over an `IDiagnosticLink` to one ECU; `ReadDtcs` and `ClearDiagnosticInformation` work on any link's ECU (ECM 0x7E0/0x7E8 or TCU 0x7E1/0x7E9), while every other method assumes the ECM. `J2534DtcService` reads the engine and then the TCU on separate links, one open at a time
 
+#### J2534Broker (Services/Broker)
+The one owner of the J2534 adapter; design and status in `J2534-session-broker-plan.md`:
+- Design A: one device, a shared ISO 15765 channel and a shared raw CAN channel, opened on first use; the device closes
+  with the last lease. Leases: Shared, EcuExclusive(ecu), DeviceExclusive, DeviceReleased; a refusal is an immediate
+  `BrokerBusyException` naming the holder.
+- Services take an `ILinkProvider`: `J2534Broker.Shared.Links(holder)` or `.EcuExclusiveLinks(ecu, holder)` (a lease
+  per link). Each one-shot service's `(J2534Broker)` constructor holds its lease choice.
+- The ISO reader blocks in the DLL only for a request already sent and only while no other DLL call waits
+  (`DllCallers`): the DLL holds one lock through a blocking read. ISO sends are spaced 5 ms apart while CAN is open.
+- Tests run against `LotusECMLogger.Tests/Fakes/FakeJ2534Backend.cs` (DLL lock, 10 filters per channel).
+- The OBD logger holds DeviceExclusive ("OBD-II logging") and drives its own channel; its loop is unchanged.
+- CCP: `BrokerCcpTransport` (Shared, "the CCP session", its CAN link naming the ECM) under `CcpSessionHost`; the CAN
+  reader polls at 1 ms only while a CRO awaits its CRM. Keep it out of `Services/Ccp`: the simulator and A2lTool
+  compile that folder without the broker.
+- ABS: KWP reads and passive telemetry (0xA2/0xA4/0xA8) are Shared; actuation and the bleed hold EcuExclusive(ABS);
+  the connection probe and the bus sniff hold DeviceExclusive on their own channel.
+- `J2534SharpBackend` is the only code that opens a J2534 device; nothing calls the DLL directly.
+- UI: controls disable their adapter buttons from `Controls/AdapterAvailability` (`Blocked` while someone else holds
+  DeviceExclusive/DeviceReleased), not from flags pushed by MainWindow. `T6EFlasher` holds DeviceReleased while
+  EFI_PROT runs. Still to do: Phase 8 (device selection).
+
 #### LiveDataReading
 Data model class:
 - Represents parsed OBD parameter

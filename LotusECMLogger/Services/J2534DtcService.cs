@@ -1,3 +1,4 @@
+using LotusECMLogger.Services.Broker;
 using LotusECMLogger.Services.Links;
 
 namespace LotusECMLogger.Services
@@ -5,17 +6,32 @@ namespace LotusECMLogger.Services
     public sealed class J2534DtcService : IDtcService
     {
         private readonly ILinkProvider _links;
+        private readonly Func<ECUDefinition, ILinkProvider> _clearLinks;
 
-        public J2534DtcService() : this(J2534LinkProvider.Instance) { }
+        // A clear changes what the module stores, so it holds that module while it runs (plan §3.4); reads share.
+        public J2534DtcService() : this(J2534Broker.Shared) { }
 
-        public J2534DtcService(ILinkProvider links) => _links = links ?? throw new ArgumentNullException(nameof(links));
+        /// <summary>On <paramref name="broker"/>, as the app runs it.</summary>
+        public J2534DtcService(J2534Broker broker) : this(
+            broker.Links("the trouble-code read"),
+            ecu => broker.EcuExclusiveLinks(ecu, $"the {ecu.Name} trouble-code clear")) { }
+
+        public J2534DtcService(ILinkProvider links) : this(links, _ => links) { }
+
+        /// <param name="links">For the reads.</param>
+        /// <param name="clearLinks">For a clear of the given module.</param>
+        public J2534DtcService(ILinkProvider links, Func<ECUDefinition, ILinkProvider> clearLinks)
+        {
+            _links = links ?? throw new ArgumentNullException(nameof(links));
+            _clearLinks = clearLinks ?? throw new ArgumentNullException(nameof(clearLinks));
+        }
 
         public (bool success, string errorMessage, DtcReadResult result) ReadCodes()
         {
             try
             {
-                // One link at a time: the plan reads every engine service before the TCU, and a
-                // link may own the adapter, so the engine link is closed before the TCU's opens.
+                // One link at a time: the plan reads every engine service before the TCU, so the
+                // engine link (and its filter slot) is closed before the TCU's opens.
                 using var links = new SequentialLinks(_links);
                 var result = DtcReadPlan.ReadCodes(
                     (ecu, mode, timeout) => new Iso15765Service(links.For(ecu))
@@ -39,7 +55,7 @@ namespace LotusECMLogger.Services
         {
             try
             {
-                using var link = _links.OpenDiagnostic(ecu);
+                using var link = _clearLinks(ecu).OpenDiagnostic(ecu);
                 return new Iso15765Service(link).ClearDiagnosticInformation();
             }
             catch (Exception ex)

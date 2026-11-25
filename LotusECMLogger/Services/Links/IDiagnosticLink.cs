@@ -2,9 +2,8 @@ namespace LotusECMLogger.Services.Links
 {
     /// <summary>
     /// One diagnostic conversation (ISO 15765) with one ECU. Services send requests through it
-    /// without knowing how the adapter is shared: today each link opens its own J2534 session
-    /// (<see cref="J2534LinkProvider"/>); the planned session broker will hand out links on one
-    /// shared device (J2534-session-broker-plan.md). Disposing the link ends the conversation.
+    /// without knowing how the adapter is shared: the <see cref="Broker.J2534Broker"/> hands them out
+    /// on its one shared device (J2534-session-broker-plan.md). Disposing the link ends the conversation.
     /// </summary>
     public interface IDiagnosticLink : IDisposable
     {

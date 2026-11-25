@@ -22,18 +22,11 @@ namespace LotusECMLogger.Controls
         private bool hasPresets;
         private string currentEcuVersion = "";
 
-        private bool isLoggerActive;
+        // Whether someone else (OBD-II logging, the ABS probe or sniff, the T6 flasher) holds the whole
 
-        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
-        public bool IsLoggerActive
-        {
-            get => isLoggerActive;
-            set
-            {
-                isLoggerActive = value;
-                UpdateUIState();
-            }
-        }
+        // adapter; the broker refuses every other use meanwhile (J2534-session-broker-plan.md, Phase 7).
+
+        private readonly AdapterAvailability adapter;
 
         public HighSpeedLogControl(IHighSpeedLogService service)
         {
@@ -42,6 +35,8 @@ namespace LotusECMLogger.Controls
             this.service.ErrorOccurred += OnErrorOccurred;
 
             InitializeComponent();
+
+            adapter = AdapterAvailability.Track(this, UpdateUIState);
 
             GuiIcons.ApplyToButton(addChannelsButton, GuiIcons.Add);
             GuiIcons.ApplyToButton(removeChannelButton, GuiIcons.Delete);
@@ -153,7 +148,7 @@ namespace LotusECMLogger.Controls
 
         private void AddChannelsButton_Click(object? sender, EventArgs e)
         {
-            if (isLoggerActive || service.IsLogging)
+            if (adapter.Blocked || service.IsLogging)
                 return;
 
             using var dialog = new AddChannelsDialog(string.IsNullOrWhiteSpace(currentEcuVersion) ? null : currentEcuVersion);
@@ -176,7 +171,7 @@ namespace LotusECMLogger.Controls
 
         private void RemoveSelectedChannels()
         {
-            if (service.IsLogging || isLoggerActive)
+            if (service.IsLogging || adapter.Blocked)
                 return;
 
             var rows = channelsGrid.SelectedRows.Cast<DataGridViewRow>().Where(r => !r.IsNewRow).ToList();
@@ -197,7 +192,7 @@ namespace LotusECMLogger.Controls
 
         private void ClearChannelsButton_Click(object? sender, EventArgs e)
         {
-            if (service.IsLogging || isLoggerActive || channelsGrid.Rows.Count == 0)
+            if (service.IsLogging || adapter.Blocked || channelsGrid.Rows.Count == 0)
                 return;
 
             var confirm = MessageBox.Show($"Remove all {channelsGrid.Rows.Count} channel(s)?",
@@ -214,14 +209,14 @@ namespace LotusECMLogger.Controls
         private void ChannelsGrid_UserDeletingRow(object? sender, DataGridViewRowCancelEventArgs e)
         {
             // Block keyboard (Delete-key) removal while logging; config is otherwise locked.
-            if (service.IsLogging || isLoggerActive)
+            if (service.IsLogging || adapter.Blocked)
                 e.Cancel = true;
         }
 
         /// <summary>Enables Start / Remove / Clear based on logging state and whether rows exist.</summary>
         private void RefreshRowActionState()
         {
-            bool configurable = !service.IsLogging && !isLoggerActive;
+            bool configurable = !service.IsLogging && !adapter.Blocked;
             bool hasRows = channelsGrid.Rows.Count > 0;
             startButton.Enabled = configurable && hasRows;
             removeChannelButton.Enabled = configurable && hasRows;
@@ -255,12 +250,6 @@ namespace LotusECMLogger.Controls
 
         private void StartButton_Click(object? sender, EventArgs e)
         {
-            if (isLoggerActive)
-            {
-                MessageBox.Show("Cannot start high-speed logging while the main logger is active. Stop it first.",
-                    "Logger Active", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
 
             var selected = GatherSelectedChannels();
             if (selected.Count == 0)
@@ -338,10 +327,10 @@ namespace LotusECMLogger.Controls
 
         private async void TestConnectionButton_Click(object? sender, EventArgs e)
         {
-            if (isLoggerActive || service.IsLogging)
+            if (service.IsLogging)
             {
-                MessageBox.Show("Stop logging before testing the connection.",
-                    "Logger Active", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show("Stop high-speed logging before testing the connection.",
+                    "Logging Active", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
@@ -366,7 +355,7 @@ namespace LotusECMLogger.Controls
             finally
             {
                 // Re-enable without clobbering the status message we just set.
-                bool configurable = !service.IsLogging && !isLoggerActive;
+                bool configurable = !service.IsLogging && !adapter.Blocked;
                 testConnectionButton.Enabled = configurable;
                 addChannelsButton.Enabled = configurable;
                 RefreshRowActionState();
@@ -480,7 +469,7 @@ namespace LotusECMLogger.Controls
         private void UpdateUIState()
         {
             bool logging = service.IsLogging;
-            bool configurable = !logging && !isLoggerActive;
+            bool configurable = !logging && !adapter.Blocked;
 
             presetComboBox.Enabled = configurable && hasPresets;
             csvPathTextBox.Enabled = configurable;

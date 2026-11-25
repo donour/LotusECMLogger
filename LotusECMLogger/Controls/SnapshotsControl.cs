@@ -14,7 +14,9 @@ namespace LotusECMLogger.Controls
 	public partial class SnapshotsControl : UserControl
 	{
 		private readonly CcpSessionHost host;
-		private bool isLoggerActive;
+		// Whether someone else (OBD-II logging, the ABS probe or sniff, the T6 flasher) holds the whole
+		// adapter; the broker refuses every other use meanwhile (J2534-session-broker-plan.md, Phase 7).
+		private readonly AdapterAvailability adapter;
 		private CancellationTokenSource? running;
 		private Button? runningButton;
 
@@ -26,22 +28,13 @@ namespace LotusECMLogger.Controls
 		[DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
 		internal Action<string, string, MessageBoxIcon> Notify { get; set; }
 
-		[DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
-		public bool IsLoggerActive
-		{
-			get => isLoggerActive;
-			set
-			{
-				isLoggerActive = value;
-				UpdateButtons();
-			}
-		}
-
 		public SnapshotsControl(CcpSessionHost host)
 		{
 			this.host = host ?? throw new ArgumentNullException(nameof(host));
 
 			InitializeComponent();
+
+			adapter = AdapterAvailability.Track(this, UpdateButtons);
 
 			// Every button reads "Download"; the group box titles say which region, so the three
 			// buttons stay the same width instead of being sized by their labels.
@@ -113,7 +106,7 @@ namespace LotusECMLogger.Controls
 		private void UpdateButtons()
 		{
 			foreach (var button in new[] { downloadLearnedDataButton, downloadCalibrationButton, downloadProgramButton })
-				button.Enabled = running is null ? !isLoggerActive : ReferenceEquals(button, runningButton);
+				button.Enabled = running is null ? !adapter.Blocked : ReferenceEquals(button, runningButton);
 		}
 
 		private static void SetStatus(Label label, string text, Color color)
@@ -131,12 +124,6 @@ namespace LotusECMLogger.Controls
 			if (running is not null)
 			{
 				if (ReferenceEquals(button, runningButton)) running.Cancel();
-				return;
-			}
-			if (isLoggerActive)
-			{
-				MessageBox.Show($"Cannot download {region.Name} while logging is active. Please stop logging first.",
-					"Logger Active", MessageBoxButtons.OK, MessageBoxIcon.Warning);
 				return;
 			}
 

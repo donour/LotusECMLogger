@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using LotusECMLogger.Services.Broker;
 
 namespace LotusECMLogger
 {
@@ -13,6 +14,12 @@ namespace LotusECMLogger
         private readonly Button cmdButton;
         private readonly Button closeButton;
         private readonly Label statusLabel;
+
+        /// <summary>How the flasher names itself when the broker refuses someone else.</summary>
+        internal const string LeaseHolder = "the T6 flasher";
+
+        // The app's adapter broker. EFI_PROT opens the adapter itself, so the app keeps it closed while it runs.
+        private readonly J2534Broker broker = J2534Broker.Shared;
 
         public T6EFlasher()
         {
@@ -369,32 +376,56 @@ namespace LotusECMLogger
             // page, not Unicode. A CRP path with characters outside that code page (an accented user name, a localized
             // OneDrive folder) would reach it as '?' and fail. Investigate with such a path; if it fails, mitigate, e.g.
             // copy the CRP to an ASCII-only path before launching, or refuse such paths with an explanation.
-            Process? process;
+            // EFI_PROT opens the J2534 adapter itself, so the app closes its own use of it first (DeviceReleased,
+            // J2534-session-broker-plan.md §3.4) and keeps every tab off it until the flasher's window closes.
+            // Refused while anything in the app holds the adapter, which the flasher could then not open.
+            BrokerLease released;
             try
             {
-                process = StartFlasher(programPath, fileToFlash, workingDirectoryTextBox.Text);
+                released = broker.Acquire(LeaseKind.DeviceReleased, LeaseHolder);
             }
-            catch (Exception ex)
+            catch (BrokerBusyException ex)
             {
-                MessageBox.Show($"Error launching the flash program: {ex.Message}", "Launch Error",
-                    MessageBoxButtons.OK, MessageBoxIcon.Error);
-                statusLabel.Text = "Error occurred";
-                return;
-            }
-            if (process is null)
-            {
-                statusLabel.Text = "Program launch failed";
+                MessageBox.Show($"{ex.Message} Stop it before flashing: the flash program needs the adapter to itself.",
+                    "Adapter In Use", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                statusLabel.Text = "Adapter in use";
                 return;
             }
 
-            // One flasher at a time: two would fight over the J2534 device mid-flash.
-            cmdButton.Enabled = false;
-            statusLabel.Text = $"Flasher running in its own window (PID {process.Id}). Follow its prompts there.";
-            statusLabel.ForeColor = SystemColors.ControlText;
-            using (process)
+            try
             {
-                try { await process.WaitForExitAsync(); }
-                catch (Exception ex) { Debug.WriteLine($"T6EFlasher: waiting for the flasher failed: {ex.Message}"); }
+                Process? process;
+                try
+                {
+                    process = StartFlasher(programPath, fileToFlash, workingDirectoryTextBox.Text);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Error launching the flash program: {ex.Message}", "Launch Error",
+                        MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    statusLabel.Text = "Error occurred";
+                    return;
+                }
+                if (process is null)
+                {
+                    statusLabel.Text = "Program launch failed";
+                    return;
+                }
+
+                // One flasher at a time: two would fight over the J2534 device mid-flash.
+                cmdButton.Enabled = false;
+                statusLabel.Text = $"Flasher running in its own window (PID {process.Id}). Follow its prompts there.";
+                statusLabel.ForeColor = SystemColors.ControlText;
+                using (process)
+                {
+                    try { await process.WaitForExitAsync(); }
+                    catch (Exception ex) { Debug.WriteLine($"T6EFlasher: waiting for the flasher failed: {ex.Message}"); }
+                }
+            }
+            finally
+            {
+                // Even when this window was closed first: the adapter stays released for as long as EFI_PROT ran.
+                released.Dispose();
             }
             if (IsDisposed) return;
             cmdButton.Enabled = true;

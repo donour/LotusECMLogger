@@ -15,20 +15,11 @@ namespace LotusECMLogger.Controls
 
         private enum HighSpeedState { Unknown, Unavailable, Available }
 
-        private bool _isLoggerActive;
-        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
-        public bool IsLoggerActive
-        {
-            get => _isLoggerActive;
-            set
-            {
-                _isLoggerActive = value;
-                resetButton.Enabled = !value;
-                setVinButton.Enabled = !value;
-                dynoModeButton.Enabled = !value;
-            }
-        }
+        // Whether someone else (OBD-II logging, the ABS probe or sniff, the T6 flasher) holds the whole
 
+        // adapter; the broker refuses every other use meanwhile (J2534-session-broker-plan.md, Phase 7).
+
+        private readonly AdapterAvailability adapter;
         /// <summary>
         /// The logger whose Identify backs the high-speed availability indicator. The default has its own CCP
         /// session; MainWindow replaces it with the logger on the application's shared session.
@@ -49,6 +40,7 @@ namespace LotusECMLogger.Controls
         public VehicleInfoControl()
         {
             InitializeComponent();
+            adapter = AdapterAvailability.Track(this, UpdateAdapterButtons);
             _vehicleInfoService = new VehicleInfoService();
             _resetService = new J2534ObdResetService();
             _vinSetService = new J2534VinSetService();
@@ -77,12 +69,6 @@ namespace LotusECMLogger.Controls
 
         private async void setVinButton_Click(object? sender, EventArgs e)
         {
-            if (_isLoggerActive)
-            {
-                MessageBox.Show("Cannot set VIN while logging is active. Please stop the logger first.", "Logger Active", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-
             var currentVin = vehicleDataSnapshot
                 .FirstOrDefault(r => r.Name == "Vehicle Identification Number")?.Value?.Trim();
 
@@ -96,12 +82,6 @@ namespace LotusECMLogger.Controls
 
         private void resetButton_Click(object? sender, EventArgs e)
         {
-            if (_isLoggerActive)
-            {
-                MessageBox.Show("Cannot perform reset while logging is active. Please stop the logger first.", "Logger Active", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-
             var result = MessageBox.Show(
                 "Are you sure you need to perform an OBD-II learned data reset?\n\n" +
                 "This operation cannot be reversed and may affect drivability until the ECU relearns.\n\n" +
@@ -130,19 +110,13 @@ namespace LotusECMLogger.Controls
             }
             finally
             {
-                resetButton.Enabled = !_isLoggerActive;
+                resetButton.Enabled = !adapter.Blocked;
                 resetButton.Text = "Perform Reset";
             }
         }
 
         private async void dynoModeButton_Click(object? sender, EventArgs e)
         {
-            if (_isLoggerActive)
-            {
-                MessageBox.Show("Cannot enable dyno mode while logging is active. Please stop the logger first.", "Logger Active", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-
             var result = MessageBox.Show(
                 "Enable dyno mode?\n\n" +
                 "Dyno mode will inhibit ECU faults from external systems such as ABS.\n\n" +
@@ -171,7 +145,7 @@ namespace LotusECMLogger.Controls
             }
             finally
             {
-                dynoModeButton.Enabled = !_isLoggerActive;
+                dynoModeButton.Enabled = !adapter.Blocked;
                 dynoModeButton.Text = "Dyno Mode";
             }
         }
@@ -183,13 +157,13 @@ namespace LotusECMLogger.Controls
             SetHighSpeedIndicator(HighSpeedState.Unknown);
 
             // Snapshot UI/shared state on the UI thread; the worker must not read instance fields.
-            bool loggerActive = _isLoggerActive;
+            bool adapterBlocked = adapter.Blocked;
 
             try
             {
                 // All blocking J2534 work runs off the UI thread so the window stays responsive.
                 var (readings, highSpeedState) =
-                    await Task.Run(() => GatherVehicleData(loggerActive));
+                    await Task.Run(() => GatherVehicleData(adapterBlocked));
 
                 // Resumes on the UI thread — safe to touch controls and the shared field.
                 vehicleDataSnapshot = readings;
@@ -215,7 +189,7 @@ namespace LotusECMLogger.Controls
         // Runs on a thread-pool thread. Performs all J2534 I/O and returns the data; touches no UI
         // and no instance fields that the UI thread also uses, so it cannot race with the UI.
         private (List<VehicleParameterReading> Readings, HighSpeedState HighSpeedState)
-            GatherVehicleData(bool loggerActive)
+            GatherVehicleData(bool adapterBlocked)
         {
             // Read all ECU identification and learned data. The service opens and disposes its own
             // ISO15765 session, so the probe below (which opens its own CAN session) runs only after
@@ -225,9 +199,17 @@ namespace LotusECMLogger.Controls
             // Probe whether the high-speed channel logger is present, using the same open-session +
             // identify handshake as the High-Speed Log tab's Test Connection button. Opens its own
             // temporary CAN session, so it runs after the channels above are closed.
-            var highSpeedState = ProbeHighSpeedState(loggerActive, ecuAlive: readings.Count > 0);
+            var highSpeedState = ProbeHighSpeedState(adapterBlocked, ecuAlive: readings.Count > 0);
 
             return (readings, highSpeedState);
+        }
+
+        /// <summary>The buttons that write to the ECU, off while someone else holds the whole adapter.</summary>
+        private void UpdateAdapterButtons()
+        {
+            resetButton.Enabled = !adapter.Blocked;
+            setVinButton.Enabled = !adapter.Blocked;
+            dynoModeButton.Enabled = !adapter.Blocked;
         }
 
         private void UpdateVehicleInfoView()
@@ -254,10 +236,10 @@ namespace LotusECMLogger.Controls
         // open-session reply doubles as the logger's own liveness check, but a disabled logger and an
         // unreachable ECU both yield no reply — so when the vehicle-data load proved the ECU is alive
         // (ecuAlive), no session reply means the logger is genuinely Unavailable, not Unknown.
-        private HighSpeedState ProbeHighSpeedState(bool loggerActive, bool ecuAlive)
+        private HighSpeedState ProbeHighSpeedState(bool adapterBlocked, bool ecuAlive)
         {
-            // Skip while logging holds the J2534 device; the probe opens its own CAN session.
-            if (loggerActive)
+            // Skip while someone else holds the whole adapter: the probe needs a CCP session, which would be refused.
+            if (adapterBlocked)
                 return HighSpeedState.Unknown;
 
             try

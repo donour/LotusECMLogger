@@ -14,7 +14,9 @@ namespace LotusECMLogger.Controls
         private readonly ListView usageView = NewListView();
         private readonly ListView eventsView = NewListView();
         private readonly Label notesLabel = new();
-        private bool isLoggerActive;
+        // Whether someone else (OBD-II logging, the ABS probe or sniff, the T6 flasher) holds the whole
+        // adapter; the broker refuses every other use meanwhile (J2534-session-broker-plan.md, Phase 7).
+        private readonly AdapterAvailability adapter;
         private bool isBusy;
 
         public PerformanceHistoryControl() : this(new J2534PerformanceHistoryService())
@@ -25,18 +27,7 @@ namespace LotusECMLogger.Controls
         {
             this.service = service;
             BuildUi();
-        }
-
-        /// <summary>The history reader needs exclusive access to the J2534 device.</summary>
-        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
-        public bool IsLoggerActive
-        {
-            get => isLoggerActive;
-            set
-            {
-                isLoggerActive = value;
-                UpdateButtonState();
-            }
+            adapter = AdapterAvailability.Track(this, UpdateButtonState);
         }
 
         private void BuildUi()
@@ -125,12 +116,6 @@ namespace LotusECMLogger.Controls
 
         private async void ReadButton_Click(object? sender, EventArgs e)
         {
-            if (isLoggerActive)
-            {
-                MessageBox.Show("Stop active logging before reading performance history.", "Logger Active",
-                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
 
             SetBusy(true);
             readButton.Text = "Reading...";
@@ -251,6 +236,6 @@ namespace LotusECMLogger.Controls
             UpdateButtonState();
         }
 
-        private void UpdateButtonState() => readButton.Enabled = !isBusy && !isLoggerActive;
+        private void UpdateButtonState() => readButton.Enabled = !isBusy && !adapter.Blocked;
     }
 }

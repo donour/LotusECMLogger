@@ -1,5 +1,6 @@
 using SAE.J2534;
 using LotusECMLogger.Services;
+using LotusECMLogger.Services.Broker;
 using System.Collections.Concurrent;
 using System.Runtime.InteropServices;
 
@@ -14,11 +15,6 @@ namespace LotusECMLogger.Controls
         private const uint ES_SYSTEM_REQUIRED = 0x00000001u;
 
         public const int LogFileToUIRatio = 8; // UI update every 8th log entry
-
-        /// <summary>
-        /// Event fired when logger state changes (started/stopped)
-        /// </summary>
-        public event Action<bool>? LoggerStateChanged;
 
         /// <summary>
         /// Event fired when refresh rate is updated
@@ -58,7 +54,6 @@ namespace LotusECMLogger.Controls
                     _isLogging = value;
                     startLoggerButton.Enabled = !value;
                     stopLoggerButton.Enabled = value;
-                    LoggerStateChanged?.Invoke(value);
                 }
             }
         }
@@ -129,32 +124,40 @@ namespace LotusECMLogger.Controls
 
         private void StartLoggerButton_Click(object? sender, EventArgs e)
         {
+            if (string.IsNullOrWhiteSpace(selectedObdConfigName))
+            {
+                MessageBox.Show("Please select an OBD configuration before starting the logger.", "Configuration Required", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            MultiECUConfiguration config;
+            try
+            {
+                // Load configuration (supports both legacy single-ECU and new multi-ECU formats)
+                config = MultiECUConfiguration.LoadFromConfig(selectedObdConfigName);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Failed to load OBD configuration: {ex.Message}", "Config Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
             try
             {
                 ResetLiveDataView();
                 IsLogging = true;
                 var outfn = LoggerPaths.TimestampedCsvPath("LiveData");
-
-                if (string.IsNullOrWhiteSpace(selectedObdConfigName))
-                {
-                    MessageBox.Show("Please select an OBD configuration before starting the logger.", "Configuration Required", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    return;
-                }
-
-                // Load configuration (supports both legacy single-ECU and new multi-ECU formats)
-                MultiECUConfiguration config = MultiECUConfiguration.LoadFromConfig(selectedObdConfigName);
                 logger = new J2534LoggingService(outfn, Logger_DataLogged, Logger_ExceptionOccurred, config);
                 logger.Start();
                 currentLogfileName.Text = outfn;
             }
-            catch (J2534Exception ex)
+            // The broker refused (another feature holds the adapter), the adapter is missing or busy, or it
+            // refused the logger's channel or filters. Start has already given the adapter back.
+            catch (Exception ex) when (ex is J2534Exception or BrokerBusyException or IOException)
             {
-                MessageBox.Show(ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                IsLogging = false;
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Failed to load OBD configuration: {ex.Message}", "Config Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                logger?.Dispose();
+                logger = null;
+                MessageBox.Show(ex.Message, "Cannot Start Logging", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 IsLogging = false;
             }
         }
