@@ -1,4 +1,5 @@
 ﻿using SAE.J2534;
+using System.Diagnostics;
 using System.Text;
 
 namespace LotusECMLogger.Services
@@ -25,9 +26,26 @@ namespace LotusECMLogger.Services
     }
 
 
+    // Every method here addresses the engine ECU (0x7E0/0x7E8) except ReadDtcs and
+    // ClearDiagnosticInformation, which take the target ECU as an argument. Do not turn the
+    // ECU into a constructor parameter: the static builders and hard-coded 0x7E8 checks in
+    // the rest of the class would silently stay on the engine, so a TCM instance would send
+    // an engine-addressed clear.
     internal class Iso15765Service
     {
         private readonly static byte[] ECM_HEADER = [0x00, 0x00, 0x07, 0xE0];
+
+        /// <summary>
+        /// The budget the old ten-attempt ECM read loop used (10 × 250 ms). Kept as the default
+        /// so the engine read and the emissions pre-check take no longer than they did.
+        /// </summary>
+        internal static readonly TimeSpan DefaultDtcTimeout = TimeSpan.FromMilliseconds(2500);
+
+        // responsePending (NRC 0x78) means "still working": ISO 14229 allows the tester to wait
+        // P2* (5 s) for the final reply instead of re-sending. The cap stops a module that
+        // answers 0x78 forever from recreating the hang the timeout exists to prevent.
+        private const byte NrcResponsePending = 0x78;
+        internal static readonly TimeSpan ResponsePendingExtension = TimeSpan.FromSeconds(5);
 
         private readonly J2534Channel _channel;
 
@@ -129,72 +147,190 @@ namespace LotusECMLogger.Services
         }
 
         /// <summary>
-        /// Service 0x04: clears emissions-related diagnostic information — stored and pending
-        /// DTCs, freeze frame data, readiness monitor results and related stored values.
-        /// Waits for the ECU's positive response (0x44) so callers know the clear was accepted.
+        /// Service 0x04: asks one ECU to clear emissions-related diagnostic information — stored
+        /// and pending DTCs, freeze frame data, readiness monitor results and related stored
+        /// values. Waits for that ECU's positive response (0x44) so callers know the clear was
+        /// accepted. The engine (ECM) and transmission (TCM) are separate targets.
         /// </summary>
-        public (bool success, string errorMessage) ClearDiagnosticInformation()
+        public (bool success, string errorMessage) ClearDiagnosticInformation(
+            ECUDefinition ecu, TimeSpan? timeout = null)
         {
-            byte[] request = new byte[ECM_HEADER.Length + 1];
-            Array.Copy(ECM_HEADER, request, ECM_HEADER.Length);
-            request[ECM_HEADER.Length] = (byte)OBDIIMode.ClearDiagnosticTroubleCodesAndStoredValues;
-            _channel.SendMessage(request);
+            ArgumentNullException.ThrowIfNull(ecu);
+            TimeSpan effectiveTimeout = timeout ?? DefaultDtcTimeout;
 
-            for (int i = 0; i < 10; i++)
+            try
             {
-                var response = _channel.ReadMessages(1, 250);
-                if (response.Messages.Length == 0)
-                    continue;
+                var mode = OBDIIMode.ClearDiagnosticTroubleCodesAndStoredValues;
+                _channel.SendMessage(BuildDtcRequest(ecu, mode)).ThrowIfError();
 
-                var data = response.Messages[0].Data;
-                // Skip echoes of our own transmit and TX confirmation frames.
-                if (data.Length < 5 || data[2] != 0x07 || data[3] != 0xE8)
-                    continue;
+                var clock = Stopwatch.StartNew();
+                long deadlineMs = (long)effectiveTimeout.TotalMilliseconds;
+                long capMs = deadlineMs + (long)ResponsePendingExtension.TotalMilliseconds;
 
-                // Positive response: 0x44 (= 0x04 | 0x40).
-                if (data[4] == 0x44)
-                    return (true, "");
+                while (clock.ElapsedMilliseconds < deadlineMs)
+                {
+                    byte[]? data = ReadOneFrame();
+                    if (data == null)
+                        continue;
 
-                // Negative response: 0x7F 0x04 <NRC>
-                if (data.Length >= 7 && data[4] == 0x7F &&
-                    data[5] == (byte)OBDIIMode.ClearDiagnosticTroubleCodesAndStoredValues)
-                    return (false, $"ECU rejected the clear request (NRC 0x{data[6]:X2}). Try with the ignition on and the engine off.");
+                    switch (ClassifyDtcReply(ecu, mode, data, out byte nrc))
+                    {
+                        case DtcReplyKind.Positive:
+                            // Positive response: 0x44 (= 0x04 | 0x40).
+                            return (true, "");
+
+                        case DtcReplyKind.Negative:
+                            return (false,
+                                $"{ecu.Name} rejected the clear request (NRC 0x{nrc:X2}). Try with the ignition on and the engine off.");
+
+                        case DtcReplyKind.Pending:
+                            deadlineMs = Math.Min(
+                                clock.ElapsedMilliseconds + (long)ResponsePendingExtension.TotalMilliseconds,
+                                capMs);
+                            break;
+                    }
+                }
+
+                return (false, $"{ecu.Name} did not answer the clear request at 0x{ecu.RequestId:X3}.");
             }
-
-            return (false, "No response from ECU for the clear request.");
+            catch (Exception ex)
+            {
+                return (false, ex.Message);
+            }
         }
 
         /// <summary>
         /// Reads diagnostic trouble codes for a DTC service: 0x03 (stored/confirmed),
-        /// 0x07 (pending), or 0x0A (permanent). Sends the single-byte service request and
-        /// parses the positive response into individual codes. Returns an empty list when the
-        /// ECU responds with no codes.
+        /// 0x07 (pending), or 0x0A (permanent), from <paramref name="ecu"/>. Sends the
+        /// single-byte service request and parses the positive response into individual
+        /// codes. Returns an empty list when the ECU responds with no codes.
         /// </summary>
-        /// <exception cref="IOException">Thrown when the ECU does not respond.</exception>
-        public List<DiagnosticTroubleCode> ReadDtcs(OBDIIMode mode)
+        /// <param name="ecu">
+        /// Target module. <see cref="ECUDefinition.ECM"/> is the engine (0x7E0/0x7E8);
+        /// <see cref="ECUDefinition.TCM"/> is the standard second OBD ECU slot (0x7E1/0x7E9),
+        /// which is where many manufacturers put the transmission control module.
+        /// </param>
+        /// <param name="timeout">
+        /// Wall-clock budget for the answer. Defaults to <see cref="DefaultDtcTimeout"/>; a
+        /// response-pending (NRC 0x78) may extend it by up to <see cref="ResponsePendingExtension"/>.
+        /// </param>
+        /// <exception cref="DtcNoAnswerException">Thrown when the ECU stays silent.</exception>
+        /// <exception cref="IOException">Thrown when the ECU rejects the request.</exception>
+        public List<DiagnosticTroubleCode> ReadDtcs(OBDIIMode mode, ECUDefinition ecu, TimeSpan? timeout = null)
         {
-            byte[] request = new byte[ECM_HEADER.Length + 1];
-            Array.Copy(ECM_HEADER, request, ECM_HEADER.Length);
-            request[ECM_HEADER.Length] = (byte)mode;
-            _channel.SendMessage(request);
+            ArgumentNullException.ThrowIfNull(ecu);
+            return ReadDtcsCore(
+                ecu,
+                mode,
+                timeout ?? DefaultDtcTimeout,
+                request => _channel.SendMessage(request).ThrowIfError(),
+                ReadOneFrame);
+        }
 
-            byte expectedResponse = (byte)(0x40 | (byte)mode);
-
-            for (int retry = 0; retry < 10; retry++)
+        /// <summary>
+        /// Reads one message, treating "nothing arrived" as silence and any other adapter
+        /// failure as a real error. J2534 reports TIMEOUT whenever fewer messages than
+        /// requested arrived, so the message list is consumed before the status is judged.
+        /// </summary>
+        private byte[]? ReadOneFrame()
+        {
+            GetMessagesResult response = _channel.ReadMessages(1, 250);
+            if (!response.IsSuccess && !response.IsTimeout && !response.IsBufferEmpty &&
+                response.Status != ResultCode.BUFFER_OVERFLOW)
             {
-                var response = _channel.ReadMessages(1, 250);
-                if (response.Messages.Length == 0)
-                    continue;
+                throw new J2534Exception(response.Status,
+                    $"J2534 read failed while reading trouble codes: {response.Status}");
+            }
+            return response.Messages.Length == 0 ? null : response.Messages[0].Data;
+        }
 
-                // Response from ECM: [0x00, 0x00, 0x07, 0xE8] <SID|0x40> <payload...>
-                var data = response.Messages[0].Data;
-                if (data.Length < 5 || data[2] != 0x07 || data[3] != 0xE8 || data[4] != expectedResponse)
-                    continue;
+        internal static byte[] BuildDtcRequest(ECUDefinition ecu, OBDIIMode mode)
+        {
+            ArgumentNullException.ThrowIfNull(ecu);
+            return [.. ecu.GetRequestHeader(), (byte)mode];
+        }
 
-                return ParseDtcResponse(data);
+        internal enum DtcReplyKind
+        {
+            /// <summary>An echo, a reply from another module, or an unrelated service.</summary>
+            Unrelated,
+            Positive,
+            Negative,
+            /// <summary>NRC 0x78: the module is still working and will answer later.</summary>
+            Pending,
+        }
+
+        /// <summary>
+        /// Classifies one frame for a DTC request: only the targeted ECU's response ID and the
+        /// echoed service count. The SID check is what rejects the AEM wideband's Mode 01
+        /// traffic on the shared 0x7E9, and <see cref="ECUDefinition.MatchesResponse"/> rejects
+        /// the other module's codes.
+        /// </summary>
+        internal static DtcReplyKind ClassifyDtcReply(
+            ECUDefinition ecu, OBDIIMode mode, byte[] data, out byte nrc)
+        {
+            nrc = 0;
+            if (data.Length < 5 || !ecu.MatchesResponse(data))
+                return DtcReplyKind.Unrelated;
+
+            if (data[4] == (byte)(0x40 | (byte)mode))
+                return DtcReplyKind.Positive;
+
+            if (data.Length >= 7 && data[4] == 0x7F && data[5] == (byte)mode)
+            {
+                nrc = data[6];
+                return nrc == NrcResponsePending ? DtcReplyKind.Pending : DtcReplyKind.Negative;
             }
 
-            throw new IOException("No response from ECU for DTC request.");
+            return DtcReplyKind.Unrelated;
+        }
+
+        /// <summary>
+        /// The read loop behind <see cref="ReadDtcs"/>, with the transport injected so request
+        /// framing, response classification, NRC handling and the 0x78 deadline can be tested
+        /// without J2534 hardware. A poll that returns null means nothing arrived.
+        /// </summary>
+        internal static List<DiagnosticTroubleCode> ReadDtcsCore(
+            ECUDefinition ecu,
+            OBDIIMode mode,
+            TimeSpan timeout,
+            Action<byte[]> send,
+            Func<byte[]?> read)
+        {
+            ArgumentNullException.ThrowIfNull(ecu);
+            send(BuildDtcRequest(ecu, mode));
+
+            var clock = Stopwatch.StartNew();
+            long deadlineMs = (long)timeout.TotalMilliseconds;
+            long capMs = deadlineMs + (long)ResponsePendingExtension.TotalMilliseconds;
+
+            while (clock.ElapsedMilliseconds < deadlineMs)
+            {
+                byte[]? data = read();
+                if (data == null)
+                    continue;
+
+                switch (ClassifyDtcReply(ecu, mode, data, out byte nrc))
+                {
+                    case DtcReplyKind.Positive:
+                        return ParseDtcResponse(data);
+
+                    case DtcReplyKind.Negative:
+                        throw new IOException(
+                            $"{ecu.Name} rejected service 0x{(byte)mode:X2} (NRC 0x{nrc:X2}).");
+
+                    case DtcReplyKind.Pending:
+                        // Keep listening in the same window rather than re-sending to a busy
+                        // module. The cap is measured from the start of the original budget.
+                        deadlineMs = Math.Min(
+                            clock.ElapsedMilliseconds + (long)ResponsePendingExtension.TotalMilliseconds,
+                            capMs);
+                        break;
+                }
+            }
+
+            throw new DtcNoAnswerException(
+                $"{ecu.Name} did not answer service 0x{(byte)mode:X2} at 0x{ecu.RequestId:X3}.");
         }
 
         // Parses the DTC payload that follows the 4-byte header and the service response byte.
@@ -526,7 +662,7 @@ namespace LotusECMLogger.Services
         public static byte[] GetMultiMessageRequest(J2534Channel channel, OBDIIMode mode, List<int> pids)
         {
             int retry_count = 3;
-            do { 
+            do {
                 var request = BuildMultiPIDMessage(mode, pids);
                 channel.SendMessage(request);
 
@@ -539,5 +675,15 @@ namespace LotusECMLogger.Services
             throw new IOException("Failed to get multi-message response");
 
         }
+    }
+
+    /// <summary>
+    /// Thrown when a module stays silent for a DTC service. Kept distinct from a negative
+    /// response so the read plan can skip a second optional probe after a timeout while still
+    /// probing after a fast rejection.
+    /// </summary>
+    internal sealed class DtcNoAnswerException : IOException
+    {
+        public DtcNoAnswerException(string message) : base(message) { }
     }
 }

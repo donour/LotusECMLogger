@@ -12,42 +12,30 @@ namespace LotusECMLogger.Services
                 J2534Channel channel = session.OpenIso15765();
                 channel.StartMessageFilter(ECUDefinition.ECM.CreateFlowControlFilter()).ThrowIfError();
 
+                // The TCU is optional: a manual car has none, and an adapter with a filter
+                // limit must still read the engine. Install its filter beside the ECM's (the
+                // same one-channel, several-filters pattern the logger uses) and degrade to a
+                // note instead of failing the whole read.
+                var tcuFilter = channel.StartMessageFilter(ECUDefinition.TCM.CreateFlowControlFilter());
+
                 var iso = new Iso15765Service(channel);
-                var stored = iso.ReadDtcs(OBDIIMode.ShowStoredDiagnosticTroubleCodes);
+                var result = DtcReadPlan.ReadCodes(
+                    (ecu, mode, timeout) => iso.ReadDtcs(mode, ecu, timeout),
+                    includeTcu: !tcuFilter.IsError);
 
-                // Pending and permanent codes each degrade to a note instead of an error:
-                // not every firmware answers services 0x07 and 0x0A, and the stored codes
-                // are still worth showing.
-                IReadOnlyList<DiagnosticTroubleCode> pending = [];
-                string? pendingError = null;
-                try
+                if (tcuFilter.IsError)
                 {
-                    pending = iso.ReadDtcs(OBDIIMode.ShowPendingDiagnosticTroubleCodes);
-                }
-                catch (IOException ex)
-                {
-                    pendingError = ex.Message;
-                }
-
-                IReadOnlyList<DiagnosticTroubleCode> permanent = [];
-                string? permanentError = null;
-                try
-                {
-                    permanent = iso.ReadDtcs(OBDIIMode.PermanentDiagnosticTroubleCodes);
-                }
-                catch (IOException ex)
-                {
-                    permanentError = ex.Message;
+                    result = result with
+                    {
+                        Tcu = new DtcModuleResult
+                        {
+                            StoredError =
+                                $"The adapter could not route 0x{ECUDefinition.TCM.ResponseId:X3} replies: {tcuFilter.ErrorMessage}",
+                        },
+                    };
                 }
 
-                return (true, "", new DtcReadResult
-                {
-                    Stored = stored,
-                    Pending = pending,
-                    Permanent = permanent,
-                    PendingError = pendingError,
-                    PermanentError = permanentError,
-                });
+                return (true, "", result);
             }
             catch (Exception ex)
             {
@@ -63,8 +51,27 @@ namespace LotusECMLogger.Services
                 J2534Channel channel = session.OpenIso15765();
                 channel.StartMessageFilter(ECUDefinition.ECM.CreateFlowControlFilter()).ThrowIfError();
 
+                // Engine-only by design: transmission codes live in another module and are
+                // cleared by ClearTcuCodes, which the UI exposes as a separate button.
                 var iso = new Iso15765Service(channel);
-                return iso.ClearDiagnosticInformation();
+                return iso.ClearDiagnosticInformation(ECUDefinition.ECM);
+            }
+            catch (Exception ex)
+            {
+                return (false, ex.Message);
+            }
+        }
+
+        public (bool success, string errorMessage) ClearTcuCodes()
+        {
+            try
+            {
+                using var session = J2534Session.Open();
+                J2534Channel channel = session.OpenIso15765();
+                channel.StartMessageFilter(ECUDefinition.TCM.CreateFlowControlFilter()).ThrowIfError();
+
+                var iso = new Iso15765Service(channel);
+                return iso.ClearDiagnosticInformation(ECUDefinition.TCM);
             }
             catch (Exception ex)
             {

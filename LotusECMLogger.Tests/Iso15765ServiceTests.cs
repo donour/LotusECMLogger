@@ -203,5 +203,148 @@ namespace LotusECMLogger.Tests
             foreach (var form in Enum.GetValues<Mode13RequestForm>())
                 Assert.True(Iso15765Service.BuildMode13Request(form).Length - RequestHeader.Length <= 7);
         }
+
+        // ── ECU-parameterized DTC reads ─────────────────────────────────────────────────────
+
+        /// <summary>Prepends the TCU response header the J2534 channel delivers.</summary>
+        private static byte[] TcuResponse(params byte[] tail) => [0x00, 0x00, 0x07, 0xE9, .. tail];
+
+        [Fact]
+        public void BuildDtcRequest_UsesTheTargetEcuHeader()
+        {
+            Assert.Equal([0x00, 0x00, 0x07, 0xE0, 0x03],
+                Iso15765Service.BuildDtcRequest(ECUDefinition.ECM, OBDIIMode.ShowStoredDiagnosticTroubleCodes));
+            Assert.Equal([0x00, 0x00, 0x07, 0xE1, 0x03],
+                Iso15765Service.BuildDtcRequest(ECUDefinition.TCM, OBDIIMode.ShowStoredDiagnosticTroubleCodes));
+            // The TCU clear uses the same address with service 0x04.
+            Assert.Equal([0x00, 0x00, 0x07, 0xE1, 0x04],
+                Iso15765Service.BuildDtcRequest(
+                    ECUDefinition.TCM, OBDIIMode.ClearDiagnosticTroubleCodesAndStoredValues));
+        }
+
+        [Fact]
+        public void ClassifyDtcReply_RecognisesTheTcuClearPositiveResponse()
+        {
+            Assert.Equal(
+                Iso15765Service.DtcReplyKind.Positive,
+                Iso15765Service.ClassifyDtcReply(
+                    ECUDefinition.TCM,
+                    OBDIIMode.ClearDiagnosticTroubleCodesAndStoredValues,
+                    TcuResponse(0x44),
+                    out _));
+        }
+
+        [Fact]
+        public void ReadDtcs_SendsTheTargetModulesRequestAndAcceptsItsReply()
+        {
+            byte[]? sent = null;
+            var replies = new Queue<byte[]>(
+            [
+                TcuResponse(0x43, 0x02, 0x07, 0x00, 0x07, 0x21),
+            ]);
+
+            var codes = Iso15765Service.ReadDtcsCore(
+                ECUDefinition.TCM,
+                OBDIIMode.ShowStoredDiagnosticTroubleCodes,
+                TimeSpan.FromSeconds(1),
+                request => sent = request,
+                () => replies.Count > 0 ? replies.Dequeue() : null);
+
+            Assert.Equal([0x00, 0x00, 0x07, 0xE1, 0x03], sent);
+            Assert.Equal(["P0700", "P0721"], codes.Select(c => c.Code));
+        }
+
+        [Fact]
+        public void ReadDtcs_IgnoresEchoesAndTheOtherModulesCodes()
+        {
+            // The payloads differ on purpose: if routing were lost, the ECM code would show up.
+            var replies = new Queue<byte[]>(
+            [
+                [0x00, 0x00, 0x07, 0xE1, 0x03, 0x00, 0x00, 0x00], // echo of the request
+                Response(0x43, 0x01, 0x03, 0x01),                 // ECM says P0301
+                TcuResponse(0x43, 0x01, 0x07, 0x00),              // TCU says P0700
+            ]);
+
+            var codes = Iso15765Service.ReadDtcsCore(
+                ECUDefinition.TCM,
+                OBDIIMode.ShowStoredDiagnosticTroubleCodes,
+                TimeSpan.FromSeconds(1),
+                _ => { },
+                () => replies.Count > 0 ? replies.Dequeue() : null);
+
+            Assert.Equal(["P0700"], codes.Select(c => c.Code));
+        }
+
+        [Fact]
+        public void ReadDtcs_IgnoresSameAddressTrafficForAnotherService()
+        {
+            // The AEM wideband shares 0x7E1/0x7E9 and answers Mode 01 only.
+            var replies = new Queue<byte[]>(
+            [
+                TcuResponse(0x41, 0x24, 0x00, 0x00),
+                TcuResponse(0x47, 0x01, 0x01, 0x71),
+                TcuResponse(0x43, 0x01, 0x07, 0x00),
+            ]);
+
+            var codes = Iso15765Service.ReadDtcsCore(
+                ECUDefinition.TCM,
+                OBDIIMode.ShowStoredDiagnosticTroubleCodes,
+                TimeSpan.FromSeconds(1),
+                _ => { },
+                () => replies.Count > 0 ? replies.Dequeue() : null);
+
+            Assert.Equal(["P0700"], codes.Select(c => c.Code));
+        }
+
+        [Fact]
+        public void ReadDtcs_NegativeResponseThrowsIOExceptionWithNrc()
+        {
+            var ex = Assert.Throws<IOException>(() => Iso15765Service.ReadDtcsCore(
+                ECUDefinition.TCM,
+                OBDIIMode.ShowStoredDiagnosticTroubleCodes,
+                TimeSpan.FromSeconds(1),
+                _ => { },
+                () => TcuResponse(0x7F, 0x03, 0x22)));
+
+            Assert.Contains("NRC 0x22", ex.Message);
+            Assert.IsNotType<DtcNoAnswerException>(ex);
+        }
+
+        [Fact]
+        public void ReadDtcs_ResponsePendingExtendsTheDeadline()
+        {
+            int calls = 0;
+
+            // The 0x78 reply arrives after the original 50 ms budget has already run out; only
+            // the response-pending extension lets the loop consume the final answer.
+            var codes = Iso15765Service.ReadDtcsCore(
+                ECUDefinition.TCM,
+                OBDIIMode.ShowStoredDiagnosticTroubleCodes,
+                TimeSpan.FromMilliseconds(50),
+                _ => { },
+                () =>
+                {
+                    if (++calls > 1)
+                        return TcuResponse(0x43, 0x01, 0x07, 0x00);
+
+                    Thread.Sleep(60);
+                    return TcuResponse(0x7F, 0x03, 0x78);
+                });
+
+            Assert.Equal(["P0700"], codes.Select(c => c.Code));
+        }
+
+        [Fact]
+        public void ReadDtcs_SilenceThrowsDtcNoAnswerExceptionNamingTheAddress()
+        {
+            var ex = Assert.Throws<DtcNoAnswerException>(() => Iso15765Service.ReadDtcsCore(
+                ECUDefinition.TCM,
+                OBDIIMode.ShowStoredDiagnosticTroubleCodes,
+                TimeSpan.FromMilliseconds(1),
+                _ => { },
+                () => null));
+
+            Assert.Contains("0x7E1", ex.Message);
+        }
     }
 }

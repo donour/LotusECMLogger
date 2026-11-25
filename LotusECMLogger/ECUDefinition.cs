@@ -33,7 +33,8 @@ namespace LotusECMLogger
         };
 
         /// <summary>
-        /// Standard TCM definition (0x7E1/0x7E9) - also commonly used for aftermarket devices
+        /// Standard second OBD-II ECU slot (0x7E1/0x7E9), conventionally the TCM; also commonly
+        /// used by aftermarket devices such as the AEM wideband.
         /// </summary>
         public static ECUDefinition TCM => new()
         {

@@ -28,6 +28,7 @@ namespace LotusECMLogger.Controls
         /// </summary>
         private void InitializeComponent()
         {
+            components = new System.ComponentModel.Container();
             dtcTabControl = new TabControl();
             standardTab = new TabPage();
             mode13Tab = new TabPage();
@@ -36,7 +37,9 @@ namespace LotusECMLogger.Controls
             readCodesButton = new Button();
             readFreezeFrameButton = new Button();
             clearCodesButton = new Button();
+            clearTcuCodesButton = new Button();
             statusLabel = new Label();
+            statusToolTip = new ToolTip(components);
             resultsSplit = new SplitContainer();
             dtcListView = new ListView();
             freezeFrameListView = new ListView();
@@ -98,18 +101,19 @@ namespace LotusECMLogger.Controls
             topPanel.Controls.Add(readCodesButton);
             topPanel.Controls.Add(readFreezeFrameButton);
             topPanel.Controls.Add(clearCodesButton);
+            topPanel.Controls.Add(clearTcuCodesButton);
             topPanel.Controls.Add(statusLabel);
             topPanel.Dock = DockStyle.Top;
             topPanel.Location = new Point(0, 0);
             topPanel.Name = "topPanel";
-            topPanel.Size = new Size(600, 60);
+            topPanel.Size = new Size(600, 96);
             topPanel.TabIndex = 4;
             //
             // readCodesButton
             //
-            readCodesButton.Location = new Point(12, 12);
+            readCodesButton.Location = new Point(12, 6);
             readCodesButton.Name = "readCodesButton";
-            readCodesButton.Size = new Size(120, 32);
+            readCodesButton.Size = new Size(120, 30);
             readCodesButton.TabIndex = 0;
             readCodesButton.Text = "Read Codes";
             readCodesButton.UseVisualStyleBackColor = true;
@@ -117,9 +121,9 @@ namespace LotusECMLogger.Controls
             //
             // readFreezeFrameButton
             //
-            readFreezeFrameButton.Location = new Point(138, 12);
+            readFreezeFrameButton.Location = new Point(138, 6);
             readFreezeFrameButton.Name = "readFreezeFrameButton";
-            readFreezeFrameButton.Size = new Size(150, 32);
+            readFreezeFrameButton.Size = new Size(160, 30);
             readFreezeFrameButton.TabIndex = 1;
             readFreezeFrameButton.Text = "Read Freeze Frame";
             readFreezeFrameButton.UseVisualStyleBackColor = true;
@@ -127,26 +131,36 @@ namespace LotusECMLogger.Controls
             //
             // clearCodesButton
             //
-            clearCodesButton.Location = new Point(294, 12);
+            clearCodesButton.Location = new Point(12, 40);
             clearCodesButton.Name = "clearCodesButton";
-            clearCodesButton.Size = new Size(120, 32);
+            clearCodesButton.Size = new Size(160, 30);
             clearCodesButton.TabIndex = 2;
-            clearCodesButton.Text = "Clear Codes";
+            clearCodesButton.Text = "Clear Engine Codes";
             clearCodesButton.UseVisualStyleBackColor = true;
             clearCodesButton.Click += clearCodesButton_Click;
             //
+            // clearTcuCodesButton
+            //
+            clearTcuCodesButton.Location = new Point(178, 40);
+            clearTcuCodesButton.Name = "clearTcuCodesButton";
+            clearTcuCodesButton.Size = new Size(200, 30);
+            clearTcuCodesButton.TabIndex = 3;
+            clearTcuCodesButton.Text = "Clear Transmission Codes";
+            clearTcuCodesButton.UseVisualStyleBackColor = true;
+            clearTcuCodesButton.Click += clearTcuCodesButton_Click;
+            //
             // statusLabel
             //
-            statusLabel.AutoSize = true;
-            statusLabel.Location = new Point(426, 21);
+            statusLabel.AutoEllipsis = true;
+            statusLabel.Location = new Point(12, 74);
             statusLabel.Name = "statusLabel";
-            statusLabel.Size = new Size(0, 15);
-            statusLabel.TabIndex = 3;
+            statusLabel.Size = new Size(576, 15);
+            statusLabel.TabIndex = 4;
             //
             // resultsSplit
             //
             resultsSplit.Dock = DockStyle.Fill;
-            resultsSplit.Location = new Point(0, 60);
+            resultsSplit.Location = new Point(0, 96);
             resultsSplit.Name = "resultsSplit";
             resultsSplit.Orientation = Orientation.Horizontal;
             //
@@ -157,7 +171,7 @@ namespace LotusECMLogger.Controls
             // resultsSplit.Panel2
             //
             resultsSplit.Panel2.Controls.Add(freezeFrameListView);
-            resultsSplit.Size = new Size(600, 429);
+            resultsSplit.Size = new Size(600, 393);
             resultsSplit.SplitterDistance = 257;
             resultsSplit.TabIndex = 5;
             //
@@ -217,9 +231,11 @@ namespace LotusECMLogger.Controls
         private Button readCodesButton;
         private Button readFreezeFrameButton;
         private Button clearCodesButton;
+        private Button clearTcuCodesButton;
         private SplitContainer resultsSplit;
         private ListView dtcListView;
         private ListView freezeFrameListView;
         private Label statusLabel;
+        private ToolTip statusToolTip;
     }
 }
