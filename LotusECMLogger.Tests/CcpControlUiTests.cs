@@ -1,11 +1,11 @@
 using System.Buffers.Binary;
-using System.Runtime.ExceptionServices;
 using System.Text;
 using LotusECMLogger.Controls;
 using LotusECMLogger.Services;
 using LotusECMLogger.Services.Ccp;
 using LotusECMLogger.Services.Ccp.Simulation;
 using LotusECMLogger.Services.Tuning;
+using static LotusECMLogger.Tests.UiTestHost;
 
 namespace LotusECMLogger.Tests;
 
@@ -431,31 +431,6 @@ public class CcpControlUiTests
             bytes[44 + i * 6 + 4] = entries[i].Size;
         }
         return bytes;
-    }
-
-    /// <summary>Runs <paramref name="body"/> on an off-screen form inside Application.Run, as the app does.</summary>
-    private static void RunInMessageLoop(Func<Form, Task> body)
-    {
-        ExceptionDispatchInfo? failure = null;
-        var thread = new Thread(() =>
-        {
-            using var form = new Form
-            {
-                StartPosition = FormStartPosition.Manual, Location = new Point(-4000, -4000),
-                ShowInTaskbar = false, Size = new Size(1100, 820),
-            };
-            form.Shown += async (_, _) =>
-            {
-                try { await body(form); }
-                catch (Exception ex) { failure = ExceptionDispatchInfo.Capture(ex); }
-                finally { form.Close(); }
-            };
-            Application.Run(form);
-        });
-        thread.SetApartmentState(ApartmentState.STA);
-        thread.Start();
-        if (!thread.Join(TimeSpan.FromMinutes(3))) Assert.Fail("The UI test did not finish.");
-        failure?.Throw();
     }
 
     private static async Task WaitUntil(Func<bool> condition, string what, TextBox log, int seconds)

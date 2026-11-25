@@ -27,11 +27,11 @@ namespace LotusECMLogger.Services.Broker
             if (device.IsError)
             {
                 // The OpenPort 2.0 returns DEVICE_NOT_CONNECTED, with no message, both when it is unplugged and when
-                // it is already open (AdapterProbe, 2026-11-25), so the message names both. Until the OBD logger, CCP
-                // and ABS move onto the broker (plan Phases 4-6), "already open" can also be this app.
+                // it is already open (measured 2026-11-25, plan Phase 1), so the message names both. Within this app
+                // only the broker opens the device, so "already open" means another program.
                 if (device.Status == ResultCode.DEVICE_NOT_CONNECTED)
                     throw new IOException(
-                        $"The J2534 adapter ({apis[0].Name}) is not connected, or is already in use by OBD-II logging, a CCP session, the ABS tab or another program.");
+                        $"The J2534 adapter ({apis[0].Name}) is not connected, or another program is using it.");
                 throw new J2534Exception(device.Status, device.ErrorMessage);
             }
             return new Device(device.Value);

@@ -43,6 +43,10 @@ namespace LotusECMLogger.Controls
         private readonly List<string> displayOrder = new();
         private readonly Dictionary<string, ListViewItem> rowsByName = new();
 
+        // Whether someone else (the ABS probe or sniff, the T6 flasher) holds the whole adapter, which refuses the
+        // logger's own whole-adapter lease; logging itself does not count (J2534-session-broker-plan.md, Phase 7).
+        private readonly AdapterAvailability adapter;
+
         private bool _isLogging = false;
         public bool IsLogging
         {
@@ -52,15 +56,26 @@ namespace LotusECMLogger.Controls
                 if (_isLogging != value)
                 {
                     _isLogging = value;
-                    startLoggerButton.Enabled = !value;
-                    stopLoggerButton.Enabled = value;
+                    UpdateButtons();
                 }
             }
+        }
+
+        /// <summary>
+        /// Start is off while logging and while someone else holds the whole adapter. A CCP session or another shared
+        /// use also refuses the start, but only when it is tried, with the holder's name: greying the button for every
+        /// shared lease would hide why.
+        /// </summary>
+        private void UpdateButtons()
+        {
+            startLoggerButton.Enabled = !_isLogging && !adapter.Blocked;
+            stopLoggerButton.Enabled = _isLogging;
         }
 
         public OBDLoggerControl()
         {
             InitializeComponent();
+            adapter = AdapterAvailability.Track(this, UpdateButtons, null, J2534LoggingService.LeaseHolder);
 
             // Enable double buffering for smoother scrolling
             liveDataView.GetType().GetProperty("DoubleBuffered", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)

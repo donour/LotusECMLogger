@@ -1,8 +1,8 @@
-using System.Runtime.ExceptionServices;
 using LotusECMLogger.Controls;
 using LotusECMLogger.Services;
 using LotusECMLogger.Services.Broker;
 using LotusECMLogger.Tests.Fakes;
+using static LotusECMLogger.Tests.UiTestHost;
 
 namespace LotusECMLogger.Tests
 {
@@ -104,31 +104,6 @@ namespace LotusECMLogger.Tests
                 if (DateTime.UtcNow > deadline) Assert.Fail("The control was not updated.");
                 await Task.Delay(10);
             }
-        }
-
-        /// <summary>Runs <paramref name="body"/> on an off-screen form inside Application.Run, as the app does.</summary>
-        private static void RunInMessageLoop(Func<Form, Task> body)
-        {
-            ExceptionDispatchInfo? failure = null;
-            var thread = new Thread(() =>
-            {
-                using var form = new Form
-                {
-                    StartPosition = FormStartPosition.Manual, Location = new Point(-4000, -4000),
-                    ShowInTaskbar = false, Size = new Size(200, 100),
-                };
-                form.Shown += async (_, _) =>
-                {
-                    try { await body(form); }
-                    catch (Exception ex) { failure = ExceptionDispatchInfo.Capture(ex); }
-                    finally { form.Close(); }
-                };
-                Application.Run(form);
-            });
-            thread.SetApartmentState(ApartmentState.STA);
-            thread.Start();
-            if (!thread.Join(TimeSpan.FromMinutes(1))) Assert.Fail("The UI test did not finish.");
-            failure?.Throw();
         }
     }
 }
