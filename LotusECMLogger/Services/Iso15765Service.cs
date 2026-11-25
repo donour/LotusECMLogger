@@ -107,35 +107,46 @@ namespace LotusECMLogger.Services
         }
 
         /// <summary>
-        /// Service 0x04: clears emissions-related diagnostic information — stored and pending
-        /// DTCs, freeze frame data, readiness monitor results and related stored values.
-        /// Waits for the ECU's positive response (0x44) so callers know the clear was accepted.
+        /// Service 0x04: asks the link's ECU to clear emissions-related diagnostic information —
+        /// stored and pending DTCs, freeze frame data, readiness monitor results and related
+        /// stored values. Waits for its positive response (0x44) so callers know the clear was
+        /// accepted. The engine (ECM) and transmission (TCM) are separate links.
         /// </summary>
         public (bool success, string errorMessage) ClearDiagnosticInformation()
         {
+            var ecu = _link.Ecu;
             var reply = _link.Exchange([(byte)OBDIIMode.ClearDiagnosticTroubleCodesAndStoredValues]);
             if (reply.IsPositive)
                 return (true, "");
             if (reply.Nrc is byte nrc)
-                return (false, $"ECU rejected the clear request (NRC 0x{nrc:X2}). Try with the ignition on and the engine off.");
-            return (false, "No response from ECU for the clear request.");
+                return (false, $"{ecu.Name} rejected the clear request (NRC 0x{nrc:X2}). Try with the ignition on and the engine off.");
+            return (false, $"No response from {ecu.Name} for the clear request at 0x{ecu.RequestId:X3}.");
         }
 
         /// <summary>
         /// Reads diagnostic trouble codes for a DTC service: 0x03 (stored/confirmed),
-        /// 0x07 (pending), or 0x0A (permanent). Sends the single-byte service request and
-        /// parses the positive response into individual codes. Returns an empty list when the
-        /// ECU responds with no codes.
+        /// 0x07 (pending), or 0x0A (permanent), from the link's ECU. Sends the single-byte
+        /// service request and parses the positive response into individual codes. Returns an
+        /// empty list when the ECU responds with no codes. The link only accepts replies from its
+        /// own response ID with the matching service, which is what rejects the other module's
+        /// codes and the AEM wideband's Mode 01 traffic on the shared 0x7E9.
         /// </summary>
-        /// <exception cref="IOException">Thrown when the ECU rejects the request or does not respond.</exception>
-        public List<DiagnosticTroubleCode> ReadDtcs(OBDIIMode mode)
+        /// <param name="timeoutMs">
+        /// Wait for the answer; a response-pending (NRC 0x78) extends it inside the link.
+        /// </param>
+        /// <exception cref="DtcNoAnswerException">Thrown when the ECU stays silent.</exception>
+        /// <exception cref="IOException">Thrown when the ECU rejects the request.</exception>
+        public List<DiagnosticTroubleCode> ReadDtcs(OBDIIMode mode,
+            int timeoutMs = DiagnosticTiming.DefaultReplyTimeoutMs)
         {
-            var reply = _link.Exchange([(byte)mode]);
+            var ecu = _link.Ecu;
+            var reply = _link.Exchange([(byte)mode], timeoutMs: timeoutMs);
             if (reply.Message is byte[] data)
                 return ParseDtcResponse(data);
             if (reply.Nrc is byte nrc)
-                throw new IOException($"ECU rejected the DTC request (NRC 0x{nrc:X2}).");
-            throw new IOException("No response from ECU for DTC request.");
+                throw new IOException($"{ecu.Name} rejected service 0x{(byte)mode:X2} (NRC 0x{nrc:X2}).");
+            throw new DtcNoAnswerException(
+                $"No response from {ecu.Name} for service 0x{(byte)mode:X2} at 0x{ecu.RequestId:X3}.");
         }
 
         // Parses the DTC payload that follows the 4-byte header and the service response byte.
@@ -371,5 +382,15 @@ namespace LotusECMLogger.Services
             }
             throw new IOException("Failed to get multi-message response");
         }
+    }
+
+    /// <summary>
+    /// Thrown when a module stays silent for a DTC service. Kept distinct from a negative
+    /// response so the read plan can skip a second optional probe after a timeout while still
+    /// probing after a fast rejection.
+    /// </summary>
+    internal sealed class DtcNoAnswerException : IOException
+    {
+        public DtcNoAnswerException(string message) : base(message) { }
     }
 }

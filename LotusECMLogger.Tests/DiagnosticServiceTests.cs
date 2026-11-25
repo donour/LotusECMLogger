@@ -1,4 +1,4 @@
-using System.Text;
+﻿using System.Text;
 using LotusECMLogger.Services;
 using LotusECMLogger.Tests.Fakes;
 
@@ -35,9 +35,13 @@ namespace LotusECMLogger.Tests
             Assert.Empty(result.Permanent);
             Assert.Null(result.PendingError);
             Assert.Null(result.PermanentError);
-            Assert.Equal(["03", "07", "0A"], links.ExchangedHex);
-            Assert.Equal(1, links.LinksOpened);
+            // The engine's three services, then one TCU probe that times out (no TCU scripted).
+            Assert.Equal(["03", "07", "0A", "03"], links.ExchangedHex);
+            Assert.Equal(ECUDefinition.TCM.ResponseId, links.Exchanges[^1].Ecu.ResponseId);
+            Assert.Equal(2, links.LinksOpened);
             Assert.Equal(0, links.LinksOpen);
+            Assert.NotNull(result.Tcu);
+            Assert.Contains("0x7E1", result.Tcu!.StoredError);
         }
 
         [Fact]
@@ -100,6 +104,86 @@ namespace LotusECMLogger.Tests
             var (answered, silenceError) = new J2534DtcService(new ScriptedLinkProvider()).ClearCodes();
             Assert.False(answered);
             Assert.Contains("No response", silenceError);
+        }
+
+        [Fact]
+        public void Dtc_ReadCodes_ReadsTheTcuSeparatelyFromTheEngine()
+        {
+            // The payloads differ on purpose: if routing were lost, the engine code would show up
+            // under the TCU or the other way round.
+            var links = new ScriptedLinkProvider()
+                .Reply([0x03], 0x43, 0x01, 0x03, 0x01)
+                .Reply([0x07], 0x47, 0x00)
+                .Reply([0x0A], 0x4A, 0x00)
+                .Reply(ECUDefinition.TCM, [0x03], 0x43, 0x02, 0x07, 0x00, 0x07, 0x21)
+                .Reply(ECUDefinition.TCM, [0x07], 0x47, 0x00)
+                .Reply(ECUDefinition.TCM, [0x0A], 0x4A, 0x00);
+
+            var (success, error, result) = new J2534DtcService(links).ReadCodes();
+
+            Assert.True(success, error);
+            Assert.Equal(["P0301"], result.Stored.Select(c => c.Code));
+            Assert.Equal(["P0700", "P0721"], result.Tcu!.Stored.Select(c => c.Code));
+            Assert.Null(result.Tcu.StoredError);
+            Assert.Equal(
+                [.. Enumerable.Repeat(ECUDefinition.ECM.ResponseId, 3), .. Enumerable.Repeat(ECUDefinition.TCM.ResponseId, 3)],
+                links.Exchanges.Select(e => e.Ecu.ResponseId));
+            // The engine link is closed before the TCU's opens, so only one is ever open.
+            Assert.Equal(2, links.LinksOpened);
+            Assert.Equal(0, links.LinksOpen);
+        }
+
+        [Fact]
+        public void Dtc_ReadCodes_TcuRejectionIsANoteAndPermanentIsStillTried()
+        {
+            var links = new ScriptedLinkProvider()
+                .Reply([0x03], 0x43, 0x00)
+                .Reply([0x07], 0x47, 0x00)
+                .Reply([0x0A], 0x4A, 0x00)
+                .Reply(ECUDefinition.TCM, [0x03], 0x43, 0x00)
+                .Reply(ECUDefinition.TCM, [0x07], 0x7F, 0x07, 0x11);
+
+            var (success, _, result) = new J2534DtcService(links).ReadCodes();
+
+            Assert.True(success);
+            Assert.Contains("NRC 0x11", result.Tcu!.PendingError);
+            // A fast rejection is service-specific, so 0x0A is still probed (and here times out).
+            Assert.Contains("No response", result.Tcu.PermanentError);
+            Assert.Equal(["03", "07", "0A", "03", "07", "0A"], links.ExchangedHex);
+        }
+
+        [Fact]
+        public void Dtc_ReadCodes_TcuSilenceOnPendingSkipsPermanent()
+        {
+            var links = new ScriptedLinkProvider()
+                .Reply([0x03], 0x43, 0x00)
+                .Reply([0x07], 0x47, 0x00)
+                .Reply([0x0A], 0x4A, 0x00)
+                .Reply(ECUDefinition.TCM, [0x03], 0x43, 0x00);
+
+            var (success, _, result) = new J2534DtcService(links).ReadCodes();
+
+            Assert.True(success);
+            Assert.Contains("0x7E1", result.Tcu!.PendingError);
+            Assert.Contains("not requested", result.Tcu.PermanentError);
+            Assert.Equal(["03", "07", "0A", "03", "07"], links.ExchangedHex);
+        }
+
+        [Fact]
+        public void Dtc_ClearTcuCodes_ClearsOnlyTheTcu()
+        {
+            var links = new ScriptedLinkProvider()
+                .Reply([0x04], 0x44)
+                .Reply(ECUDefinition.TCM, [0x04], 0x44);
+
+            Assert.Equal((true, ""), new J2534DtcService(links).ClearTcuCodes());
+            Assert.Equal(["04"], links.ExchangedHex);
+            Assert.Equal(ECUDefinition.TCM.ResponseId, links.Exchanges[0].Ecu.ResponseId);
+            Assert.Equal(0, links.LinksOpen);
+
+            var (answered, error) = new J2534DtcService(new ScriptedLinkProvider().Reply([0x04], 0x44)).ClearTcuCodes();
+            Assert.False(answered);
+            Assert.Contains("TCM", error);
         }
 
         // ── Mode 0x13 ──────────────────────────────────────────────────────────────────────

@@ -276,7 +276,7 @@ namespace LotusECMLogger
             AddBulletPoint("Performance History: Read the Evora ECU's stored usage histograms, standing-start times, top speeds and RPM, and low-oil-pressure and lateral-G events.");
             AddBulletPoint("Set VIN: Program a new VIN to the ECU using OBD-II Mode 0x3B.");
             AddBulletPoint("Dyno Mode: Enable the ECU's diagnostic override to inhibit faults from external systems (such as ABS) during dyno runs.");
-            AddBulletPoint("Diagnostic Trouble Codes: Read and clear DTCs from the ECU, including the Lotus-only Mode 0x13 service that returns current, confirmed, and (on Series 1 Evoras) TPMS codes in a single request.");
+            AddBulletPoint("Diagnostic Trouble Codes: Read and clear engine and transmission DTCs, including the Lotus-only Mode 0x13 service that returns the engine's current, confirmed, and (on Series 1 Evoras) TPMS codes in a single request.");
             AddBulletPoint("Emissions Check: Read every readiness monitor's support and status, the MIL, trouble codes, and the calibration ID and CVN, and judge them against California Smog Check or federal I/M rules before an inspection.");
             AddBulletPoint("Learned Data Reset: Clear adaptive learning values from the ECU.");
             AddBulletPoint("ABS/ESP Diagnostics: Read fault codes, identification, and live internal state from the Bosch ESP8 ABS module; log all four wheel speeds at 100 Hz; and run the pump/valve routines used for brake bleeding.");
@@ -314,7 +314,7 @@ namespace LotusECMLogger
             AddBulletPoint("Performance History - The Evora ECU's stored usage histograms, standing-start times, top speeds and RPM, and retained events");
             AddBulletPoint("Logging - Two sub-tabs. High-Speed Log: high-rate CAN channel logging (needs a calibration with the ECU's high-speed logger enabled). OBD-II Logging: real-time parameter logging (Logger), with a Logging Config sub-tab for editing OBD configurations");
             AddBulletPoint("ECU Coding - Modify ECU configuration");
-            AddBulletPoint("Diagnostic Trouble Codes - Read and clear fault codes, with a Mode 0x13 sub-tab that reads every code the ECU holds (including TPMS on Series 1 Evoras) in one request");
+            AddBulletPoint("Diagnostic Trouble Codes - Read and clear engine and transmission fault codes, with a Mode 0x13 sub-tab that reads every code the engine ECU holds (including TPMS on Series 1 Evoras) in one request");
             AddBulletPoint("Emissions - An OBD-II smog check / I/M pre-check: readiness monitors, MIL, trouble codes, and a pass/fail verdict for the inspection program you choose");
             AddBulletPoint("Snapshots - Download the ECU's flash (learned data, calibration, program) to files over CCP");
             AddBulletPoint("CCP - The T6 ECU's calibration interface: memory, variables, a table editor with live sync to the ECU, and recording and replay of tuning sessions");
@@ -571,15 +571,16 @@ namespace LotusECMLogger
         {
             AddHeading("Diagnostic Trouble Codes");
 
-            AddParagraph("The Diagnostic Trouble Codes (DTC) tab provides functionality for reading and clearing diagnostic trouble codes from the ECU. This feature helps you diagnose issues and monitor fault codes stored in your vehicle's engine management system.");
+            AddParagraph("The Diagnostic Trouble Codes (DTC) tab reads and clears diagnostic trouble codes from the engine ECU and, when the car has one that answers the standard services, the transmission control unit (TCU). This helps you diagnose issues and monitor faults stored in the engine management and transmission systems.");
 
-            AddParagraph("The tab has two sub-tabs. 'Standard OBD-II' - described below - uses the standard, universal OBD-II diagnostic services and is where clearing codes and reading freeze frames live. 'Mode 0x13 (All Codes)' uses a Lotus-only service that returns every code the ECU holds - including TPMS faults on Series 1 Evoras - in a single request; it has its own help topic.");
+            AddParagraph("The tab has two sub-tabs. 'Standard OBD-II' - described below - uses the standard, universal OBD-II diagnostic services and is where clearing codes and reading freeze frames live. 'Mode 0x13 (All Codes)' uses a Lotus-only service that returns every code the engine ECU holds - including TPMS faults on Series 1 Evoras - in a single request; it has its own help topic and does not read the TCU.");
 
             AddSubheading("How to Use:");
-            AddParagraph("1. Read Codes: Click 'Read Codes' to retrieve stored (Mode 03), pending (Mode 07), and permanent (Mode 0A) trouble codes from the ECU.");
-            AddParagraph("2. View Details: Each code is displayed with a plain-English description, its category, and its type (stored, pending, or permanent). Hover over a row to see the full description when it is wider than the column.");
-            AddParagraph("3. Read Freeze Frame: Click 'Read Freeze Frame' to retrieve the sensor snapshot (Mode 02) the ECU captured at the moment a trouble code set - the triggering code plus engine parameters such as RPM, coolant temperature, and fuel trims. Parameters the application cannot decode are shown as raw bytes.");
-            AddParagraph("4. Clear Codes: After addressing the underlying issues, click 'Clear Codes' to erase stored fault codes from the ECU memory.");
+            AddParagraph("1. Read Codes: Click 'Read Codes' to retrieve stored (Mode 03), pending (Mode 07), and permanent (Mode 0A) trouble codes from the engine ECU and the TCU. The engine is addressed at 0x7E0/0x7E8 and the TCU at 0x7E1/0x7E9, the standard second OBD-II ECU slot. If no module answers at 0x7E1, the engine codes are still shown and the status line says 'TCU: not available'.");
+            AddParagraph("2. View Details: Each code is displayed with its module (ECM or TCU), a plain-English description, its category, and its type (stored, pending, or permanent). Hover over a row to see the full description when it is wider than the column.");
+            AddParagraph("3. Read Freeze Frame: Click 'Read Freeze Frame' to retrieve the engine snapshot (Mode 02) the ECU captured at the moment a trouble code set - the triggering code plus engine parameters such as RPM, coolant temperature, and fuel trims. Parameters the application cannot decode are shown as raw bytes. The freeze frame is engine-only.");
+            AddParagraph("4. Clear Engine Codes: After addressing the underlying issues, click 'Clear Engine Codes' to erase stored fault codes from the engine ECU memory. Transmission codes are not affected.");
+            AddParagraph("5. Clear Transmission Codes: Click 'Clear Transmission Codes' to send the same Mode 04 clear to the TCU only. On some transmission modules this also resets learned shift data, so the transmission may relearn its behaviour; engine codes and the engine freeze frame are not affected.");
 
             AddSubheading("Understanding DTCs:");
             AddParagraph("Diagnostic trouble codes are alphanumeric codes that identify specific faults detected by the ECU. They follow a standard format:");
@@ -594,9 +595,9 @@ namespace LotusECMLogger
 
             AddSubheading("Important Notes:");
             AddParagraph("Clearing codes does not fix the underlying problem - it only erases the stored fault memory. If the problem persists, codes will return after driving the vehicle.");
-            AddParagraph("Clearing codes (OBD-II Mode 04) also erases freeze frame data and resets readiness monitors to 'not ready'. Record any freeze frame information you need before clearing.");
+            AddParagraph("Clearing engine codes (OBD-II Mode 04) also erases the engine freeze frame and resets engine readiness monitors to 'not ready'. Clearing transmission codes sends Mode 04 to the TCU instead and leaves the engine data alone. Record any freeze frame information you need before clearing.");
             AddParagraph("Pending codes are faults the ECU has detected but not yet confirmed. They mature into stored codes if the fault recurs, or clear on their own after fault-free drive cycles - a pending code that keeps disappearing points to an intermittent problem.");
-            AddParagraph("Permanent codes cannot be cleared with 'Clear Codes'. The ECU erases them on its own once the fault stays absent for the required drive cycles.");
+            AddParagraph("Permanent codes cannot be cleared with either clear button. The module erases them on its own once the fault stays absent for the required drive cycles.");
             AddParagraph("Some codes may require multiple drive cycles to reset monitoring readiness flags.");
         }
 
@@ -627,7 +628,7 @@ namespace LotusECMLogger
             AddParagraph("Even on an S1 the merge is best-effort: the ECU waits only about 40 ms for the TPMS module, and if the reply does not arrive in that window the response comes back without TPMS entries and nothing marks them as missing.");
 
             AddSubheading("Limitations:");
-            AddBulletPoint("Read-only. There is no Mode 0x13 clear - use 'Clear Codes' on the Standard OBD-II sub-tab, which clears the ECU's stored and pending codes.");
+            AddBulletPoint("Read-only. There is no Mode 0x13 clear - use 'Clear Engine Codes' on the Standard OBD-II sub-tab, which clears the engine ECU's stored and pending codes.");
             AddBulletPoint("The response is capped at 63 codes. A car with more faults than that will have the excess silently dropped.");
             AddBulletPoint("TPMS codes are included only on Series 1 Evoras, and only when the TPMS module answers the ECU in time - see the section above.");
             AddBulletPoint("This is not a standard service. Non-Lotus ECUs, and Lotus ECUs from other generations, will either reject the request or stay silent - both are reported as a read error, not as 'no codes'.");

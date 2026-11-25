@@ -145,7 +145,8 @@ namespace LotusECMLogger.Services
         }
 
         // Each DTC service degrades to a note: the monitor status already carries the MIL state
-        // and confirmed-code count, so a missing list does not invalidate the check.
+        // and confirmed-code count, so a missing list does not invalidate the check. The
+        // emissions pre-check is engine-only by design; the DTC tab reads the transmission.
         private static (DtcReadResult dtcs, string? storedError) ReadDtcs(Iso15765Service iso)
         {
             (IReadOnlyList<DiagnosticTroubleCode> codes, string? error) Read(OBDIIMode mode)
@@ -154,7 +155,9 @@ namespace LotusECMLogger.Services
                 {
                     return (iso.ReadDtcs(mode), null);
                 }
-                catch (IOException ex)
+                // J2534Exception is not an IOException; an adapter failure must stay a note
+                // rather than fail the whole check (only PID 0x01 may do that).
+                catch (Exception ex) when (ex is IOException or J2534Exception)
                 {
                     return ([], ex.Message);
                 }

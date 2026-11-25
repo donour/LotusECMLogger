@@ -20,6 +20,7 @@ namespace LotusECMLogger.Controls
             GuiIcons.ApplyToButton(readCodesButton, GuiIcons.Read);
             GuiIcons.ApplyToButton(readFreezeFrameButton, GuiIcons.Snapshots);
             GuiIcons.ApplyToButton(clearCodesButton, GuiIcons.Clear);
+            GuiIcons.ApplyToButton(clearTcuCodesButton, GuiIcons.Clear);
         }
 
         // Matches how MainWindow decorates its own tab strips; this one is nested inside the
@@ -59,6 +60,7 @@ namespace LotusECMLogger.Controls
             readCodesButton.Enabled = enabled;
             readFreezeFrameButton.Enabled = enabled;
             clearCodesButton.Enabled = enabled;
+            clearTcuCodesButton.Enabled = enabled;
         }
 
         private void SetBusy(bool busy)
@@ -71,7 +73,8 @@ namespace LotusECMLogger.Controls
         {
             dtcListView.Columns.Clear();
             dtcListView.Columns.Add("Code", 80);
-            dtcListView.Columns.Add("Description", 520);
+            dtcListView.Columns.Add("Module", 55);
+            dtcListView.Columns.Add("Description", 465);
             dtcListView.Columns.Add("Category", 110);
             dtcListView.Columns.Add("Type", 90);
         }
@@ -89,6 +92,7 @@ namespace LotusECMLogger.Controls
             SetBusy(true);
             readCodesButton.Text = "Reading...";
             statusLabel.Text = "Reading trouble codes...";
+            statusToolTip.SetToolTip(statusLabel, "");
             dtcListView.Items.Clear();
 
             try
@@ -103,14 +107,11 @@ namespace LotusECMLogger.Controls
                     return;
                 }
 
-                foreach (var dtc in result.Stored)
-                    AddCodeRow(dtc, "Stored");
-                foreach (var dtc in result.Pending)
-                    AddCodeRow(dtc, "Pending");
-                foreach (var dtc in result.Permanent)
-                    AddCodeRow(dtc, "Permanent");
+                foreach (var row in DtcReadSummary.Rows(result))
+                    AddCodeRow(row);
 
-                statusLabel.Text = BuildReadStatus(result);
+                statusLabel.Text = DtcReadSummary.Describe(result, DtcDescriptionCatalog.Count > 0);
+                statusToolTip.SetToolTip(statusLabel, DtcReadSummary.DescribeDetail(result));
             }
             finally
             {
@@ -119,33 +120,21 @@ namespace LotusECMLogger.Controls
             }
         }
 
-        private void AddCodeRow(DiagnosticTroubleCode dtc, string type)
+        private void AddCodeRow(DtcRow row)
         {
-            string description = DtcDescriptionCatalog.TryGetDescription(dtc.Code) ?? "—";
+            string description = DtcDescriptionCatalog.TryGetDescription(row.Code.Code) ?? "—";
 
-            var item = new ListViewItem(dtc.Code);
+            var item = new ListViewItem(row.Code.Code);
+            item.SubItems.Add(row.Module);
             item.SubItems.Add(description);
-            item.SubItems.Add(dtc.Category.ToString());
-            item.SubItems.Add(type);
+            item.SubItems.Add(row.Code.Category.ToString());
+            item.SubItems.Add(row.Type);
+            // The row itself is the tag so a clear can tell which module and category it is.
+            item.Tag = row;
             // Descriptions with several alternate readings run past the column; the row tooltip is
             // the only way to see the whole thing, since ListView has no per-subitem tooltip.
-            item.ToolTipText = $"{dtc.Code} — {description}";
+            item.ToolTipText = $"{row.Module} {row.Code.Code} — {description}";
             dtcListView.Items.Add(item);
-        }
-
-        private static string BuildReadStatus(DtcReadResult result)
-        {
-            string text = result.Stored.Count == 0 && result.Pending.Count == 0 && result.Permanent.Count == 0
-                ? "No trouble codes"
-                : $"{result.Stored.Count} stored, {result.Pending.Count} pending, {result.Permanent.Count} permanent trouble code(s)";
-            if (result.PendingError != null)
-                text += " — pending codes unavailable";
-            if (result.PermanentError != null)
-                text += " — permanent codes unavailable";
-            // Without this note a missing catalog just looks like a table full of unknown codes.
-            if (DtcDescriptionCatalog.Count == 0)
-                text += " — code descriptions unavailable";
-            return text;
         }
 
         private async void readFreezeFrameButton_Click(object sender, EventArgs e)
@@ -153,6 +142,7 @@ namespace LotusECMLogger.Controls
             SetBusy(true);
             readFreezeFrameButton.Text = "Reading...";
             statusLabel.Text = "Reading freeze frame...";
+            statusToolTip.SetToolTip(statusLabel, "");
             freezeFrameListView.Items.Clear();
 
             try
@@ -214,12 +204,13 @@ namespace LotusECMLogger.Controls
         private async void clearCodesButton_Click(object sender, EventArgs e)
         {
             var result = MessageBox.Show(
-                "Clear all diagnostic trouble codes?\n\n" +
-                "This also erases freeze frame data, readiness monitor results, and other stored " +
-                "diagnostic values. Readiness monitors reset to \"not ready\" until their drive " +
-                "cycles complete, which may affect emissions testing.\n\n" +
+                "Clear engine diagnostic trouble codes?\n\n" +
+                "This also erases the engine freeze frame, readiness monitor results, and other " +
+                "stored diagnostic values. Readiness monitors reset to \"not ready\" until their " +
+                "drive cycles complete, which may affect emissions testing. Transmission codes " +
+                "are not affected.\n\n" +
                 "Confirm to proceed.",
-                "Confirm Clear Codes",
+                "Confirm Clear Engine Codes",
                 MessageBoxButtons.YesNo,
                 MessageBoxIcon.Warning);
 
@@ -228,7 +219,8 @@ namespace LotusECMLogger.Controls
 
             SetBusy(true);
             clearCodesButton.Text = "Clearing...";
-            statusLabel.Text = "Clearing trouble codes...";
+            statusLabel.Text = "Clearing engine trouble codes...";
+            statusToolTip.SetToolTip(statusLabel, "");
 
             try
             {
@@ -236,20 +228,79 @@ namespace LotusECMLogger.Controls
 
                 if (!success)
                 {
-                    statusLabel.Text = "Error clearing codes";
-                    MessageBox.Show($"Failed to clear trouble codes: {errorMessage}", "Clear Error",
+                    statusLabel.Text = "Error clearing engine codes";
+                    MessageBox.Show($"Failed to clear engine trouble codes: {errorMessage}", "Clear Error",
                         MessageBoxButtons.OK, MessageBoxIcon.Error);
                     return;
                 }
 
-                dtcListView.Items.Clear();
+                // Remove only what Mode 04 actually cleared: engine stored and pending codes.
+                // Engine permanent codes survive, and transmission rows were not addressed.
+                for (int i = dtcListView.Items.Count - 1; i >= 0; i--)
+                {
+                    if (DtcReadSummary.IsClearedByMode04(dtcListView.Items[i].Tag))
+                        dtcListView.Items.RemoveAt(i);
+                }
                 freezeFrameListView.Items.Clear();
-                statusLabel.Text = "Codes cleared — read again to check for permanent codes";
+                statusLabel.Text = "Engine codes cleared — transmission codes not affected";
+                statusToolTip.SetToolTip(statusLabel,
+                    "Permanent engine codes cannot be cleared; read again to check for permanent codes.");
             }
             finally
             {
                 SetBusy(false);
-                clearCodesButton.Text = "Clear Codes";
+                clearCodesButton.Text = "Clear Engine Codes";
+            }
+        }
+
+        private async void clearTcuCodesButton_Click(object sender, EventArgs e)
+        {
+            var result = MessageBox.Show(
+                "Clear transmission diagnostic trouble codes?\n\n" +
+                "This asks the transmission control unit at 0x7E1 to clear its stored and pending " +
+                "codes and stored diagnostic values (Mode 04). On some transmission modules this " +
+                "also resets learned shift data, so the transmission may relearn its behaviour. " +
+                "Engine codes and the engine freeze frame are not affected. Permanent codes cannot " +
+                "be cleared directly.\n\n" +
+                "Confirm to proceed.",
+                "Confirm Clear Transmission Codes",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Warning);
+
+            if (result != DialogResult.Yes)
+                return;
+
+            SetBusy(true);
+            clearTcuCodesButton.Text = "Clearing...";
+            statusLabel.Text = "Clearing transmission codes...";
+            statusToolTip.SetToolTip(statusLabel, "");
+
+            try
+            {
+                var (success, errorMessage) = await Task.Run(() => dtcService.ClearTcuCodes());
+
+                if (!success)
+                {
+                    statusLabel.Text = "Error clearing transmission codes";
+                    MessageBox.Show($"Failed to clear transmission codes: {errorMessage}", "Clear Error",
+                        MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
+
+                // Mode 04 cannot clear permanent codes; keep those rows visible.
+                for (int i = dtcListView.Items.Count - 1; i >= 0; i--)
+                {
+                    if (DtcReadSummary.IsClearedByTcuMode04(dtcListView.Items[i].Tag))
+                        dtcListView.Items.RemoveAt(i);
+                }
+                statusLabel.Text = "Transmission codes cleared";
+                statusToolTip.SetToolTip(statusLabel,
+                    "Permanent transmission codes cannot be cleared; read again to check for permanent codes.");
+            }
+            finally
+            {
+                SetBusy(false);
+                clearTcuCodesButton.Text = "Clear Transmission Codes";
             }
         }
     }

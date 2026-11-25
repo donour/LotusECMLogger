@@ -126,10 +126,12 @@ namespace LotusECMLogger.Controls
 
         private static string BuildReadStatus(Mode13ReadResult result)
         {
+            // Service 0x13 is engine-only; the adjacent Standard OBD-II sub-tab also reads the
+            // transmission, so the status must not imply this covers the whole car.
             if (result.ReportedCodeCount == 0)
-                return "No trouble codes";
+                return "No engine trouble codes";
 
-            string text = $"{result.Codes.Count} trouble code(s)";
+            string text = $"{result.Codes.Count} engine trouble code(s)";
             int duplicates = result.ReportedCodeCount - result.Codes.Count;
             // A fault present in both the current and confirmed sets is reported twice; saying so
             // explains why the count is lower than the raw bytes suggest.
