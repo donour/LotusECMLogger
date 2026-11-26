@@ -53,9 +53,13 @@ namespace LotusECMLogger.Services.Broker
         /// <summary>
         /// Reads up to <paramref name="maxMessages"/>. J2534 returns early only once that many have arrived, so a
         /// blocking read (<paramref name="timeoutMs"/> above 0) should ask for one. Zero returns what is buffered.
-        /// Returns an empty list when nothing arrived; throws on an adapter failure.
+        /// Returns an empty list when nothing arrived; throws on an adapter failure. J2534-Sharp refuses more than
+        /// <see cref="MaxReadMessages"/> per call.
         /// </summary>
         IReadOnlyList<ReceivedMessage> Read(int maxMessages, int timeoutMs);
+
+        /// <summary>The most messages one <see cref="Read"/> may ask for (J2534-Sharp's ReadMessages limit).</summary>
+        const int MaxReadMessages = 200;
 
         /// <summary>Starts a filter and returns its ID. Throws <see cref="FilterLimitException"/> when the channel is full.</summary>
         int StartFilter(MessageFilter filter);

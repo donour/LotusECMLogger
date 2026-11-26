@@ -21,6 +21,7 @@ internal static class GuiIcons
     public const string Emissions    = ""; // CheckList (emissions inspection)
     public const string Snapshots    = ""; // Camera (point-in-time memory snapshot)
 
+    public const string CanMonitor   = ""; // Diagnostic (raw CAN bus monitor)
     public const string HighSpeedLog = ""; // Stopwatch (high-speed channel logging)
 
     // Sub-tab glyphs (inside Live Data)

@@ -22,6 +22,10 @@ namespace LotusECMLogger
         private readonly TabPage ccpTab = new("CCP") { Name = "ccpTab", UseVisualStyleBackColor = true };
         private CcpControl? ccpControl;
 
+        // Passive raw CAN capture; it holds the whole adapter while it runs.
+        private readonly TabPage canMonitorTab = new("CAN Monitor") { Name = "canMonitorTab", UseVisualStyleBackColor = true };
+        private CanMonitorControl? canMonitorControl;
+
         // Erase Model Info needs a CCP session: off while someone else holds the whole adapter (it used to be
         // switched off by the logger's state; the controls follow the broker the same way, Phase 7).
         private readonly AdapterAvailability adapter;
@@ -33,6 +37,7 @@ namespace LotusECMLogger
 
             // The CCP tab sits beside Snapshots, the other direct ECU-memory tool.
             mainTabControl.TabPages.Insert(mainTabControl.TabPages.IndexOf(snapshotsTab) + 1, ccpTab);
+            mainTabControl.TabPages.Add(canMonitorTab);
             ApplyTabIcons();
 
             // Handle form closing to ensure logger is stopped
@@ -159,6 +164,19 @@ namespace LotusECMLogger
                     MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
 
+            // Add the raw CAN bus monitor
+            try
+            {
+                canMonitorControl = new CanMonitorControl { Dock = DockStyle.Fill };
+                canMonitorTab.Controls.Clear();
+                canMonitorTab.Controls.Add(canMonitorControl);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Failed to initialize CAN Monitor tab: {ex.Message}", "Startup Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+
             // Add the OBD-II emissions (inspection readiness) check
             try
             {
@@ -191,6 +209,7 @@ namespace LotusECMLogger
         {
             // Stop the logger before the form closes
             obdLoggerControl?.StopLogger();
+            canMonitorControl?.StopMonitor();
         }
 
         private void AboutLotusECMLoggerToolStripMenuItem_Click(object sender, EventArgs e)
@@ -254,6 +273,7 @@ namespace LotusECMLogger
             mainIcons.Images.Add(GuiIcons.RenderBrakeRotor(20, tabColor));
             mainIcons.Images.Add(GuiIcons.Render(GuiIcons.Emissions, 20, tabColor));
             mainIcons.Images.Add(GuiIcons.Render(GuiIcons.Connect, 20, tabColor));
+            mainIcons.Images.Add(GuiIcons.Render(GuiIcons.CanMonitor, 20, tabColor));
 
             mainTabControl.ImageList = mainIcons;
             vehicleInfoTab.ImageIndex       = 0;
@@ -265,6 +285,7 @@ namespace LotusECMLogger
             absTab.ImageIndex               = 6;
             emissionsTab.ImageIndex         = 7;
             ccpTab.ImageIndex               = 8;
+            canMonitorTab.ImageIndex        = 9;
 
             var loggingModeIcons = GuiIcons.BuildImageList(20, tabColor,
                 GuiIcons.HighSpeedLog,

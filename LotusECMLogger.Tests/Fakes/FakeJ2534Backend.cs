@@ -199,6 +199,9 @@ namespace LotusECMLogger.Tests.Fakes
             public IReadOnlyList<ReceivedMessage> Read(int maxMessages, int timeoutMs)
             {
                 Reads.Enqueue((maxMessages, timeoutMs));
+                // J2534-Sharp's own check, before any DLL call.
+                ArgumentOutOfRangeException.ThrowIfLessThan(maxMessages, 1);
+                ArgumentOutOfRangeException.ThrowIfGreaterThan(maxMessages, IJ2534Channel.MaxReadMessages);
                 lock (owner._dllLock) // held through the wait, as the real DLL does
                 {
                     ObjectDisposedException.ThrowIf(Closed, this);
