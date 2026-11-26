@@ -22,30 +22,33 @@ namespace LotusECMLogger.Tests
 
         /// <summary>
         /// Broadcasts the three telemetry frames as all zeros (stationary, brake released, no intervention) until
-        /// disposed, as the module does at 100 Hz.
+        /// disposed, as the module does at 100 Hz. It runs on its own thread, not the thread pool: tests in other
+        /// classes run in parallel and block pool threads, which on a 2-core CI runner can starve a pool-based
+        /// broadcaster for longer than the test waits.
         /// </summary>
         private static IDisposable BroadcastTelemetry(FakeJ2534Backend adapter)
         {
-            var stop = new CancellationTokenSource();
-            var task = Task.Run(async () =>
+            var stop = new ManualResetEventSlim(false);
+            var thread = new Thread(() =>
             {
-                while (!stop.IsCancellationRequested)
+                do
                 {
                     adapter.InjectCan(0xA2, new byte[8]);
                     adapter.InjectCan(0xA4, new byte[8]);
                     adapter.InjectCan(0xA8, new byte[8]);
-                    await Task.Delay(10);
                 }
-            });
-            return new Stopper(stop, task);
+                while (!stop.Wait(10));
+            }) { IsBackground = true, Name = "ABS telemetry broadcast" };
+            thread.Start();
+            return new Stopper(stop, thread);
         }
 
-        private sealed class Stopper(CancellationTokenSource stop, Task task) : IDisposable
+        private sealed class Stopper(ManualResetEventSlim stop, Thread thread) : IDisposable
         {
             public void Dispose()
             {
-                stop.Cancel();
-                task.Wait();
+                stop.Set();
+                thread.Join();
                 stop.Dispose();
             }
         }
