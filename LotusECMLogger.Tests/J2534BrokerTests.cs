@@ -70,7 +70,7 @@ namespace LotusECMLogger.Tests
         }
 
         [Fact]
-        public void Exchange_ConcurrentExchangesToTwoEcusEachGetTheirOwnReply()
+        public async Task Exchange_ConcurrentExchangesToTwoEcusEachGetTheirOwnReply()
         {
             var (broker, adapter) = Create();
             adapter.Reply(ECUDefinition.ECM, StoredDtcs, (60, [0x43, 0x01, 0x03, 0x01]));
@@ -83,14 +83,14 @@ namespace LotusECMLogger.Tests
             var ecmReply = Task.Run(() => ecm.Exchange(StoredDtcs));
             var tcmReply = Task.Run(() => tcm.Exchange(StoredDtcs));
 
-            Assert.Equal(0x07, tcmReply.Result.Message![6]);
-            Assert.Equal(0x03, ecmReply.Result.Message![6]);
+            Assert.Equal(0x07, (await tcmReply).Message![6]);
+            Assert.Equal(0x03, (await ecmReply).Message![6]);
             // One flow-control filter per ECU, shared by its links.
             Assert.Equal(2, adapter.OpenChannels(BrokerProtocol.Iso15765).Single().FilterCount);
         }
 
         [Fact]
-        public void Exchange_TwoOperationsOnOneEcuCannotTakeEachOthersReplies()
+        public async Task Exchange_TwoOperationsOnOneEcuCannotTakeEachOthersReplies()
         {
             var (broker, adapter) = Create();
             // Mode 09 replies echo their PID; both are slow, so without the gate both requests would be in flight.
@@ -102,8 +102,8 @@ namespace LotusECMLogger.Tests
             var first = Task.Run(() => { using var l = vin.OpenDiagnostic(ECUDefinition.ECM); return l.Exchange([0x09, 0x02], echoLength: 1); });
             var second = Task.Run(() => { using var l = calId.OpenDiagnostic(ECUDefinition.ECM); return l.Exchange([0x09, 0x04], echoLength: 1); });
 
-            Assert.Equal(0x02, first.Result.Message![5]);
-            Assert.Equal(0x04, second.Result.Message![5]);
+            Assert.Equal(0x02, (await first).Message![5]);
+            Assert.Equal(0x04, (await second).Message![5]);
             Assert.Equal(1, adapter.DevicesOpened); // the two leases overlapped on one device
         }
 
@@ -168,7 +168,7 @@ namespace LotusECMLogger.Tests
         }
 
         [Fact]
-        public void CanSends_AreNotStarvedWhileAnIsoReplyIsAwaited()
+        public async Task CanSends_AreNotStarvedWhileAnIsoReplyIsAwaited()
         {
             // While a slow reply is awaited the ISO 15765 reader blocks in the DLL slice after slice; a CAN send
             // (a CCP command) must get the lock after at most one slice instead of losing it to every new slice.
@@ -189,7 +189,7 @@ namespace LotusECMLogger.Tests
                 Thread.Sleep(2);
             }
 
-            Assert.True(waiting.Result.IsPositive);
+            Assert.True((await waiting).IsPositive);
             Assert.True(times.Max() < 30, $"slowest CAN send {times.Max():0.0} ms");
         }
 
@@ -217,7 +217,7 @@ namespace LotusECMLogger.Tests
         }
 
         [Fact]
-        public void AdapterFailure_FailsTheWaitingExchangeAndTheDeviceReopensAfterRelease()
+        public async Task AdapterFailure_FailsTheWaitingExchangeAndTheDeviceReopensAfterRelease()
         {
             var (broker, adapter) = Create();
             adapter.Reply(ECUDefinition.ECM, StoredDtcs, (5000, [0x43, 0x00]));
@@ -229,9 +229,8 @@ namespace LotusECMLogger.Tests
             Thread.Sleep(30);
             iso.ReadError = new J2534Exception(ResultCode.DEVICE_NOT_CONNECTED, "unplugged");
 
-            var failure = Assert.Throws<AggregateException>(() => waiting.Wait(2000)).InnerException;
-            Assert.IsType<IOException>(failure);
-            Assert.Contains("unplugged", failure!.Message);
+            var failure = await Assert.ThrowsAsync<IOException>(() => waiting.WaitAsync(TimeSpan.FromSeconds(2)));
+            Assert.Contains("unplugged", failure.Message);
             Assert.Throws<IOException>(() => link.Exchange(StoredDtcs));
             lease.Dispose();
 

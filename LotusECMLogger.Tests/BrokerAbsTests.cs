@@ -147,7 +147,7 @@ namespace LotusECMLogger.Tests
         }
 
         [Fact]
-        public void Sniff_HoldsTheAdapterOnAChannelThatAlsoReceives29BitFrames()
+        public async Task Sniff_HoldsTheAdapterOnAChannelThatAlsoReceives29BitFrames()
         {
             var (broker, adapter, service) = Create();
             BrokerState? during = null;
@@ -161,7 +161,7 @@ namespace LotusECMLogger.Tests
             Assert.Equal(BrokerProtocol.CanWithExtendedIds, channel.Protocol);
             Assert.Throws<BrokerBusyException>(() => broker.Links("the trouble-code read").OpenDiagnostic(ECUDefinition.ECM));
 
-            var (success, error, _) = sniff.Result;
+            var (success, error, _) = await sniff;
             Assert.True(success, error);
             Assert.Equal(J2534AbsService.SniffHolder, during?.Blocking?.Holder);
             Assert.True(channel.Closed);

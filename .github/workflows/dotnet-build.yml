@@ -15,10 +15,10 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
 
     - name: Setup .NET
-      uses: actions/setup-dotnet@v4
+      uses: actions/setup-dotnet@v6
       with:
         dotnet-version: 10.0.x
 
@@ -42,7 +42,7 @@ jobs:
       run: dotnet publish LotusECMLogger/LotusECMLogger.csproj --configuration Release --output ./publish /p:Platform=x86 --no-restore
 
     - name: Upload build artifacts
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: LotusECMLogger-Release-x86
         path: ./publish/
@@ -57,7 +57,7 @@ jobs:
 
     steps:
     - name: Download build artifacts
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v8
       with:
         name: LotusECMLogger-Release-x86
         path: ./publish/
@@ -82,7 +82,7 @@ jobs:
       id: archive
 
     - name: Create GitHub Release
-      uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@v3
       with:
         files: ${{ steps.archive.outputs.ZIP_NAME }}
         tag_name: ${{ github.ref_name }}
