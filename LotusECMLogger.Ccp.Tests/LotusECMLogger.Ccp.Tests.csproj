@@ -5,6 +5,10 @@
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
+    <!-- As in LotusECMLogger.Tests: test classes run in parallel and some block thread-pool threads, and past
+         its minimum the pool adds threads only about twice a second. On a 2-core CI runner that starved the
+         async CCP path past its 400 ms command timeout. Threads up to this minimum start as soon as needed. -->
+    <ThreadPoolMinThreads>64</ThreadPoolMinThreads>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
