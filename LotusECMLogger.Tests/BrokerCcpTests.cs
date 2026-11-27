@@ -152,9 +152,14 @@ namespace LotusECMLogger.Tests
             // Idle again: no command waits, so the reader is back on the slow poll.
             var can = bench.Adapter.OpenChannels(BrokerProtocol.Can).Single();
             await Task.Delay(30);
+            // Against the measured window: on a busy CI runner a 200 ms delay can last far longer, and the
+            // slow poll's reads grow with it. Fast polling would read at least every ~16 ms (the default timer).
             int before = can.Reads.Count;
+            var window = Stopwatch.StartNew();
             await Task.Delay(200);
-            Assert.True(can.Reads.Count - before <= 8, $"{can.Reads.Count - before} reads in 200 ms idle");
+            int reads = can.Reads.Count - before;
+            double elapsed = window.Elapsed.TotalMilliseconds;
+            Assert.True(reads <= elapsed / 50 + 4, $"{reads} reads in {elapsed:0} ms idle");
         }
 
         [Fact]

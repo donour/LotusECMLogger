@@ -9,6 +9,11 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
+    <!-- Test classes run in parallel, and many block thread-pool threads on purpose (a simulated slow ECU
+         reply inside Task.Run, Thread.Sleep while traffic flows). Past its minimum the pool adds threads only
+         about twice a second, so on a 2-core CI runner the async CCP path and the fakes' broadcasters
+         starved past their timeouts. Threads up to this minimum start as soon as work is queued. -->
+    <ThreadPoolMinThreads>64</ThreadPoolMinThreads>
   </PropertyGroup>
 
   <ItemGroup>
